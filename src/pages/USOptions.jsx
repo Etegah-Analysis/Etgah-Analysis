@@ -37,10 +37,10 @@ function USOptions() {
     try {
       const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:5005'
-        : 'https://etegah-analysis.vercel.app';
-      let url = `${apiBase}/api/options/${symbol.toUpperCase()}`;
+        : '';
+      let url = `${apiBase}/api/options?ticker=${symbol.toUpperCase()}`;
       if (dateStr) {
-        url += `?date=${dateStr}`;
+        url += `&date=${dateStr}`;
       }
       
       const response = await fetch(url);
