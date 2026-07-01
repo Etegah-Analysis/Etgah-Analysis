@@ -35,44 +35,59 @@ function USOptions() {
     setLoading(true);
     setError('');
     try {
+      // استخدام API خارجي مباشرة من Yahoo Finance عبر CORS proxy
       const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:5005'
-        : '';
-      let url = `${apiBase}/api/options?ticker=${symbol.toUpperCase()}`;
-      if (dateStr) {
-        url += `&date=${dateStr}`;
+        : 'https://query1.finance.yahoo.com';
+      
+      let url;
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        url = `${apiBase}/api/options?ticker=${symbol.toUpperCase()}`;
+        if (dateStr) {
+          url += `&date=${dateStr}`;
+        }
+      } else {
+        // استخدام CORS proxy للإنتاج
+        const proxyUrl = 'https://corsproxy.io/?';
+        const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol.toUpperCase()}`;
+        url = proxyUrl + encodeURIComponent(yahooUrl);
       }
       
       const response = await fetch(url);
       const result = await response.json();
       
-      if (result.success && result.data) {
-        const data = result.data;
-        
-        // Set underlying price if available
-        if (data.quote) {
-          setUnderlyingPrice(data.quote.regularMarketPrice);
-        }
-        
-        // Set available expiration dates
-        if (data.expirationDates) {
-          setExpirationDates(data.expirationDates);
-          if (!dateStr && data.expirationDates.length > 0) {
-            setSelectedDate(data.expirationDates[0]);
-          }
-        }
-        
-        // Extract options data
-        if (data.options && data.options.length > 0) {
-          const currentOptionChain = data.options[0];
-          setCalls(currentOptionChain.calls || []);
-          setPuts(currentOptionChain.puts || []);
-        } else {
-          setCalls([]);
-          setPuts([]);
-        }
+      // معالجة البيانات من Yahoo Finance المباشر
+      let data;
+      if (result.optionChain && result.optionChain.result && result.optionChain.result[0]) {
+        data = result.optionChain.result[0];
+      } else if (result.success && result.data) {
+        data = result.data;
       } else {
-        setError(result.message || 'فشل جلب البيانات. تأكد من أن رمز السهم صحيح.');
+        throw new Error('Invalid data format');
+      }
+      
+      // Set underlying price if available
+      if (data.quote && data.quote.regularMarketPrice) {
+        setUnderlyingPrice(data.quote.regularMarketPrice);
+      }
+      
+      // Set available expiration dates
+      if (data.expirationDates && data.expirationDates.length > 0) {
+        const dates = data.expirationDates.map(d => new Date(d * 1000).toISOString().split('T')[0]);
+        setExpirationDates(dates);
+        if (!dateStr && dates.length > 0) {
+          setSelectedDate(dates[0]);
+        }
+      }
+      
+      // Extract options data
+      if (data.options && data.options.length > 0) {
+        const currentOptionChain = data.options[0];
+        setCalls(currentOptionChain.calls || []);
+        setPuts(currentOptionChain.puts || []);
+      } else {
+        setCalls([]);
+        setPuts([]);
       }
     } catch (err) {
       console.error(err);
