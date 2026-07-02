@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { db, doc, getDoc, setDoc, serverTimestamp } from '../firebase';
 
 const POPULAR_TICKERS = [
   'AAPL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META', 'GOOGL', 'NFLX', 'AMD', 'BABA',
@@ -35,22 +36,64 @@ function USOptions() {
     setLoading(true);
     setError('');
     try {
-      // استخدام backend محلي على localhost أو Firebase API على الإنتاج
-      const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:5005'
-        : 'https://etegah-backend.vercel.app'; // ستحتاج لنشر backend منفصل أو استخدام Firebase مباشرة
+      const tickerUpper = symbol.toUpperCase();
       
-      let url = `${apiBase}/api/options/${symbol.toUpperCase()}`;
-      if (dateStr) {
-        url += `?date=${dateStr}`;
+      // 1. محاولة جلب البيانات من Firebase أولاً
+      const docRef = doc(db, 'market_data', tickerUpper);
+      const docSnap = await getDoc(docRef);
+      
+      let data = null;
+      let shouldRefresh = false;
+      
+      if (docSnap.exists()) {
+        const storedData = docSnap.data();
+        const lastUpdated = storedData.lastUpdated?.toDate() || new Date(0);
+        const now = new Date();
+        const ageInMinutes = (now - lastUpdated) / (1000 * 60);
+        
+        // إذا كانت البيانات أقدم من 5 دقائق، قم بتحديثها
+        if (ageInMinutes > 5) {
+          shouldRefresh = true;
+        } else {
+          data = storedData.data;
+        }
+      } else {
+        shouldRefresh = true;
       }
       
-      const response = await fetch(url);
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        const data = result.data;
+      // 2. إذا كانت البيانات قديمة أو غير موجودة، جلبها من Yahoo Finance
+      if (shouldRefresh) {
+        console.log(`Fetching fresh data for ${tickerUpper} from Yahoo Finance...`);
         
+        // استخدام CORS proxy للوصول إلى Yahoo Finance API
+        const proxyUrl = 'https://corsproxy.io/?';
+        const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/options/${tickerUpper}`;
+        const response = await fetch(proxyUrl + encodeURIComponent(yahooUrl));
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch from Yahoo Finance');
+        }
+        
+        const result = await response.json();
+        
+        if (result.optionChain && result.optionChain.result && result.optionChain.result[0]) {
+          data = result.optionChain.result[0];
+          
+          // تخزين البيانات في Firebase
+          await setDoc(docRef, {
+            ticker: tickerUpper,
+            data: data,
+            lastUpdated: serverTimestamp()
+          }, { merge: true });
+          
+          console.log(`Data stored in Firebase for ${tickerUpper}`);
+        } else {
+          throw new Error('Invalid data format from Yahoo Finance');
+        }
+      }
+      
+      // 3. عرض البيانات
+      if (data) {
         // Set underlying price if available
         if (data.quote && data.quote.regularMarketPrice) {
           setUnderlyingPrice(data.quote.regularMarketPrice);
@@ -59,7 +102,6 @@ function USOptions() {
         // Set available expiration dates
         if (data.expirationDates && data.expirationDates.length > 0) {
           const dates = data.expirationDates.map(d => {
-            // تحويل التاريخ من timestamp أو string
             const date = typeof d === 'number' ? new Date(d * 1000) : new Date(d);
             return date.toISOString().split('T')[0];
           });
@@ -79,7 +121,7 @@ function USOptions() {
           setPuts([]);
         }
       } else {
-        setError(result.message || 'فشل جلب البيانات. تأكد من أن رمز السهم صحيح.');
+        setError('فشل جلب البيانات. يرجى المحاولة لاحقاً.');
       }
     } catch (err) {
       console.error(err);
