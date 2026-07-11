@@ -37,9 +37,10 @@ function USOptions() {
     setError('');
     try {
       const tickerUpper = symbol.toUpperCase();
+      const docId = dateStr ? `${tickerUpper}_${dateStr}` : tickerUpper;
       
       // 1. محاولة جلب البيانات من Firebase أولاً
-      const docRef = doc(db, 'market_data', tickerUpper);
+      const docRef = doc(db, 'market_data', docId);
       const docSnap = await getDoc(docRef);
       
       let data = null;
@@ -61,34 +62,33 @@ function USOptions() {
         shouldRefresh = true;
       }
       
-      // 2. إذا كانت البيانات قديمة أو غير موجودة، جلبها من Yahoo Finance
+      // 2. إذا كانت البيانات قديمة أو غير موجودة، جلبها من الـ Serverless Function الخاصة بنا
       if (shouldRefresh) {
-        console.log(`Fetching fresh data for ${tickerUpper} from Yahoo Finance...`);
+        console.log(`Fetching fresh data for ${tickerUpper} (date: ${dateStr}) from Vercel API...`);
         
-        // استخدام CORS proxy للوصول إلى Yahoo Finance API
-        const proxyUrl = 'https://corsproxy.io/?';
-        const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/options/${tickerUpper}`;
-        const response = await fetch(proxyUrl + encodeURIComponent(yahooUrl));
+        const apiUrl = `/api/options/${tickerUpper}${dateStr ? `?date=${dateStr}` : ''}`;
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch from Yahoo Finance');
+          throw new Error('Failed to fetch from Vercel API');
         }
         
         const result = await response.json();
         
-        if (result.optionChain && result.optionChain.result && result.optionChain.result[0]) {
-          data = result.optionChain.result[0];
+        if (result.success && result.data) {
+          data = result.data;
           
           // تخزين البيانات في Firebase
           await setDoc(docRef, {
             ticker: tickerUpper,
+            date: dateStr || '',
             data: data,
             lastUpdated: serverTimestamp()
           }, { merge: true });
           
-          console.log(`Data stored in Firebase for ${tickerUpper}`);
+          console.log(`Data stored in Firebase for ${docId}`);
         } else {
-          throw new Error('Invalid data format from Yahoo Finance');
+          throw new Error('Invalid data format from Vercel API');
         }
       }
       
