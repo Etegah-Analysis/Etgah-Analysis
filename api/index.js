@@ -1,9 +1,9 @@
-const express = require('express');
-const cors = require('cors');
-const YahooFinance = require('yahoo-finance2').default;
+import express from 'express';
+import cors from 'cors';
+import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance();
-const nodemailer = require('nodemailer');
-const twilio = require('twilio');
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 
 const app = express();
 
@@ -153,4 +153,4 @@ app.post('/api/send-otp', async (req, res) => {
   }
 });
 
-module.exports = app;
+export default app;
