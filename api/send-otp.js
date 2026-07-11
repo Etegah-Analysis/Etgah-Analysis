@@ -1,46 +1,25 @@
-import express from 'express';
-import cors from 'cors';
-import YahooFinance from 'yahoo-finance2';
-const yahooFinance = new YahooFinance();
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
 
-const app = express();
+export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST,PUT,DELETE');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-app.use(cors());
-app.use(express.json());
-
-// API Endpoint to get options data for a specific ticker
-app.get('/api/options/:ticker', async (req, res) => {
-  try {
-    const { ticker } = req.params;
-    const { date } = req.query;
-    
-    console.log(`Fetching options for ${ticker}...`);
-    
-    const queryOptions = {};
-    if (date) {
-      queryOptions.date = new Date(date);
-    }
-    
-    const results = await yahooFinance.options(ticker, queryOptions);
-    
-    res.json({
-      success: true,
-      data: results
-    });
-  } catch (error) {
-    console.error('Error fetching options:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch options data',
-      error: error.message
-    });
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-});
 
-// API Endpoint to send OTP via Email or real/simulated SMS
-app.post('/api/send-otp', async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
   try {
     const { email, phone, country, otp } = req.body;
     
@@ -133,7 +112,7 @@ app.post('/api/send-otp', async (req, res) => {
       }
     }
     
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'تم إرسال كود التحقق بنجاح',
       emailSent,
@@ -151,6 +130,4 @@ app.post('/api/send-otp', async (req, res) => {
       error: error.message
     });
   }
-});
-
-export default app;
+}
