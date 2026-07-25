@@ -630,7 +630,7 @@ export default function Inbox() {
                     onChange={(e) => setSelectedAssigneeUid(e.target.value)}
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary text-sm"
                   >
-                    <option value="">-- ترك في الانتظار للجميع --</option>
+                    <option value="">-- تعيين لنفسي --</option>
                     {employees.map(emp => (
                       <option key={emp.uid} value={emp.uid}>
                         {emp.name} ({emp.role === 'admin' ? 'أدمن' : 'موظف'})
