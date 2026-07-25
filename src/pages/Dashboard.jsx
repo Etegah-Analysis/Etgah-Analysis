@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Shield, Play, Pause, BarChart3, Globe } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Shield, Play, Pause, BarChart3, Globe, MessageSquare } from 'lucide-react';
 import { db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp } from '../firebase';
 import { getAuth, signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
 
