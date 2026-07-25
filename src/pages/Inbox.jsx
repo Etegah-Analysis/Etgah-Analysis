@@ -12,7 +12,7 @@ export default function Inbox() {
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const isFirstLoad = useRef(true);
   const previousUnreadCounts = useRef({});
   
@@ -178,7 +178,9 @@ export default function Inbox() {
   }, [activeChat]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   const handleLogout = async () => {
@@ -582,7 +584,8 @@ export default function Inbox() {
             </div>
 
             <div 
-              className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10 cursor-pointer"
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10 cursor-pointer scroll-smooth"
               onClick={() => setActiveChat(null)}
             >
               {messages.length === 0 ? (
@@ -629,7 +632,6 @@ export default function Inbox() {
                   </div>
                 ))
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             <div className="bg-black/30 backdrop-blur-xl p-4 border-t border-white/10 relative z-10">
