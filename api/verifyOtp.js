@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { dbAdmin } from './firebaseAdmin.js';
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -26,30 +27,43 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: 'Phone number and code are required' });
     }
 
-    const twilioSidEnv = process.env.TWILIO_ACCOUNT_SID;
-    const twilioAuthTokenEnv = process.env.TWILIO_AUTH_TOKEN;
-    const twilioVerifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-    
-    if (twilioSidEnv && twilioAuthTokenEnv && twilioVerifyServiceSid) {
-      const client = twilio(twilioSidEnv, twilioAuthTokenEnv);
-      
-      const verificationCheck = await client.verify.v2.services(twilioVerifyServiceSid)
-        .verificationChecks
-        .create({ to: phone, code: code });
+    if (dbAdmin) {
+      const docRef = dbAdmin.collection('otps').doc(phone);
+      const docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        const data = docSnap.data();
         
-      console.log(`OTP Verification check for ${phone}. Status: ${verificationCheck.status}`);
-      
-      if (verificationCheck.status === 'approved') {
-        res.status(200).json({
-          success: true,
-          message: 'تم التحقق بنجاح'
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: 'الكود غير صحيح أو منتهي الصلاحية'
-        });
+        // Check if code matches
+        if (data.code === code) {
+          // Verify code hasn't expired (e.g. 10 minutes)
+          const now = new Date().getTime();
+          const createdAt = data.createdAt.toDate().getTime();
+          const diffMinutes = (now - createdAt) / 1000 / 60;
+
+          if (diffMinutes <= 10) {
+            // Delete the OTP document so it can't be used again
+            await docRef.delete();
+            
+            return res.status(200).json({
+              success: true,
+              message: 'تم التحقق بنجاح'
+            });
+          } else {
+            return res.status(400).json({
+              success: false,
+              message: 'الكود منتهي الصلاحية'
+            });
+          }
+        }
       }
+      
+      // If we reach here, either doc doesn't exist or code is wrong
+      return res.status(400).json({
+        success: false,
+        message: 'الكود غير صحيح'
+      });
+      
     } else {
       console.log(`Simulating OTP verification for ${phone} with code ${code}`);
       if (code === '123456') { // Simulation successful code

@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { dbAdmin } from './firebaseAdmin.js';
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -28,24 +29,35 @@ export default async function handler(req, res) {
 
     const twilioSidEnv = process.env.TWILIO_ACCOUNT_SID;
     const twilioAuthTokenEnv = process.env.TWILIO_AUTH_TOKEN;
-    const twilioVerifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+    const twilioPhoneEnv = process.env.TWILIO_PHONE_NUMBER;
     
-    if (twilioSidEnv && twilioAuthTokenEnv && twilioVerifyServiceSid) {
+    if (twilioSidEnv && twilioAuthTokenEnv && twilioPhoneEnv && dbAdmin) {
       const client = twilio(twilioSidEnv, twilioAuthTokenEnv);
       
-      const verification = await client.verify.v2.services(twilioVerifyServiceSid)
-        .verifications
-        .create({ to: phone, channel: 'sms' });
+      // Generate a 6-digit random code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Save to Firestore
+      await dbAdmin.collection('otps').doc(phone).set({
+        code,
+        createdAt: new Date()
+      });
+
+      // Send SMS
+      await client.messages.create({
+        body: `كود التحقق الخاص بك لمنصة اتجاه هو: ${code}`,
+        from: twilioPhoneEnv,
+        to: phone
+      });
         
-      console.log(`OTP sent successfully to ${phone}. Status: ${verification.status}`);
+      console.log(`OTP sent successfully to ${phone} via SMS.`);
       
       res.status(200).json({
         success: true,
-        message: 'تم إرسال كود التحقق بنجاح',
-        status: verification.status
+        message: 'تم إرسال كود التحقق بنجاح'
       });
     } else {
-      console.log(`Simulating OTP send to ${phone} (Twilio credentials not fully configured)`);
+      console.log(`Simulating OTP send to ${phone} (Twilio/Firebase not fully configured)`);
       res.status(200).json({
         success: true,
         message: 'تم إرسال كود التحقق بنجاح (Simulation)',
