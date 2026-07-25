@@ -571,6 +571,14 @@ const Dashboard = () => {
                           </select>
                           {customer.assignedAt && <span className="block text-xs text-gray-400" dir="ltr">{formatDate(customer.assignedAt)}</span>}
                         </td>
+                        <td className="p-4">
+                          <button 
+                            onClick={() => navigate('/inbox', { state: { selectedCustomerId: customer.id } })}
+                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap"
+                          >
+                            مراسلة <MessageSquare size={14} className="mr-1" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

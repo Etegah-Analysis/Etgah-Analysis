@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Inbox() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeChat, setActiveChat] = useState(null);
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState([]);
@@ -120,6 +121,18 @@ export default function Inbox() {
     });
     return () => unsubscribe();
   }, [currentUser, isAdmin]);
+
+  // Handle routing state to open a specific chat
+  useEffect(() => {
+    if (location.state?.selectedCustomerId && chats.length > 0) {
+      const targetChat = chats.find(c => c.id === location.state.selectedCustomerId);
+      if (targetChat) {
+        setActiveChat(targetChat);
+        // Clear the state so it doesn't reopen if they navigate away and back without state
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state?.selectedCustomerId, chats]);
 
   // جلب رسائل المحادثة النشطة لحظياً
   useEffect(() => {
