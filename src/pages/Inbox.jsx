@@ -202,7 +202,7 @@ export default function Inbox() {
   // وظيفة إرسال رسالة
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !activeChat || activeChat.status === 'unassigned') return;
+    if (!message.trim() || !activeChat) return;
 
     const msgText = message.trim();
     setMessage(''); // مسح المربع فوراً لتجربة مستخدم أسرع
@@ -219,11 +219,22 @@ export default function Inbox() {
 
       // 2. تحديث آخر رسالة في المحادثة
       const chatRef = doc(db, 'بيانات_تسجيل_العملاء', activeChat.id);
-      await updateDoc(chatRef, {
+      
+      const updateData = {
         lastMessage: msgText,
         updatedAt: serverTimestamp(),
         unread: 0
-      });
+      };
+
+      // إذا كانت المحادثة في الانتظار، يتم استلامها تلقائياً للموظف الذي أرسل الرسالة
+      if (activeChat.status === 'unassigned') {
+        updateData.status = 'assigned';
+        updateData.assignedTo = currentUser.email;
+        updateData.assignedToUid = currentUser.uid;
+        updateData.assignedAt = serverTimestamp();
+      }
+
+      await updateDoc(chatRef, updateData);
 
       // 3. مناداة Vercel API لإرسالها فعلياً لواتساب العميل
       await fetch('/api/sendMessage', {
@@ -314,13 +325,13 @@ export default function Inbox() {
         phoneNumber: fullPhone,
         name: newCustomerName.trim() || 'عميل جديد (يدوي)',
         addedBy: currentUser.email,
-        status: 'assigned',
+        status: 'unassigned', // المضاف يدوياً يكون في الانتظار حتى يتم إرسال أول رسالة
         assignedTo: assigneeEmail,
         assignedToUid: assigneeUid,
         createdAt: serverTimestamp(),
-        assignedAt: serverTimestamp(),
+        assignedAt: null,
         updatedAt: serverTimestamp(),
-        lastMessage: 'تم التسجيل يدوياً بواسطة الموظف',
+        lastMessage: 'تم التسجيل يدوياً بانتظار بدء المراسلة',
         unread: 0
       });
       
@@ -437,14 +448,14 @@ export default function Inbox() {
                     )}
                   </div>
                   
-                  {isAdmin && chat.status === 'unassigned' && (
+                  {isAdmin && (
                     <div className="flex items-center mt-2" onClick={e => e.stopPropagation()}>
                       <select 
+                        value={chat.assignedToUid || ""}
                         onChange={(e) => handleAssignChat(chat.id, e.target.value)}
-                        defaultValue=""
-                        className="border border-red-300 rounded px-2 py-1.5 text-xs font-bold text-red-700 w-full focus:outline-none focus:border-red-500 bg-white cursor-pointer shadow-sm"
+                        className="border border-gray-400 rounded px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/90 cursor-pointer shadow-sm"
                       >
-                        <option value="" disabled>-- اضغط لاختيار موظف وتحويلها --</option>
+                        <option value="" disabled>-- سحب أو تعيين --</option>
                         {employees.map(emp => (
                           <option key={emp.uid} value={emp.uid}>
                             {emp.role === 'admin' ? `👑 الإدارة (${emp.name || emp.email})` : (emp.name || emp.email)}
@@ -538,20 +549,19 @@ export default function Inbox() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="اكتب رسالة..."
-                  disabled={activeChat.status === 'unassigned'}
-                  className="flex-1 px-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white/20 disabled:bg-white/5 transition-all"
+                  className="flex-1 px-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white/20 transition-all"
                 />
                 <button 
                   type="submit"
-                  disabled={!message.trim() || activeChat.status === 'unassigned'}
+                  disabled={!message.trim()}
                   className="bg-primary hover:bg-green-600 text-white p-3 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={20} className="transform rotate-180" />
                 </button>
               </form>
               {activeChat.status === 'unassigned' && (
-                <p className="text-xs text-center text-red-500 mt-2">
-                  {isAdmin ? 'قم بتحويل المحادثة لأحد الموظفين أولاً.' : 'هذه المحادثة في الانتظار.'}
+                <p className="text-xs text-center text-orange-400 mt-2 font-bold">
+                  بمجرد إرسالك لأول رسالة، سيتم استلام المحادثة باسمك تلقائياً.
                 </p>
               )}
             </div>
@@ -614,13 +624,13 @@ export default function Inbox() {
               
               {isAdmin && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">تعيين لموظف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">تحديد الموظف المستهدف (اختياري)</label>
                   <select 
                     value={selectedAssigneeUid}
                     onChange={(e) => setSelectedAssigneeUid(e.target.value)}
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary text-sm"
                   >
-                    <option value="">-- تعيين لنفسي --</option>
+                    <option value="">-- ترك في الانتظار للجميع --</option>
                     {employees.map(emp => (
                       <option key={emp.uid} value={emp.uid}>
                         {emp.name} ({emp.role === 'admin' ? 'أدمن' : 'موظف'})

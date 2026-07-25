@@ -546,7 +546,7 @@ const Dashboard = () => {
                         <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">{customer.phoneNumber}</td>
                         <td className="p-4 text-sm font-semibold text-gray-700">
                           {customer.name}
-                          {customer.addedBy && <span className="block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full w-max mt-1">مضاف يدوياً</span>}
+                          {customer.addedBy && <span className="block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full w-max mt-1">مضاف يدوياً بواسطة: {employees.find(e => e.email === customer.addedBy)?.name || customer.addedBy?.split('@')[0]}</span>}
                         </td>
                         <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                         <td className="p-4 text-sm">
