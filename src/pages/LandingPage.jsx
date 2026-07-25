@@ -85,6 +85,9 @@ export default function LandingPage() {
 
         setStep(3);
         toast.success('تم التسجيل بنجاح!');
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
       } else {
         toast.error(data.message || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
       }
