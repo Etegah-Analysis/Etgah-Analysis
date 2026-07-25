@@ -61,7 +61,8 @@ export default function Admin() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
               <thead>
                 <tr style={{ background: 'rgba(0, 188, 212, 0.1)', borderBottom: '1px solid var(--border-blue)' }}>
-                  <th style={{ padding: '15px' }}>#</th>
+                  <th style={{ padding: '15px' }}>الرقم التسلسلي</th>
+                  <th style={{ padding: '15px' }}>الاسم</th>
                   <th style={{ padding: '15px' }}>البريد الإلكتروني</th>
                   <th style={{ padding: '15px' }}>رقم الهاتف</th>
                   <th style={{ padding: '15px' }}>الدولة</th>
@@ -72,7 +73,13 @@ export default function Admin() {
               <tbody>
                 {users.map((user, index) => (
                   <tr key={user.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.3s' }} className="table-row-hover">
-                    <td style={{ padding: '15px' }}>{index + 1}</td>
+                    <td style={{ padding: '15px' }}>{user.sequenceNumber || index + 1}</td>
+                    <td style={{ padding: '15px' }}>
+                      <div className="flex items-center gap-2">
+                        <User size={16} color="var(--primary-blue)" />
+                        {user.name || '-'}
+                      </div>
+                    </td>
                     <td style={{ padding: '15px' }}>
                       <div className="flex items-center gap-2">
                         <Mail size={16} color="var(--primary-blue)" />

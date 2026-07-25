@@ -8,6 +8,37 @@ const POPULAR_TICKERS = [
   'DIS', 'NKE', 'XOM', 'CVX', 'TSM', 'ASML', 'INTC', 'MU', 'ARM', 'AVGO'
 ];
 
+function MoverCard({ quote }) {
+  const pct = quote.regularMarketChangePercent || 0;
+  const isGain = pct >= 0;
+  const color = isGain ? '#00c853' : '#ff5252';
+  const bg = isGain ? 'rgba(0,200,83,0.07)' : 'rgba(213,0,0,0.07)';
+  const border = isGain ? 'rgba(0,200,83,0.25)' : 'rgba(213,0,0,0.25)';
+  const arrow = isGain ? '\u25B2' : '\u25BC';
+  return (
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '160px', flex: '1', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
+      className="mover-card-hover"
+      onClick={() => window.open('https://finance.yahoo.com/quote/' + quote.symbol, '_blank')}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: '800', fontSize: '1rem', color: 'white' }}>{quote.symbol}</span>
+        <span style={{ fontSize: '0.78rem', color, fontWeight: '700', background: color + '22', padding: '2px 8px', borderRadius: '20px' }}>
+          {arrow} {Math.abs(pct).toFixed(2)}%
+        </span>
+      </div>
+      <div style={{ color: '#8b9eb3', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {quote.shortName}
+      </div>
+      <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color }}>
+        ${(quote.regularMarketPrice || 0).toFixed(2)}
+      </div>
+      <div style={{ color: '#8b9eb3', fontSize: '0.75rem' }}>
+        تغيير: <span style={{ color }}>{(quote.regularMarketChange || 0) >= 0 ? '+' : ''}{(quote.regularMarketChange || 0).toFixed(2)}</span>
+      </div>
+    </div>
+  );
+}
+
 function USOptions() {
   const navigate = useNavigate();
   const [ticker, setTicker] = useState('');
@@ -21,18 +52,43 @@ function USOptions() {
   const [underlyingPrice, setUnderlyingPrice] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [moversTab, setMoversTab] = useState('gainers');
+  const [moversData, setMoversData] = useState({ gainers: [], losers: [], active: [] });
+  const [moversLoading, setMoversLoading] = useState(true);
 
-  // Protected Route Logic: Redirect to Home and open Register modal if not logged in
+
+
+  // Fetch Market Movers on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('etegah_user');
-    if (!savedUser) {
-      alert('⚠️ يرجى تسجيل الدخول أو إنشاء حساب أولاً للوصول إلى رادار الأوبشن الأمريكي.');
-      sessionStorage.setItem('open_register_modal', 'true');
-      navigate('/');
-    }
-  }, [navigate]);
+    const fetchMovers = async () => {
+      setMoversLoading(true);
+      try {
+        const [gainersRes, losersRes, activeRes] = await Promise.all([
+          fetch('/api/movers?type=gainers'),
+          fetch('/api/movers?type=losers'),
+          fetch('/api/movers?type=active_options'),
+        ]);
+        const [gainersData, losersData, activeData] = await Promise.all([
+          gainersRes.json(),
+          losersRes.json(),
+          activeRes.json(),
+        ]);
+        setMoversData({
+          gainers: gainersData.success ? gainersData.quotes : [],
+          losers: losersData.success ? losersData.quotes : [],
+          active: activeData.success ? activeData.quotes : [],
+        });
+      } catch (err) {
+        console.error('Error fetching movers:', err);
+      } finally {
+        setMoversLoading(false);
+      }
+    };
+    fetchMovers();
+  }, []);
 
   const fetchOptionsChain = async (symbol, dateStr = '') => {
+
     setLoading(true);
     setError('');
     try {
@@ -181,7 +237,52 @@ function USOptions() {
         <p style={{ color: '#8b9eb3', fontSize: '1.1rem' }}>شاشة ذكية لمتابعة عقود خيارات الأسهم الأمريكية لحظة بلحظة</p>
       </div>
 
-      {/* Control Panel (Search & Select Date) */}
+      {/* ===== MARKET MOVERS SECTION ===== */}
+      <div className="glass card" style={{ padding: '24px', borderRadius: '16px', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'white' }}>📊 حركة السوق الأمريكي</h2>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {[
+              { id: 'gainers', label: '🟢 أعلى صعوداً', activeColor: '#00c853' },
+              { id: 'losers', label: '🔴 أعلى هبوطاً', activeColor: '#ff5252' },
+              { id: 'active', label: '⚡ الأكثر نشاطاً', activeColor: 'var(--primary-blue)' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setMoversTab(tab.id)}
+                style={{
+                  padding: '7px 14px', borderRadius: '20px', cursor: 'pointer',
+                  fontWeight: '700', fontSize: '0.82rem', transition: 'all 0.2s',
+                  background: moversTab === tab.id ? tab.activeColor + '30' : 'rgba(255,255,255,0.05)',
+                  color: moversTab === tab.id ? tab.activeColor : '#8b9eb3',
+                  border: moversTab === tab.id ? `1px solid ${tab.activeColor}60` : '1px solid rgba(255,255,255,0.08)'
+                }}
+              >{tab.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {moversLoading ? (
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {[1,2,3,4,5].map(i => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px', minWidth: '160px', flex: '1', height: '90px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            ))}
+          </div>
+        ) : (moversData[moversTab] || []).length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#8b9eb3', padding: '20px' }}>لا توجد بيانات متاحة حالياً</div>
+        ) : (
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {(moversData[moversTab] || []).map((q) => (
+              <MoverCard key={q.symbol} quote={q} />
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: '12px', fontSize: '0.78rem', color: '#8b9eb3', textAlign: 'right' }}>
+          * البيانات متأخرة 15 دقيقة · انقر على أي بطاقة للتفاصيل على Yahoo Finance
+        </div>
+      </div>
+
+
       <div className="glass card" style={{ padding: '30px', borderRadius: '16px', marginBottom: '30px' }} onClick={(e) => e.stopPropagation()}>
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
           
@@ -460,6 +561,14 @@ function USOptions() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.9; }
+        }
+        .mover-card-hover:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.35);
         }
         .table-row-hover:hover {
           background: rgba(0, 210, 255, 0.03) !important;

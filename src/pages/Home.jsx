@@ -40,9 +40,6 @@ export default function Home({ onOpenRegister }) {
               منصة "اتجاه" تدمج خبرة أسواق المال مع قوة الذكاء الاصطناعي لتوفر لك تحليلاً احترافياً لحظياً يساعدك على اقتناص الفرص وتجنب المخاطر.
             </p>
             <div className="flex gap-4">
-              <button onClick={onOpenRegister} className="button primary hero-btn">
-                ابدأ رحلتك الآن
-              </button>
               <Link to="/dashboard" className="button hero-btn-outline">
                 استعرض الخدمات
               </Link>
@@ -152,9 +149,6 @@ export default function Home({ onOpenRegister }) {
           <p className="cta-text">
             انضم إلى مئات المتداولين الذين يستخدمون منصة اتجاه يومياً لتحسين أدائهم في السوق السعودي.
           </p>
-          <button onClick={onOpenRegister} className="button primary cta-btn">
-            إنشاء حساب مجاني
-          </button>
         </div>
       </section>
 

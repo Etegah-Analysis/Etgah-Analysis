@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db, collection, addDoc, query, where, getDocs, updateDoc } from '../firebase';
+import { db, collection, addDoc, query, where, getDocs, updateDoc, getCountFromServer } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
 export default function Register({ lang }) {
@@ -33,6 +33,7 @@ export default function Register({ lang }) {
     }
 
     const newUser = {
+      name: formData.get('name'),
       email: email,
       phone: phone,
       country: countryCode,
@@ -41,6 +42,12 @@ export default function Register({ lang }) {
     };
 
     try {
+      // Get the total count of users to assign sequential number
+      const coll = collection(db, 'users');
+      const snapshotCount = await getCountFromServer(coll);
+      const userCount = snapshotCount.data().count;
+      newUser.sequenceNumber = userCount + 1;
+
       const emailQuery = query(collection(db, 'users'), where('email', '==', newUser.email));
       const phoneQuery = query(collection(db, 'users'), where('phone', '==', newUser.phone));
       
@@ -60,11 +67,13 @@ export default function Register({ lang }) {
         if (p1 === p2 || p1.includes(p2) || p2.includes(p1) || p1.slice(0, 8) === p2.slice(0, 8)) {
           existingUser.phone = newUser.phone;
           existingUser.country = newUser.country;
+          existingUser.name = newUser.name;
           
           try {
             await updateDoc(docSnap.ref, {
               phone: newUser.phone,
-              country: newUser.country
+              country: newUser.country,
+              name: newUser.name
             });
           } catch (err) {
             console.error("Failed to update user phone in DB:", err);
@@ -126,6 +135,19 @@ export default function Register({ lang }) {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+              الاسم الكامل (مطلوب)
+            </label>
+            <input 
+              name="name"
+              type="text" 
+              placeholder="أدخل اسمك الكامل"
+              style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
+              required 
+            />
+          </div>
+
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem' }}>
               البريد الإلكتروني (مطلوب)

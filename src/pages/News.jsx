@@ -95,15 +95,7 @@ export default function News() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
-  // Protected Route Logic
-  useEffect(() => {
-    const savedUser = localStorage.getItem('etegah_user');
-    if (!savedUser) {
-      alert('⚠️ يرجى تسجيل الدخول أو إنشاء حساب أولاً للوصول إلى أخبار السوق.');
-      sessionStorage.setItem('open_register_modal', 'true');
-      navigate('/');
-    }
-  }, [navigate]);
+
 
   useEffect(() => {
     (async () => {
