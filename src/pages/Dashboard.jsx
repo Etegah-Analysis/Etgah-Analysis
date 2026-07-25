@@ -11,9 +11,12 @@ const Dashboard = () => {
   const [customers, setCustomers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [visitors, setVisitors] = useState([]);
+  const [recycleBin, setRecycleBin] = useState([]);
+  const [rbFilter, setRbFilter] = useState('all');
   
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedVisitors, setSelectedVisitors] = useState([]);
 
   // Add Employee Modal
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
@@ -61,10 +64,17 @@ const Dashboard = () => {
       setVisitors(data);
     });
 
+    const rbUnsub = onSnapshot(collection(db, 'recycle_bin'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.deletedAt?.toMillis() || 0) - (a.deletedAt?.toMillis() || 0));
+      setRecycleBin(data);
+    });
+
     return () => {
       custUnsub();
       empUnsub();
       visUnsub();
+      rbUnsub();
     };
   }, []);
 
@@ -140,8 +150,17 @@ const Dashboard = () => {
     else setSelectedCustomers(customers.map(c => c.id));
   };
   const deleteSelectedCustomers = async () => {
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedCustomers.length} عميل نهائياً؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedCustomers.length} عميل إلى سلة المهملات؟`)) return;
     for (const id of selectedCustomers) {
+      const customer = customers.find(c => c.id === id);
+      if (customer) {
+        await setDoc(doc(db, 'recycle_bin', id), {
+          ...customer,
+          originalCollection: 'بيانات_تسجيل_العملاء',
+          type: 'customer',
+          deletedAt: serverTimestamp()
+        });
+      }
       await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id));
     }
     setSelectedCustomers([]);
@@ -156,8 +175,17 @@ const Dashboard = () => {
     else setSelectedEmployees(emps.map(e => e.id));
   };
   const deleteSelectedEmployees = async () => {
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedEmployees.length} موظف؟ سيتم طردهم من النظام ولن يتمكنوا من الدخول مرة أخرى.`)) return;
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedEmployees.length} موظف إلى سلة المهملات؟`)) return;
     for (const id of selectedEmployees) {
+      const emp = employees.find(e => e.id === id);
+      if (emp) {
+        await setDoc(doc(db, 'recycle_bin', id), {
+          ...emp,
+          originalCollection: 'users',
+          type: 'employee',
+          deletedAt: serverTimestamp()
+        });
+      }
       await deleteDoc(doc(db, 'users', id));
     }
     setSelectedEmployees([]);
@@ -167,6 +195,44 @@ const Dashboard = () => {
     const newStatus = emp.isActive === false ? true : false;
     if (!newStatus && !window.confirm(`هل أنت متأكد من إيقاف الموظف ${emp.name} عن العمل؟ سيتم طرده فوراً ولن يتمكن من الدخول.`)) return;
     await setDoc(doc(db, 'users', emp.uid), { isActive: newStatus }, { merge: true });
+  };
+
+  const toggleVisitorSelection = (id) => {
+    setSelectedVisitors(prev => prev.includes(id) ? prev.filter(vId => vId !== id) : [...prev, id]);
+  };
+  const toggleAllVisitors = () => {
+    if (selectedVisitors.length === visitors.length && visitors.length > 0) setSelectedVisitors([]);
+    else setSelectedVisitors(visitors.map(v => v.id));
+  };
+  const deleteSelectedVisitors = async () => {
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedVisitors.length} زائر إلى سلة المهملات؟`)) return;
+    for (const id of selectedVisitors) {
+      const visitor = visitors.find(v => v.id === id);
+      if (visitor) {
+        await setDoc(doc(db, 'recycle_bin', id), {
+          ...visitor,
+          originalCollection: 'visitor_customers',
+          type: 'visitor',
+          deletedAt: serverTimestamp()
+        });
+      }
+      await deleteDoc(doc(db, 'visitor_customers', id));
+    }
+    setSelectedVisitors([]);
+  };
+
+  const handleRestore = async (item) => {
+    try {
+      const { originalCollection, type, deletedAt, id, ...restData } = item;
+      await setDoc(doc(db, originalCollection, item.id), restData);
+      await deleteDoc(doc(db, 'recycle_bin', item.id));
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteForever = async (id) => {
+    if(window.confirm('هل أنت متأكد من الحذف النهائي للأبد؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      await deleteDoc(doc(db, 'recycle_bin', id));
+    }
   };
 
   const handleAssignCustomer = async (chatId, empUid) => {
@@ -297,6 +363,19 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600 font-bold mb-1">العملاء الزوار</p>
               <h3 className="text-2xl font-black text-gray-800">{visitors.length}</h3>
+            </div>
+          </div>
+          
+          <div 
+            onClick={() => handleCardClick('recycle_bin', 'all')}
+            className={`bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-6 border ${activeTab === 'recycle_bin' ? 'border-red-500 scale-105' : 'border-white/40 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+          >
+            <div className="bg-red-100/80 p-4 rounded-full ml-4 shadow-inner">
+              <Trash2 className="text-red-600" size={28} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 font-bold mb-1">سلة المهملات</p>
+              <h3 className="text-2xl font-black text-gray-800">{recycleBin.length}</h3>
             </div>
           </div>
         </div>
@@ -581,6 +660,126 @@ const Dashboard = () => {
                   {employees.filter(e => e.role !== 'admin').length === 0 && (
                     <tr>
                       <td colSpan="6" className="p-8 text-center text-gray-500">لا يوجد موظفين مسجلين بعد.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Visitors Tab */}
+        {activeTab === 'visitors' && (
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-800">قائمة العملاء الزوار</h2>
+              {selectedVisitors.length > 0 && (
+                <button 
+                  onClick={deleteSelectedVisitors}
+                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition"
+                >
+                  <Trash2 size={16} className="mr-2" /> حذف {selectedVisitors.length} زائر
+                </button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b">
+                    <th className="p-4 w-12 text-center">
+                      <input type="checkbox" checked={selectedVisitors.length > 0 && selectedVisitors.length === visitors.length} onChange={toggleAllVisitors} className="w-4 h-4 text-primary rounded" />
+                    </th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">اسم الزائر</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">البريد الإلكتروني</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">تاريخ التسجيل</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {visitors.map(visitor => (
+                    <tr key={visitor.id} className="hover:bg-gray-50 transition">
+                      <td className="p-4 text-center">
+                        <input type="checkbox" checked={selectedVisitors.includes(visitor.id)} onChange={() => toggleVisitorSelection(visitor.id)} className="w-4 h-4 text-primary rounded" />
+                      </td>
+                      <td className="p-4 text-sm font-bold text-gray-800">{visitor.firstName} {visitor.lastName}</td>
+                      <td className="p-4 text-sm font-mono text-gray-600" dir="ltr">{visitor.phone}</td>
+                      <td className="p-4 text-sm text-gray-600">{visitor.email || 'غير متوفر'}</td>
+                      <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
+                    </tr>
+                  ))}
+                  {visitors.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-gray-500">لا يوجد زوار مسجلين.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Recycle Bin Tab */}
+        {activeTab === 'recycle_bin' && (
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-red-500/20 bg-red-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <h2 className="text-lg font-bold text-red-800 flex items-center">
+                <Trash2 className="mr-2" size={20} /> سلة المهملات
+              </h2>
+              <div className="flex space-x-2 space-x-reverse">
+                <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'all' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>الكل</button>
+                <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'employee' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>موظفين</button>
+                <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'customer' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>عملاء</button>
+                <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'visitor' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>زوار</button>
+                <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'message' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>رسائل</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-red-50/30 border-b border-red-100">
+                    <th className="p-4 font-semibold text-gray-600 text-sm">النوع</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">بيانات العنصر</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">تاريخ الحذف</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm text-center">التحكم</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).map(item => (
+                    <tr key={item.id} className="hover:bg-red-50/50 transition">
+                      <td className="p-4 text-sm font-bold text-gray-700">
+                        {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">موظف</span>}
+                        {item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">عميل</span>}
+                        {item.type === 'visitor' && <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">زائر</span>}
+                        {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs">رسالة محذوفة</span>}
+                      </td>
+                      <td className="p-4 text-sm text-gray-800">
+                        {item.type === 'employee' && (<span>{item.name} ({item.email})</span>)}
+                        {item.type === 'customer' && (<span>{item.name} <span dir="ltr">({item.phoneNumber})</span></span>)}
+                        {item.type === 'visitor' && (<span>{item.firstName} {item.lastName} <span dir="ltr">({item.phone})</span></span>)}
+                        {item.type === 'message' && (<span className="text-gray-500 italic">"{item.text?.substring(0, 50)}..."</span>)}
+                      </td>
+                      <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(item.deletedAt)}</td>
+                      <td className="p-4">
+                        <div className="flex items-center justify-center space-x-2 space-x-reverse">
+                          <button 
+                            onClick={() => handleRestore(item)}
+                            className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1.5 rounded-lg transition text-xs font-bold"
+                          >
+                            استرجاع
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteForever(item.id)}
+                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg transition text-xs font-bold"
+                          >
+                            حذف للأبد
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="p-8 text-center text-gray-500">سلة المهملات فارغة.</td>
                     </tr>
                   )}
                 </tbody>

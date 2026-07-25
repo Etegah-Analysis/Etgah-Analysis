@@ -257,11 +257,17 @@ export default function Inbox() {
     }
   };
 
-  const handleDeleteMessage = async (msgId) => {
+  const handleDeleteMessage = async (msg) => {
     if (!isAdmin) return;
-    if (window.confirm('هل أنت متأكد من حذف هذه الرسالة نهائياً؟')) {
+    if (window.confirm('هل أنت متأكد من نقل هذه الرسالة لسلة المهملات؟')) {
       try {
-        await deleteDoc(doc(db, 'رسائل_الموظفين_للعملاء', msgId));
+        await addDoc(collection(db, 'recycle_bin'), {
+          ...msg,
+          originalCollection: 'رسائل_الموظفين_للعملاء',
+          type: 'message',
+          deletedAt: serverTimestamp()
+        });
+        await deleteDoc(doc(db, 'رسائل_الموظفين_للعملاء', msg.id));
       } catch (e) {
         console.error(e);
       }
@@ -483,7 +489,7 @@ export default function Inbox() {
                         <p className="text-sm whitespace-pre-wrap ml-6">{msg.text}</p>
                         {isAdmin && (
                           <button 
-                            onClick={() => handleDeleteMessage(msg.id)}
+                            onClick={() => handleDeleteMessage(msg)}
                             className="text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition flex-shrink-0 mr-2"
                             title="حذف الرسالة (للإدارة فقط)"
                           >
