@@ -12,6 +12,10 @@ export default function Inbox() {
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
+
+  React.useEffect(() => {
+    document.title = 'منصة اتجاه | خدمة العملاء';
+  }, []);
   const messagesContainerRef = useRef(null);
   const isFirstLoad = useRef(true);
   const previousUnreadCounts = useRef({});

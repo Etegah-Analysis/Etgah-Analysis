@@ -12,6 +12,10 @@ export default function LandingPage() {
   const [step, setStep] = useState(1); // 1: form, 2: OTP, 3: Success
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    document.title = 'منصة اتجاه التحليل الذكي - الصفحة الرئيسية';
+  }, []);
+
   const handleSendOTP = async (e) => {
     e.preventDefault();
     if (!visitorName || !phoneNumber) {

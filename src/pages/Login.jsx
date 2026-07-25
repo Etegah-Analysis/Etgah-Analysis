@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, db, doc, updateDoc, getDoc, serverTimestamp } from '../firebase';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,10 @@ export default function Login() {
   const [resetMessage, setResetMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = 'منصة اتجاه | خدمة العملاء';
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

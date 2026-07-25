@@ -35,6 +35,10 @@ const Dashboard = () => {
   const [errorEdit, setErrorEdit] = useState('');
 
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    document.title = 'منصة اتجاه | خدمة العملاء';
+  }, []);
   const auth = getAuth();
   
   // Protect route
