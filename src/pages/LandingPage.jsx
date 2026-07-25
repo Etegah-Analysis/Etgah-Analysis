@@ -54,7 +54,7 @@ export default function LandingPage() {
       toast.success('تم إرسال كود التحقق بنجاح');
     } catch (error) {
       console.error(error);
-      toast.error('حدث خطأ أثناء إرسال الكود. تأكد من صحة الرقم.');
+      toast.error(`حدث خطأ: ${error.code || error.message}`);
     } finally {
       setLoading(false);
     }
