@@ -237,8 +237,19 @@ export default function Inbox() {
       try {
         const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
         const fileRef = ref(storage, `chat_media/${activeChat.id}_${uniqueId}_${attachment.name}`);
-        await uploadBytes(fileRef, attachment);
-        mediaUrl = await getDownloadURL(fileRef);
+        
+        // Timeout for Firebase upload
+        const uploadPromise = async () => {
+          await uploadBytes(fileRef, attachment);
+          return await getDownloadURL(fileRef);
+        };
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Storage Timeout")), 15000)
+        );
+
+        mediaUrl = await Promise.race([uploadPromise(), timeoutPromise]);
+        
         fileType = attachment.type;
         fileName = attachment.name;
         
@@ -246,7 +257,11 @@ export default function Inbox() {
         if (fileInputRef.current) fileInputRef.current.value = '';
       } catch (err) {
         console.error("خطأ في رفع الملف:", err);
-        toast.error('حدث خطأ أثناء رفع الملف');
+        if (err.message === "Storage Timeout") {
+          toast.error('انتهى وقت الرفع. يرجى التأكد من تفعيل خدمة Storage في Firebase.');
+        } else {
+          toast.error('حدث خطأ أثناء رفع الملف. هل تم إعداد Storage؟');
+        }
         setUploadingAttachment(false);
         return;
       }
