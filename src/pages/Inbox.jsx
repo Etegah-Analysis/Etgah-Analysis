@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc } from '../firebase';
+import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2 } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Inbox() {
@@ -18,6 +19,11 @@ export default function Inbox() {
   // New state for Add Customer Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
+
+  // Attachment state
+  const [attachment, setAttachment] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const fileInputRef = useRef(null);
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerCountryCode, setNewCustomerCountryCode] = useState('+966');
   const [selectedAssigneeUid, setSelectedAssigneeUid] = useState('');
@@ -217,20 +223,53 @@ export default function Inbox() {
   // وظيفة إرسال رسالة
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !activeChat) return;
+    if ((!message.trim() && !attachment) || !activeChat) return;
 
     const msgText = message.trim();
     setMessage(''); // مسح المربع فوراً لتجربة مستخدم أسرع
 
+    let mediaUrl = null;
+    let fileType = null;
+    let fileName = null;
+
+    if (attachment) {
+      setUploadingAttachment(true);
+      try {
+        const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const fileRef = ref(storage, `chat_media/${activeChat.id}_${uniqueId}_${attachment.name}`);
+        await uploadBytes(fileRef, attachment);
+        mediaUrl = await getDownloadURL(fileRef);
+        fileType = attachment.type;
+        fileName = attachment.name;
+        
+        setAttachment(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        console.error("خطأ في رفع الملف:", err);
+        toast.error('حدث خطأ أثناء رفع الملف');
+        setUploadingAttachment(false);
+        return;
+      }
+      setUploadingAttachment(false);
+    }
+
     try {
       // 1. حفظ الرسالة في Firestore لتظهر فوراً للموظف
-      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+      const msgData = {
         conversationId: activeChat.id,
         text: msgText,
         sender: 'agent',
         senderEmail: currentUser.email,
         timestamp: serverTimestamp()
-      });
+      };
+
+      if (mediaUrl) {
+        msgData.mediaUrl = mediaUrl;
+        msgData.fileType = fileType;
+        msgData.fileName = fileName;
+      }
+
+      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), msgData);
 
       // 2. تحديث آخر رسالة في المحادثة
       const chatRef = doc(db, 'بيانات_تسجيل_العملاء', activeChat.id);
@@ -257,7 +296,8 @@ export default function Inbox() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: activeChat.phoneNumber,
-          text: msgText
+          text: msgText,
+          mediaUrl: mediaUrl
         })
       });
       
@@ -541,7 +581,24 @@ export default function Inbox() {
                   >
                     <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${msg.sender === 'agent' ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
                       <div className="flex justify-between items-start">
-                        <p className="text-sm whitespace-pre-wrap ml-6">{msg.text}</p>
+                        <div className="ml-6 flex-1">
+                          {msg.mediaUrl && (
+                            <div className="mb-2">
+                              {msg.fileType && msg.fileType.startsWith('image/') ? (
+                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
+                                  <img src={msg.mediaUrl} alt="مرفق" className="max-w-full h-auto rounded-lg border border-black/10 max-h-48 object-contain" />
+                                </a>
+                              ) : (
+                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 space-x-reverse bg-black/5 p-2 rounded-lg hover:bg-black/10 transition">
+                                  <FileText size={24} className="text-blue-600" />
+                                  <span className="text-sm truncate max-w-[150px]" dir="ltr">{msg.fileName || 'ملف مرفق'}</span>
+                                  <Download size={16} className="text-gray-500" />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
+                        </div>
                         {isAdmin && (
                           <button 
                             onClick={() => handleDeleteMessage(msg)}
@@ -561,20 +618,62 @@ export default function Inbox() {
             </div>
 
             <div className="bg-black/30 backdrop-blur-xl p-4 border-t border-white/10 relative z-10">
+              {attachment && (
+                <div className="mb-2 flex items-center justify-between bg-white/10 p-2 rounded-lg border border-white/20">
+                  <div className="flex items-center space-x-2 space-x-reverse text-white">
+                    {attachment.type.startsWith('image/') ? (
+                      <div className="w-8 h-8 rounded bg-black/20 flex items-center justify-center overflow-hidden">
+                        <img src={URL.createObjectURL(attachment)} alt="preview" className="object-cover w-full h-full" />
+                      </div>
+                    ) : (
+                      <FileText size={20} className="text-blue-300" />
+                    )}
+                    <span className="text-sm truncate max-w-[200px]" dir="ltr">{attachment.name}</span>
+                    <span className="text-xs text-gray-400">({(attachment.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                  <button onClick={() => { setAttachment(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="text-red-400 hover:text-red-300 transition">
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
               <form onSubmit={handleSendMessage} className="flex space-x-2 space-x-reverse items-center">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={(e) => {
+                    if (e.target.files[0]) {
+                      setAttachment(e.target.files[0]);
+                    }
+                  }} 
+                  className="hidden" 
+                  accept="image/*,.pdf,.doc,.docx"
+                />
+                <button 
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition"
+                  title="إرفاق ملف"
+                >
+                  <Paperclip size={20} />
+                </button>
                 <input 
                   type="text" 
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="اكتب رسالة..."
                   className="flex-1 px-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white/20 transition-all"
+                  disabled={uploadingAttachment}
                 />
                 <button 
                   type="submit"
-                  disabled={!message.trim()}
-                  className="bg-primary hover:bg-green-600 text-white p-3 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={(!message.trim() && !attachment) || uploadingAttachment}
+                  className="bg-primary hover:bg-green-600 text-white p-3 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px]"
                 >
-                  <Send size={20} className="transform rotate-180" />
+                  {uploadingAttachment ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Send size={20} className="transform rotate-180" />
+                  )}
                 </button>
               </form>
               {activeChat.status === 'unassigned' && (

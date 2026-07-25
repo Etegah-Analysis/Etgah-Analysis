@@ -17,6 +17,7 @@ const Dashboard = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedVisitors, setSelectedVisitors] = useState([]);
+  const [selectedRecycleItems, setSelectedRecycleItems] = useState([]);
 
   // Add Employee Modal
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
@@ -233,6 +234,32 @@ const Dashboard = () => {
     if(window.confirm('هل أنت متأكد من الحذف النهائي للأبد؟ لا يمكن التراجع عن هذا الإجراء.')) {
       await deleteDoc(doc(db, 'recycle_bin', id));
     }
+  };
+
+  const toggleRecycleSelection = (id) => {
+    setSelectedRecycleItems(prev => prev.includes(id) ? prev.filter(rId => rId !== id) : [...prev, id]);
+  };
+  const toggleAllRecycleItems = () => {
+    const filteredItems = recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter);
+    if (selectedRecycleItems.length === filteredItems.length && filteredItems.length > 0) setSelectedRecycleItems([]);
+    else setSelectedRecycleItems(filteredItems.map(i => i.id));
+  };
+  const restoreSelectedRecycleItems = async () => {
+    if (!window.confirm(`هل أنت متأكد من استرجاع ${selectedRecycleItems.length} عنصر؟`)) return;
+    for (const id of selectedRecycleItems) {
+      const item = recycleBin.find(i => i.id === id);
+      if (item) {
+        await handleRestore(item);
+      }
+    }
+    setSelectedRecycleItems([]);
+  };
+  const deleteSelectedRecycleItemsForever = async () => {
+    if (!window.confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedRecycleItems.length} عنصر للأبد؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    for (const id of selectedRecycleItems) {
+      await deleteDoc(doc(db, 'recycle_bin', id));
+    }
+    setSelectedRecycleItems([]);
   };
 
   const handleAssignCustomer = async (chatId, empUid) => {
@@ -740,10 +767,35 @@ const Dashboard = () => {
                 <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'message' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>رسائل</button>
               </div>
             </div>
+            
+            {selectedRecycleItems.length > 0 && (
+              <div className="bg-red-50 px-6 py-3 border-b border-red-200 flex items-center justify-between">
+                <span className="text-sm font-bold text-red-800">
+                  تم تحديد {selectedRecycleItems.length} عنصر
+                </span>
+                <div className="flex space-x-2 space-x-reverse">
+                  <button onClick={restoreSelectedRecycleItems} className="bg-green-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">
+                    استرجاع المحدد
+                  </button>
+                  <button onClick={deleteSelectedRecycleItemsForever} className="bg-red-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-red-700 transition shadow-sm">
+                    حذف المحدد نهائياً للأبد
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="bg-red-50/30 border-b border-red-100">
+                    <th className="p-4 w-12">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-red-600 rounded border-red-300 focus:ring-red-500 cursor-pointer"
+                        onChange={toggleAllRecycleItems}
+                        checked={selectedRecycleItems.length === recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length && recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length > 0}
+                      />
+                    </th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">النوع</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">بيانات العنصر</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">تاريخ الحذف</th>
@@ -752,7 +804,15 @@ const Dashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-red-50">
                   {recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).map(item => (
-                    <tr key={item.id} className="hover:bg-red-50/50 transition">
+                    <tr key={item.id} className={`transition ${selectedRecycleItems.includes(item.id) ? 'bg-red-50' : 'hover:bg-red-50/50'}`}>
+                      <td className="p-4">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 text-red-600 rounded border-red-300 focus:ring-red-500 cursor-pointer"
+                          checked={selectedRecycleItems.includes(item.id)}
+                          onChange={() => toggleRecycleSelection(item.id)}
+                        />
+                      </td>
                       <td className="p-4 text-sm font-bold text-gray-700">
                         {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">موظف</span>}
                         {item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">عميل</span>}
@@ -786,7 +846,7 @@ const Dashboard = () => {
                   ))}
                   {recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length === 0 && (
                     <tr>
-                      <td colSpan="4" className="p-8 text-center text-gray-500">سلة المهملات فارغة.</td>
+                      <td colSpan="5" className="p-8 text-center text-gray-500">سلة المهملات فارغة.</td>
                     </tr>
                   )}
                 </tbody>
