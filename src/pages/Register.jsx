@@ -6,12 +6,63 @@ export default function Register({ lang }) {
   const [countryCode, setCountryCode] = useState('+966');
   const [successMsg, setSuccessMsg] = useState('');
   const [verificationStep, setVerificationStep] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [pendingUser, setPendingUser] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false); // If true, we just update the user doc, otherwise create new
+  const [docRefId, setDocRefId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      // For localhost/Vercel URL, use relative if possible or rely on proxy
+      // In production (Vercel), API is on same domain if hosted together, 
+      // but if api is separate, we need the full URL. Let's use relative and assume Vite proxy or Vercel rewrites.
+      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/verifyOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: pendingUser.country + pendingUser.phone,
+          code: otp
+        })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // OTP Success! Now save to Firebase
+        if (isUpdating && docRefId) {
+          const { doc } = await import('firebase/firestore');
+          await updateDoc(doc(db, 'users', docRefId), {
+            phone: pendingUser.phone,
+            country: pendingUser.country,
+            name: pendingUser.name
+          });
+        } else {
+          await addDoc(collection(db, 'users'), pendingUser);
+        }
 
+        localStorage.setItem('etegah_user', JSON.stringify(pendingUser));
+        setSuccessMsg('تم تأكيد رقمك بنجاح! جاري التوجيه 🔄');
+        setTimeout(() => {
+          setSuccessMsg('');
+          window.location.href = '/';
+        }, 1500);
+      } else {
+        alert(data.message || 'الكود غير صحيح، يرجى المحاولة مرة أخرى.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء التحقق.');
+    }
+    setIsLoading(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
     const formData = new FormData(e.target);
     let phone = formData.get('phone').trim();
     const email = formData.get('email');
@@ -57,6 +108,8 @@ export default function Register({ lang }) {
       ]);
 
       let loggedInUser = newUser;
+      let willUpdate = false;
+      let existingDocId = null;
 
       if (!emailSnapshot.empty) {
         const docSnap = emailSnapshot.docs[0];
@@ -69,18 +122,12 @@ export default function Register({ lang }) {
           existingUser.country = newUser.country;
           existingUser.name = newUser.name;
           
-          try {
-            await updateDoc(docSnap.ref, {
-              phone: newUser.phone,
-              country: newUser.country,
-              name: newUser.name
-            });
-          } catch (err) {
-            console.error("Failed to update user phone in DB:", err);
-          }
+          willUpdate = true;
+          existingDocId = docSnap.id;
           loggedInUser = existingUser;
         } else {
           alert('هذا البريد الإلكتروني مسجل مسبقاً لدينا برقم هاتف آخر.');
+          setIsLoading(false);
           return;
         }
       } else if (!phoneSnapshot.empty) {
@@ -90,25 +137,37 @@ export default function Register({ lang }) {
           loggedInUser = existingUser;
         } else {
           alert('رقم الهاتف هذا مسجل مسبقاً لدينا ببريد إلكتروني آخر.');
+          setIsLoading(false);
           return;
         }
-      } else {
-        await addDoc(collection(db, 'users'), newUser);
-        loggedInUser = newUser;
       }
 
-      localStorage.setItem('etegah_user', JSON.stringify(loggedInUser));
-      setSuccessMsg('تم التسجيل ودخول المنصة بنجاح! جاري التوجيه تلقائياً 🔄');
-      
-      setTimeout(() => {
-        setSuccessMsg('');
-        window.location.href = '/';
-      }, 1500);
+      // Instead of writing to Firebase immediately, we send OTP
+      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/sendOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: newUser.country + newUser.phone
+        })
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setPendingUser(loggedInUser);
+        setIsUpdating(willUpdate);
+        setDocRefId(existingDocId);
+        setVerificationStep(true);
+        setSuccessMsg('تم إرسال كود التحقق في رسالة نصية SMS إلى رقمك.');
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } else {
+        alert(data.message || 'حدث خطأ في إرسال الرسالة.');
+      }
       
     } catch (err) {
       console.error(err);
-      alert('حدث خطأ أثناء الحفظ، يرجى المحاولة لاحقاً.');
+      alert('حدث خطأ، يرجى المحاولة لاحقاً.');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -134,82 +193,129 @@ export default function Register({ lang }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-              الاسم الكامل (مطلوب)
-            </label>
-            <input 
-              name="name"
-              type="text" 
-              placeholder="أدخل اسمك الكامل"
-              style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
-              required 
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-              البريد الإلكتروني (مطلوب)
-            </label>
-            <input 
-              name="email"
-              type="email" 
-              placeholder="أدخل بريدك الإلكتروني"
-              style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
-              required 
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-              رقم الهاتف (مطلوب)
-            </label>
-            <div style={{ display: 'flex', direction: 'ltr' }}>
-              <select 
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                style={{
-                  padding: '12px 8px', 
-                  background: 'var(--border-blue)', 
-                  border: '1px solid var(--border-blue)', 
-                  borderRight: 'none',
-                  borderRadius: '6px 0 0 6px',
-                  color: 'white',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="+966">🇸🇦 +966</option>
-                <option value="+20">🇪🇬 +20</option>
-              </select>
+        {!verificationStep ? (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                اسم الزائر (مطلوب)
+              </label>
               <input 
-                name="phone"
-                type="tel" 
-                placeholder={countryCode === '+966' ? "5XXXXXXXX" : "1XXXXXXXX"}
+                name="name"
+                type="text" 
+                placeholder="أدخل اسمك بالكامل"
+                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
+                required 
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                البريد الإلكتروني (مطلوب)
+              </label>
+              <input 
+                name="email"
+                type="email" 
+                placeholder="أدخل بريدك الإلكتروني"
+                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
+                required 
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                رقم الهاتف (مطلوب)
+              </label>
+              <div style={{ display: 'flex', direction: 'ltr' }}>
+                <select 
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  disabled={isLoading}
+                  style={{
+                    padding: '12px 8px', 
+                    background: 'var(--border-blue)', 
+                    border: '1px solid var(--border-blue)', 
+                    borderRight: 'none',
+                    borderRadius: '6px 0 0 6px',
+                    color: 'white',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="+966">🇸🇦 +966</option>
+                  <option value="+20">🇪🇬 +20</option>
+                </select>
+                <input 
+                  name="phone"
+                  type="tel" 
+                  placeholder={countryCode === '+966' ? "5XXXXXXXX" : "1XXXXXXXX"}
+                  disabled={isLoading}
+                  style={{ 
+                    flex: 1, 
+                    padding: '12px', 
+                    borderRadius: '0 6px 6px 0', 
+                    border: '1px solid var(--border-blue)', 
+                    background: 'var(--dark-navy)', 
+                    color: 'white',
+                    outline: 'none'
+                  }}
+                  required 
+                />
+              </div>
+              {countryCode === '+20' && (
+                <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)', direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
+                  أدخل رقم الهاتف بدون الصفر بالبداية (مثال: 10XXXXX)
+                </small>
+              )}
+            </div>
+
+            <button type="submit" disabled={isLoading} className="button primary" style={{ width: '100%', padding: '12px', fontSize: '1.1rem', marginTop: '1rem', opacity: isLoading ? 0.7 : 1 }}>
+              {isLoading ? 'جاري التحقق...' : 'تسجيل حساب'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>
+                أدخل الكود المكون من 6 أرقام المرسل إلى جوالك
+              </label>
+              <input 
+                type="text" 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="XXXXXX"
+                maxLength="6"
+                disabled={isLoading}
                 style={{ 
-                  flex: 1, 
-                  padding: '12px', 
-                  borderRadius: '0 6px 6px 0', 
-                  border: '1px solid var(--border-blue)', 
+                  width: '100%', 
+                  padding: '15px', 
+                  borderRadius: '8px', 
+                  border: '2px solid var(--border-blue)', 
                   background: 'var(--dark-navy)', 
                   color: 'white',
+                  fontSize: '1.5rem',
+                  letterSpacing: '10px',
+                  textAlign: 'center',
                   outline: 'none'
                 }}
                 required 
               />
             </div>
-            {countryCode === '+20' && (
-              <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)', direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
-                أدخل رقم الهاتف بدون الصفر بالبداية (مثال: 10XXXXX)
-              </small>
-            )}
-          </div>
-
-          <button type="submit" className="button primary" style={{ width: '100%', padding: '12px', fontSize: '1.1rem', marginTop: '1rem' }}>
-            تسجيل حساب
-          </button>
-        </form>
+            
+            <button type="submit" disabled={isLoading || otp.length !== 6} className="button primary" style={{ width: '100%', padding: '12px', fontSize: '1.1rem', marginTop: '1rem', opacity: (isLoading || otp.length !== 6) ? 0.7 : 1 }}>
+              {isLoading ? 'جاري التأكيد...' : 'تأكيد الحساب'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => { setVerificationStep(false); setOtp(''); }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-light)', textDecoration: 'underline', cursor: 'pointer', marginTop: '10px' }}
+            >
+              تعديل رقم الهاتف
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
