@@ -19,6 +19,7 @@ export default function Inbox() {
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerCountryCode, setNewCustomerCountryCode] = useState('+966');
+  const [selectedAssigneeUid, setSelectedAssigneeUid] = useState('');
 
   // Swipe to go back on mobile
   const [touchStart, setTouchStart] = useState(null);
@@ -297,14 +298,25 @@ export default function Inbox() {
     
     const fullPhone = `${newCustomerCountryCode}${newCustomerPhone.trim().replace(/^0+/, '')}`;
 
+    let assigneeEmail = currentUser.email;
+    let assigneeUid = currentUser.uid;
+
+    if (isAdmin && selectedAssigneeUid) {
+      const emp = employees.find(e => e.uid === selectedAssigneeUid);
+      if (emp) {
+        assigneeEmail = emp.email;
+        assigneeUid = emp.uid;
+      }
+    }
+
     try {
       const docRef = await addDoc(collection(db, 'بيانات_تسجيل_العملاء'), {
         phoneNumber: fullPhone,
         name: newCustomerName.trim() || 'عميل جديد (يدوي)',
         addedBy: currentUser.email,
         status: 'assigned',
-        assignedTo: currentUser.email,
-        assignedToUid: currentUser.uid,
+        assignedTo: assigneeEmail,
+        assignedToUid: assigneeUid,
         createdAt: serverTimestamp(),
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -318,20 +330,21 @@ export default function Inbox() {
         phoneNumber: fullPhone,
         name: newCustomerName.trim() || 'عميل جديد (يدوي)',
         status: 'assigned',
-        assignedTo: currentUser.email,
-        assignedToUid: currentUser.uid
+        assignedTo: assigneeEmail,
+        assignedToUid: assigneeUid
       });
       
       setIsAddModalOpen(false);
       setNewCustomerName('');
       setNewCustomerPhone('');
+      setSelectedAssigneeUid('');
     } catch (err) {
       console.error('Error adding customer:', err);
     }
   };
 
   return (
-    <div className="flex h-screen font-sans relative overflow-hidden bg-slate-900" dir="rtl">
+    <div className="flex h-[100dvh] w-full font-sans relative overflow-hidden bg-slate-900" dir="rtl">
       {/* 3D Modern Gradient Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-[70%] h-[70%] rounded-full bg-blue-600/30 blur-[120px] mix-blend-screen animate-pulse"></div>
@@ -598,6 +611,25 @@ export default function Inbox() {
                   />
                 </div>
               </div>
+              
+              {isAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">تعيين لموظف</label>
+                  <select 
+                    value={selectedAssigneeUid}
+                    onChange={(e) => setSelectedAssigneeUid(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary text-sm"
+                  >
+                    <option value="">-- تعيين لنفسي --</option>
+                    {employees.map(emp => (
+                      <option key={emp.uid} value={emp.uid}>
+                        {emp.name} ({emp.role === 'admin' ? 'أدمن' : 'موظف'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <button 
                 type="submit"
                 disabled={!newCustomerPhone.trim()}
