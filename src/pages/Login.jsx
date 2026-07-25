@@ -44,7 +44,7 @@ export default function Login() {
       if (loginType === 'admin') {
         navigate('/dashboard');
       } else {
-        navigate('/');
+        navigate('/inbox');
       }
     } catch (err) {
       console.error(err);

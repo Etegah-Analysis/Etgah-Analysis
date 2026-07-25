@@ -224,7 +224,7 @@ const Dashboard = () => {
             <UserPlus size={18} className="mr-2" /> إضافة موظف
           </button>
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/inbox')}
             className="flex items-center bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
           >
             صندوق المحادثات <ArrowRight size={18} className="mr-2" />
