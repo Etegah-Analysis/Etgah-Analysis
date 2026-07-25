@@ -35,7 +35,7 @@ export default function LandingPage() {
       }
 
       // Send OTP via Twilio API
-      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/sendOtp', {
+      const response = await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: fullPhone })
@@ -65,7 +65,7 @@ export default function LandingPage() {
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
       
       // Verify OTP via Twilio API
-      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/verifyOtp', {
+      const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: fullPhone, code: otp })
