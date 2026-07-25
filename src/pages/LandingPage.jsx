@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { RecaptchaVerifier, signInWithPhoneNumber, signOut } from 'firebase/auth';
-import { auth, db, collection, addDoc, getDocs, query, where, serverTimestamp } from '../firebase';
+import React, { useState } from 'react';
+import { db, collection, addDoc, getDocs, query, where, serverTimestamp } from '../firebase';
 import { toast } from 'react-hot-toast';
 import { MessageCircle } from 'lucide-react';
 
 export default function LandingPage() {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [visitorName, setVisitorName] = useState('');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+966');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -14,17 +12,9 @@ export default function LandingPage() {
   const [step, setStep] = useState(1); // 1: form, 2: OTP, 3: Success
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible'
-      });
-    }
-  }, []);
-
   const handleSendOTP = async (e) => {
     e.preventDefault();
-    if (!firstName || !lastName || !phoneNumber) {
+    if (!visitorName || !phoneNumber) {
       toast.error('الرجاء إدخال جميع الحقول المطلوبة');
       return;
     }
@@ -44,17 +34,23 @@ export default function LandingPage() {
         return;
       }
 
-      // Check if already registered maybe? Not requested, so skip or allow multiple.
-      // Send OTP
-      const appVerifier = window.recaptchaVerifier;
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
-      window.confirmationResult = confirmationResult;
-      
-      setStep(2);
-      toast.success('تم إرسال كود التحقق بنجاح');
+      // Send OTP via Twilio API
+      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/sendOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone })
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setStep(2);
+        toast.success('تم إرسال كود التحقق في رسالة نصية SMS');
+      } else {
+        toast.error(data.message || 'فشل إرسال كود التحقق');
+      }
     } catch (error) {
       console.error(error);
-      toast.error(`حدث خطأ: ${error.code || error.message}`);
+      toast.error(`حدث خطأ أثناء الاتصال بالخادم`);
     } finally {
       setLoading(false);
     }
@@ -66,28 +62,35 @@ export default function LandingPage() {
     
     setLoading(true);
     try {
-      // Verify OTP
-      await window.confirmationResult.confirm(otp);
-      
-      // Save data
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
-      await addDoc(collection(db, 'visitor_customers'), {
-        firstName,
-        lastName,
-        email: email || '',
-        phone: fullPhone,
-        status: 'new',
-        createdAt: serverTimestamp()
+      
+      // Verify OTP via Twilio API
+      const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/verifyOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, code: otp })
       });
+      const data = await response.json();
 
-      // Sign out customer so they don't get stuck in Firebase Auth session
-      await signOut(auth);
+      if (data.success) {
+        // Save data to Firebase
+        await addDoc(collection(db, 'visitor_customers'), {
+          firstName: visitorName, // Saved as firstName for compatibility with your DB
+          lastName: '',
+          email: email || '',
+          phone: fullPhone,
+          status: 'new',
+          createdAt: serverTimestamp()
+        });
 
-      setStep(3);
-      toast.success('تم التسجيل بنجاح!');
+        setStep(3);
+        toast.success('تم التسجيل بنجاح!');
+      } else {
+        toast.error(data.message || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
+      }
     } catch (error) {
       console.error(error);
-      toast.error('رمز التحقق غير صحيح أو منتهي الصلاحية');
+      toast.error('حدث خطأ أثناء التحقق');
     } finally {
       setLoading(false);
     }
@@ -112,27 +115,16 @@ export default function LandingPage() {
 
           {step === 1 && (
             <form onSubmit={handleSendOTP} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-300">الاسم الأول (مطلوب)</label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={e => setFirstName(e.target.value)}
-                    required
-                    className="w-full bg-[#1E293B] border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500 transition text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-300">الاسم الثاني (مطلوب)</label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={e => setLastName(e.target.value)}
-                    required
-                    className="w-full bg-[#1E293B] border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500 transition text-white"
-                  />
-                </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-300">اسم الزائر (مطلوب)</label>
+                <input
+                  type="text"
+                  value={visitorName}
+                  onChange={e => setVisitorName(e.target.value)}
+                  required
+                  placeholder="أدخل اسمك بالكامل"
+                  className="w-full bg-[#1E293B] border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500 transition text-white"
+                />
               </div>
               <p className="text-xs text-center text-gray-400">يمكنك كتابة الاسم بالعربية أو الإنجليزية</p>
 
@@ -171,7 +163,6 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div id="recaptcha-container"></div>
 
               <button
                 type="submit"
