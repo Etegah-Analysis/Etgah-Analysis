@@ -190,7 +190,7 @@ export default function Inbox() {
       await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
         assignedTo: newAssignee.email,
         assignedToUid: newAssignee.uid,
-        status: 'assigned',
+        status: 'unassigned', // يظل في الانتظار حتى يرد عليه الموظف الجديد
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         unread: 1 // تفعيل الإنذار الأحمر عند الموظف

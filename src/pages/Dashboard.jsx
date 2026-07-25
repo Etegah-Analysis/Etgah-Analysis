@@ -240,13 +240,12 @@ const Dashboard = () => {
     try {
       const emp = employees.find(e => e.uid === empUid);
       if (!emp) return;
-      const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chatId);
-      await updateDoc(chatRef, {
-        status: 'assigned',
+      await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
+        status: 'unassigned', // يظل في الانتظار حتى يرد عليه الموظف الجديد
         assignedTo: emp.email,
         assignedToUid: emp.uid,
-        updatedAt: serverTimestamp(),
         assignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         unread: 1
       });
     } catch (error) {
