@@ -13,6 +13,7 @@ export default function Inbox() {
   const [messages, setMessages] = useState([]);
   const messagesEndRef = useRef(null);
   const isFirstLoad = useRef(true);
+  const previousUnreadCounts = useRef({});
   
   // New state for Add Customer Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -83,18 +84,31 @@ export default function Inbox() {
       // إشعارات للرسائل والعملاء الجدد
       if (!isFirstLoad.current) {
         snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          const docId = change.doc.id;
+
           if (change.type === 'added') {
-            toast.success('تم دخول عميل جديد للواتساب!', { icon: '👋' });
+            toast.success('تم دخول عميل جديد للواتساب!', { icon: '👋', id: `new-${docId}` });
             try { new Audio('/notification.mp3').play(); } catch(e){}
+            previousUnreadCounts.current[docId] = data.unread || 0;
           }
           if (change.type === 'modified') {
-            const data = change.doc.data();
-            // Show notification if it's unread and not the currently active chat
-            if (data.unread > 0 && activeChat?.id !== change.doc.id) {
-              toast('رسالة جديدة من: ' + (data.name || data.phoneNumber), { icon: '💬' });
+            const prevUnread = previousUnreadCounts.current[docId] || 0;
+            // Show notification ONLY if unread count actually increased
+            if (data.unread > prevUnread && activeChat?.id !== docId) {
+              toast('رسالة جديدة من: ' + (data.name || data.phoneNumber), { 
+                icon: '💬', 
+                id: `msg-${docId}-${data.updatedAt?.toMillis ? data.updatedAt.toMillis() : Date.now()}` 
+              });
               try { new Audio('/notification.mp3').play(); } catch(e){}
             }
+            previousUnreadCounts.current[docId] = data.unread || 0;
           }
+        });
+      } else {
+        // Initialize the ref on first load
+        snapshot.docs.forEach((doc) => {
+          previousUnreadCounts.current[doc.id] = doc.data().unread || 0;
         });
       }
 
@@ -170,17 +184,18 @@ export default function Inbox() {
   const handleAssignChat = async (chatId, empUid) => {
     if (!currentUser || !isAdmin || !empUid) return;
     try {
-      const emp = employees.find(e => e.uid === empUid);
-      if (!emp) return;
-      const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chatId);
-      await updateDoc(chatRef, {
+      const newAssignee = employees.find(e => e.uid === empUid);
+      const chat = chats.find(c => c.id === chatId);
+      if (!newAssignee || !chat) return;
+      await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
+        assignedTo: newAssignee.email,
+        assignedToUid: newAssignee.uid,
         status: 'assigned',
-        assignedTo: emp.email,
-        assignedToUid: emp.uid,
-        updatedAt: serverTimestamp(),
         assignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         unread: 1 // تفعيل الإنذار الأحمر عند الموظف
       });
+      toast.success(`تم تحويل المحادثة (${chat.name || chat.phoneNumber}) إلى ${newAssignee.name || newAssignee.email} بنجاح`);
     } catch (error) {
       console.error("خطأ في إسناد المحادثة:", error);
     }
@@ -449,19 +464,22 @@ export default function Inbox() {
                   </div>
                   
                   {isAdmin && (
-                    <div className="flex items-center mt-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center mt-2 relative" onClick={e => e.stopPropagation()}>
                       <select 
                         value={chat.assignedToUid || ""}
                         onChange={(e) => handleAssignChat(chat.id, e.target.value)}
-                        className="border border-gray-400 rounded px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/90 cursor-pointer shadow-sm"
+                        className="appearance-none border border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-200 w-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-black/20 hover:bg-black/40 transition-all cursor-pointer shadow-sm"
                       >
-                        <option value="" disabled>-- سحب أو تعيين --</option>
+                        <option value="" disabled className="bg-gray-800 text-gray-400">-- سحب أو تعيين --</option>
                         {employees.map(emp => (
-                          <option key={emp.uid} value={emp.uid}>
+                          <option key={emp.uid} value={emp.uid} className="bg-gray-800 text-white">
                             {emp.role === 'admin' ? `👑 الإدارة (${emp.name || emp.email})` : (emp.name || emp.email)}
                           </option>
                         ))}
                       </select>
+                      <div className="absolute left-2 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
                     </div>
                   )}
                 </div>
