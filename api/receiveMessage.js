@@ -1,4 +1,5 @@
 import { dbAdmin } from './firebaseAdmin.js';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -56,9 +57,9 @@ export default async function handler(req, res) {
         phone: phoneNumber,
         country: '',
         date: new Date().toLocaleString('ar-EG'),
-        timestamp: dbAdmin.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         lastMessage: MediaUrl0 ? '📎 أرسل ملفاً' : Body,
-        lastMessageTime: dbAdmin.FieldValue.serverTimestamp(),
+        lastMessageTime: FieldValue.serverTimestamp(),
         unreadCount: 1,
         source: 'whatsapp'
       };
@@ -72,7 +73,7 @@ export default async function handler(req, res) {
       // Update last message and unread count
       await userDocRef.update({
         lastMessage: MediaUrl0 ? '📎 أرسل ملفاً' : Body,
-        lastMessageTime: dbAdmin.FieldValue.serverTimestamp(),
+        lastMessageTime: FieldValue.serverTimestamp(),
         unreadCount: newUnread
       });
       console.log(`Updated existing chat document for ${phoneNumber}`);
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
     await messagesRef.add({
       text: Body || '',
       sender: 'customer',
-      timestamp: dbAdmin.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       mediaUrl: MediaUrl0 || null,
       fileType: fileType,
       fileName: fileName
