@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       // Send SMS
       await client.messages.create({
         body: `كود التحقق الخاص بك لمنصة اتجاه هو: ${code}`,
-        from: twilioPhoneEnv,
+        from: 'Etegah', // Alphanumeric Sender ID
         to: phone
       });
         
