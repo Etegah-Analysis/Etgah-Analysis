@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "cors": "^2.8.6",
     "firebase": "^12.16.0",
     "firebase-admin": "^14.2.0",
     "lucide-react": "^1.26.0",
@@ -19,7 +20,8 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.18.1",
     "tailwindcss": "^4.3.3",
-    "twilio": "^6.0.2"
+    "twilio": "^6.0.2",
+    "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

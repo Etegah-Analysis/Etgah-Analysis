@@ -28,8 +28,8 @@ export default function Home({ onOpenRegister }) {
         background: 'var(--dark-navy)'
       }}>
         <div className="container flex flex-col md:flex-row items-center gap-12" style={{ position: 'relative', zIndex: 2 }}>
-          <div className="hero-content" style={{ flex: 1, textAlign: 'right' }}>
-            <div className="badge-modern">
+          <div className="hero-content w-full md:w-1/2 text-center md:text-right" style={{ flex: 1 }}>
+            <div className="badge-modern mx-auto md:mx-0">
               مستقبل التداول الذكي في السوق السعودي
             </div>
             <h1 className="hero-title">
@@ -39,15 +39,15 @@ export default function Home({ onOpenRegister }) {
             <p className="hero-subtitle">
               منصة "اتجاه" تدمج خبرة أسواق المال مع قوة الذكاء الاصطناعي لتوفر لك تحليلاً احترافياً لحظياً يساعدك على اقتناص الفرص وتجنب المخاطر.
             </p>
-            <div className="flex gap-4">
-              <Link to="/dashboard" className="button hero-btn-outline">
+            <div className="flex justify-center md:justify-end gap-4">
+              <Link to="/us-options" className="button hero-btn-outline">
                 استعرض الخدمات
               </Link>
             </div>
           </div>
           
-          <div className="hero-visual" style={{ flex: 1, position: 'relative' }}>
-            <div className="hero-logo-wrapper" style={{ 
+          <div className="hero-visual w-full md:w-1/2 mt-8 md:mt-0" style={{ position: 'relative' }}>
+            <div className="hero-logo-wrapper mx-auto" style={{ 
               borderRadius: '30px', 
               display: 'flex',
               justifyContent: 'center',

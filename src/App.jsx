@@ -3,10 +3,46 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db, doc, onSnapshot } from './firebase';
 import { Toaster } from 'react-hot-toast';
+import { MessageCircle } from 'lucide-react';
 import Login from './pages/Login';
 import Inbox from './pages/Inbox';
 import Dashboard from './pages/Dashboard';
 import LandingPage from './pages/LandingPage';
+import Home from './pages/Home';
+import USOptions from './pages/USOptions';
+import News from './pages/News';
+import Navbar from './components/Navbar';
+
+// A simple layout wrapper for public pages
+function PublicLayout({ children }) {
+  return (
+    <>
+      <Navbar />
+      {children}
+      
+      {/* Floating WhatsApp Button */}
+      <a 
+        href="https://wa.me/201000000000" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 left-6 bg-green-500 text-white p-4 rounded-full shadow-[0_4px_14px_rgba(34,197,94,0.5)] hover:bg-green-600 hover:scale-110 transition-transform z-50 flex items-center justify-center"
+        title="تواصل معنا عبر واتساب"
+        style={{ position: 'fixed', bottom: '24px', left: '24px', zIndex: 50, background: '#22c55e', color: 'white', padding: '16px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(34,197,94,0.5)' }}
+      >
+        <MessageCircle size={32} />
+      </a>
+    </>
+  );
+}
+
+// A protected route wrapper for visitors
+function VisitorProtectedRoute({ children }) {
+  const isVisitorLoggedIn = localStorage.getItem('visitorName');
+  if (!isVisitorLoggedIn) {
+    return <Navigate to="/visitor-login" replace />;
+  }
+  return children;
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -72,8 +108,8 @@ function App() {
             element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} /> : <Login />} 
           />
           <Route 
-            path="/" 
-            element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} /> : <LandingPage />} 
+            path="/visitor-login" 
+            element={<LandingPage />} 
           />
           <Route 
             path="/inbox" 
@@ -82,6 +118,22 @@ function App() {
           <Route 
             path="/dashboard" 
             element={user ? <Dashboard /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/" 
+            element={<PublicLayout><Home /></PublicLayout>} 
+          />
+          <Route 
+            path="/home" 
+            element={<Navigate to="/" replace />} 
+          />
+          <Route 
+            path="/us-options" 
+            element={<VisitorProtectedRoute><PublicLayout><USOptions /></PublicLayout></VisitorProtectedRoute>} 
+          />
+          <Route 
+            path="/news" 
+            element={<VisitorProtectedRoute><PublicLayout><News /></PublicLayout></VisitorProtectedRoute>} 
           />
         </Routes>
       </BrowserRouter>

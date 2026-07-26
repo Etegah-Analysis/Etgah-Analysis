@@ -291,9 +291,8 @@ const Dashboard = () => {
 
   return (
     <div 
-      className="min-h-screen flex flex-col font-sans relative overflow-x-hidden bg-slate-900" 
+      className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
       dir="rtl"
-      onClick={() => setActiveTab('analytics')}
     >
       {/* 3D Modern Gradient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -309,7 +308,6 @@ const Dashboard = () => {
       {/* Header */}
       <header 
         className="bg-white shadow-sm border-b border-gray-200 relative z-10 px-6 py-4 flex justify-between items-center"
-        onClick={(e) => e.stopPropagation()}
       >
         <h1 className="text-2xl font-bold text-gray-800">📊 لوحة إدارة منصة اتجاه CRM</h1>
         <div className="flex items-center space-x-3 space-x-reverse">
@@ -328,9 +326,9 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-6 max-w-7xl mx-auto w-full relative z-10">
+      <main className="p-6 max-w-7xl mx-auto w-full relative z-10">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8" onClick={(e) => e.stopPropagation()}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           <div 
             onClick={() => handleCardClick('customers', 'all')}
             className={`bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-500 scale-105' : 'border-white/40 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -427,7 +425,7 @@ const Dashboard = () => {
           const mostUnread = [...employeeStats].sort((a,b) => b.unreadCount - a.unreadCount)[0];
 
           return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2" onClick={(e) => e.stopPropagation()}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
               {/* Card 1 */}
               <div 
                 onClick={() => setAnalyticsDetail('assigned')}
@@ -535,7 +533,7 @@ const Dashboard = () => {
 
         {/* Customers Tab */}
         {activeTab === 'customers' && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex justify-between items-center">
               <h2 className="text-lg font-bold text-gray-800">
                 {customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
@@ -625,7 +623,7 @@ const Dashboard = () => {
 
         {/* Employees Tab */}
         {activeTab === 'employees' && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex justify-between items-center">
               <h2 className="text-lg font-bold text-gray-800">قائمة الموظفين وإدارة الصلاحيات</h2>
               {selectedEmployees.length > 0 && (
@@ -708,7 +706,7 @@ const Dashboard = () => {
 
         {/* Visitors Tab */}
         {activeTab === 'visitors' && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex justify-between items-center">
               <h2 className="text-lg font-bold text-gray-800">قائمة العملاء الزوار</h2>
               {selectedVisitors.length > 0 && (
@@ -758,7 +756,7 @@ const Dashboard = () => {
 
         {/* Recycle Bin Tab */}
         {activeTab === 'recycle_bin' && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden">
             <div className="px-6 py-4 border-b border-red-500/20 bg-red-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
               <h2 className="text-lg font-bold text-red-800 flex items-center">
                 <Trash2 className="mr-2" size={20} /> سلة المهملات

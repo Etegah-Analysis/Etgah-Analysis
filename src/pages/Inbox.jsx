@@ -161,12 +161,15 @@ export default function Inbox() {
 
   // جلب رسائل المحادثة النشطة لحظياً
   useEffect(() => {
-    if (!activeChat) return;
+    if (!activeChat?.id) {
+      setMessages([]);
+      return;
+    }
+    setMessages([]); // Clear messages immediately when switching chats
     
     const q = query(
       collection(db, 'رسائل_الموظفين_للعملاء'), 
-      where('conversationId', '==', activeChat.id),
-      orderBy('timestamp', 'asc')
+      where('conversationId', '==', activeChat.id)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -174,12 +177,20 @@ export default function Inbox() {
       snapshot.forEach((doc) => {
         msgsData.push({ id: doc.id, ...doc.data() });
       });
+      // Sort client-side
+      msgsData.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+        return timeA - timeB;
+      });
       setMessages(msgsData);
       scrollToBottom();
+    }, (error) => {
+      console.error("Error fetching messages:", error);
     });
     
     return () => unsubscribe();
-  }, [activeChat]);
+  }, [activeChat?.id]);
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -431,7 +442,7 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full font-sans relative overflow-hidden bg-slate-900" dir="rtl">
+    <div className="flex fixed inset-0 w-full font-sans overflow-hidden bg-slate-900" dir="rtl">
       {/* 3D Modern Gradient Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-[70%] h-[70%] rounded-full bg-blue-600/30 blur-[120px] mix-blend-screen animate-pulse"></div>
@@ -588,6 +599,7 @@ export default function Inbox() {
             </div>
 
             <div 
+              key={activeChat.id}
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10 cursor-pointer scroll-smooth"
               onClick={() => setActiveChat(null)}

@@ -38,6 +38,22 @@ export default function LandingPage() {
         return;
       }
 
+      // Check if already registered in CRM
+      const visitorsRef = collection(db, 'visitor_customers');
+      const qVisitor = query(visitorsRef, where('phone', '==', fullPhone));
+      const snapVisitor = await getDocs(qVisitor);
+      
+      if (!snapVisitor.empty) {
+        // User already exists, skip OTP
+        const existingUser = snapVisitor.docs[0].data();
+        localStorage.setItem('visitorName', existingUser.firstName || visitorName);
+        toast.success('أهلاً بك مجدداً! جاري تحويلك للمنصة...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+        return; // Stop here, no OTP sent
+      }
+
       // Send OTP via Twilio API
       const response = await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
         method: 'POST',
@@ -87,11 +103,13 @@ export default function LandingPage() {
           createdAt: serverTimestamp()
         });
 
+        localStorage.setItem('visitorName', visitorName);
+
         setStep(3);
         toast.success('تم التسجيل بنجاح!');
         setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+          window.location.href = '/';
+        }, 2000);
       } else {
         toast.error(data.message || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
       }
