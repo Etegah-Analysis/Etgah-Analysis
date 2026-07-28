@@ -1,4 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Cairo', 'Inter', sans-serif;
+}
 
 :root {
   --primary-blue: #00d2ff;

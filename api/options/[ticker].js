@@ -1,6 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance();
-
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);

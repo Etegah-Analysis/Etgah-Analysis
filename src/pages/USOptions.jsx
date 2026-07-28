@@ -108,8 +108,8 @@ function USOptions() {
         const now = new Date();
         const ageInMinutes = (now - lastUpdated) / (1000 * 60);
         
-        // إذا كانت البيانات أقدم من 5 دقائق، قم بتحديثها
-        if (ageInMinutes > 5) {
+        // إذا كانت البيانات أقدم من 5 دقائق، أو البيانات تالفة، قم بتحديثها
+        if (ageInMinutes > 5 || !storedData.data || !storedData.data.expirationDates || storedData.data.expirationDates.length === 0) {
           shouldRefresh = true;
         } else {
           data = storedData.data;
@@ -122,8 +122,8 @@ function USOptions() {
       if (shouldRefresh) {
         console.log(`Fetching fresh data for ${tickerUpper} (date: ${dateStr}) from Vercel API...`);
         
-        const apiUrl = `/api/options/${tickerUpper}${dateStr ? `?date=${dateStr}` : ''}`;
-        const response = await fetch(apiUrl);
+        const apiUrl = `/api/options/${tickerUpper}?t=${Date.now()}${dateStr ? `&date=${dateStr}` : ''}`;
+        const response = await fetch(apiUrl, { cache: 'no-store' });
         
         if (!response.ok) {
           throw new Error('Failed to fetch from Vercel API');
@@ -400,30 +400,43 @@ function USOptions() {
             </div>
           </div>
 
-          {ticker && (
-            <div style={{ minWidth: '250px' }}>
+          {ticker && expirationDates.length > 0 && (
+            <div style={{ flex: '1 1 100%' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#8b9eb3', fontWeight: '600' }}>تاريخ انتهاء العقد (Expiration)</label>
-              <select 
-                value={selectedDate} 
-                onChange={(e) => handleDateChange(e.target.value)}
+              <div 
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-blue)',
-                  background: 'var(--dark-navy)',
-                  color: 'white',
-                  fontWeight: '600',
-                  outline: 'none',
-                  cursor: 'pointer'
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '8px',
+                  scrollbarWidth: 'thin',
+                  WebkitOverflowScrolling: 'touch'
                 }}
+                className="custom-ticker-scroll"
               >
                 {expirationDates.map((date) => (
-                  <option key={date} value={date}>
-                    {new Date(date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </option>
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => handleDateChange(date)}
+                    style={{
+                      padding: '8px 16px',
+                      background: selectedDate === date ? 'var(--primary-blue)' : 'rgba(255, 255, 255, 0.05)',
+                      border: selectedDate === date ? '1px solid var(--primary-blue)' : '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      color: selectedDate === date ? '#07111f' : 'white',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.9rem',
+                      transition: 'all 0.2s',
+                      boxShadow: selectedDate === date ? '0 4px 15px rgba(0, 210, 255, 0.3)' : 'none'
+                    }}
+                  >
+                    {new Date(date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 
@@ -487,28 +500,38 @@ function USOptions() {
               <div style={{ background: 'rgba(0, 200, 83, 0.1)', padding: '15px 20px', borderBottom: '1px solid rgba(0, 200, 83, 0.3)', display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, color: '#00c853', fontWeight: 'bold' }}>عقود الشراء (Calls 🟢)</h3>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-blue)', background: 'rgba(255,255,255,0.02)' }}>
-                      <th style={{ padding: '12px' }}>سعر التنفيذ (Strike)</th>
-                      <th style={{ padding: '12px' }}>آخر سعر (Last)</th>
-                      <th style={{ padding: '12px' }}>الحجم (Vol)</th>
-                      <th style={{ padding: '12px' }}>العقود المفتوحة (OI)</th>
+              <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto', scrollbarWidth: 'thin' }} className="custom-ticker-scroll">
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--dark-navy)' }}>
+                    <tr style={{ borderBottom: '1px solid var(--border-blue)' }}>
+                      <th style={{ padding: '12px 8px' }}>Strike</th>
+                      <th style={{ padding: '12px 8px' }}>Bid</th>
+                      <th style={{ padding: '12px 8px' }}>Ask</th>
+                      <th style={{ padding: '12px 8px' }}>Last</th>
+                      <th style={{ padding: '12px 8px' }}>Vol</th>
+                      <th style={{ padding: '12px 8px' }}>OI</th>
+                      <th style={{ padding: '12px 8px' }}>IV</th>
                     </tr>
                   </thead>
                   <tbody>
                     {calls.length === 0 ? (
                       <tr>
-                        <td colSpan="4" style={{ padding: '20px', color: '#8b9eb3' }}>لا توجد بيانات عقود شراء متوفرة.</td>
+                        <td colSpan="7" style={{ padding: '30px', color: '#8b9eb3' }}>لا توجد بيانات عقود شراء متوفرة.</td>
                       </tr>
                     ) : (
-                      calls.slice(0, 15).map((opt, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid rgba(19, 48, 78, 0.5)', transition: 'background 0.2s' }} className="table-row-hover">
-                          <td style={{ padding: '12px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
-                          <td style={{ padding: '12px', color: 'white' }}>${opt.lastPrice?.toFixed(2) || '0.00'}</td>
-                          <td style={{ padding: '12px', color: '#8b9eb3' }}>{opt.volume || '0'}</td>
-                          <td style={{ padding: '12px', color: '#8b9eb3' }}>{opt.openInterest || '0'}</td>
+                      calls.map((opt, idx) => (
+                        <tr key={idx} style={{ 
+                          borderBottom: '1px solid rgba(19, 48, 78, 0.5)', 
+                          transition: 'background 0.2s',
+                          background: opt.inTheMoney ? 'rgba(0, 200, 83, 0.05)' : 'transparent'
+                        }} className="table-row-hover">
+                          <td style={{ padding: '10px 8px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.bid?.toFixed(2) || '-'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.ask?.toFixed(2) || '-'}</td>
+                          <td style={{ padding: '10px 8px', color: 'white', fontWeight: 'bold' }}>${opt.lastPrice?.toFixed(2) || '0.00'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.volume || '0'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.openInterest || '0'}</td>
+                          <td style={{ padding: '10px 8px', color: '#e2a300' }}>{opt.impliedVolatility ? (opt.impliedVolatility * 100).toFixed(1) + '%' : '-'}</td>
                         </tr>
                       ))
                     )}
@@ -522,28 +545,38 @@ function USOptions() {
               <div style={{ background: 'rgba(213, 0, 0, 0.1)', padding: '15px 20px', borderBottom: '1px solid rgba(213, 0, 0, 0.3)', display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, color: '#d50000', fontWeight: 'bold' }}>عقود البيع (Puts 🔴)</h3>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-blue)', background: 'rgba(255,255,255,0.02)' }}>
-                      <th style={{ padding: '12px' }}>سعر التنفيذ (Strike)</th>
-                      <th style={{ padding: '12px' }}>آخر سعر (Last)</th>
-                      <th style={{ padding: '12px' }}>الحجم (Vol)</th>
-                      <th style={{ padding: '12px' }}>العقود المفتوحة (OI)</th>
+              <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto', scrollbarWidth: 'thin' }} className="custom-ticker-scroll">
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--dark-navy)' }}>
+                    <tr style={{ borderBottom: '1px solid var(--border-blue)' }}>
+                      <th style={{ padding: '12px 8px' }}>Strike</th>
+                      <th style={{ padding: '12px 8px' }}>Bid</th>
+                      <th style={{ padding: '12px 8px' }}>Ask</th>
+                      <th style={{ padding: '12px 8px' }}>Last</th>
+                      <th style={{ padding: '12px 8px' }}>Vol</th>
+                      <th style={{ padding: '12px 8px' }}>OI</th>
+                      <th style={{ padding: '12px 8px' }}>IV</th>
                     </tr>
                   </thead>
                   <tbody>
                     {puts.length === 0 ? (
                       <tr>
-                        <td colSpan="4" style={{ padding: '20px', color: '#8b9eb3' }}>لا توجد بيانات عقود بيع متوفرة.</td>
+                        <td colSpan="7" style={{ padding: '30px', color: '#8b9eb3' }}>لا توجد بيانات عقود بيع متوفرة.</td>
                       </tr>
                     ) : (
-                      puts.slice(0, 15).map((opt, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid rgba(19, 48, 78, 0.5)', transition: 'background 0.2s' }} className="table-row-hover">
-                          <td style={{ padding: '12px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
-                          <td style={{ padding: '12px', color: 'white' }}>${opt.lastPrice?.toFixed(2) || '0.00'}</td>
-                          <td style={{ padding: '12px', color: '#8b9eb3' }}>{opt.volume || '0'}</td>
-                          <td style={{ padding: '12px', color: '#8b9eb3' }}>{opt.openInterest || '0'}</td>
+                      puts.map((opt, idx) => (
+                        <tr key={idx} style={{ 
+                          borderBottom: '1px solid rgba(19, 48, 78, 0.5)', 
+                          transition: 'background 0.2s',
+                          background: opt.inTheMoney ? 'rgba(213, 0, 0, 0.05)' : 'transparent'
+                        }} className="table-row-hover">
+                          <td style={{ padding: '10px 8px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.bid?.toFixed(2) || '-'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.ask?.toFixed(2) || '-'}</td>
+                          <td style={{ padding: '10px 8px', color: 'white', fontWeight: 'bold' }}>${opt.lastPrice?.toFixed(2) || '0.00'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.volume || '0'}</td>
+                          <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.openInterest || '0'}</td>
+                          <td style={{ padding: '10px 8px', color: '#e2a300' }}>{opt.impliedVolatility ? (opt.impliedVolatility * 100).toFixed(1) + '%' : '-'}</td>
                         </tr>
                       ))
                     )}
