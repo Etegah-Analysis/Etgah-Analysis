@@ -996,8 +996,8 @@ export default function Inbox() {
             <img src="/logo.jpg" alt="Etegah Logo" className="w-9 h-9 rounded-full object-cover border border-white/30 shadow-md shrink-0" />
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold text-white text-xs truncate max-w-[90px] sm:max-w-[120px]" dir="ltr">
-                  {currentUser?.email?.split('@')[0]}
+                <span className="font-bold text-white text-xs truncate max-w-[120px]" dir="ltr">
+                  {isAdmin ? 'etegah-analysis' : (userProfile?.username || currentUser?.email?.split('@')[0])}
                 </span>
                 {isAdmin ? (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm shrink-0 flex items-center gap-0.5">

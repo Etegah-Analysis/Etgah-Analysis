@@ -47,7 +47,25 @@ const Dashboard = () => {
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [errorEdit, setErrorEdit] = useState('');
 
-  const navigate = useNavigate();
+  const openAddEmployeeModal = () => {
+    setNewEmpName('');
+    setNewEmpCode('');
+    setNewEmpUsername('');
+    setNewEmpPassword('');
+    setNewEmpJobTitle('Agent');
+    setErrorAdd('');
+    setIsAddEmployeeOpen(true);
+  };
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
 
   React.useEffect(() => {
     document.title = 'منصة اتجاه | خدمة العملاء';
@@ -493,7 +511,7 @@ const Dashboard = () => {
         className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-10 px-4 md:px-6 py-3.5 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top bar on mobile / Title & mobile actions */}
+        {/* Top bar / Title & Mobile Actions */}
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-base sm:text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-2 whitespace-nowrap">
             <span>📊</span>
@@ -503,7 +521,7 @@ const Dashboard = () => {
           {/* Mobile action buttons inline with title */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
             <button 
-              onClick={() => setIsAddEmployeeOpen(true)}
+              onClick={openAddEmployeeModal}
               className="flex items-center bg-primary text-white p-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-xs"
               title="إضافة موظف"
             >
@@ -519,12 +537,15 @@ const Dashboard = () => {
           </div>
         </div>
 
-
-
-        {/* Desktop Action Buttons */}
+        {/* Desktop Action Buttons & User Badge */}
         <div className="hidden md:flex items-center space-x-3 space-x-reverse shrink-0">
+          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm shrink-0">
+            <img src="/logo.jpg" alt="Logo" className="w-5 h-5 rounded-full object-cover" />
+            <span className="text-xs font-bold text-gray-700" dir="ltr">etegah-analysis</span>
+            <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">👑 أدمن</span>
+          </div>
           <button 
-            onClick={() => setIsAddEmployeeOpen(true)}
+            onClick={openAddEmployeeModal}
             className="flex items-center bg-primary text-white px-4 py-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-sm"
           >
             <UserPlus size={18} className="mr-2" /> إضافة موظف
@@ -1564,12 +1585,13 @@ const Dashboard = () => {
                 </div>
               )}
 
-              <form onSubmit={handleAddEmployee} className="space-y-4">
+              <form onSubmit={handleAddEmployee} className="space-y-4" autoComplete="off">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
                   <input 
                     type="text" 
                     required
+                    autoComplete="off"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
                     value={newEmpName}
                     onChange={(e) => setNewEmpName(e.target.value)}
@@ -1580,6 +1602,7 @@ const Dashboard = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">كود الموظف</label>
                   <input 
                     type="text" 
+                    autoComplete="off"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-mono text-left"
                     value={newEmpCode}
                     onChange={(e) => setNewEmpCode(e.target.value)}
@@ -1603,6 +1626,7 @@ const Dashboard = () => {
                   <input 
                     type="text" 
                     required
+                    autoComplete="new-username"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
                     value={newEmpUsername}
                     onChange={(e) => setNewEmpUsername(e.target.value)}
@@ -1616,6 +1640,7 @@ const Dashboard = () => {
                     type="password" 
                     required
                     minLength={6}
+                    autoComplete="new-password"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
                     value={newEmpPassword}
                     onChange={(e) => setNewEmpPassword(e.target.value)}
