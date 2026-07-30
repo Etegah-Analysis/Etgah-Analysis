@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search } from 'lucide-react';
-import { db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp } from '../firebase';
-import { getAuth, signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
+import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp } from '../firebase';
+import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'customers' or 'employees'
@@ -70,7 +70,6 @@ const Dashboard = () => {
   React.useEffect(() => {
     document.title = 'منصة اتجاه | خدمة العملاء';
   }, []);
-  const auth = getAuth();
   
   // Protect route
   useEffect(() => {
