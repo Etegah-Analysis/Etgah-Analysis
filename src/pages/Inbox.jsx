@@ -190,12 +190,6 @@ export default function Inbox() {
       return `${displayName}${title}`;
     }
 
-    if (userProfile && (userProfile.email?.toLowerCase().trim() === cleanSender || userProfile.email?.split('@')[0]?.toLowerCase().trim() === cleanSender.split('@')[0])) {
-      const name = userProfile.username || userProfile.name || senderEmail.split('@')[0];
-      const title = ` (${formatJobTitle(userProfile.jobTitle)})`;
-      return `${name}${title}`;
-    }
-
     return senderEmail.split('@')[0];
   };
 
@@ -1004,8 +998,8 @@ export default function Inbox() {
                     👑 أدمن
                   </span>
                 ) : (
-                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm shrink-0 ${userProfile?.jobTitle === 'Leader' ? 'bg-gradient-to-r from-amber-500 to-purple-600 text-white' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}`}>
-                    {userProfile?.jobTitle === 'Leader' ? '👑 Leader' : (userProfile?.jobTitle || 'Agent')}
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    Agent
                   </span>
                 )}
                 {/* Logout Button right next to Admin / Employee badge */}
