@@ -6,6 +6,7 @@ import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebas
 import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'customers' or 'employees'
   const [analyticsDetail, setAnalyticsDetail] = useState(null); // 'assigned', 'unread', 'zero' or null
   const [customerFilter, setCustomerFilter] = useState('all');
