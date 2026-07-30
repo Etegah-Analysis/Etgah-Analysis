@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
+import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'customers' or 'employees'
@@ -71,16 +72,13 @@ const Dashboard = () => {
     document.title = 'منصة اتجاه | خدمة العملاء';
   }, []);
   
-  // Protect route
+  // Protect route for Admin
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
-      if (!user || !adminEmails.includes(user.email?.toLowerCase())) {
-        navigate('/');
-      }
-    });
-    return unsubscribe;
-  }, [navigate, auth]);
+    const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
+    if (auth.currentUser && !adminEmails.includes(auth.currentUser.email?.toLowerCase())) {
+      navigate('/inbox');
+    }
+  }, [navigate]);
 
   const currentUser = auth.currentUser;
 
