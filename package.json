@@ -21,6 +21,7 @@
     "react-router-dom": "^7.18.1",
     "tailwindcss": "^4.3.3",
     "twilio": "^6.0.2",
+    "xlsx": "^0.18.5",
     "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {

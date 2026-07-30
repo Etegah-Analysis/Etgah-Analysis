@@ -5,9 +5,9 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs39uG2HkGiEvdwemeVKCCExFM7VqkFwQ",
-  authDomain: "etegah.firebaseapp.com",
-  projectId: "etegah",
-  storageBucket: "etegah.appspot.com",
+  authDomain: "etegah-dafe5.firebaseapp.com",
+  projectId: "etegah-dafe5",
+  storageBucket: "etegah-dafe5.firebasestorage.app",
   messagingSenderId: "488142699033",
   appId: "1:488142699033:web:0419243d5b2e0f4f388888",
   measurementId: "G-GHFS51Z1J7"

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Register({ lang }) {
   const [countryCode, setCountryCode] = useState('+966');
+  const [phone, setPhone] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [verificationStep, setVerificationStep] = useState(false);
   const [otp, setOtp] = useState('');
@@ -12,6 +13,39 @@ export default function Register({ lang }) {
   const [docRefId, setDocRefId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // التعرف التلقائي الذكي على رمز الدولة لزوار الويب سايت
+  const handlePhoneInputChange = (val) => {
+    let cleanVal = val.trim();
+    
+    if (cleanVal.startsWith('+20') || cleanVal.startsWith('20')) {
+      setCountryCode('+20');
+      cleanVal = cleanVal.replace(/^\+?20/, '');
+    } else if (cleanVal.startsWith('+966') || cleanVal.startsWith('966')) {
+      setCountryCode('+966');
+      cleanVal = cleanVal.replace(/^\+?966/, '');
+    } else if (cleanVal.startsWith('+971') || cleanVal.startsWith('971')) {
+      setCountryCode('+971');
+      cleanVal = cleanVal.replace(/^\+?971/, '');
+    } else if (cleanVal.startsWith('+1') && cleanVal.length > 5) {
+      setCountryCode('+1');
+      cleanVal = cleanVal.replace(/^\+?1/, '');
+    } else if (/^0?1[0125]/.test(cleanVal)) {
+      // مصر (010, 011, 012, 015)
+      setCountryCode('+20');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    } else if (/^0?5[0-9]/.test(cleanVal) && cleanVal.length <= 10) {
+      // السعودية (05x)
+      setCountryCode('+966');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    } else if (/^0?5[024568]/.test(cleanVal) && cleanVal.length === 9) {
+      // الإمارات (050, 052, 054, 055, 056, 058)
+      setCountryCode('+971');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    }
+
+    setPhone(cleanVal);
+  };
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -64,29 +98,39 @@ export default function Register({ lang }) {
     if (isLoading) return;
     setIsLoading(true);
     const formData = new FormData(e.target);
-    let phone = formData.get('phone').trim();
+    let cleanPhone = (phone || formData.get('phone') || '').trim();
     const email = formData.get('email');
     
     // Auto-cleanup: remove leading zero if they typed it
-    if (countryCode === '+966' && phone.startsWith('0')) {
-      phone = phone.substring(1);
-    } else if (countryCode === '+20' && phone.startsWith('0')) {
-      phone = phone.substring(1);
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.substring(1);
     }
     
-    if (countryCode === '+966' && !/^5[0-9]{8}$/.test(phone)) {
+    if (countryCode === '+966' && !/^5[0-9]{8}$/.test(cleanPhone)) {
       alert('فشل التسجيل: رقم الجوال السعودي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام. يرجى التأكد من اختيار كود الدولة الصحيح.');
+      setIsLoading(false);
       return;
     }
-    if (countryCode === '+20' && !/^1[0-9]{9}$/.test(phone)) {
+    if (countryCode === '+20' && !/^1[0-9]{9}$/.test(cleanPhone)) {
       alert('فشل التسجيل: رقم الهاتف المصري يجب أن يبدأ برقم 1 ويتكون من 10 أرقام (مثال: 1XXXXXXXX). يرجى التأكد من اختيار كود الدولة الصحيح.');
+      setIsLoading(false);
+      return;
+    }
+    if (countryCode === '+971' && !/^5[0-9]{8}$/.test(cleanPhone)) {
+      alert('فشل التسجيل: رقم الهاتف الإماراتي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام (مثال: 5XXXXXXXX).');
+      setIsLoading(false);
+      return;
+    }
+    if (countryCode === '+1' && !/^[2-9][0-9]{9}$/.test(cleanPhone)) {
+      alert('فشل التسجيل: يرجى كتابة الرقم الأمريكي من 10 أرقام.');
+      setIsLoading(false);
       return;
     }
 
     const newUser = {
       name: formData.get('name'),
       email: email,
-      phone: phone,
+      phone: cleanPhone,
       country: countryCode,
       date: new Date().toLocaleString('ar-EG'),
       timestamp: new Date()
@@ -99,50 +143,24 @@ export default function Register({ lang }) {
       const userCount = snapshotCount.data().count;
       newUser.sequenceNumber = userCount + 1;
 
-      const emailQuery = query(collection(db, 'users'), where('email', '==', newUser.email));
-      const phoneQuery = query(collection(db, 'users'), where('phone', '==', newUser.phone));
+      // 1. Check if user already exists with this phone number
+      const qPhone = query(collection(db, 'users'), where('phone', '==', newUser.phone), where('country', '==', newUser.country));
+      const querySnap = await getDocs(qPhone);
       
-      const [emailSnapshot, phoneSnapshot] = await Promise.all([
-        getDocs(emailQuery),
-        getDocs(phoneQuery)
-      ]);
-
       let loggedInUser = newUser;
       let willUpdate = false;
       let existingDocId = null;
 
-      if (!emailSnapshot.empty) {
-        const docSnap = emailSnapshot.docs[0];
-        const existingUser = docSnap.data();
-        const p1 = existingUser.phone.toString().trim();
-        const p2 = newUser.phone.toString().trim();
-        
-        if (p1 === p2 || p1.includes(p2) || p2.includes(p1) || p1.slice(0, 8) === p2.slice(0, 8)) {
-          existingUser.phone = newUser.phone;
-          existingUser.country = newUser.country;
-          existingUser.name = newUser.name;
-          
-          willUpdate = true;
-          existingDocId = docSnap.id;
-          loggedInUser = existingUser;
-        } else {
-          alert('هذا البريد الإلكتروني مسجل مسبقاً لدينا برقم هاتف آخر.');
-          setIsLoading(false);
-          return;
-        }
-      } else if (!phoneSnapshot.empty) {
-        const docSnap = phoneSnapshot.docs[0];
-        const existingUser = docSnap.data();
-        if (existingUser.email.trim().toLowerCase() === newUser.email.trim().toLowerCase()) {
-          loggedInUser = existingUser;
-        } else {
-          alert('رقم الهاتف هذا مسجل مسبقاً لدينا ببريد إلكتروني آخر.');
-          setIsLoading(false);
-          return;
-        }
+      if (!querySnap.empty) {
+        // Phone already registered
+        const existingDoc = querySnap.docs[0];
+        existingDocId = existingDoc.id;
+        const existingData = existingDoc.data();
+        loggedInUser = { ...existingData, name: newUser.name };
+        willUpdate = true;
       }
 
-      // Instead of writing to Firebase immediately, we send OTP
+      // Send OTP via SMS
       const response = await fetch('https://etegah-whatsapp-api.vercel.app/api/sendOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,7 +192,7 @@ export default function Register({ lang }) {
     <div className="register-page container flex items-center justify-center" style={{ minHeight: '70vh' }}>
       <div className="card glass" style={{ width: '100%', maxWidth: '500px' }}>
         <h2 className="text-center" style={{ marginBottom: '2rem' }}>
-          {verificationStep ? "تأكيد كود التحقق 🔒" : "إنشاء حساب جديد"}
+          {verificationStep ? "تأكيد كود التحقق 🔒" : "تسجيل الدخول للمنصة"}
         </h2>
         
         {successMsg && (
@@ -211,14 +229,13 @@ export default function Register({ lang }) {
 
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                البريد الإلكتروني (مطلوب)
+                البريد الإلكتروني (اختياري)
               </label>
               <input 
                 name="email"
                 type="email" 
                 placeholder="أدخل بريدك الإلكتروني"
                 style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-blue)', background: 'var(--dark-navy)', color: 'white' }}
-                required 
                 disabled={isLoading}
               />
             </div>
@@ -240,16 +257,26 @@ export default function Register({ lang }) {
                     borderRadius: '6px 0 0 6px',
                     color: 'white',
                     outline: 'none',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold'
                   }}
                 >
-                  <option value="+966">🇸🇦 +966</option>
-                  <option value="+20">🇪🇬 +20</option>
+                  <option value="+966">SA +966 🇸🇦</option>
+                  <option value="+20">EG +20 🇪🇬</option>
+                  <option value="+971">AE +971 🇦🇪</option>
+                  <option value="+1">US +1 🇺🇸</option>
                 </select>
                 <input 
                   name="phone"
                   type="tel" 
-                  placeholder={countryCode === '+966' ? "5XXXXXXXX" : "1XXXXXXXX"}
+                  value={phone}
+                  onChange={(e) => handlePhoneInputChange(e.target.value)}
+                  placeholder={
+                    countryCode === '+966' ? "5XXXXXXXX" : 
+                    countryCode === '+20' ? "1XXXXXXXX" : 
+                    countryCode === '+971' ? "5XXXXXXXX" : "XXXXXXXXXX"
+                  }
                   disabled={isLoading}
                   style={{ 
                     flex: 1, 
@@ -258,16 +285,12 @@ export default function Register({ lang }) {
                     border: '1px solid var(--border-blue)', 
                     background: 'var(--dark-navy)', 
                     color: 'white',
-                    outline: 'none'
+                    outline: 'none',
+                    fontWeight: 'bold'
                   }}
                   required 
                 />
               </div>
-              {countryCode === '+20' && (
-                <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)', direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
-                  أدخل رقم الهاتف بدون الصفر بالبداية (مثال: 10XXXXX)
-                </small>
-              )}
             </div>
 
             <button type="submit" disabled={isLoading} className="button primary" style={{ width: '100%', padding: '12px', fontSize: '1.1rem', marginTop: '1rem', opacity: isLoading ? 0.7 : 1 }}>

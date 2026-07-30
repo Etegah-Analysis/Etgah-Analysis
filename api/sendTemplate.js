@@ -43,60 +43,57 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { to, text, mediaUrl, fileType, fileName, contextMessageId } = req.body;
+    const { to, templateName, languageCode = 'ar_EG' } = req.body;
     
-    console.log(`Attempting to send message to ${to}...`);
-    
+    if (!to || !templateName) {
+      return res.status(400).json({ success: false, message: 'Missing "to" or "templateName"' });
+    }
+
     const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
     const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
-    if (WHATSAPP_TOKEN && WHATSAPP_PHONE_NUMBER_ID && to) {
+    if (WHATSAPP_TOKEN && WHATSAPP_PHONE_NUMBER_ID) {
       let toNumber = to.replace('+', '').trim();
       
-      const payload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: toNumber,
+      const sendMetaTemplate = async (lang) => {
+        const payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: toNumber,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: lang }
+          }
+        };
+
+        const resp = await fetch(`https://graph.facebook.com/v17.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        return { ok: resp.ok, status: resp.status, data: await resp.json() };
       };
 
-      if (contextMessageId) {
-        payload.context = { message_id: contextMessageId };
-      }
+      // First attempt with passed language code (e.g. ar_EG or ar)
+      let result = await sendMetaTemplate(languageCode);
 
-      if (mediaUrl) {
-        if (fileType && fileType.includes('image')) {
-          payload.type = 'image';
-          payload.image = { link: mediaUrl };
-        } else if (fileType && fileType.includes('video')) {
-          payload.type = 'video';
-          payload.video = { link: mediaUrl };
-        } else if (fileType && fileType.includes('audio')) {
-          payload.type = 'audio';
-          payload.audio = { link: mediaUrl };
-        } else {
-          payload.type = 'document';
-          payload.document = { link: mediaUrl, filename: fileName || 'مرفق' };
+      // If failed due to language code mismatch, fallback to 'ar' or 'ar_EG'
+      if (!result.ok && (languageCode === 'ar_EG' || languageCode === 'ar')) {
+        const fallbackLang = languageCode === 'ar_EG' ? 'ar' : 'ar_EG';
+        const fallbackResult = await sendMetaTemplate(fallbackLang);
+        if (fallbackResult.ok) {
+          result = fallbackResult;
         }
-      } else {
-        payload.type = 'text';
-        payload.text = { body: text || '' };
       }
 
-      const response = await fetch(`https://graph.facebook.com/v17.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const rawErrMsg = data.error?.message || data.error?.error_user_msg || 'Unknown error';
+      if (!result.ok) {
+        const rawErrMsg = result.data?.error?.message || result.data?.error?.error_user_msg || 'Unknown error';
         const arabicMsg = translateMetaError(rawErrMsg);
-        console.error('Meta WhatsApp sending failed:', data);
+        console.error('Meta WhatsApp template sending failed:', result.data);
         return res.status(500).json({
           success: false,
           message: arabicMsg,
@@ -104,27 +101,24 @@ export default async function handler(req, res) {
         });
       }
 
-      console.log(`WhatsApp Message Sent successfully via Meta! Message ID: ${data.messages?.[0]?.id}`);
-      
       res.status(200).json({
         success: true,
-        message: 'تم إرسال الرسالة بنجاح',
-        metaMessageId: data.messages?.[0]?.id,
+        message: 'تم إرسال القالب بنجاح',
+        metaMessageId: result.data.messages?.[0]?.id,
         simulated: false
       });
     } else {
-      console.log(`Missing Env Vars! Simulated message to ${to}: ${text}`);
       res.status(200).json({
         success: true,
-        message: 'تم حفظ الرسالة (بدون إرسال حقيقي لعدم وجود توكن)',
+        message: 'تم حفظ الرسالة (بدون توكن ميتا)',
         simulated: true
       });
     }
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error sending template:', error);
     res.status(500).json({
       success: false,
-      message: 'فشل إرسال الرسالة',
+      message: 'فشل إرسال القالب',
       error: translateMetaError(error.message)
     });
   }

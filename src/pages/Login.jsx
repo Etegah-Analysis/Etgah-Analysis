@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db, doc, updateDoc, getDoc, serverTimestamp } from '../firebase';
+import { auth, db, doc, updateDoc, getDoc, serverTimestamp, collection, getDocs } from '../firebase';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Users, Eye, EyeOff } from 'lucide-react';
@@ -25,37 +25,117 @@ export default function Login() {
     setResetMessage('');
     
     try {
-      const emailToLogin = loginType === 'admin' 
-        ? identifier 
-        : (identifier.includes('@') ? identifier : `${identifier.trim()}@etegah.com`);
-        
-      const userCred = await signInWithEmailAndPassword(auth, emailToLogin, password);
-      
-      // Update first/last login dates
-      const userRef = doc(db, 'users', userCred.user.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        if (data.isActive === false) {
-           await signOut(auth);
-           throw new Error('ACCOUNT_DISABLED');
+      const rawInput = identifier.trim();
+      const safeInput = rawInput.replace(/\s+/g, '').toLowerCase();
+
+      const candidateEmails = [];
+
+      if (loginType === 'admin') {
+        if (rawInput.includes('@')) {
+          candidateEmails.push(rawInput.toLowerCase());
         }
-        const updates = { lastLoginAt: serverTimestamp() };
-        if (!data.firstLoginAt) updates.firstLoginAt = serverTimestamp();
-        await updateDoc(userRef, updates);
+        candidateEmails.push('mohamed.gamal.work0@gmail.com');
+        candidateEmails.push('etegahanalysis@gmail.com');
+        candidateEmails.push(`${safeInput}@etegah.com`);
+        candidateEmails.push('admin@etegah.com');
+      } else {
+        // Employee Login
+        try {
+          const usersSnap = await getDocs(collection(db, 'users'));
+          usersSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            const dbUsername = (data.username || '').trim().toLowerCase();
+            const dbUsernameClean = dbUsername.replace(/\s+/g, '');
+            const dbName = (data.name || '').trim().toLowerCase();
+            const dbNameClean = dbName.replace(/\s+/g, '');
+            const dbEmail = (data.email || '').trim().toLowerCase();
+
+            if (
+              dbUsername === rawInput.toLowerCase() ||
+              dbUsernameClean === safeInput ||
+              dbName === rawInput.toLowerCase() ||
+              dbNameClean === safeInput ||
+              dbEmail === rawInput.toLowerCase() ||
+              dbEmail === `${safeInput}@etegah.com`
+            ) {
+              if (data.email && !candidateEmails.includes(data.email.toLowerCase())) {
+                candidateEmails.push(data.email.toLowerCase());
+              }
+            }
+          });
+        } catch (dbErr) {
+          console.warn('Firestore lookup skipped/fallback:', dbErr);
+        }
+
+        const defaultDomainEmail = `${safeInput}@etegah.com`;
+        if (!candidateEmails.includes(defaultDomainEmail)) candidateEmails.push(defaultDomainEmail);
+        if (rawInput.includes('@') && !candidateEmails.includes(rawInput.toLowerCase())) {
+          candidateEmails.push(rawInput.toLowerCase());
+        }
+        
+        // Handle common typo variations e.g. saed vs sayed
+        if (safeInput.includes('saed')) {
+          const fixedSayed = safeInput.replace('saed', 'sayed') + '@etegah.com';
+          if (!candidateEmails.includes(fixedSayed)) candidateEmails.push(fixedSayed);
+        }
       }
-      
+
+      let userCred = null;
+      let lastAuthError = null;
+
+      for (const emailToTry of candidateEmails) {
+        try {
+          userCred = await signInWithEmailAndPassword(auth, emailToTry, password);
+          if (userCred) break;
+        } catch (authErr) {
+          lastAuthError = authErr;
+        }
+      }
+
+      if (!userCred) {
+        if (lastAuthError) throw lastAuthError;
+        throw new Error('INVALID_CREDENTIALS');
+      }
+
+      // Check account active status & update lastLoginAt safely without failing login
+      try {
+        const userRef = doc(db, 'users', userCred.user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          if (data.isActive === false) {
+             await signOut(auth);
+             setError('عذراً، هذا الحساب موقوف من قبل الإدارة.');
+             setLoading(false);
+             return;
+          }
+          const updates = { lastLoginAt: serverTimestamp() };
+          if (!data.firstLoginAt) updates.firstLoginAt = serverTimestamp();
+          await updateDoc(userRef, updates).catch(e => console.warn('Could not update lastLoginAt:', e));
+        }
+      } catch (metaErr) {
+        console.warn('User profile check warning:', metaErr);
+      }
+
+      // Navigate to destination
       if (loginType === 'admin') {
         navigate('/dashboard');
       } else {
         navigate('/inbox');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Login error:', err);
+      const code = err.code || '';
       if (err.message === 'ACCOUNT_DISABLED') {
          setError('عذراً، هذا الحساب موقوف من قبل الإدارة.');
+      } else if (code === 'auth/wrong-password') {
+         setError('كلمة المرور غير صحيحة. يرجى التأكد من كتابة كلمة المرور بالشكل الصحيح.');
+      } else if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+         setError('بيانات الدخول غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور.');
+      } else if (code === 'auth/too-many-requests') {
+         setError('تم حظر محاولات الدخول مؤقتاً بسبب تكرار المحاولات الخاطئة. يرجى الانتظار دقيقة ثم المحاولة مجدداً.');
       } else {
-         setError('بيانات الدخول غير صحيحة');
+         setError('بيانات الدخول غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور.');
       }
     } finally {
       setLoading(false);
@@ -63,19 +143,18 @@ export default function Login() {
   };
 
   const handleResetPassword = async () => {
-    if (!identifier || !identifier.includes('@')) {
-      setError('الرجاء كتابة البريد الإلكتروني (الخاص بالإدارة) في الأعلى أولاً لنرسل لك رابط التغيير.');
-      setResetMessage('');
-      return;
+    let targetEmail = (identifier || '').trim();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      targetEmail = 'mohamed.gamal.work0@gmail.com';
     }
     try {
       setLoading(true);
       setError('');
-      await sendPasswordResetEmail(auth, identifier);
-      setResetMessage('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني بنجاح!');
+      await sendPasswordResetEmail(auth, targetEmail);
+      setResetMessage(`تم إرسال رابط تغيير كلمة المرور إلى البريد الإلكتروني (${targetEmail}) بنجاح!`);
     } catch (err) {
       console.error(err);
-      setError('حدث خطأ. تأكد من أن البريد الإلكتروني مكتوب بشكل صحيح ومسجل لدينا كمسؤول.');
+      setError('حدث خطأ أثناء إرسال رابط كلمة المرور. تأكد من صحة البريد الإلكتروني.');
       setResetMessage('');
     } finally {
       setLoading(false);
@@ -126,15 +205,15 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {loginType === 'admin' ? 'البريد الإلكتروني للإدارة' : 'اسم المستخدم (الموظف)'}
+              {loginType === 'admin' ? 'اسم المستخدم للإدارة' : 'اسم المستخدم (الموظف)'}
             </label>
             <input 
-              type={loginType === 'admin' ? 'email' : 'text'} 
+              type="text" 
               required
               className="w-full px-4 py-2 border border-gray-300 bg-white/70 focus:bg-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder={loginType === 'admin' ? 'admin@etegah.com' : 'مثال: ahmed'}
+              placeholder={loginType === 'admin' ? 'admin' : 'مثال: ahmed'}
               dir="ltr"
             />
           </div>
