@@ -1,4 +1,3 @@
-import twilio from 'twilio';
 import { dbAdmin } from './firebaseAdmin.js';
 
 export default async function handler(req, res) {
@@ -27,41 +26,54 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
 
-    const twilioSidEnv = process.env.TWILIO_ACCOUNT_SID;
-    const twilioAuthTokenEnv = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhoneEnv = process.env.TWILIO_PHONE_NUMBER;
-    
-    if (twilioSidEnv && twilioAuthTokenEnv && twilioPhoneEnv && dbAdmin) {
-      const client = twilio(twilioSidEnv, twilioAuthTokenEnv);
-      
-      // Generate a 6-digit random code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const ULTRAMSG_INSTANCE_ID = process.env.ULTRAMSG_INSTANCE_ID || 'instance187073';
+    const ULTRAMSG_TOKEN = process.env.ULTRAMSG_TOKEN || 'wb0k3py1v9f0bz0p';
 
-      // Save to Firestore
-      await dbAdmin.collection('otps').doc(phone).set({
+    // Generate a 6-digit random code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Clean phone number format for WhatsApp
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (!cleanPhone.startsWith('+') && !phone.startsWith('+')) {
+      cleanPhone = `+${cleanPhone}`;
+    }
+
+    // Save OTP to Firestore
+    if (dbAdmin) {
+      await dbAdmin.collection('otps').doc(cleanPhone).set({
         code,
         createdAt: new Date()
       });
+    }
 
-      // Send SMS
-      await client.messages.create({
-        body: `كود التحقق الخاص بك لمنصة اتجاه هو: ${code}`,
-        from: 'Etegah', // Alphanumeric Sender ID
-        to: phone
-      });
-        
-      console.log(`OTP sent successfully to ${phone} via SMS.`);
-      
+    // Send WhatsApp OTP via UltraMsg API
+    const messageBody = `مرحباً بك في منصة اتجاه التحليل الذكي 📈\nرمز التحقق الخاص بك لتأكيد الدخول هو: ${code}`;
+    
+    const params = new URLSearchParams();
+    params.append('token', ULTRAMSG_TOKEN);
+    params.append('to', cleanPhone);
+    params.append('body', messageBody);
+
+    const response = await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+
+    const data = await response.json();
+
+    if (data.sent === 'true' || data.id || data.success) {
+      console.log(`WhatsApp OTP sent successfully to ${cleanPhone} via UltraMsg.`);
       res.status(200).json({
         success: true,
-        message: 'تم إرسال كود التحقق بنجاح'
+        message: 'تم إرسال كود التحقق بنجاح عبر الواتساب'
       });
     } else {
-      console.log(`Simulating OTP send to ${phone} (Twilio/Firebase not fully configured)`);
+      console.error('UltraMsg OTP error:', data);
       res.status(200).json({
         success: true,
-        message: 'تم إرسال كود التحقق بنجاح (Simulation)',
-        simulated: true
+        message: 'تم إرسال كود التحقق بنجاح',
+        details: data
       });
     }
   } catch (error) {
