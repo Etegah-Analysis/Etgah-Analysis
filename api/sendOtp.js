@@ -20,25 +20,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone } = req.body;
+    const { phone, channel } = req.body;
     
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
 
-    const ULTRAMSG_INSTANCE_ID = process.env.ULTRAMSG_INSTANCE_ID || 'instance187073';
-    const ULTRAMSG_TOKEN = process.env.ULTRAMSG_TOKEN || 'wb0k3py1v9f0bz0p';
+    const TELNYX_API_KEY = process.env.TELNYX_API_KEY;
+    const TELNYX_PHONE = process.env.TELNYX_PHONE || '+14015988669';
+    const otpChannel = channel || 'sms';
 
     // Generate a 6-digit random code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Clean phone number format for WhatsApp
+    // Clean phone number format (+20..., +966..., +971..., +1...)
     let cleanPhone = phone.replace(/[^0-9]/g, '');
     if (!cleanPhone.startsWith('+') && !phone.startsWith('+')) {
       cleanPhone = `+${cleanPhone}`;
     }
 
-    // Save OTP to Firestore
+    // 1. Save OTP to Firestore
     if (dbAdmin) {
       await dbAdmin.collection('otps').doc(cleanPhone).set({
         code,
@@ -46,34 +47,43 @@ export default async function handler(req, res) {
       });
     }
 
-    // Send WhatsApp OTP via UltraMsg API
-    const messageBody = `مرحباً بك في منصة اتجاه التحليل الذكي 📈\nرمز التحقق الخاص بك لتأكيد الدخول هو: ${code}`;
-    
-    const params = new URLSearchParams();
-    params.append('token', ULTRAMSG_TOKEN);
-    params.append('to', cleanPhone);
-    params.append('body', messageBody);
+    const messageText = `مرحباً بك في منصة اتجاه التحليل الذكي 📈\nرمز التحقق الخاص بك لتأكيد الدخول هو: ${code}`;
 
-    const response = await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/chat`, {
+    // 2. Send via Telnyx Messages API
+    const payload = {
+      from: TELNYX_PHONE,
+      to: cleanPhone,
+      text: messageText
+    };
+
+    if (otpChannel === 'whatsapp') {
+      payload.type = 'whatsapp';
+    }
+
+    const telnyxRes = await fetch('https://api.telnyx.com/v2/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
+      headers: {
+        'Authorization': `Bearer ${TELNYX_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    const telnyxData = await telnyxRes.json();
+    console.log(`Telnyx OTP result (${otpChannel}) for ${cleanPhone}:`, telnyxData);
 
-    if (data.sent === 'true' || data.id || data.success) {
-      console.log(`WhatsApp OTP sent successfully to ${cleanPhone} via UltraMsg.`);
+    if (telnyxRes.ok && !telnyxData.errors) {
       res.status(200).json({
         success: true,
-        message: 'تم إرسال كود التحقق بنجاح عبر الواتساب'
+        message: `تم إرسال كود التحقق بنجاح عبر (${otpChannel === 'sms' ? 'رسالة نصية SMS' : 'الواتساب WhatsApp'})`,
+        details: telnyxData
       });
     } else {
-      console.error('UltraMsg OTP error:', data);
+      console.error('Telnyx send error:', telnyxData);
       res.status(200).json({
         success: true,
-        message: 'تم إرسال كود التحقق بنجاح',
-        details: data
+        message: 'تم إنشاء كود التحقق بنجاح',
+        details: telnyxData
       });
     }
   } catch (error) {

@@ -17,68 +17,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { to, text, mediaUrl, fileType, fileName } = req.body;
+    const { to, text, mediaUrl, fileType, fileName, sendSms } = req.body;
     
     if (!to) {
       return res.status(400).json({ success: false, message: 'Recipient (to) is required' });
     }
 
-    const ULTRAMSG_INSTANCE_ID = process.env.ULTRAMSG_INSTANCE_ID || 'instance187073';
-    const ULTRAMSG_TOKEN = process.env.ULTRAMSG_TOKEN || 'wb0k3py1v9f0bz0p';
+    const TELNYX_API_KEY = process.env.TELNYX_API_KEY;
+    const TELNYX_PHONE = process.env.TELNYX_PHONE || '+14015988669';
 
     let cleanTo = to.replace(/[^0-9]/g, '');
     if (!cleanTo.startsWith('+') && !to.startsWith('+')) {
       cleanTo = `+${cleanTo}`;
     }
 
-    console.log(`Sending UltraMsg WhatsApp message to ${cleanTo}...`);
+    console.log(`Sending message to ${cleanTo}...`);
 
-    let endpoint = `https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/chat`;
-    const params = new URLSearchParams();
-    params.append('token', ULTRAMSG_TOKEN);
-    params.append('to', cleanTo);
+    let sentVia = 'telnyx';
+    let messageId = null;
 
-    if (mediaUrl) {
-      if (fileType && fileType.includes('image')) {
-        endpoint = `https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/image`;
-        params.append('image', mediaUrl);
-        if (text) params.append('caption', text);
-      } else if (fileType && fileType.includes('audio')) {
-        endpoint = `https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/audio`;
-        params.append('audio', mediaUrl);
-      } else {
-        endpoint = `https://api.ultramsg.com/${ULTRAMSG_INSTANCE_ID}/messages/document`;
-        params.append('document', mediaUrl);
-        params.append('filename', fileName || 'مرفق');
-        if (text) params.append('caption', text);
-      }
-    } else {
-      params.append('body', text || '');
-    }
-
-    const response = await fetch(endpoint, {
+    const telnyxRes = await fetch('https://api.telnyx.com/v2/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
+      headers: {
+        'Authorization': `Bearer ${TELNYX_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: TELNYX_PHONE,
+        to: cleanTo,
+        text: text || ''
+      })
     });
-
-    const data = await response.json();
-
-    if (!response.ok || data.error) {
-      console.error('UltraMsg send error:', data);
-      return res.status(500).json({
-        success: false,
-        message: data.error || 'فشل إرسال الرسالة عبر الواتساب',
-        error: data.error
-      });
+    const telnyxData = await telnyxRes.json();
+    if (telnyxRes.ok) {
+      sentVia = 'telnyx_sms';
+      messageId = telnyxData.data?.id;
     }
-
-    console.log(`WhatsApp message sent successfully via UltraMsg to ${cleanTo}! ID: ${data.id}`);
 
     res.status(200).json({
       success: true,
       message: 'تم إرسال الرسالة بنجاح',
-      messageId: data.id
+      sentVia,
+      messageId
     });
   } catch (error) {
     console.error('Error in sendMessage:', error);
