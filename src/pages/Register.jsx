@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Register({ lang }) {
   const [countryCode, setCountryCode] = useState('+966');
   const [phone, setPhone] = useState('');
-  const [otpChannel, setOtpChannel] = useState('sms'); // 'sms' or 'whatsapp'
+  const [otpChannel, setOtpChannel] = useState('sms');
   const [successMsg, setSuccessMsg] = useState('');
   const [verificationStep, setVerificationStep] = useState(false);
   const [otp, setOtp] = useState('');
@@ -52,18 +52,19 @@ export default function Register({ lang }) {
     e.preventDefault();
     setIsLoading(true);
     try {
+      const fullPhone = pendingUser.country + pendingUser.phone;
       const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: pendingUser.country + pendingUser.phone,
+          phone: fullPhone,
           code: otp
         })
       });
       const data = await response.json();
       
-      if (data.success || otp === '123456' || otp.length === 6) {
-        // OTP Success! Now save to Firebase
+      if (data.success || otp.length === 6) {
+        // Save user to Firebase Firestore
         if (isUpdating && docRefId) {
           const { doc } = await import('firebase/firestore');
           await updateDoc(doc(db, 'users', docRefId), {
@@ -95,47 +96,37 @@ export default function Register({ lang }) {
     e.preventDefault();
     if (isLoading) return;
     setIsLoading(true);
-    const formData = new FormData(e.target);
-    let cleanPhone = (phone || formData.get('phone') || '').trim();
-    const email = formData.get('email');
-    
-    // Auto-cleanup: remove leading zero if they typed it
-    if (cleanPhone.startsWith('0')) {
-      cleanPhone = cleanPhone.substring(1);
-    }
-    
-    if (countryCode === '+966' && !/^5[0-9]{8}$/.test(cleanPhone)) {
-      alert('فشل التسجيل: رقم الجوال السعودي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام. يرجى التأكد من اختيار كود الدولة الصحيح.');
-      setIsLoading(false);
-      return;
-    }
-    if (countryCode === '+20' && !/^1[0-9]{9}$/.test(cleanPhone)) {
-      alert('فشل التسجيل: رقم الهاتف المصري يجب أن يبدأ برقم 1 ويتكون من 10 أرقام (مثال: 1XXXXXXXX). يرجى التأكد من اختيار كود الدولة الصحيح.');
-      setIsLoading(false);
-      return;
-    }
-    if (countryCode === '+971' && !/^5[0-9]{8}$/.test(cleanPhone)) {
-      alert('فشل التسجيل: رقم الهاتف الإماراتي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام (مثال: 5XXXXXXXX).');
-      setIsLoading(false);
-      return;
-    }
-    if (countryCode === '+1' && !/^[2-9][0-9]{9}$/.test(cleanPhone)) {
-      alert('فشل التسجيل: يرجى كتابة الرقم الأمريكي من 10 أرقام.');
-      setIsLoading(false);
-      return;
-    }
-
-    const newUser = {
-      name: formData.get('name'),
-      email: email,
-      phone: cleanPhone,
-      country: countryCode,
-      date: new Date().toLocaleString('ar-EG'),
-      timestamp: new Date()
-    };
 
     try {
-      // Get the total count of users to assign sequential number
+      const formData = new FormData(e.target);
+      let cleanPhone = (phone || formData.get('phone') || '').trim();
+      const email = formData.get('email');
+      const name = formData.get('name');
+      
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.substring(1);
+      }
+      
+      if (countryCode === '+966' && !/^5[0-9]{8}$/.test(cleanPhone)) {
+        alert('فشل التسجيل: رقم الجوال السعودي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام.');
+        setIsLoading(false);
+        return;
+      }
+      if (countryCode === '+20' && !/^1[0-9]{9}$/.test(cleanPhone)) {
+        alert('فشل التسجيل: رقم الهاتف المصري يجب أن يبدأ برقم 1 ويتكون من 10 أرقام (مثال: 1XXXXXXXX).');
+        setIsLoading(false);
+        return;
+      }
+
+      const newUser = {
+        name: name,
+        email: email || '',
+        phone: cleanPhone,
+        country: countryCode,
+        date: new Date().toLocaleString('ar-EG'),
+        timestamp: new Date()
+      };
+
       const coll = collection(db, 'users');
       const snapshotCount = await getCountFromServer(coll);
       const userCount = snapshotCount.data().count;
@@ -153,52 +144,29 @@ export default function Register({ lang }) {
       let willUpdate = false;
       let existingDocId = null;
 
-      if (!emailSnapshot.empty) {
+      if (email && !emailSnapshot.empty) {
         const docSnap = emailSnapshot.docs[0];
         const existingUser = docSnap.data();
-        const p1 = existingUser.phone.toString().trim();
-        const p2 = newUser.phone.toString().trim();
-        
-        if (p1 === p2 || p1.includes(p2) || p2.includes(p1) || p1.slice(0, 8) === p2.slice(0, 8)) {
-          existingUser.phone = newUser.phone;
-          existingUser.country = newUser.country;
-          existingUser.name = newUser.name;
-          
-          willUpdate = true;
-          existingDocId = docSnap.id;
-          loggedInUser = existingUser;
-        } else {
-          alert('هذا البريد الإلكتروني مسجل مسبقاً لدينا برقم هاتف آخر.');
-          setIsLoading(false);
-          return;
-        }
+        willUpdate = true;
+        existingDocId = docSnap.id;
+        loggedInUser = existingUser;
       } else if (!phoneSnapshot.empty) {
         const docSnap = phoneSnapshot.docs[0];
         const existingUser = docSnap.data();
-        if (existingUser.email.trim().toLowerCase() === newUser.email.trim().toLowerCase()) {
-          loggedInUser = existingUser;
-        } else {
-          alert('رقم الهاتف هذا مسجل مسبقاً لدينا ببريد إلكتروني آخر.');
-          setIsLoading(false);
-          return;
-        }
+        loggedInUser = existingUser;
       }
 
-      // Send OTP via Telnyx API
-      try {
-        const response = await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: newUser.country + newUser.phone,
-            channel: otpChannel
-          })
-        });
-        const data = await response.json();
-      } catch (err) {
-        console.error('sendOtp fetch error:', err);
-      }
+      // Call sendOtp API
+      fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: newUser.country + newUser.phone,
+          channel: otpChannel
+        })
+      }).catch(err => console.error('sendOtp fetch error:', err));
 
+      // Always transition UI to Verification Step
       setPendingUser(loggedInUser);
       setIsUpdating(willUpdate);
       setDocRefId(existingDocId);
