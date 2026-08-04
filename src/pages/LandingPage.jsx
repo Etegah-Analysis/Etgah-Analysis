@@ -9,12 +9,46 @@ export default function LandingPage() {
   const [countryCode, setCountryCode] = useState('+966');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpAttempts, setOtpAttempts] = useState(0);
   const [step, setStep] = useState(1); // 1: form, 2: OTP, 3: Success
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     document.title = 'منصة اتجاه التحليل الذكي - الصفحة الرئيسية';
   }, []);
+
+  // التعرف التلقائي الذكي على رمز الدولة لصفحة تسجيل الدخول للمنصة (visitor-login)
+  const handlePhoneInputChange = (val) => {
+    let cleanVal = val.trim();
+    
+    if (cleanVal.startsWith('+20') || cleanVal.startsWith('20')) {
+      setCountryCode('+20');
+      cleanVal = cleanVal.replace(/^\+?20/, '');
+    } else if (cleanVal.startsWith('+966') || cleanVal.startsWith('966')) {
+      setCountryCode('+966');
+      cleanVal = cleanVal.replace(/^\+?966/, '');
+    } else if (cleanVal.startsWith('+971') || cleanVal.startsWith('971')) {
+      setCountryCode('+971');
+      cleanVal = cleanVal.replace(/^\+?971/, '');
+    } else if (cleanVal.startsWith('+1') && cleanVal.length > 5) {
+      setCountryCode('+1');
+      cleanVal = cleanVal.replace(/^\+?1/, '');
+    } else if (/^0?1[0125]/.test(cleanVal)) {
+      // مصر (010, 011, 012, 015)
+      setCountryCode('+20');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    } else if (/^0?5[0-9]/.test(cleanVal) && cleanVal.length <= 10) {
+      // السعودية (05x)
+      setCountryCode('+966');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    } else if (/^0?5[024568]/.test(cleanVal) && cleanVal.length === 9) {
+      // الإمارات (050, 052, 054, 055, 056, 058)
+      setCountryCode('+971');
+      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    }
+
+    setPhoneNumber(cleanVal);
+  };
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
@@ -76,9 +110,10 @@ export default function LandingPage() {
     }
   };
 
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    if (!otp) return;
+  const handleVerifyOTP = async (e, codeToVerify = null) => {
+    if (e) e.preventDefault();
+    const currentCode = codeToVerify || otp;
+    if (!currentCode) return;
     
     setLoading(true);
     try {
@@ -88,7 +123,7 @@ export default function LandingPage() {
       const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fullPhone, code: otp })
+        body: JSON.stringify({ phone: fullPhone, code: currentCode })
       });
       const data = await response.json();
 
@@ -111,7 +146,17 @@ export default function LandingPage() {
           window.location.href = '/';
         }, 2000);
       } else {
-        toast.error(data.message || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
+        const newAttempts = otpAttempts + 1;
+        setOtpAttempts(newAttempts);
+        setOtp('');
+        
+        if (newAttempts >= 3) {
+          toast.error('تم إدخال الرمز بشكل خاطئ 3 مرات. يرجى التأكد من البيانات وإعادة المحاولة.');
+          setStep(1);
+          setOtpAttempts(0);
+        } else {
+          toast.error(data.message || 'رمز التحقق غير صحيح، حاول مرة أخرى');
+        }
       }
     } catch (error) {
       console.error(error);
@@ -120,6 +165,12 @@ export default function LandingPage() {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    if (step === 2 && otp.length === 6) {
+      handleVerifyOTP(null, otp);
+    }
+  }, [otp, step]);
 
   return (
     <div className="min-h-screen bg-[#0B1120] text-white flex flex-col font-sans relative overflow-hidden" dir="rtl">
@@ -180,10 +231,14 @@ export default function LandingPage() {
                   <input
                     type="tel"
                     value={phoneNumber}
-                    onChange={e => setPhoneNumber(e.target.value)}
+                    onChange={e => handlePhoneInputChange(e.target.value)}
                     required
-                    placeholder="5XXXXXXXX"
-                    className="w-full bg-transparent px-4 py-3 focus:outline-none text-white placeholder-gray-500 text-left"
+                    placeholder={
+                      countryCode === '+966' ? "5XXXXXXXX" :
+                      countryCode === '+20' ? "1XXXXXXXX" :
+                      countryCode === '+971' ? "5XXXXXXXX" : "XXXXXXXXXX"
+                    }
+                    className="w-full bg-transparent px-4 py-3 focus:outline-none text-white placeholder-gray-500 text-left font-bold"
                   />
                 </div>
               </div>

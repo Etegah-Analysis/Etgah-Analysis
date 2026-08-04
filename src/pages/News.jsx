@@ -73,7 +73,7 @@ const loadNews = async () => {
 
 const fmt = (d) => {
   try {
-    return new Date(d).toLocaleDateString('ar-SA', {
+    return new Date(d).toLocaleDateString('ar-EG', {
       year: 'numeric', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });

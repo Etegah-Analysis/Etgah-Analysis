@@ -132,7 +132,7 @@ function USOptions() {
         const result = await response.json();
         
         if (result.success && result.data) {
-          data = result.data;
+          data = Array.isArray(result.data) ? result.data[0] : result.data;
           
           // تخزين البيانات في Firebase
           await setDoc(docRef, {
@@ -188,8 +188,7 @@ function USOptions() {
   };
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('etegah_user');
-    if (savedUser && ticker) {
+    if (ticker) {
       fetchOptionsChain(ticker);
     }
   }, [ticker]);
@@ -234,7 +233,12 @@ function USOptions() {
       {/* Title Header */}
       <div className="text-center mb-8">
         <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-blue)', fontWeight: '800' }}>رادار الأوبشن الأمريكي 🎯</h1>
-        <p style={{ color: '#8b9eb3', fontSize: '1.1rem' }}>شاشة ذكية لمتابعة عقود خيارات الأسهم الأمريكية لحظة بلحظة</p>
+        <h1 style={{ margin: '0 0 10px 0', fontSize: '1.8rem', fontWeight: 'bold', color: 'white' }}>
+          رادار الأوبشن (السوق الأمريكي) <span style={{ fontSize: '0.8rem', color: '#8b9eb3', fontWeight: 'normal' }}>v1.1</span>
+        </h1>
+        <p style={{ margin: 0, color: '#8b9eb3', fontSize: '0.95rem' }}>
+          تحليل لحظي لعقود الخيارات للأسهم الأمريكية (Calls/Puts).
+        </p>
       </div>
 
       {/* ===== MARKET MOVERS SECTION ===== */}
@@ -403,39 +407,41 @@ function USOptions() {
           {ticker && expirationDates.length > 0 && (
             <div style={{ flex: '1 1 100%' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#8b9eb3', fontWeight: '600' }}>تاريخ انتهاء العقد (Expiration)</label>
-              <div 
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                  overflowX: 'auto',
-                  paddingBottom: '8px',
-                  scrollbarWidth: 'thin',
-                  WebkitOverflowScrolling: 'touch'
-                }}
-                className="custom-ticker-scroll"
-              >
-                {expirationDates.map((date) => (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => handleDateChange(date)}
-                    style={{
-                      padding: '8px 16px',
-                      background: selectedDate === date ? 'var(--primary-blue)' : 'rgba(255, 255, 255, 0.05)',
-                      border: selectedDate === date ? '1px solid var(--primary-blue)' : '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '8px',
-                      color: selectedDate === date ? '#07111f' : 'white',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.9rem',
-                      transition: 'all 0.2s',
-                      boxShadow: selectedDate === date ? '0 4px 15px rgba(0, 210, 255, 0.3)' : 'none'
-                    }}
-                  >
-                    {new Date(date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </button>
-                ))}
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#1a2332',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  {expirationDates.map((date) => (
+                    <option key={date} value={date} style={{ background: '#0f172a', color: 'white', padding: '10px' }}>
+                      {new Date(date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+                <div style={{
+                  position: 'absolute',
+                  left: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: '#8b9eb3'
+                }}>
+                  ▼
+                </div>
               </div>
             </div>
           )}
@@ -522,9 +528,9 @@ function USOptions() {
                       calls.map((opt, idx) => (
                         <tr key={idx} style={{ 
                           borderBottom: '1px solid rgba(19, 48, 78, 0.5)', 
-                          transition: 'background 0.2s',
+                          transition: 'all 0.2s ease',
                           background: opt.inTheMoney ? 'rgba(0, 200, 83, 0.05)' : 'transparent'
-                        }} className="table-row-hover">
+                        }} className="call-row-hover">
                           <td style={{ padding: '10px 8px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
                           <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.bid?.toFixed(2) || '-'}</td>
                           <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.ask?.toFixed(2) || '-'}</td>
@@ -567,9 +573,9 @@ function USOptions() {
                       puts.map((opt, idx) => (
                         <tr key={idx} style={{ 
                           borderBottom: '1px solid rgba(19, 48, 78, 0.5)', 
-                          transition: 'background 0.2s',
+                          transition: 'all 0.2s ease',
                           background: opt.inTheMoney ? 'rgba(213, 0, 0, 0.05)' : 'transparent'
-                        }} className="table-row-hover">
+                        }} className="put-row-hover">
                           <td style={{ padding: '10px 8px', fontWeight: 'bold', color: 'var(--primary-blue)' }}>${opt.strike}</td>
                           <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.bid?.toFixed(2) || '-'}</td>
                           <td style={{ padding: '10px 8px', color: '#8b9eb3' }}>{opt.ask?.toFixed(2) || '-'}</td>
@@ -603,8 +609,17 @@ function USOptions() {
           transform: translateY(-4px);
           box-shadow: 0 10px 30px rgba(0,0,0,0.35);
         }
-        .table-row-hover:hover {
-          background: rgba(0, 210, 255, 0.03) !important;
+        .call-row-hover:hover {
+          background: rgba(0, 200, 83, 0.15) !important;
+          box-shadow: inset 0 0 15px rgba(0, 200, 83, 0.25) !important;
+          outline: 1px solid rgba(0, 200, 83, 0.4) !important;
+          backdrop-filter: blur(4px);
+        }
+        .put-row-hover:hover {
+          background: rgba(213, 0, 0, 0.15) !important;
+          box-shadow: inset 0 0 15px rgba(213, 0, 0, 0.25) !important;
+          outline: 1px solid rgba(213, 0, 0, 0.4) !important;
+          backdrop-filter: blur(4px);
         }
         .suggestion-item-hover:hover {
           background: rgba(0, 210, 255, 0.1) !important;

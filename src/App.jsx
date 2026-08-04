@@ -13,24 +13,15 @@ import USOptions from './pages/USOptions';
 import News from './pages/News';
 import Navbar from './components/Navbar';
 
+import WhatsAppWidget from './components/WhatsAppWidget';
+
 // A simple layout wrapper for public pages
 function PublicLayout({ children }) {
   return (
     <>
       <Navbar />
       {children}
-      
-      {/* Floating WhatsApp Button */}
-      <a 
-        href="https://wa.me/16813223358" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="fixed bottom-6 left-6 bg-green-500 text-white p-4 rounded-full shadow-[0_4px_14px_rgba(34,197,94,0.5)] hover:bg-green-600 hover:scale-110 transition-transform z-50 flex items-center justify-center"
-        title="تواصل معنا عبر واتساب"
-        style={{ position: 'fixed', bottom: '24px', left: '24px', zIndex: 50, background: '#22c55e', color: 'white', padding: '16px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(34,197,94,0.5)' }}
-      >
-        <MessageCircle size={32} />
-      </a>
+      <WhatsAppWidget />
     </>
   );
 }
