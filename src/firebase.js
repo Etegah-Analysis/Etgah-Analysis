@@ -4,13 +4,12 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, creat
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAs39uG2HkGiEvdwemeVKCCExFM7VqkFwQ",
-  authDomain: "etegah.firebaseapp.com",
-  projectId: "etegah",
-  storageBucket: "etegah.appspot.com",
-  messagingSenderId: "488142699033",
-  appId: "1:488142699033:web:0419243d5b2e0f4f388888",
-  measurementId: "G-GHFS51Z1J7"
+  apiKey: "AIzaSyBKb_V-mc6_T8Ik33Lcwe18hxTdK6M7UXo",
+  authDomain: "etegah-dafe5.firebaseapp.com",
+  projectId: "etegah-dafe5",
+  storageBucket: "etegah-dafe5.firebasestorage.app",
+  messagingSenderId: "754580123107",
+  appId: "1:754580123107:web:20a5454b787fa0965d84d6"
 };
 
 // Initialize Firebase

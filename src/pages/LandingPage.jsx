@@ -13,11 +13,22 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [otpAttempts, setOtpAttempts] = useState(0);
 
+  // Smart Phone Input Auto-detection
   const handlePhoneInputChange = (val) => {
     let clean = val.replace(/[^0-9]/g, '');
     if (clean.startsWith('0')) {
       clean = clean.substring(1);
     }
+
+    // Auto-detect country code from prefix if user is typing
+    if (clean.startsWith('1') && clean.length <= 10) {
+      setCountryCode('+20'); // Egypt
+    } else if (clean.startsWith('5') && clean.length <= 9) {
+      if (countryCode !== '+971') {
+        setCountryCode('+966'); // Saudi Arabia default
+      }
+    }
+
     setPhoneNumber(clean);
   };
 
@@ -48,7 +59,7 @@ export default function LandingPage() {
     try {
       const fullPhone = `${countryCode}${phoneNumber}`;
 
-      // Check if visitor already exists in Firestore
+      // Check if visitor already exists in Firestore etegah-dafe5
       try {
         const q = query(collection(db, 'visitor_customers'), where('phone', '==', fullPhone));
         const snapVisitor = await getDocs(q);
@@ -63,7 +74,7 @@ export default function LandingPage() {
         console.error("Firestore query warning:", err);
       }
 
-      // Call sendOtp API (non-blocking call to guaranteed Telnyx API endpoint)
+      // Call sendOtp API
       fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,10 +84,8 @@ export default function LandingPage() {
         })
       }).catch(err => console.error('sendOtp API fetch error:', err));
 
-      // Always advance to OTP verification step
+      // Advance to OTP verification step smoothly
       setStep(2);
-      const channelText = otpChannel === 'sms' ? 'رسالة نصية SMS' : 'رسالة الواتساب WhatsApp';
-      alert(`تم إرسال كود التحقق المكون من 6 أرقام عبر (${channelText})`);
     } catch (error) {
       console.error(error);
       alert('حدث خطأ أثناء إرسال الكود. يمكنك المحاولة مرة أخرى.');
@@ -109,7 +118,7 @@ export default function LandingPage() {
       }
 
       if (isVerified || currentCode === '123456' || currentCode.length === 6) {
-        // Save data to Firebase safely without blocking UI
+        // Save visitor data to Firebase etegah-dafe5
         try {
           addDoc(collection(db, 'visitor_customers'), {
             firstName: visitorName,
@@ -126,11 +135,9 @@ export default function LandingPage() {
         localStorage.setItem('visitorName', visitorName);
         localStorage.setItem('visitorPhone', fullPhone);
 
+        // INSTANT AUTO-REDIRECT WITHOUT ALERT POPUP
         setStep(3);
-        alert('تم التسجيل والتحقق بنجاح! جاري تحويلك للمنصة...');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
+        window.location.href = '/';
       } else {
         const newAttempts = otpAttempts + 1;
         setOtpAttempts(newAttempts);
