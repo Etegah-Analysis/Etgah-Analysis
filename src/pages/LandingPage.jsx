@@ -73,29 +73,16 @@ export default function LandingPage() {
         return;
       }
 
-      // Check if already registered in CRM
-      const visitorsRef = collection(db, 'visitor_customers');
-      const qVisitor = query(visitorsRef, where('phone', '==', fullPhone));
-      const snapVisitor = await getDocs(qVisitor);
-      
-      if (!snapVisitor.empty) {
-        // User already exists, skip OTP
-        const existingUser = snapVisitor.docs[0].data();
-        localStorage.setItem('visitorName', existingUser.firstName || visitorName);
-        toast.success('أهلاً بك مجدداً! جاري تحويلك للمنصة...');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1500);
-        return;
-      }
-
       // Send OTP via Telnyx API
-      const response = await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fullPhone, channel: otpChannel })
-      });
-      const data = await response.json();
+      try {
+        await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone, channel: otpChannel })
+        });
+      } catch (err) {
+        console.error('sendOtp error:', err);
+      }
 
       setStep(2);
       const channelLabel = otpChannel === 'sms' ? 'رسالة نصية SMS' : 'واتساب WhatsApp';
@@ -119,14 +106,20 @@ export default function LandingPage() {
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
       
       // Verify OTP via API
-      const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fullPhone, code: currentCode })
-      });
-      const data = await response.json();
+      let isVerified = false;
+      try {
+        const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone, code: currentCode })
+        });
+        const data = await response.json();
+        if (data.success) isVerified = true;
+      } catch (err) {
+        console.error('verifyOtp API error:', err);
+      }
 
-      if (data.success || currentCode === '123456' || currentCode.length === 6) {
+      if (isVerified || currentCode === '123456' || currentCode.length === 6) {
         // Save data to Firebase
         await addDoc(collection(db, 'visitor_customers'), {
           firstName: visitorName,
@@ -154,7 +147,7 @@ export default function LandingPage() {
           setStep(1);
           setOtpAttempts(0);
         } else {
-          toast.error(data.message || 'رمز التحقق غير صحيح، حاول مرة أخرى');
+          toast.error('رمز التحقق غير صحيح، حاول مرة أخرى');
         }
       }
     } catch (error) {
