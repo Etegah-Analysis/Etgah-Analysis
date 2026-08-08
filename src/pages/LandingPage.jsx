@@ -73,8 +73,8 @@ export default function LandingPage() {
         console.error("Firestore query warning:", err);
       }
 
-      // Call sendOtp API
-      fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
+      // Call own relative sendOtp API (/api/sendOtp on www.etegah-analysis.com)
+      fetch('/api/sendOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,10 +101,10 @@ export default function LandingPage() {
     try {
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
       
-      // Verify OTP and save visitor customer directly via Admin SDK API
+      // Verify OTP and save visitor customer directly via own relative verifyOtp API
       let isVerified = false;
       try {
-        const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
+        const response = await fetch('/api/verifyOtp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
