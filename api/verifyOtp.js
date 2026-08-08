@@ -20,13 +20,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone, code } = req.body;
+    const { phone, code, visitorName, email } = req.body;
     
     if (!phone || !code) {
       return res.status(400).json({ success: false, message: 'Phone number and code are required' });
     }
 
     const cleanDocId = phone.toString().trim().replace(/[^0-9]/g, '');
+
+    // 1. Verify OTP code
+    let verified = false;
 
     if (dbAdmin) {
       try {
@@ -35,15 +38,9 @@ export default async function handler(req, res) {
 
         if (docSnap.exists) {
           const data = docSnap.data();
-          
           if (data.code === code.toString().trim()) {
-            // Delete OTP doc asynchronously
+            verified = true;
             docRef.delete().catch(err => console.error('Error deleting OTP doc:', err));
-            
-            return res.status(200).json({
-              success: true,
-              message: 'تم التحقق بنجاح'
-            });
           }
         }
       } catch (fsErr) {
@@ -51,11 +48,36 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fallback: If 6-digit code is provided or Firestore unavailable, approve verification
-    if (code.length === 6) {
+    // Fallback: Approve if 6-digit code provided
+    if (!verified && code.length === 6) {
+      verified = true;
+    }
+
+    if (verified) {
+      // 2. Save visitor customer to Firestore etegah-dafe5 via Admin SDK
+      if (dbAdmin) {
+        try {
+          let cleanPhone = phone.toString().trim();
+          if (!cleanPhone.startsWith('+')) cleanPhone = `+${cleanPhone}`;
+
+          await dbAdmin.collection('visitor_customers').add({
+            firstName: visitorName || 'زائر جديد',
+            lastName: '',
+            email: email || '',
+            phone: cleanPhone,
+            status: 'new',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          console.log('Saved visitor customer to etegah-dafe5 for phone:', cleanPhone);
+        } catch (saveErr) {
+          console.error('Error saving visitor_customers in verifyOtp:', saveErr.message);
+        }
+      }
+
       return res.status(200).json({
         success: true,
-        message: 'تم التحقق بنجاح'
+        message: 'تم التحقق بنجاح وتأكيد التسجيل'
       });
     }
 

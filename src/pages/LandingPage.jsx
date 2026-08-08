@@ -20,7 +20,6 @@ export default function LandingPage() {
       clean = clean.substring(1);
     }
 
-    // Auto-detect country code from prefix if user is typing
     if (clean.startsWith('1') && clean.length <= 10) {
       setCountryCode('+20'); // Egypt
     } else if (clean.startsWith('5') && clean.length <= 9) {
@@ -84,7 +83,6 @@ export default function LandingPage() {
         })
       }).catch(err => console.error('sendOtp API fetch error:', err));
 
-      // Advance to OTP verification step smoothly
       setStep(2);
     } catch (error) {
       console.error(error);
@@ -103,13 +101,18 @@ export default function LandingPage() {
     try {
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
       
-      // Verify OTP via API
+      // Verify OTP and save visitor customer directly via Admin SDK API
       let isVerified = false;
       try {
         const response = await fetch('https://whatsapp.etegah-analysis.com/api/verifyOtp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: fullPhone, code: currentCode })
+          body: JSON.stringify({
+            phone: fullPhone,
+            code: currentCode,
+            visitorName: visitorName,
+            email: email
+          })
         });
         const data = await response.json();
         if (data.success) isVerified = true;
@@ -118,24 +121,10 @@ export default function LandingPage() {
       }
 
       if (isVerified || currentCode === '123456' || currentCode.length === 6) {
-        // Save visitor data to Firebase etegah-dafe5
-        try {
-          addDoc(collection(db, 'visitor_customers'), {
-            firstName: visitorName,
-            lastName: '',
-            email: email || '',
-            phone: fullPhone,
-            status: 'new',
-            createdAt: serverTimestamp()
-          }).catch(err => console.error('Visitor doc add error:', err));
-        } catch (fsErr) {
-          console.error('Error saving visitor doc:', fsErr);
-        }
-
         localStorage.setItem('visitorName', visitorName);
         localStorage.setItem('visitorPhone', fullPhone);
 
-        // INSTANT AUTO-REDIRECT WITHOUT ALERT POPUP
+        // Instant redirect to platform
         setStep(3);
         window.location.href = '/';
       } else {
