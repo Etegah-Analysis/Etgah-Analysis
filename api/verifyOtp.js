@@ -66,10 +66,25 @@ export default async function handler(req, res) {
             email: email || '',
             phone: cleanPhone,
             status: 'new',
+            source: 'website',
+            assignedSender: 'website',
             createdAt: new Date(),
             updatedAt: new Date()
           });
-          console.log('Saved visitor customer to etegah-dafe5 for phone:', cleanPhone);
+
+          // Also save/update in بيانات_تسجيل_العملاء for CRM Inbox
+          await dbAdmin.collection('بيانات_تسجيل_العملاء').add({
+            name: visitorName || 'عميل موقع',
+            phoneNumber: cleanPhone,
+            email: email || '',
+            status: 'unassigned',
+            source: 'website',
+            assignedSender: 'website',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          console.log('Saved website visitor customer to etegah-dafe5 for phone:', cleanPhone);
         } catch (saveErr) {
           console.error('Error saving visitor_customers in verifyOtp:', saveErr.message);
         }

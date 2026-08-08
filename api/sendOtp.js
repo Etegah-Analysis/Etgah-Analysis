@@ -45,6 +45,7 @@ export default async function handler(req, res) {
       if (dbAdmin) {
         await dbAdmin.collection('otps').doc(cleanPhone.replace('+', '')).set({
           code,
+          channel: otpChannel,
           createdAt: new Date()
         });
       }
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
       console.error('Firestore save OTP warning:', fsErr.message);
     }
 
-    const messageText = `مرحباً بك في منصة اتجاه التحليل الذكي 📈\nرمز التحقق الخاص بك لتأكيد الدخول هو: ${code}`;
+    const messageText = `مرحباً بك في منصة اتجاه التحليل الذكي 📈\nرمز التحقق الخاص بك لتأكيد الدخول هو: *${code}*`;
 
     // 2. Send via Telnyx Messages API
     const payload = {
@@ -80,6 +81,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: `تم إرسال كود التحقق بنجاح عبر (${otpChannel === 'sms' ? 'رسالة نصية SMS' : 'الواتساب WhatsApp'})`,
+      code: code,
       details: telnyxData
     });
   } catch (error) {

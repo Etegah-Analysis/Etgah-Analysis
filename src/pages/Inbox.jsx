@@ -482,6 +482,8 @@ export default function Inbox() {
 
     try {
       // 3. مناداة Vercel API لإرسالها فعلياً لواتساب العميل
+      const currentSenderType = activeChat.assignedSender || (activeChat.source === 'excel_import' || activeChat.source === 'manual' ? 'campaigns' : 'website');
+
       const response = await fetch('/api/sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,6 +493,7 @@ export default function Inbox() {
           mediaUrl: mediaUrl,
           fileType: fileType,
           fileName: fileName,
+          senderType: currentSenderType,
           contextMessageId: replyingToMessage?.metaMessageId || undefined
         })
       });
@@ -668,7 +671,8 @@ export default function Inbox() {
             body: JSON.stringify({
               to: phone,
               templateName: bulkTemplateName.trim(),
-              languageCode: bulkLanguage
+              languageCode: bulkLanguage,
+              senderType: 'campaigns'
             })
           });
           const resData = await res.json();
@@ -684,6 +688,8 @@ export default function Inbox() {
               customerDocId = chatSnap.docs[0].id;
               await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', customerDocId), {
                 lastMessage: getTemplateDisplayMessage(bulkTemplateName.trim()),
+                source: 'excel_import',
+                assignedSender: 'campaigns',
                 updatedAt: serverTimestamp()
               });
             } else {
@@ -693,6 +699,8 @@ export default function Inbox() {
                 assignedTo: currentUser.email,
                 assignedToUid: currentUser.uid,
                 status: 'assigned',
+                source: 'excel_import',
+                assignedSender: 'campaigns',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 lastMessage: getTemplateDisplayMessage(bulkTemplateName.trim()),
@@ -895,6 +903,8 @@ export default function Inbox() {
           status: 'unassigned',
           assignedTo: assigneeEmail,
           assignedToUid: assigneeUid,
+          source: 'manual',
+          assignedSender: 'campaigns',
           createdAt: serverTimestamp(),
           assignedAt: null,
           updatedAt: serverTimestamp(),
@@ -1200,11 +1210,51 @@ export default function Inbox() {
                   {activeChat.name ? activeChat.name.charAt(0) : <User size={20} />}
                 </div>
                 <div>
-                  <h2 className="font-bold text-white text-base">{activeChat.name || 'عميل بدون اسم'}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold text-white text-base">{activeChat.name || 'عميل بدون اسم'}</h2>
+                    
+                    {/* Customer Source Badge (Visible to Employees & Admin) */}
+                    {(activeChat.assignedSender === 'campaigns' || activeChat.source === 'excel_import' || activeChat.source === 'manual') ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1 shadow-sm">
+                        📣 عميل حملة / تسويق
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                        🟢 عميل موقع إلكتروني
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 space-x-reverse">
+                {/* Admin ONLY Sender Line Switcher */}
+                {isAdmin && (
+                  <div className="flex items-center gap-1.5 bg-white/10 p-1 px-2.5 rounded-lg border border-white/15">
+                    <span className="text-[11px] text-yellow-300 font-bold">خط الإرسال:</span>
+                    <select
+                      value={activeChat.assignedSender || (activeChat.source === 'excel_import' || activeChat.source === 'manual' ? 'campaigns' : 'website')}
+                      onChange={async (e) => {
+                        const newSender = e.target.value;
+                        try {
+                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), {
+                            assignedSender: newSender
+                          });
+                          setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
+                          toast.success(`تم تحديث خط الإرسال للعميل إلى: ${newSender === 'campaigns' ? 'رقم الحملات' : 'رقم الموقع'}`);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('حدث خطأ أثناء التحديث');
+                        }
+                      }}
+                      className="bg-slate-900 text-white text-xs font-bold rounded px-2 py-1 border border-white/20 focus:outline-none cursor-pointer"
+                    >
+                      <option value="website">🟢 رقم الموقع والدعم</option>
+                      <option value="campaigns">📣 رقم الحملات والتسويق</option>
+                    </select>
+                  </div>
+                )}
+
                 <button 
                   onClick={() => setIsTemplateModalOpen(true)}
                   className="bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse"
