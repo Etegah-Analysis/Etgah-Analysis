@@ -11,6 +11,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'];
+
   useEffect(() => {
     let docUnsub = null;
     
@@ -22,7 +24,6 @@ function App() {
           return;
         }
 
-        const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
         if (!adminEmails.includes(currentUser.email?.toLowerCase())) {
           docUnsub = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
             if (docSnap.exists()) {
@@ -56,7 +57,6 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-bold text-gray-700">جاري التحميل...</div>;
   }
 
-  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
   const isAdmin = adminEmails.includes(user?.email?.toLowerCase());
 
   return (

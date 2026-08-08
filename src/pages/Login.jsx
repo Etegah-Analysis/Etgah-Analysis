@@ -15,7 +15,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = 'منصة اتجاه | خدمة العملاء';
+    document.title = 'منصة اتجاه | خدمة العملاء والإدارة';
   }, []);
 
   const handleSubmit = async (e) => {
@@ -36,8 +36,8 @@ export default function Login() {
         }
         candidateEmails.push('mohamed.gamal.work0@gmail.com');
         candidateEmails.push('etegahanalysis@gmail.com');
-        candidateEmails.push(`${safeInput}@etegah.com`);
         candidateEmails.push('admin@etegah.com');
+        candidateEmails.push(`${safeInput}@etegah.com`);
       } else {
         // Employee Login
         try {
@@ -73,7 +73,6 @@ export default function Login() {
           candidateEmails.push(rawInput.toLowerCase());
         }
         
-        // Handle common typo variations e.g. saed vs sayed
         if (safeInput.includes('saed')) {
           const fixedSayed = safeInput.replace('saed', 'sayed') + '@etegah.com';
           if (!candidateEmails.includes(fixedSayed)) candidateEmails.push(fixedSayed);
@@ -97,7 +96,7 @@ export default function Login() {
         throw new Error('INVALID_CREDENTIALS');
       }
 
-      // Check account active status & update lastLoginAt safely without failing login
+      // Check account active status & update lastLoginAt
       try {
         const userRef = doc(db, 'users', userCred.user.uid);
         const userSnap = await getDoc(userRef);
@@ -205,7 +204,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {loginType === 'admin' ? 'اسم المستخدم للإدارة' : 'اسم المستخدم (الموظف)'}
+              {loginType === 'admin' ? 'اسم المستخدم أو البريد (الإدارة)' : 'اسم المستخدم (الموظف)'}
             </label>
             <input 
               type="text" 
