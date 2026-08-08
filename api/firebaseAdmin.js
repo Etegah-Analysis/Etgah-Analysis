@@ -3,18 +3,21 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 
 try {
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT;
-  
-  if (serviceAccountKey) {
-    if (!getApps().length) {
-      initializeApp({
-        credential: cert(JSON.parse(serviceAccountKey)),
-        storageBucket: "etegah.firebasestorage.app"
-      });
-      console.log('Firebase Admin Initialized successfully.');
+  let saKey = null;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      saKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (e) {
+      console.error('Error parsing FIREBASE_SERVICE_ACCOUNT env:', e);
     }
-  } else {
-    console.warn('FIREBASE_SERVICE_ACCOUNT environment variable is missing.');
+  }
+
+  if (saKey && !getApps().length) {
+    initializeApp({
+      credential: cert(saKey),
+      storageBucket: "etegah-dafe5.appspot.com"
+    });
+    console.log('Firebase Admin Initialized successfully.');
   }
 } catch (error) {
   console.error('Firebase admin initialization error', error.stack);
