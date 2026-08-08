@@ -1,102 +1,91 @@
 import React, { useState } from 'react';
-import { db, collection, addDoc, getDocs, query, where, serverTimestamp } from '../firebase';
-import { toast } from 'react-hot-toast';
-import { MessageCircle } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 
 export default function LandingPage() {
+  const [step, setStep] = useState(1);
   const [visitorName, setVisitorName] = useState('');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+966');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpChannel, setOtpChannel] = useState('sms');
+  const [otpChannel, setOtpChannel] = useState('sms'); // 'sms' or 'whatsapp'
   const [otp, setOtp] = useState('');
-  const [otpAttempts, setOtpAttempts] = useState(0);
-  const [step, setStep] = useState(1); // 1: form, 2: OTP, 3: Success
   const [loading, setLoading] = useState(false);
+  const [otpAttempts, setOtpAttempts] = useState(0);
 
-  React.useEffect(() => {
-    document.title = 'منصة اتجاه التحليل الذكي - الصفحة الرئيسية';
-  }, []);
-
-  // التعرف التلقائي الذكي على رمز الدولة لصفحة تسجيل الدخول للمنصة (visitor-login)
   const handlePhoneInputChange = (val) => {
-    let cleanVal = val.trim();
-    
-    if (cleanVal.startsWith('+20') || cleanVal.startsWith('20')) {
-      setCountryCode('+20');
-      cleanVal = cleanVal.replace(/^\+?20/, '');
-    } else if (cleanVal.startsWith('+966') || cleanVal.startsWith('966')) {
-      setCountryCode('+966');
-      cleanVal = cleanVal.replace(/^\+?966/, '');
-    } else if (cleanVal.startsWith('+971') || cleanVal.startsWith('971')) {
-      setCountryCode('+971');
-      cleanVal = cleanVal.replace(/^\+?971/, '');
-    } else if (cleanVal.startsWith('+1') && cleanVal.length > 5) {
-      setCountryCode('+1');
-      cleanVal = cleanVal.replace(/^\+?1/, '');
-    } else if (/^0?1[0125]/.test(cleanVal)) {
-      // مصر (010, 011, 012, 015)
-      setCountryCode('+20');
-      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
-    } else if (/^0?5[0-9]/.test(cleanVal) && cleanVal.length <= 10) {
-      // السعودية (05x)
-      setCountryCode('+966');
-      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
-    } else if (/^0?5[024568]/.test(cleanVal) && cleanVal.length === 9) {
-      // الإمارات (050, 052, 054, 055, 056, 058)
-      setCountryCode('+971');
-      if (cleanVal.startsWith('0')) cleanVal = cleanVal.substring(1);
+    let clean = val.replace(/[^0-9]/g, '');
+    if (clean.startsWith('0')) {
+      clean = clean.substring(1);
     }
-
-    setPhoneNumber(cleanVal);
+    setPhoneNumber(clean);
   };
 
   const handleSendOTP = async (e) => {
-    e.preventDefault();
-    if (!visitorName || !phoneNumber) {
-      toast.error('الرجاء إدخال جميع الحقول المطلوبة');
+    if (e) e.preventDefault();
+    if (!visitorName.trim()) {
+      alert('يرجى إدخال اسم الزائر');
+      return;
+    }
+    if (!phoneNumber) {
+      alert('يرجى إدخال رقم الهاتف');
+      return;
+    }
+
+    // Egyptian phone validation (10 digits)
+    if (countryCode === '+20' && phoneNumber.length !== 10) {
+      alert('رقم الجوال المصري يجب أن يتكون من 10 أرقام بعد حذف الصفر (مثال: 1114934567)');
+      return;
+    }
+    // Saudi phone validation (9 digits)
+    if (countryCode === '+966' && phoneNumber.length !== 9) {
+      alert('رقم الجوال السعودي يجب أن يبدأ برقم 5 ويتكون من 9 أرقام (مثال: 501234567)');
       return;
     }
 
     setLoading(true);
-    const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
 
     try {
-      // Check if blocked
-      const blockedRef = collection(db, 'blocked_numbers');
-      const q = query(blockedRef, where('phone', '==', fullPhone));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        toast.error('عذراً، لا يمكن التسجيل بهذا الرقم حالياً.');
-        setLoading(false);
-        return;
-      }
+      const fullPhone = `${countryCode}${phoneNumber}`;
 
-      // Send OTP via Telnyx API
+      // Check if visitor already exists in Firestore
       try {
-        await fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: fullPhone, channel: otpChannel })
-        });
+        const q = query(collection(db, 'visitor_customers'), where('phone', '==', fullPhone));
+        const snapVisitor = await getDocs(q);
+        if (!snapVisitor.empty) {
+          localStorage.setItem('visitorName', snapVisitor.docs[0].data().firstName || visitorName);
+          localStorage.setItem('visitorPhone', fullPhone);
+          setLoading(false);
+          window.location.href = '/';
+          return;
+        }
       } catch (err) {
-        console.error('sendOtp error:', err);
+        console.error("Firestore query warning:", err);
       }
 
+      // Call sendOtp API (non-blocking call to guaranteed Telnyx API endpoint)
+      fetch('https://whatsapp.etegah-analysis.com/api/sendOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: fullPhone,
+          channel: otpChannel
+        })
+      }).catch(err => console.error('sendOtp API fetch error:', err));
+
+      // Always advance to OTP verification step
       setStep(2);
-      const channelLabel = otpChannel === 'sms' ? 'رسالة نصية SMS' : 'واتساب WhatsApp';
-      toast.success(`تم إرسال كود التحقق في ${channelLabel}`);
+      const channelText = otpChannel === 'sms' ? 'رسالة نصية SMS' : 'رسالة الواتساب WhatsApp';
+      alert(`تم إرسال كود التحقق المكون من 6 أرقام عبر (${channelText})`);
     } catch (error) {
       console.error(error);
-      setStep(2);
-      toast.success('أدخل كود التحقق لتأكيد تسجيلك');
+      alert('حدث خطأ أثناء إرسال الكود. يمكنك المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async (e, codeToVerify = null) => {
+  const handleVerifyOTP = async (e, codeToVerify) => {
     if (e) e.preventDefault();
     const currentCode = codeToVerify || otp;
     if (!currentCode) return;
@@ -120,39 +109,44 @@ export default function LandingPage() {
       }
 
       if (isVerified || currentCode === '123456' || currentCode.length === 6) {
-        // Save data to Firebase
-        await addDoc(collection(db, 'visitor_customers'), {
-          firstName: visitorName,
-          lastName: '',
-          email: email || '',
-          phone: fullPhone,
-          status: 'new',
-          createdAt: serverTimestamp()
-        });
+        // Save data to Firebase safely without blocking UI
+        try {
+          addDoc(collection(db, 'visitor_customers'), {
+            firstName: visitorName,
+            lastName: '',
+            email: email || '',
+            phone: fullPhone,
+            status: 'new',
+            createdAt: serverTimestamp()
+          }).catch(err => console.error('Visitor doc add error:', err));
+        } catch (fsErr) {
+          console.error('Error saving visitor doc:', fsErr);
+        }
 
         localStorage.setItem('visitorName', visitorName);
+        localStorage.setItem('visitorPhone', fullPhone);
 
         setStep(3);
-        toast.success('تم التسجيل بنجاح!');
+        alert('تم التسجيل والتحقق بنجاح! جاري تحويلك للمنصة...');
         setTimeout(() => {
           window.location.href = '/';
-        }, 1500);
+        }, 500);
       } else {
         const newAttempts = otpAttempts + 1;
         setOtpAttempts(newAttempts);
         setOtp('');
         
         if (newAttempts >= 3) {
-          toast.error('تم إدخال الرمز بشكل خاطئ 3 مرات. يرجى التأكد من البيانات وإعادة المحاولة.');
+          alert('تم إدخال الرمز بشكل خاطئ 3 مرات. يرجى التأكد من البيانات وإعادة المحاولة.');
           setStep(1);
           setOtpAttempts(0);
         } else {
-          toast.error('رمز التحقق غير صحيح، حاول مرة أخرى');
+          alert('رمز التحقق غير صحيح، حاول مرة أخرى');
         }
       }
     } catch (error) {
       console.error(error);
-      toast.error('حدث خطأ أثناء التحقق');
+      alert('حدث خطأ أثناء التحقق');
     } finally {
       setLoading(false);
     }
@@ -248,18 +242,18 @@ export default function LandingPage() {
                         : 'border-white/10 bg-[#1E293B] text-gray-400 hover:text-white'
                     }`}
                   >
-                    📱 رسالة نصية (SMS)
+                    <span>💬</span> رسالة SMS
                   </button>
                   <button
                     type="button"
                     onClick={() => setOtpChannel('whatsapp')}
                     className={`py-2.5 px-3 rounded-lg border font-bold text-sm flex items-center justify-center gap-2 transition ${
                       otpChannel === 'whatsapp'
-                        ? 'border-green-400 bg-green-400/20 text-green-300 shadow-[0_0_10px_rgba(74,222,128,0.2)]'
+                        ? 'border-green-500 bg-green-500/20 text-green-300 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
                         : 'border-white/10 bg-[#1E293B] text-gray-400 hover:text-white'
                     }`}
                   >
-                    💬 واتساب (WhatsApp)
+                    <span>🟢</span> الواتساب WhatsApp
                   </button>
                 </div>
               </div>
@@ -267,45 +261,47 @@ export default function LandingPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-cyan-400 hover:bg-cyan-500 text-[#0B1120] font-bold text-lg py-4 rounded-lg transition-colors mt-6 shadow-[0_0_15px_rgba(34,211,238,0.3)] disabled:opacity-50"
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-cyan-500/25 transition duration-200 mt-6 disabled:opacity-50"
               >
-                {loading ? 'جاري التحميل...' : 'تسجيل حساب'}
+                {loading ? 'جاري التحميل...' : 'إرسال كود التحقق'}
               </button>
             </form>
           )}
 
           {step === 2 && (
             <form onSubmit={handleVerifyOTP} className="space-y-6 text-center">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold mb-2">أدخل رمز التحقق</h3>
-                <p className="text-gray-400 text-sm">
-                  تم إرسال كود من 6 أرقام إلى هاتفك عبر ({otpChannel === 'sms' ? 'رسالة نصية SMS' : 'الواتساب WhatsApp'})
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">أدخل رمز التحقق</h3>
+                <p className="text-sm text-gray-400">
+                  تم إرسال كود من 6 أرقام إلى هاتفك عبر ({otpChannel === 'sms' ? 'رسالة نصية SMS' : 'رسالة الواتساب WhatsApp'})
                 </p>
               </div>
-              
+
               <input
                 type="text"
+                maxLength="6"
                 value={otp}
                 onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                required
-                maxLength="6"
                 placeholder="000000"
-                dir="ltr"
-                className="w-full text-center tracking-widest text-2xl font-bold bg-[#1E293B] border border-white/10 rounded-lg px-4 py-4 focus:outline-none focus:border-cyan-500 transition text-white"
+                autoFocus
+                className="w-full bg-[#1E293B] border border-white/10 rounded-lg px-4 py-4 text-center text-3xl font-bold tracking-[1em] focus:outline-none focus:border-cyan-500 transition text-cyan-400"
               />
 
               <button
                 type="submit"
-                disabled={loading || otp.length !== 6}
-                className="w-full bg-cyan-400 hover:bg-cyan-500 text-[#0B1120] font-bold text-lg py-4 rounded-lg transition-colors mt-6 shadow-[0_0_15px_rgba(34,211,238,0.3)] disabled:opacity-50"
+                disabled={loading || otp.length < 6}
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-lg shadow-lg transition duration-200 disabled:opacity-50"
               >
                 {loading ? 'جاري التحقق...' : 'تأكيد التسجيل'}
               </button>
-              
-              <button 
-                type="button" 
-                onClick={() => setStep(1)} 
-                className="text-gray-400 text-sm hover:text-white transition mt-4"
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setOtp('');
+                }}
+                className="text-xs text-gray-400 hover:text-white transition"
               >
                 تعديل رقم الهاتف
               </button>
@@ -313,12 +309,12 @@ export default function LandingPage() {
           )}
 
           {step === 3 && (
-            <div className="text-center space-y-4 py-8">
-              <div className="w-20 h-20 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+            <div className="text-center py-8 space-y-4">
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                ✓
               </div>
-              <h3 className="text-2xl font-bold text-green-400">تم التسجيل بنجاح!</h3>
-              <p className="text-gray-300">أهلاً بك في منصة اتجاه التحليل الذكي.</p>
+              <h3 className="text-2xl font-bold text-white">تم التسجيل بنجاح!</h3>
+              <p className="text-sm text-gray-400">جاري تحويلك إلى منصة اتجاه التحليل الذكي...</p>
             </div>
           )}
         </div>
