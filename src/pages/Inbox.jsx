@@ -172,6 +172,55 @@ export default function Inbox() {
     fetchEmployees();
   }, [currentUser, isAdmin]);
 
+  // Anti-Screenshot & Window Blur Protection for Employees
+  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) return; // Admin has unrestricted access
+
+    const handleBlur = () => setIsWindowBlurred(true);
+    const handleFocus = () => setIsWindowBlurred(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setIsWindowBlurred(true);
+      } else {
+        setIsWindowBlurred(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      // Intercept PrintScreen key
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        setIsWindowBlurred(true);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('');
+        }
+        setTimeout(() => setIsWindowBlurred(false), 2500);
+      }
+      // Block Ctrl+P (Print)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        toast.error('الطباعة غير مسموحة لحماية خصوصية العملاء');
+      }
+      // Block Ctrl+S (Save page)
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isAdmin]);
+
   const formatJobTitle = (title) => {
     if (!title) return 'Agent';
     const clean = title.toString().trim().toLowerCase();
@@ -989,6 +1038,44 @@ export default function Inbox() {
 
   return (
     <div className="flex fixed inset-0 w-full font-sans overflow-hidden bg-slate-900" dir="rtl" onClick={() => setShowOnlyUnreplied(false)}>
+      {/* Anti-Screenshot & Window Blur Frosted Shield for Employees */}
+      {isWindowBlurred && !isAdmin && (
+        <div 
+          onClick={() => setIsWindowBlurred(false)}
+          className="fixed inset-0 z-50 bg-gray-950/85 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 select-none transition-all cursor-pointer"
+        >
+          <div className="bg-gray-900/95 border border-purple-500/40 rounded-3xl p-8 max-w-md text-center shadow-2xl">
+            <div className="w-16 h-16 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
+              🛡️
+            </div>
+            <h3 className="text-xl font-black text-white mb-2">شاشة محادثات محمية</h3>
+            <p className="text-sm text-purple-200/80 mb-6 font-medium leading-relaxed">
+              تم تعتيم وحجب شاشة المحادثات تلقائياً لحماية خصوصية بيانات العملاء أثناء استخدام أدوات التقاط الشاشة أو مغادرة النافذة.
+            </p>
+            <div className="inline-flex items-center gap-2 bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs px-4 py-2 rounded-xl font-bold">
+              <span>يرجى النقر داخل النافذة للمتابعة ↵</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Security Watermark for Employees */}
+      {!isAdmin && currentUser && (() => {
+        const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+        const empLabel = `${currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee'} • ${currentUser?.email || ''} • Etegah CRM`;
+        const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='220' opacity='0.08'><text x='50%' y='50%' font-size='13' font-weight='bold' font-family='sans-serif' fill='%23000' text-anchor='middle' transform='rotate(-25 170 110)'>${empLabel}</text></svg>`;
+        const bgUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}")`;
+        return (
+          <div 
+            className="fixed inset-0 pointer-events-none z-30 select-none overflow-hidden"
+            style={{
+              backgroundImage: bgUrl,
+              backgroundRepeat: 'repeat',
+            }}
+          />
+        );
+      })()}
+
       {/* 3D Modern Gradient Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-10%] w-[70%] h-[70%] rounded-full bg-blue-600/30 blur-[120px] mix-blend-screen animate-pulse"></div>
