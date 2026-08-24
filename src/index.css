@@ -26,3 +26,9 @@
   }
 }
 
+/* Anti-Print and Export Protection */
+@media print {
+  body {
+    display: none !important;
+  }
+}

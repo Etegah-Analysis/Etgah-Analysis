@@ -196,6 +196,55 @@ const Dashboard = () => {
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
   const isAdmin = currentUser && adminEmails.includes(currentUser.email?.toLowerCase());
 
+  // Anti-Screenshot & Window Blur Protection for Employees
+  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) return; // Admin has full unrestricted access
+
+    const handleBlur = () => setIsWindowBlurred(true);
+    const handleFocus = () => setIsWindowBlurred(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setIsWindowBlurred(true);
+      } else {
+        setIsWindowBlurred(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      // Intercept PrintScreen key
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        setIsWindowBlurred(true);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('');
+        }
+        setTimeout(() => setIsWindowBlurred(false), 2500);
+      }
+      // Block Ctrl+P (Print)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        toast.error('الطباعة غير مسموحة لحماية خصوصية العملاء');
+      }
+      // Block Ctrl+S (Save page)
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isAdmin]);
+
   React.useEffect(() => {
     document.title = 'CRM WhatsApp Etegah';
     document.dir = 'rtl';
@@ -1355,6 +1404,26 @@ const Dashboard = () => {
       </header>
 
       <main className="p-3 sm:p-6 max-w-7xl mx-auto w-full relative z-10">
+        {/* Anti-Screenshot & Window Blur Frosted Shield for Employees */}
+        {isWindowBlurred && !isAdmin && (
+          <div 
+            onClick={() => setIsWindowBlurred(false)}
+            className="fixed inset-0 z-50 bg-gray-950/85 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 select-none transition-all cursor-pointer"
+          >
+            <div className="bg-gray-900/95 border border-purple-500/40 rounded-3xl p-8 max-w-md text-center shadow-2xl">
+              <div className="w-16 h-16 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
+                🛡️
+              </div>
+              <h3 className="text-xl font-black text-white mb-2">شاشة بيانات محمية</h3>
+              <p className="text-sm text-purple-200/80 mb-6 font-medium leading-relaxed">
+                تم تعتيم وحجب الشاشة تلقائياً لحماية خصوصية بيانات العملاء أثناء استخدام أدوات التقاط الشاشة أو مغادرة النافذة.
+              </p>
+              <div className="inline-flex items-center gap-2 bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs px-4 py-2 rounded-xl font-bold">
+                <span>يرجى النقر داخل النافذة للمتابعة ↵</span>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Stats Cards */}
         {isAdmin ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
