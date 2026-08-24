@@ -551,13 +551,19 @@ const Dashboard = () => {
       for (const lead of leadsCrm) {
         const rawName = lead.name || '';
         const cleaned = extractCleanCustomerName(rawName);
-        if (cleaned !== rawName) {
-          toUpdate.push({ id: lead.id, cleanedName: cleaned });
+        const shouldClearLastMsg = lead.lastMessage === 'تم استيراد الداتا في Leads CRM' || lead.lastMessage?.includes('استيراد الداتا');
+        
+        if (cleaned !== rawName || shouldClearLastMsg) {
+          toUpdate.push({ 
+            id: lead.id, 
+            cleanedName: cleaned,
+            clearLastMsg: shouldClearLastMsg
+          });
         }
       }
 
       if (toUpdate.length === 0) {
-        toast.success('جميع أسماء العملاء نظيفة بالفعل ولا تحتاج لتعديل! ✨', { id: toastId });
+        toast.success('جميع أسماء وبيانات العملاء نظيفة بالفعل ولا تحتاج لتعديل! ✨', { id: toastId });
         return;
       }
 
@@ -568,17 +574,21 @@ const Dashboard = () => {
         const batch = writeBatch(db);
         for (const item of chunk) {
           const leadRef = doc(db, 'leads_crm', item.id);
-          batch.update(leadRef, { 
+          const updateData = {
             name: item.cleanedName,
             updatedAt: serverTimestamp()
-          });
+          };
+          if (item.clearLastMsg) {
+            updateData.lastMessage = '';
+          }
+          batch.update(leadRef, updateData);
         }
         await batch.commit();
         fixed += chunk.length;
         toast.loading(`جاري الحفظ السريع... (${fixed} / ${toUpdate.length})`, { id: toastId });
       }
 
-      toast.success(`✅ تم تنظيف أسماء ${fixed} عميل بنجاح تام!`, { id: toastId, duration: 5000 });
+      toast.success(`✅ تم تنظيف أسماء وبيانات ${fixed} عميل بنجاح تام!`, { id: toastId, duration: 5000 });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء تنظيف الأسماء: ' + err.message, { id: toastId });
@@ -2110,11 +2120,6 @@ const Dashboard = () => {
                                     <Edit3 size={13} />
                                   </button>
                                 </div>
-                              )}
-                              {isAdmin && (
-                                <span className="inline-block text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">
-                                  📊 المصدر: {customer.source === 'gsheet' ? 'Google Sheet' : customer.source === 'pdf_text' ? 'مستخرج من نص/PDF' : 'إكسيل'}
-                                </span>
                               )}
                               {customer.notesHistory && customer.notesHistory.length > 0 && (
                                 <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات</span>
