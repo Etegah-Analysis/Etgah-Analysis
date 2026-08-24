@@ -66,25 +66,43 @@ export default async function handler(req, res) {
             email: email || '',
             phone: cleanPhone,
             status: 'new',
-            source: 'website',
-            assignedSender: 'website',
             createdAt: new Date(),
             updatedAt: new Date()
           });
+          console.log('Saved visitor customer to etegah-dafe5 for phone:', cleanPhone);
 
-          // Also save/update in بيانات_تسجيل_العملاء for CRM Inbox
-          await dbAdmin.collection('بيانات_تسجيل_العملاء').add({
-            name: visitorName || 'عميل موقع',
-            phoneNumber: cleanPhone,
-            email: email || '',
-            status: 'unassigned',
-            source: 'website',
-            assignedSender: 'website',
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-
-          console.log('Saved website visitor customer to etegah-dafe5 for phone:', cleanPhone);
+          // حفظ العميل في بيانات_تسجيل_العملاء مع تحديد مصدره كموقع إلكتروني
+          // حتى يتم توجيه الرسائل تلقائياً عبر رقم الموقع (16813223358)
+          const cleanDocId = cleanPhone.replace(/[^0-9]/g, '');
+          const crmRef = dbAdmin.collection('بيانات_تسجيل_العملاء').doc(cleanDocId);
+          const crmSnap = await crmRef.get();
+          if (!crmSnap.exists) {
+            await crmRef.set({
+              phoneNumber: cleanPhone,
+              name: visitorName || 'زائر جديد',
+              email: email || '',
+              source: 'website',
+              assignedSender: 'website',
+              status: 'unassigned',
+              addedBy: 'website_otp',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              lastMessage: 'سجّل عبر موقع اتجاه التحليل الذكي',
+              unread: 1
+            });
+            console.log('Saved website customer to بيانات_تسجيل_العملاء:', cleanPhone);
+          } else {
+            // تحديث مصدر العميل إذا كان موجوداً بالفعل
+            const existingData = crmSnap.data();
+            if (!existingData.source) {
+              await crmRef.update({
+                source: 'website',
+                assignedSender: 'website',
+                updatedAt: new Date(),
+                unread: (existingData.unread || 0) + 1
+              });
+            }
+          }
         } catch (saveErr) {
           console.error('Error saving visitor_customers in verifyOtp:', saveErr.message);
         }

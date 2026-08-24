@@ -66,7 +66,7 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} /> : <Login />} 
+            element={user ? <Navigate to="/dashboard" /> : <Login />} 
           />
           <Route 
             path="/inbox" 

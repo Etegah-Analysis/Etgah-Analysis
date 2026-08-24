@@ -27,3 +27,8 @@ dist-ssr
 .env*
 firebase-env.json  
 scratch_check_db.*  
+api/serviceAccountKey.json
+serviceAccountKey.json
+*serviceAccountKey*
+نسخه من جميع بيانات الداش firbase/
+

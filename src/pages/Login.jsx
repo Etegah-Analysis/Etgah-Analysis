@@ -15,7 +15,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = 'منصة اتجاه | خدمة العملاء والإدارة';
+    document.title = 'WhatsApp Etegah';
   }, []);
 
   const handleSubmit = async (e) => {
@@ -117,11 +117,7 @@ export default function Login() {
       }
 
       // Navigate to destination
-      if (loginType === 'admin') {
-        navigate('/dashboard');
-      } else {
-        navigate('/inbox');
-      }
+      navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       const code = err.code || '';
@@ -174,7 +170,7 @@ export default function Login() {
           <div className="p-1 rounded-full bg-white/50 backdrop-blur-sm shadow-sm mb-4">
             <img src="/logo.jpg" alt="Etegah Logo" className="w-24 h-24 rounded-full object-cover" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">منصة اتجاه</h2>
+          <h2 className="text-2xl font-bold text-gray-800">WhatsApp Etegah</h2>
         </div>
 
         {/* Tabs */}

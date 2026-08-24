@@ -9,13 +9,18 @@ import * as XLSX from 'xlsx';
 export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    document.dir = 'rtl';
+  }, []);
+
   const [activeChat, setActiveChat] = useState(null);
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
 
   React.useEffect(() => {
-    document.title = 'منصة اتجاه | خدمة العملاء';
+    document.title = 'CRM WhatsApp Etegah';
   }, []);
   const messagesContainerRef = useRef(null);
   const isFirstLoad = useRef(true);
@@ -481,9 +486,9 @@ export default function Inbox() {
     }
 
     try {
+      // تحديد رقم الإرسال تلقائياً حسب مصدر العميل (يحدده الأدمن ولا يستطيع الموظف تغييره)
+      const senderType = activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns');
       // 3. مناداة Vercel API لإرسالها فعلياً لواتساب العميل
-      const currentSenderType = activeChat.assignedSender || (activeChat.source === 'excel_import' || activeChat.source === 'manual' ? 'campaigns' : 'website');
-
       const response = await fetch('/api/sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -493,7 +498,7 @@ export default function Inbox() {
           mediaUrl: mediaUrl,
           fileType: fileType,
           fileName: fileName,
-          senderType: currentSenderType,
+          senderType: senderType,
           contextMessageId: replyingToMessage?.metaMessageId || undefined
         })
       });
@@ -510,6 +515,7 @@ export default function Inbox() {
         text: msgText,
         sender: 'agent',
         senderEmail: currentUser.email,
+        senderType: senderType,
         timestamp: serverTimestamp(),
         metaMessageId: result.metaMessageId || null,
         status: result.simulated ? 'sent' : 'pending',
@@ -671,8 +677,7 @@ export default function Inbox() {
             body: JSON.stringify({
               to: phone,
               templateName: bulkTemplateName.trim(),
-              languageCode: bulkLanguage,
-              senderType: 'campaigns'
+              languageCode: bulkLanguage
             })
           });
           const resData = await res.json();
@@ -688,8 +693,6 @@ export default function Inbox() {
               customerDocId = chatSnap.docs[0].id;
               await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', customerDocId), {
                 lastMessage: getTemplateDisplayMessage(bulkTemplateName.trim()),
-                source: 'excel_import',
-                assignedSender: 'campaigns',
                 updatedAt: serverTimestamp()
               });
             } else {
@@ -698,9 +701,9 @@ export default function Inbox() {
                 name: name,
                 assignedTo: currentUser.email,
                 assignedToUid: currentUser.uid,
-                status: 'assigned',
                 source: 'excel_import',
                 assignedSender: 'campaigns',
+                status: 'assigned',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 lastMessage: getTemplateDisplayMessage(bulkTemplateName.trim()),
@@ -900,11 +903,11 @@ export default function Inbox() {
           phoneNumber: fullPhone,
           name: newCustomerName.trim() || 'عميل جديد (يدوي)',
           addedBy: currentUser.email,
+          source: 'manual',
+          assignedSender: 'campaigns',
           status: 'unassigned',
           assignedTo: assigneeEmail,
           assignedToUid: assigneeUid,
-          source: 'manual',
-          assignedSender: 'campaigns',
           createdAt: serverTimestamp(),
           assignedAt: null,
           updatedAt: serverTimestamp(),
@@ -997,19 +1000,26 @@ export default function Inbox() {
       <div className={`w-full md:w-1/3 md:max-w-sm bg-black/20 backdrop-blur-xl border-l border-white/10 flex-col relative z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="bg-black/40 backdrop-blur-md px-3 py-3 border-b border-white/10 flex justify-between items-center shadow-sm gap-2">
           <div className="flex items-center space-x-2 space-x-reverse min-w-0 flex-1">
-            <img src="/logo.jpg" alt="Etegah Logo" className="w-9 h-9 rounded-full object-cover border border-white/30 shadow-md shrink-0" />
+            <div className="relative group shrink-0">
+              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-teal-400 to-purple-500 rounded-full blur-[4px] opacity-85 group-hover:opacity-100 transition duration-300 animate-pulse"></div>
+              <img 
+                src="/logo.jpg" 
+                alt="Etegah Logo 3D" 
+                className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-cyan-300 shadow-[0_4px_16px_rgba(6,182,212,0.6)] transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 cursor-pointer" 
+              />
+            </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-white text-xs truncate max-w-[120px]" dir="ltr">
-                  {isAdmin ? 'etegah-analysis' : (userProfile?.username || currentUser?.email?.split('@')[0])}
+                  {userProfile?.name || userProfile?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0])}
                 </span>
                 {isAdmin ? (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm shrink-0 flex items-center gap-0.5">
                     👑 أدمن
                   </span>
                 ) : (
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                    Agent
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-600/30 text-blue-300 border border-blue-400/40">
+                    {userProfile?.jobTitle === 'Leader' || userProfile?.jobTitle === 'ليدر' ? 'Leader' : (userProfile?.jobTitle || userProfile?.role || 'Agent')}
                   </span>
                 )}
                 {/* Logout Button right next to Admin / Employee badge */}
@@ -1040,25 +1050,23 @@ export default function Inbox() {
             >
               <FileText size={16} />
             </button>
-            {isAdmin && (
-              <button 
-                onClick={() => navigate('/dashboard')} 
-                className="flex items-center gap-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-[0_4px_14px_rgba(245,158,11,0.6)] border-2 border-yellow-200 hover:from-amber-300 hover:to-amber-500 transition-all transform hover:scale-105 active:scale-95" 
-                title="الانتقال إلى لوحة CRM"
-              >
-                <BarChart3 size={14} className="text-slate-950" />
-                <span className="tracking-wider">CRM</span>
-              </button>
-            )}
             {!isAdmin && (
               <button 
                 onClick={() => setIsAnalyticsModalOpen(true)} 
-                className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-400 text-white shadow-[0_4px_12px_rgba(245,158,11,0.5)] border border-yellow-200/80 hover:from-amber-400 hover:to-yellow-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-cyan-500 via-teal-500 to-emerald-400 text-white shadow-[0_4px_14px_rgba(6,182,212,0.6)] border border-cyan-200/80 hover:from-cyan-400 hover:to-emerald-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
                 title="إحصائيات حملاتي"
               >
                 <BarChart3 size={16} />
               </button>
             )}
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(245,158,11,0.6)] border-2 border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0" 
+              title="الانتقال إلى جدول Leads CRM"
+            >
+              <BarChart3 size={15} className="text-slate-950" />
+              <span className="font-extrabold text-xs tracking-wide">Leads CRM 🎯</span>
+            </button>
           </div>
         </div>
 
@@ -1210,51 +1218,94 @@ export default function Inbox() {
                   {activeChat.name ? activeChat.name.charAt(0) : <User size={20} />}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-white text-base">{activeChat.name || 'عميل بدون اسم'}</h2>
-                    
-                    {/* Customer Source Badge (Visible to Employees & Admin) */}
-                    {(activeChat.assignedSender === 'campaigns' || activeChat.source === 'excel_import' || activeChat.source === 'manual') ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1 shadow-sm">
-                        📣 عميل حملة / تسويق
+                  <h2 className="font-bold text-white text-base">{activeChat.name || 'عميل بدون اسم'}</h2>
+                  <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {/* شارة مصدر العميل - تظهر للجميع */}
+                    {activeChat.source === 'website' ? (
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        🌐 عميل موقع
+                      </span>
+                    ) : activeChat.source === 'excel_import' ? (
+                      <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        📊 حملة إكسيل
+                      </span>
+                    ) : activeChat.source === 'manual' ? (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        ✋ مضاف يدوياً
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
-                        🟢 عميل موقع إلكتروني
+                      <span className="bg-gray-500/20 text-gray-300 border border-gray-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        👤 عميل
                       </span>
                     )}
-                  </div>
-                  <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 space-x-reverse">
-                {/* Admin ONLY Sender Line Switcher */}
-                {isAdmin && (
-                  <div className="flex items-center gap-1.5 bg-white/10 p-1 px-2.5 rounded-lg border border-white/15">
-                    <span className="text-[11px] text-yellow-300 font-bold">خط الإرسال:</span>
+                    {/* شارة رقم الإرسال */}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                      (activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website'
+                        ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                        : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                    }`}>
+                      📞 {(activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website' ? 'رقم الموقع' : 'رقم الحملات'}
+                    </span>
+
+                    {/* CRM Status Dropdown Selector */}
                     <select
-                      value={activeChat.assignedSender || (activeChat.source === 'excel_import' || activeChat.source === 'manual' ? 'campaigns' : 'website')}
+                      value={activeChat.crmStatus || 'unassigned'}
                       onChange={async (e) => {
-                        const newSender = e.target.value;
+                        const newCrmStatus = e.target.value;
                         try {
-                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), {
-                            assignedSender: newSender
-                          });
-                          setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
-                          toast.success(`تم تحديث خط الإرسال للعميل إلى: ${newSender === 'campaigns' ? 'رقم الحملات' : 'رقم الموقع'}`);
-                        } catch (err) {
-                          console.error(err);
-                          toast.error('حدث خطأ أثناء التحديث');
-                        }
+                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
+                          setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
+                          toast.success('تم تحديث حالة العميل');
+                        } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
                       }}
-                      className="bg-slate-900 text-white text-xs font-bold rounded px-2 py-1 border border-white/20 focus:outline-none cursor-pointer"
+                      className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
                     >
-                      <option value="website">🟢 رقم الموقع والدعم</option>
-                      <option value="campaigns">📣 رقم الحملات والتسويق</option>
+                      <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ في الانتظار</option>
+                      <option value="assigned" className="bg-slate-900 text-blue-300">📋 تم التوجيه</option>
+                      <option value="interested" className="bg-slate-900 text-emerald-300">🌟 مهتم</option>
+                      <option value="not_interested" className="bg-slate-900 text-rose-300">❌ غير مهتم</option>
+                      <option value="no_answer" className="bg-slate-900 text-amber-300">📵 لم يرد</option>
+                      <option value="lost" className="bg-slate-900 text-red-300">🥀 مفقود</option>
+                      <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 تم الاشتراك</option>
+                      <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 بدأ تجربة بالفعل</option>
                     </select>
                   </div>
-                )}
+                </div>
+              </div>
+              <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5">
+                {/* WhatsApp Direct Web Link */}
+                <button
+                  onClick={() => {
+                    const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
+                    window.open(`https://wa.me/${phoneNum}`, '_blank');
+                  }}
+                  className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                  title="فتح محادثة الواتساب المباشرة"
+                >
+                  <MessageCircle size={14} />
+                  <span className="hidden sm:inline">فتح الواتساب</span>
+                </button>
 
+                {/* تحويل رقم الإرسال - للأدمن فقط */}
+                {isAdmin && (
+                  <select
+                    value={activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')}
+                    onChange={async (e) => {
+                      const newSender = e.target.value;
+                      try {
+                        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { assignedSender: newSender });
+                        setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
+                        toast.success(`تم تحديد رقم الإرسال: ${newSender === 'website' ? 'رقم الموقع' : 'رقم الحملات'}`);
+                      } catch (err) { toast.error('خطأ في تحديث رقم الإرسال'); }
+                    }}
+                    className="bg-black/40 text-white border border-white/20 rounded-lg px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer"
+                    title="تحديد رقم الإرسال (للأدمن فقط)"
+                  >
+                    <option value="website" className="bg-slate-900 text-teal-300">📞 رقم الموقع</option>
+                    <option value="campaigns" className="bg-slate-900 text-purple-300">📣 رقم الحملات</option>
+                  </select>
+                )}
                 <button 
                   onClick={() => setIsTemplateModalOpen(true)}
                   className="bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse"
@@ -1264,6 +1315,7 @@ export default function Inbox() {
                 </button>
               </div>
             </div>
+
 
             {/* محتوى المحادثة */}
             <div 
