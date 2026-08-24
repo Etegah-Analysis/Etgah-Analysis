@@ -1424,6 +1424,24 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Dynamic Security Watermark for Employees */}
+        {!isAdmin && currentUser && (() => {
+          const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+          const empLabel = `${currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee'} • ${currentUser?.email || ''} • Etegah CRM`;
+          const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='220' opacity='0.08'><text x='50%' y='50%' font-size='13' font-weight='bold' font-family='sans-serif' fill='%23000' text-anchor='middle' transform='rotate(-25 170 110)'>${empLabel}</text></svg>`;
+          const bgUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}")`;
+          return (
+            <div 
+              className="fixed inset-0 pointer-events-none z-30 select-none overflow-hidden"
+              style={{
+                backgroundImage: bgUrl,
+                backgroundRepeat: 'repeat',
+              }}
+            />
+          );
+        })()}
+
         {/* Stats Cards */}
         {isAdmin ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
