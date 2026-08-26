@@ -337,7 +337,7 @@ const Dashboard = () => {
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
 
   // Assignment Transfer Audit Log Helper
-  const createAssignmentLog = (fromName, toName) => {
+  const createAssignmentLog = (fromName, toName, customAssignedBy) => {
     const isFromAdmin = !fromName || fromName.includes('الرئيسي') || fromName.includes('الإدارة') || fromName.includes('admin') || fromName.includes('gmail');
     const isToAdmin = !toName || toName.includes('الرئيسي') || toName.includes('الإدارة') || toName.includes('admin') || toName.includes('gmail');
     const cleanFrom = isFromAdmin ? '👑 الإدارة' : fromName;
@@ -347,7 +347,7 @@ const Dashboard = () => {
       id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
       from: cleanFrom,
       to: cleanTo,
-      assignedBy: '👑 الإدارة',
+      assignedBy: customAssignedBy || '👑 الإدارة',
       assignedAt: new Date().toISOString()
     };
   };
@@ -359,6 +359,7 @@ const Dashboard = () => {
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpCode, setNewEmpCode] = useState('');
   const [newEmpJobTitle, setNewEmpJobTitle] = useState('Agent');
+  const [newEmpLeaderUid, setNewEmpLeaderUid] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
   const [errorAdd, setErrorAdd] = useState('');
 
@@ -370,6 +371,7 @@ const Dashboard = () => {
   const [editEmpUsername, setEditEmpUsername] = useState('');
   const [editEmpCode, setEditEmpCode] = useState('');
   const [editEmpJobTitle, setEditEmpJobTitle] = useState('Agent');
+  const [editEmpLeaderUid, setEditEmpLeaderUid] = useState('');
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [errorEdit, setErrorEdit] = useState('');
 
@@ -379,6 +381,7 @@ const Dashboard = () => {
     setNewEmpUsername('');
     setNewEmpPassword('');
     setNewEmpJobTitle('Agent');
+    setNewEmpLeaderUid('');
     setErrorAdd('');
     setIsAddEmployeeOpen(true);
   };
@@ -398,6 +401,10 @@ const Dashboard = () => {
   const isAdmin = currentUser && adminEmails.includes(currentUser.email?.toLowerCase());
   const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
+  const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
+  const isAgent = !isAdmin && !isCoordinator && !isLeader;
+  const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
+  const isAllowedToManageLeads = isAdmin || isCoordinator || isLeader;
 
   // Anti-Screenshot & Window Blur Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
@@ -800,6 +807,8 @@ const Dashboard = () => {
 
     setAssignLoading(true);
     try {
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+
       if (assignMode === 'single') {
         const emp = employees.find(e => e.uid === singleAssignEmpUid);
         if (!emp) {
@@ -810,7 +819,7 @@ const Dashboard = () => {
         for (const lead of targetLeads) {
           const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
           const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
-          const logObj = createAssignmentLog(prevEmpName, targetEmpName);
+          const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
 
           await updateDoc(doc(db, 'leads_crm', lead.id), {
             assignedTo: emp.email,
@@ -835,7 +844,7 @@ const Dashboard = () => {
           const emp = activeEmps[i % activeEmps.length];
           const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
           const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
-          const logObj = createAssignmentLog(prevEmpName, targetEmpName);
+          const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
 
           await updateDoc(doc(db, 'leads_crm', lead.id), {
             assignedTo: emp.email,
@@ -1048,6 +1057,9 @@ const Dashboard = () => {
       const emailToCreate = newEmpUsername.includes('@') ? newEmpUsername.trim() : `${safeUsername}@etegah.com`;
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, emailToCreate, newEmpPassword);
       const user = userCredential.user;
+      
+      const leaderObj = newEmpJobTitle === 'Agent' && newEmpLeaderUid ? employees.find(l => l.uid === newEmpLeaderUid) : null;
+
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
@@ -1056,6 +1068,8 @@ const Dashboard = () => {
         name: newEmpName || newEmpUsername,
         empCode: newEmpCode || '',
         jobTitle: newEmpJobTitle || 'Agent',
+        leaderUid: leaderObj ? leaderObj.uid : '',
+        leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : '',
         role: 'employee',
         isActive: true,
         createdAt: new Date()
@@ -1067,6 +1081,7 @@ const Dashboard = () => {
       setNewEmpName('');
       setNewEmpCode('');
       setNewEmpJobTitle('Agent');
+      setNewEmpLeaderUid('');
     } catch (err) {
       console.error(err);
       if (err.code === 'auth/invalid-email') {
@@ -1090,6 +1105,7 @@ const Dashboard = () => {
     setErrorEdit('');
     try {
       const emailToCreate = editEmpUsername.includes('@') ? editEmpUsername.trim() : `${editEmpUsername.trim()}@etegah.com`;
+      const leaderObj = editEmpJobTitle === 'Agent' && editEmpLeaderUid ? employees.find(l => l.uid === editEmpLeaderUid) : null;
 
       // 1. Update Firestore document directly (Always succeeds!)
       await setDoc(doc(db, 'users', editEmp.uid), { 
@@ -1098,7 +1114,9 @@ const Dashboard = () => {
         username: editEmpUsername,
         email: emailToCreate,
         empCode: editEmpCode || '',
-        jobTitle: editEmpJobTitle || 'Agent'
+        jobTitle: editEmpJobTitle || 'Agent',
+        leaderUid: leaderObj ? leaderObj.uid : '',
+        leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : ''
       }, { merge: true });
 
       // 2. Try updating Auth password / email in background if secondary auth credentials exist
@@ -1124,6 +1142,7 @@ const Dashboard = () => {
       setEditEmpUsername('');
       setEditEmpCode('');
       setEditEmpJobTitle('Agent');
+      setEditEmpLeaderUid('');
     } catch (err) {
       console.error(err);
       setErrorEdit('حدث خطأ أثناء حفظ التعديلات. يرجى إعادة المحاولة.');
@@ -1344,23 +1363,39 @@ const Dashboard = () => {
   const handleAssignCustomer = async (chatId, empUid) => {
     if (!empUid) return;
     try {
-      const emp = employees.find(e => e.uid === empUid);
-      if (!emp) return;
       const customer = customers.find(c => c.id === chatId);
       const prevEmpName = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo)?.name || (customer?.assignedTo === 'admin' || customer?.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
-      const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
-      const logObj = createAssignmentLog(prevEmpName, targetEmpName);
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
 
-      await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
-        status: 'unassigned', // يظل في الانتظار حتى يرد عليه الموظف الجديد
-        assignedTo: emp.email,
-        assignedToUid: emp.uid,
-        assignedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        assignmentHistory: arrayUnion(logObj),
-        unread: 1
-      });
-      toast.success(`تم تعيين العميل إلى ${emp.name}`);
+      if (empUid === 'admin') {
+        const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
+          status: 'unassigned',
+          assignedTo: 'admin',
+          assignedToUid: 'admin',
+          assignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          assignmentHistory: arrayUnion(logObj),
+          unread: 1
+        });
+        toast.success('تم إرجاع العميل إلى الإدارة 👑');
+      } else {
+        const emp = employees.find(e => e.uid === empUid);
+        if (!emp) return;
+        const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
+        const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
+
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
+          status: 'unassigned', // يظل في الانتظار حتى يرد عليه الموظف الجديد
+          assignedTo: emp.email,
+          assignedToUid: emp.uid,
+          assignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          assignmentHistory: arrayUnion(logObj),
+          unread: 1
+        });
+        toast.success(`تم تعيين العميل إلى ${emp.name}`);
+      }
     } catch (error) {
       console.error("خطأ في إسناد المحادثة:", error);
     }
@@ -2325,7 +2360,7 @@ const Dashboard = () => {
                     <table className="w-full text-right border-collapse">
                       <thead>
                         <tr className="bg-purple-50/80 border-b border-purple-100">
-                          {(isAdmin || isCoordinator) && (
+                          {(isAdmin || isCoordinator || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
@@ -2353,7 +2388,7 @@ const Dashboard = () => {
 
                         return (
                           <tr key={customer.id} className="hover:bg-purple-50/30 transition border-b border-gray-100/50">
-                            {(isAdmin || isCoordinator) && (
+                            {(isAdmin || isCoordinator || isLeader) && (
                               <td className="p-4 text-center">
                                 <input 
                                   type="checkbox" 
@@ -2366,7 +2401,7 @@ const Dashboard = () => {
                             <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
                               <div className="flex items-center gap-2">
                                 <span>{customer.phoneNumber}</span>
-                                {!isCoordinator && (
+                                {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) && (
                                   <button
                                     onClick={() => handleTransferToWhatsapp(customer)}
                                     className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm"
@@ -2452,15 +2487,16 @@ const Dashboard = () => {
                               </div>
                             </td>
                             <td className="p-4 text-sm text-gray-600 font-medium">
-                              {isAdmin || isCoordinator ? (
+                              {(isAdmin || isCoordinator || isLeader) ? (
                                 <select 
                                   value={!customer.assignedToUid || customer.assignedToUid === 'admin' || customer.assignedTo === 'الإدارة' || customer.assignedTo?.includes('gmail') ? "admin" : customer.assignedToUid}
                                   onChange={async (e) => {
                                     const uid = e.target.value;
                                     const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+                                    const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
                                     
                                     if (uid === 'admin') {
-                                      const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة');
+                                      const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
                                       try {
                                         await updateDoc(doc(db, 'leads_crm', customer.id), {
                                           assignedToUid: 'admin',
@@ -2474,7 +2510,7 @@ const Dashboard = () => {
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     } else {
                                       const emp = employees.find(x => x.uid === uid);
-                                      const logObj = createAssignmentLog(prevEmpName, `👤 ${emp?.name}`);
+                                      const logObj = createAssignmentLog(prevEmpName, `👤 ${emp?.name}`, assignerDisplay);
                                       try {
                                         await updateDoc(doc(db, 'leads_crm', customer.id), {
                                           assignedToUid: uid,
@@ -2490,12 +2526,25 @@ const Dashboard = () => {
                                   }}
                                   className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-purple-500 bg-white/70 shadow-sm cursor-pointer mb-1"
                                 >
-                                  <option value="admin">👑 الإدارة (الإدارة)</option>
-                                  {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
-                                    <option key={emp.uid} value={emp.uid}>
-                                      👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
-                                    </option>
-                                  ))}
+                                  {isLeader ? (
+                                    <>
+                                      <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                                      {myTeamMembers.map(emp => (
+                                        <option key={emp.uid} value={emp.uid}>
+                                          👤 {emp.name} (عضو فريقي)
+                                        </option>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <option value="admin">👑 الإدارة (الإدارة)</option>
+                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                                        <option key={emp.uid} value={emp.uid}>
+                                          👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                        </option>
+                                      ))}
+                                    </>
+                                  )}
                                 </select>
                               ) : (
                                 <span className="inline-block text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full font-bold">
@@ -2779,19 +2828,38 @@ const Dashboard = () => {
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="p-4 text-sm text-gray-600 font-medium">
-                      <select 
-                        value={customer.assignedToUid || ""}
-                        onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
-                        className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/70 shadow-sm cursor-pointer mb-1"
-                      >
-                        <option value="" disabled>-- سحب أو تعيين --</option>
-                        <option value="admin">👑 الإدارة (الإدارة)</option>
-                        {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
-                          <option key={emp.uid} value={emp.uid}>
-                            👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
-                          </option>
-                        ))}
-                      </select>
+                      {(isAdmin || isCoordinator || isLeader) ? (
+                        <select 
+                          value={customer.assignedToUid || ""}
+                          onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                        >
+                          <option value="" disabled>-- سحب أو تعيين --</option>
+                          {isLeader ? (
+                            <>
+                              <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                              {myTeamMembers.map(emp => (
+                                <option key={emp.uid} value={emp.uid}>
+                                  👤 {emp.name} (عضو فريقي)
+                                </option>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <option value="admin">👑 الإدارة (الإدارة)</option>
+                              {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                                <option key={emp.uid} value={emp.uid}>
+                                  👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
+                      ) : (
+                        <span className="inline-block text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold">
+                          👤 مخصص لك
+                        </span>
+                      )}
                       {customer.assignedAt && <span className="block text-xs text-gray-400" dir="ltr">{formatDate(customer.assignedAt)}</span>}
                     </td>
                     <td className="p-4 flex items-center gap-1.5 justify-center">
@@ -2802,7 +2870,7 @@ const Dashboard = () => {
                       >
                         <FileText size={14} className="ml-1" /> التقرير
                       </button>
-                      {!isCoordinator && (
+                      {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) && (
                         <button 
                           onClick={() => navigate('/inbox', { state: { selectedCustomerId: customer.id } })}
                           className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap"
@@ -2810,7 +2878,7 @@ const Dashboard = () => {
                           مراسلة <MessageSquare size={14} className="mr-1" />
                         </button>
                       )}
-                      {!isCoordinator && (
+                      {isAdmin && (
                         <button
                           onClick={() => handleDeleteSingleCustomer(customer)}
                           className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
@@ -3002,6 +3070,7 @@ const Dashboard = () => {
                     </th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">اسم الموظف / الكود</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">التدرج الوظيفي</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">الفريق / المشرف</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">بيانات الدخول (م/س)</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">أول دخول</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">آخر دخول</th>
@@ -3015,6 +3084,7 @@ const Dashboard = () => {
                     return emp.name?.toLowerCase().includes(term) || emp.email?.toLowerCase().includes(term) || emp.empCode?.toLowerCase().includes(term);
                   }).map(emp => {
                     if (emp.role === 'admin') return null;
+                    const teamMembersCount = employees.filter(e => e.leaderUid === emp.uid).length;
                     return (
                       <tr key={emp.id} className={`hover:bg-gray-50 transition ${emp.isActive === false ? 'opacity-60 bg-red-50/50' : ''}`}>
                         <td className="p-4 text-center">
@@ -3047,6 +3117,21 @@ const Dashboard = () => {
                             </span>
                           )}
                         </td>
+                        <td className="p-4 text-xs">
+                          {emp.jobTitle === 'Leader' ? (
+                            <span className="bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 w-fit shadow-xs">
+                              <span>🌟</span>
+                              <span>ليدر ({teamMembersCount} موظف)</span>
+                            </span>
+                          ) : emp.leaderUid ? (
+                            <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
+                              <span>👑</span>
+                              <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'فريق الليدر'}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium text-[11px]">مباشر للإدارة</span>
+                          )}
+                        </td>
                         <td className="p-4 text-sm">
                           <div className="flex flex-col space-y-1">
                             <span className="text-blue-600 font-mono" dir="ltr">{emp.username || emp.email?.split('@')[0]}</span>
@@ -3065,6 +3150,7 @@ const Dashboard = () => {
                                 setEditEmpUsername(emp.username || emp.email?.split('@')[0] || '');
                                 setEditEmpCode(emp.empCode || '');
                                 setEditEmpJobTitle(emp.jobTitle || 'Agent');
+                                setEditEmpLeaderUid(emp.leaderUid || '');
                                 setIsEditEmployeeOpen(true); 
                               }}
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -3523,6 +3609,23 @@ const Dashboard = () => {
                     <option value="Coordinator">منسق للإدارة (Coordinator)</option>
                   </select>
                 </div>
+                {newEmpJobTitle === 'Agent' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">المشرف / الليدر التابع له (Direct Leader)</label>
+                    <select 
+                      value={newEmpLeaderUid}
+                      onChange={(e) => setNewEmpLeaderUid(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-bold text-xs"
+                    >
+                      <option value="">-- بدون ليدر (مباشر للإدارة) --</option>
+                      {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').map(ldr => (
+                        <option key={ldr.uid} value={ldr.uid}>
+                          👑 {ldr.name} ({ldr.username || ldr.empCode || 'ليدر'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
                   <input 
@@ -3618,6 +3721,23 @@ const Dashboard = () => {
                     <option value="Coordinator">منسق للإدارة (Coordinator)</option>
                   </select>
                 </div>
+                {editEmpJobTitle === 'Agent' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">المشرف / الليدر التابع له (Direct Leader)</label>
+                    <select 
+                      value={editEmpLeaderUid}
+                      onChange={(e) => setEditEmpLeaderUid(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-bold text-xs"
+                    >
+                      <option value="">-- بدون ليدر (مباشر للإدارة) --</option>
+                      {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin' && e.uid !== editEmp.uid).map(ldr => (
+                        <option key={ldr.uid} value={ldr.uid}>
+                          👑 {ldr.name} ({ldr.username || ldr.empCode || 'ليدر'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
                   <input 
@@ -3868,17 +3988,19 @@ const Dashboard = () => {
               {(!isCoordinator && assignMode === 'equal') ? (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="block text-xs font-bold text-gray-700">حدد الموظفين النشطين للتقسيم عليهم بالتساوي:</label>
+                    <label className="block text-xs font-bold text-gray-700">
+                      {isLeader ? 'حدد أعضاء فريقك للتقسيم عليهم بالتساوي:' : 'حدد الموظفين النشطين للتقسيم عليهم بالتساوي:'}
+                    </label>
                     <button 
                       type="button"
-                      onClick={() => setAssignEmpUids(employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(e => e.uid))}
+                      onClick={() => setAssignEmpUids(employees.filter(e => isLeader ? (e.uid === currentUser?.uid || e.leaderUid === currentUser?.uid) : (e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(e => e.uid))}
                       className="text-[11px] text-purple-600 font-bold hover:underline"
                     >
                       تحديد الكل
                     </button>
                   </div>
                   <div className="max-h-44 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
-                    {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                    {employees.filter(e => isLeader ? (e.uid === currentUser?.uid || e.leaderUid === currentUser?.uid) : (e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => (
                       <label key={emp.uid} className="flex items-center justify-between cursor-pointer text-xs font-bold text-gray-800 hover:bg-purple-50/50 p-1.5 rounded-lg transition">
                         <div className="flex items-center gap-2.5">
                           <input 
@@ -3892,26 +4014,43 @@ const Dashboard = () => {
                           />
                           <span>👤 {emp.name || emp.username || emp.email?.split('@')[0]}</span>
                         </div>
-                        <span className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-mono">{emp.jobTitle || emp.role || 'Agent'}</span>
+                        <span className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-mono">
+                          {emp.uid === currentUser?.uid ? '👑 الليدر (أنت)' : emp.jobTitle || emp.role || 'Agent'}
+                        </span>
                       </label>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-gray-700">اختر الموظف المستلم:</label>
+                  <label className="block text-xs font-bold text-gray-700">
+                    {isLeader ? 'اختر الموظف المستلم من فريقك:' : 'اختر الموظف المستلم:'}
+                  </label>
                   <select 
                     value={singleAssignEmpUid}
                     onChange={(e) => setSingleAssignEmpUid(e.target.value)}
                     className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-purple-500 bg-white cursor-pointer"
                   >
                     <option value="">-- اختر موظف --</option>
-                    <option value="admin">👑 الإدارة</option>
-                    {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
-                      <option key={emp.uid} value={emp.uid}>
-                        👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
-                      </option>
-                    ))}
+                    {isLeader ? (
+                      <>
+                        <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                        {myTeamMembers.map(emp => (
+                          <option key={emp.uid} value={emp.uid}>
+                            👤 {emp.name} (عضو فريقي)
+                          </option>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <option value="admin">👑 الإدارة</option>
+                        {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                          <option key={emp.uid} value={emp.uid}>
+                            👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               )}
@@ -4120,7 +4259,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin & Employee) */}
+        {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
         {isLeadsAnalysisModalOpen && (
           <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsLeadsAnalysisModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -4134,9 +4273,16 @@ const Dashboard = () => {
                   <div>
                     <h2 className="text-xl font-black text-white flex items-center gap-2">
                       <span>Leads CRM Analysis 📊</span>
+                      {isLeader && <span className="text-xs bg-purple-500/30 text-purple-200 border border-purple-400/40 px-2.5 py-0.5 rounded-full font-bold">فريق العمل</span>}
                     </h2>
                     <p className="text-xs text-purple-300 font-medium">
-                      {(isAdmin || isCoordinator) ? 'تقرير كفاءة وأداء جميع الموظفين ونسبة تحويل العملاء' : 'تقرير تحليلي لكفاءة الأداء وإحصائيات العملاء الخاصة بك'}
+                      {isAdmin 
+                        ? 'تقرير كفاءة وأداء جميع الموظفين والليدرز ونسبة تحويل العملاء' 
+                        : isCoordinator 
+                        ? 'تقرير كفاءة وأداء جميع الموظفين ونسبة تحويل العملاء (منسق)'
+                        : isLeader 
+                        ? `تقرير كفاءة وأداء أعضاء فريقك (${myTeamMembers.length} موظف) ونسبة التحويل`
+                        : 'تقرير تحليلي لكفاءة الأداء وإحصائيات العملاء الخاصة بك'}
                     </p>
                   </div>
                 </div>
@@ -4150,8 +4296,8 @@ const Dashboard = () => {
 
               {/* Modal Body */}
               <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-                {(!isAdmin && !isCoordinator) ? (
-                  /* --- EMPLOYEE INDIVIDUAL ANALYSIS --- */
+                {isAgent ? (
+                  /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
                     const empLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
                     const total = empLeads.length;
@@ -4237,8 +4383,134 @@ const Dashboard = () => {
                       </div>
                     );
                   })()
+                ) : isLeader ? (
+                  /* --- 2. LEADER TEAM PERFORMANCE ANALYSIS --- */
+                  (() => {
+                    const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)];
+                    const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())];
+                    const teamLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || teamEmails.includes(c.assignedTo?.toLowerCase()));
+                    
+                    const teamEmployeesData = [currentEmpUser, ...myTeamMembers].filter(Boolean).map(emp => {
+                      const empLeads = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
+                      const total = empLeads.length;
+                      const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
+                      const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
+                      const interested = empLeads.filter(c => c.crmStatus === 'interested').length;
+                      const noAnswer = empLeads.filter(c => c.crmStatus === 'no_answer').length;
+                      const notInterested = empLeads.filter(c => c.crmStatus === 'not_interested').length;
+                      const pending = empLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
+
+                      const successfulCount = subscribed + trial + interested;
+                      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+
+                      return {
+                        emp,
+                        total,
+                        subscribed,
+                        trial,
+                        interested,
+                        noAnswer,
+                        notInterested,
+                        pending,
+                        successfulCount,
+                        successRate
+                      };
+                    });
+
+                    // Sort team members by success rate & total
+                    teamEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
+
+                    const totalTeamLeads = teamLeads.length;
+                    const totalTeamSuccessful = teamLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length;
+                    const overallTeamRate = totalTeamLeads > 0 ? Math.round((totalTeamSuccessful / totalTeamLeads) * 100) : 0;
+                    const topTeamMember = teamEmployeesData.find(e => e.total > 0);
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Team Summary Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك</span>
+                            <span className="text-3xl font-black text-white">{totalTeamLeads} عميل</span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
+                            <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
+                            <span className="text-3xl font-black text-emerald-400">{overallTeamRate}%</span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
+                            <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً في فريقك 🏆</span>
+                            <span className="text-xl font-black text-amber-300 truncate block">
+                              {topTeamMember ? `${topTeamMember.emp.name} (${topTeamMember.successRate}%)` : 'لا يوجد'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Team Leaderboard Table */}
+                        <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
+                          <div className="p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
+                            <h3 className="text-sm font-black text-purple-200">جدول أداء وكفاءة أعضاء فريقك</h3>
+                            <span className="text-xs text-purple-300 font-bold">{teamEmployeesData.length} عضو</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-right text-xs">
+                              <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
+                                <tr>
+                                  <th className="p-3">عضو الفريق</th>
+                                  <th className="p-3 text-center">إجمالي العملاء</th>
+                                  <th className="p-3 text-center">نسبة النجاح</th>
+                                  <th className="p-3 text-center">🎉 اشتراك</th>
+                                  <th className="p-3 text-center">🚀 تجربة</th>
+                                  <th className="p-3 text-center">🌟 مهتم</th>
+                                  <th className="p-3 text-center">📵 لم يرد</th>
+                                  <th className="p-3 text-center">❌ غير مهتم</th>
+                                  <th className="p-3 text-center">التقييم</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-800 text-slate-200">
+                                {teamEmployeesData.map(({ emp, total, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
+                                  <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
+                                    <td className="p-3 font-bold flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
+                                      <span>{emp.name || emp.username}</span>
+                                      {emp.uid === currentUser?.uid && (
+                                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0.2 rounded">أنت (الليدر)</span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-center font-black">{total}</td>
+                                    <td className="p-3 text-center">
+                                      <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                        {successRate}%
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
+                                    <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
+                                    <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
+                                    <td className="p-3 text-center font-bold text-amber-400">{noAnswer}</td>
+                                    <td className="p-3 text-center font-bold text-rose-400">{notInterested}</td>
+                                    <td className="p-3 text-center">
+                                      {successRate >= 50 ? (
+                                        <span className="bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px] font-black">🏆 ممتاز</span>
+                                      ) : successRate >= 30 ? (
+                                        <span className="bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full text-[10px] font-black">👍 جيد جداً</span>
+                                      ) : successRate >= 15 ? (
+                                        <span className="bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-black">⚖️ متوسط</span>
+                                      ) : (
+                                        <span className="bg-rose-950 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full text-[10px] font-black">⚠️ متابعة</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
-                  /* --- ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS --- */
+                  /* --- 3. ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS + ADMIN LEADERS BREAKDOWN --- */
                   (() => {
                     const allEmployeesData = employees.filter(emp => 
                       emp.role !== 'admin' && 
@@ -4281,6 +4553,38 @@ const Dashboard = () => {
                     const overallCompanyRate = totalCompanyLeads > 0 ? Math.round((totalCompanySuccessful / totalCompanyLeads) * 100) : 0;
                     const topEmp = allEmployeesData.find(e => e.total > 0);
 
+                    // Leaders & Teams Performance Breakdown (for Admin)
+                    const leadersList = employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin');
+                    const leadersTeamData = leadersList.map(leader => {
+                      const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
+                      const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
+                      const teamLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamMembers.some(tm => tm.email?.toLowerCase() === c.assignedTo?.toLowerCase())));
+
+                      const total = teamLeads.length;
+                      const subscribed = teamLeads.filter(c => c.crmStatus === 'subscribed').length;
+                      const trial = teamLeads.filter(c => c.crmStatus === 'started_trial').length;
+                      const interested = teamLeads.filter(c => c.crmStatus === 'interested').length;
+                      const noAnswer = teamLeads.filter(c => c.crmStatus === 'no_answer').length;
+                      const notInterested = teamLeads.filter(c => c.crmStatus === 'not_interested').length;
+
+                      const successfulCount = subscribed + trial + interested;
+                      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+
+                      return {
+                        leader,
+                        teamMembersCount: teamMembers.length,
+                        total,
+                        subscribed,
+                        trial,
+                        interested,
+                        noAnswer,
+                        notInterested,
+                        successfulCount,
+                        successRate
+                      };
+                    });
+                    leadersTeamData.sort((a, b) => b.successRate - a.successRate || b.total - a.total);
+
                     return (
                       <div className="space-y-6">
                         {/* Company Summary Cards */}
@@ -4303,6 +4607,57 @@ const Dashboard = () => {
                           </div>
                         </div>
 
+                        {/* Admin Leaders & Teams Breakdown */}
+                        {isAdmin && leadersTeamData.length > 0 && (
+                          <div className="bg-slate-950 rounded-2xl border border-amber-500/30 overflow-hidden shadow-xl">
+                            <div className="p-4 border-b border-amber-500/20 flex justify-between items-center bg-amber-950/30">
+                              <h3 className="text-sm font-black text-amber-200 flex items-center gap-2">
+                                <span>👑 تقرير أداء فرق العمل والليدرز</span>
+                              </h3>
+                              <span className="text-xs text-amber-300 font-bold">{leadersTeamData.length} ليدر</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-right text-xs">
+                                <thead className="bg-slate-900 text-amber-300 border-b border-slate-800">
+                                  <tr>
+                                    <th className="p-3">الليدر / المشرف</th>
+                                    <th className="p-3 text-center">أعضاء الفريق</th>
+                                    <th className="p-3 text-center">إجمالي الداتا</th>
+                                    <th className="p-3 text-center">نسبة النجاح</th>
+                                    <th className="p-3 text-center">🎉 اشتراك</th>
+                                    <th className="p-3 text-center">🚀 تجربة</th>
+                                    <th className="p-3 text-center">🌟 مهتم</th>
+                                    <th className="p-3 text-center">📵 لم يرد</th>
+                                    <th className="p-3 text-center">❌ غير مهتم</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800 text-slate-200">
+                                  {leadersTeamData.map(({ leader, teamMembersCount, total, subscribed, trial, interested, noAnswer, notInterested, successRate }, idx) => (
+                                    <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
+                                      <td className="p-3 font-bold flex items-center gap-2">
+                                        <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                                        <span>{leader.name || leader.username}</span>
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
+                                      <td className="p-3 text-center font-black">{total}</td>
+                                      <td className="p-3 text-center">
+                                        <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                          {successRate}%
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
+                                      <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
+                                      <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
+                                      <td className="p-3 text-center font-bold text-amber-400">{noAnswer}</td>
+                                      <td className="p-3 text-center font-bold text-rose-400">{notInterested}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Employees Leaderboard Table */}
                         <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
                           <div className="p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
@@ -4314,6 +4669,7 @@ const Dashboard = () => {
                               <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
                                 <tr>
                                   <th className="p-3">الموظف</th>
+                                  <th className="p-3 text-center">الفريق / الليدر</th>
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center">نسبة النجاح</th>
                                   <th className="p-3 text-center">🎉 اشتراك</th>
@@ -4330,6 +4686,15 @@ const Dashboard = () => {
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
                                       <span>{emp.name || emp.username}</span>
+                                    </td>
+                                    <td className="p-3 text-center text-xs text-purple-300">
+                                      {emp.jobTitle === 'Leader' ? (
+                                        <span className="bg-amber-900/60 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-bold">👑 Leader</span>
+                                      ) : emp.leaderUid ? (
+                                        <span className="text-purple-300 font-medium">👑 {employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'ليدر'}</span>
+                                      ) : (
+                                        <span className="text-slate-500 text-[10px]">مباشر للإدارة</span>
+                                      )}
                                     </td>
                                     <td className="p-3 text-center font-black">{total}</td>
                                     <td className="p-3 text-center">
