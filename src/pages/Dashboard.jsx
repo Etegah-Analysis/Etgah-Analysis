@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -1473,6 +1473,13 @@ const Dashboard = () => {
                 <ArrowRight size={14} />
               </button>
             )}
+            <button 
+              onClick={handleLogout}
+              className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 p-1.5 rounded-lg transition text-xs font-bold shadow-sm cursor-pointer"
+              title="تسجيل الخروج"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
 
@@ -1499,7 +1506,7 @@ const Dashboard = () => {
           {isAdmin && (
             <button 
               onClick={openAddEmployeeModal}
-              className="flex items-center bg-primary text-white px-3.5 py-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-sm"
+              className="flex items-center bg-primary text-white px-3.5 py-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-sm cursor-pointer"
             >
               <UserPlus size={18} className="ml-1.5" /> إضافة موظف
             </button>
@@ -1507,12 +1514,22 @@ const Dashboard = () => {
           {!isCoordinator && (
             <button 
               onClick={() => navigate('/inbox')}
-              className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5"
+              className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5 cursor-pointer"
             >
               <span>WhatsApp Etegah chat</span>
               <ArrowRight size={18} />
             </button>
           )}
+
+          {/* Logout Button */}
+          <button 
+            onClick={handleLogout}
+            className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg transition text-xs font-bold gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            title="تسجيل الخروج من الحساب"
+          >
+            <LogOut size={16} />
+            <span>تسجيل الخروج</span>
+          </button>
         </div>
       </header>
 
