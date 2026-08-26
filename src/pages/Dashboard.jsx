@@ -74,6 +74,114 @@ const formatDate = (val) => {
   });
 };
 
+// Global smart helper to extract real customer names and strip call sentences, status notes, and numbers
+const extractCleanCustomerName = (raw) => {
+  if (!raw || typeof raw !== 'string') return 'عميل جديد';
+  let text = String(raw).trim();
+  if (!text || text === 'null' || text === 'undefined') return 'عميل جديد';
+
+  // 1. Remove English keywords, CRM tags, column headers
+  text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Primary Phone|Mobile Phone|Phone|Email|Notes|Description|vtiger|crm)\b/gi, ' ');
+  
+  // 2. Remove English usernames / codes / tokens (e.g. ahmed.abbas, didpxo)
+  text = text.replace(/[a-zA-Z0-9_.-]*[a-zA-Z][a-zA-Z0-9_.-]*/g, ' ');
+  
+  // 3. Remove dates & full timestamps
+  text = text.replace(/(?:\d{1,4}[-/.])?\d{1,2}[-/.]\d{2,4}/g, ' ');
+  text = text.replace(/\b(202[0-9]|201[0-9]|203[0-9])\b/g, ' ');
+  text = text.replace(/o-\d{2}-\d{2}/gi, ' ');
+
+  // 4. Remove standalone numbers (e.g. 26, 22, 21, 999) and all digits
+  text = text.replace(/\d+/g, ' ');
+
+  // 5. Remove known call log notes / conversation sentences / filler phrases
+  const junkPhrases = [
+    /يعطيك\s+العافي[ةهيو]/g,
+    /الله\s+يعطيك\s+العافي[ةهيو]/g,
+    /جزاك\s+الله\s+خير/g,
+    /موقف\s+تداولا?\s+من/g,
+    /موقف\s+تداولا?/g,
+    /مش\s+عارف\s+التداول/g,
+    /مش\s+عارف/g,
+    /مش\s+عاوز\s+تداول/g,
+    /مش\s+عاوز/g,
+    /مش\s+عايز/g,
+    /مش\s+مهتم/g,
+    /غير\s+مهتم/g,
+    /مهتم\s+بالتداول/g,
+    /مهتم/g,
+    /لا\s+ما\s+بتداول/g,
+    /مش\s+متداول/g,
+    /مش\s+بيتداول/g,
+    /ما\s+بتداول/g,
+    /ما\s+يتداول/g,
+    /لم\s+يتداول/g,
+    /قفل\s+لما\s+سمع/g,
+    /سمعت?\s+تداول/g,
+    /قفل\s+السكه/g,
+    /قفلت?\s+السكه/g,
+    /قفل\s+الخط/g,
+    /قفلت?\s+الخط/g,
+    /قفلت?\s+في\s+وشي/g,
+    /قفلت?/g,
+    /قفل/g,
+    /وانا\s+بشرحله/g,
+    /بشرحله/g,
+    /شكرا\s+و?قفلت?/g,
+    /شكراً\s+و?قفلت?/g,
+    /شكرا/g,
+    /شكراً/g,
+    /رصد/g,
+    /لا\s+يرد/g,
+    /لم\s+يرد/g,
+    /ما\s+يرد/g,
+    /لم\s+يتم\s+الرد/g,
+    /مارد/g,
+    /مغلق/g,
+    /غير\s+متاح/g,
+    /الرقم\s+غير\s+صحيح/g,
+    /رقم\s+غير\s+صحيح/g,
+    /رقم\s+خطأ/g,
+    /رقم\s+غلط/g,
+    /مستخرج\s+من\s+نص/g,
+    /عميل\s+جديد/g,
+    /بالتداول/g,
+    /التداول/g,
+    /تداولا?/g,
+    /الو/g,
+    /ألو/g,
+    /السكة/g,
+    /السكه/g,
+    /الخط/g
+  ];
+
+  for (const regex of junkPhrases) {
+    text = text.replace(regex, ' ');
+  }
+
+  // 6. Remove symbols, punctuation, brackets
+  text = text.replace(/[\[\]\(\)\{\}\<\>\-\_\:\;\,\.\|\*\#\@\+\=\\\/\?\!\~\"\'^%$]/g, ' ');
+
+  // 7. Stop words to strip if isolated
+  const stopWords = new Set(['لا', 'ما', 'من', 'في', 'عن', 'على', 'إلى', 'الي', 'او', 'أو', 'ثم', 'و', 'لما', 'سمع', 'سمعت', 'هو', 'هي', 'أن', 'ان', 'مع', 'لو', 'كان', 'كل', 'بعد', 'قبل', 'وشي', 'وجهي', 'ب', 'ت', 'ك', 'ل']);
+
+  // 8. Normalize multiple spaces and split into words
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text || text.length < 2) {
+    return 'عميل جديد';
+  }
+
+  const words = text.split(' ').filter(w => w.length > 0 && !stopWords.has(w) && w.length >= 2);
+  
+  if (words.length === 0) {
+    return 'عميل جديد';
+  }
+
+  const result = words.join(' ').trim();
+  if (result.length < 2) return 'عميل جديد';
+  return result;
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'leads_crm', 'customers' or 'employees'
@@ -378,64 +486,6 @@ const Dashboard = () => {
         const ws = wb.Sheets[wsName];
         const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-        // Helper to extract ONLY the clean customer name (removes english usernames, statuses, dates, call log phrases, symbols)
-        const extractCleanCustomerName = (raw) => {
-          if (!raw || typeof raw !== 'string') return 'عميل جديد';
-          let text = String(raw).trim();
-          if (!text || text === 'null' || text === 'undefined') return 'عميل جديد';
-          
-          // 1. Remove English keywords and status labels
-          text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Primary Phone|Mobile Phone|Phone|Email|Notes|Description|vtiger|crm)\b/gi, ' ');
-          
-          // 2. Remove English words / usernames / code tokens (e.g. Ahmed.Abbas, faten.fayez, Ssdidpxo, didpxo)
-          text = text.replace(/[a-zA-Z0-9_.-]*[a-zA-Z][a-zA-Z0-9_.-]*/g, ' ');
-          
-          // 3. Remove date patterns
-          text = text.replace(/(?:\d{1,4}[-/.])?\d{1,2}[-/.]\d{2,4}/g, ' ');
-          text = text.replace(/\b(202[0-9]|201[0-9]|203[0-9])\b/g, ' ');
-          text = text.replace(/o-\d{2}-\d{2}/gi, ' ');
-          
-          // 4. Remove common call log notes, phone operator phrases, junk Arabic tags
-          const callJunkPhrases = [
-            /مش عارف التداول/g,
-            /مش عارف/g,
-            /قفل السكه/g,
-            /قفلت السكه/g,
-            /قفل الخط/g,
-            /قفلت الخط/g,
-            /وانا بشرحله/g,
-            /بشرحله/g,
-            /شكرا و?قفلت?/g,
-            /شكراً و?قفلت?/g,
-            /شكرا/g,
-            /شكراً/g,
-            /غير مهتم/g,
-            /مش مهتم/g,
-            /رصد/g,
-            /لا يرد/g,
-            /لم يرد/g,
-            /مغلق/g,
-            /غير متاح/g,
-            /الرقم غير صحيح/g,
-            /مستخرج من نص/g,
-            /عميل جديد/g
-          ];
-          for (const phrase of callJunkPhrases) {
-            text = text.replace(phrase, ' ');
-          }
-          
-          // 5. Remove unwanted punctuation, symbols, brackets, dashes
-          text = text.replace(/[\[\]\(\)\{\}\<\>\-\_\:\;\,\.\|\*\#\@\+\=\\\/\?\!\~\"\']/g, ' ');
-          
-          // 6. Collapse multiple spaces and trim
-          text = text.replace(/\s+/g, ' ').trim();
-          
-          if (!text || text.length < 2 || /^[\d\s]+$/.test(text)) {
-            return 'عميل جديد';
-          }
-          return text;
-        };
-
         const parsed = data.map((row) => {
           // vtiger columns: First Name, Last Name, Lead Status, Primary Phone, Mobile Phone, Assigned To
           const firstName = row['First Name'] || row['الاسم الاول'] || '';
@@ -461,64 +511,6 @@ const Dashboard = () => {
       }
     };
     reader.readAsBinaryString(file);
-  };
-
-  // Global helper for clean customer name extraction
-  const extractCleanCustomerName = (raw) => {
-    if (!raw || typeof raw !== 'string') return 'عميل جديد';
-    let text = String(raw).trim();
-    if (!text || text === 'null' || text === 'undefined') return 'عميل جديد';
-    
-    // 1. Remove English keywords and status labels
-    text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Primary Phone|Mobile Phone|Phone|Email|Notes|Description|vtiger|crm)\b/gi, ' ');
-    
-    // 2. Remove English words / usernames / code tokens (e.g. Ahmed.Abbas, faten.fayez, Ssdidpxo, didpxo)
-    text = text.replace(/[a-zA-Z0-9_.-]*[a-zA-Z][a-zA-Z0-9_.-]*/g, ' ');
-    
-    // 3. Remove date patterns
-    text = text.replace(/(?:\d{1,4}[-/.])?\d{1,2}[-/.]\d{2,4}/g, ' ');
-    text = text.replace(/\b(202[0-9]|201[0-9]|203[0-9])\b/g, ' ');
-    text = text.replace(/o-\d{2}-\d{2}/gi, ' ');
-    
-    // 4. Remove common call log notes, phone operator phrases, junk Arabic tags
-    const callJunkPhrases = [
-      /مش عارف التداول/g,
-      /مش عارف/g,
-      /قفل السكه/g,
-      /قفلت السكه/g,
-      /قفل الخط/g,
-      /قفلت الخط/g,
-      /وانا بشرحله/g,
-      /بشرحله/g,
-      /شكرا و?قفلت?/g,
-      /شكراً و?قفلت?/g,
-      /شكرا/g,
-      /شكراً/g,
-      /غير مهتم/g,
-      /مش مهتم/g,
-      /رصد/g,
-      /لا يرد/g,
-      /لم يرد/g,
-      /مغلق/g,
-      /غير متاح/g,
-      /الرقم غير صحيح/g,
-      /مستخرج من نص/g,
-      /عميل جديد/g
-    ];
-    for (const phrase of callJunkPhrases) {
-      text = text.replace(phrase, ' ');
-    }
-    
-    // 5. Remove unwanted punctuation, symbols, brackets, dashes
-    text = text.replace(/[\[\]\(\)\{\}\<\>\-\_\:\;\,\.\|\*\#\@\+\=\\\/\?\!\~\"\']/g, ' ');
-    
-    // 6. Collapse multiple spaces and trim
-    text = text.replace(/\s+/g, ' ').trim();
-    
-    if (!text || text.length < 2 || /^[\d\s]+$/.test(text)) {
-      return 'عميل جديد';
-    }
-    return text;
   };
 
   const handleGsheetImport = async () => {
@@ -2230,7 +2222,7 @@ const Dashboard = () => {
                     <table className="w-full text-right border-collapse">
                       <thead>
                         <tr className="bg-purple-50/80 border-b border-purple-100">
-                          {isAdmin && (
+                          {(isAdmin || isCoordinator) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
@@ -2258,7 +2250,7 @@ const Dashboard = () => {
 
                         return (
                           <tr key={customer.id} className="hover:bg-purple-50/30 transition border-b border-gray-100/50">
-                            {isAdmin && (
+                            {(isAdmin || isCoordinator) && (
                               <td className="p-4 text-center">
                                 <input 
                                   type="checkbox" 
@@ -3843,17 +3835,10 @@ const Dashboard = () => {
                 <X size={24} />
               </button>
 
-              <div className="flex items-center justify-between mb-3 pl-8">
-                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <FileText className="text-amber-600" size={24} />
-                  <span>تقرير وملاحظات العميل</span>
-                </h2>
-                {isCoordinator && (
-                  <span className="text-[11px] bg-teal-100 text-teal-800 font-bold px-2.5 py-0.5 rounded-full border border-teal-200">
-                    👁️ قراءة فقط (منسق)
-                  </span>
-                )}
-              </div>
+              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <FileText className="text-amber-600" size={24} />
+                <span>تقرير وملاحظات العميل</span>
+              </h2>
 
               <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
                 <div>
@@ -4048,7 +4033,7 @@ const Dashboard = () => {
                       <span>Leads CRM Analysis 📊</span>
                     </h2>
                     <p className="text-xs text-purple-300 font-medium">
-                      {isAdmin ? 'تقرير كفاءة وأداء جميع الموظفين ونسبة تحويل العملاء' : 'تقرير تحليلي لكفاءة الأداء وإحصائيات العملاء الخاصة بك'}
+                      {(isAdmin || isCoordinator) ? 'تقرير كفاءة وأداء جميع الموظفين ونسبة تحويل العملاء' : 'تقرير تحليلي لكفاءة الأداء وإحصائيات العملاء الخاصة بك'}
                     </p>
                   </div>
                 </div>
@@ -4062,7 +4047,7 @@ const Dashboard = () => {
 
               {/* Modal Body */}
               <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-                {!isAdmin ? (
+                {(!isAdmin && !isCoordinator) ? (
                   /* --- EMPLOYEE INDIVIDUAL ANALYSIS --- */
                   (() => {
                     const empLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
