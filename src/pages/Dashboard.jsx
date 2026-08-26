@@ -94,17 +94,96 @@ const extractCleanCustomerName = (raw) => {
   // 4. Remove standalone numbers (e.g. 26, 22, 21, 999) and all digits
   text = text.replace(/\d+/g, ' ');
 
-  // 5. Remove known call log notes / conversation sentences / filler phrases
+  // 5. Remove known call log notes / conversation sentences / nationality / age / status phrases
   const junkPhrases = [
+    // Greetings & politeness
     /يعطيك\s+العافي[ةهيو]/g,
     /الله\s+يعطيك\s+العافي[ةهيو]/g,
     /جزاك\s+الله\s+خير/g,
+    
+    // Nationality / Language notes (Image 4)
+    /مش\s+عربي/g,
+    /غير\s+عربي/g,
+    /مو\s+عربي/g,
+    /لا\s+يتحدث\s+العربي[ةه]/g,
+    /ما\s+يتكلم\s+عربي/g,
+    /اجنبي/g,
+    /أجنبي/g,
+    /هندي/g,
+    /باكستاني/g,
+    /بنغالي/g,
+    /فلبيني/g,
+    /انجليزي/g,
+    /إنجليزي/g,
+
+    // Age / Social status notes (Image 5)
+    /كبير[ةه]?\s+بالسن/g,
+    /كبير[ةه]?\s+في\s+السن/g,
+    /عجوز/g,
+    /مسن[ةه]?/g,
+    /صغير[ةه]?\s+بالسن/g,
+    /صغير[ةه]?\s+في\s+السن/g,
+    /قاصر/g,
+    /طالب[ةه]?/g,
+
+    // Financial / Budget notes
+    /م?ع?ند[هو]?ش\s+فلوس/g,
+    /م?ع?ند[هو]?ش\s+راس\s+مال/g,
+    /ما\s+عنده\s+فلوس/g,
+    /ما\s+عنده\s+راس\s+مال/g,
+    /ما\s+عنده\s+سيول[ةه]/g,
+    /ما\s+عنده\s+حساب/g,
+    /طفران/g,
+    /مفلس/g,
+    /ما\s+يملك/g,
+    /معنديش\s+فلوس/g,
+
+    // Availability / Time notes
+    /مش\s+فاضي[ةه]?/g,
+    /مو\s+فاضي[ةه]?/g,
+    /مشغول[ةه]?/g,
+    /عنده\s+دوام/g,
+    /في\s+الدوام/g,
+    /في\s+اجتماع/g,
+    /يسوق/g,
+    /نايم/g,
+    /دلوقتي/g,
+
+    // Competitor / Other platform notes
+    /شغال\s+مع\s+شرك[ةه]\s+تاني[ةه]/g,
+    /شغال\s+في\s+شرك[ةه]\s+تاني[ةه]/g,
+    /بيتداول\s+مع\s+شرك[ةه]\s+تاني[ةه]/g,
+    /متداول\s+في\s+منص[ةه]\s+تاني[ةه]/g,
+    /متداول\s+في\s+بنك/g,
+    /مع\s+شرك[ةه]\s+اخرى/g,
+
+    // Hesitation / Thinking
+    /بيفكر/g,
+    /هيفكر/g,
+    /بفكر/g,
+    /متردد/g,
+    /بيستخير/g,
+    /هيستخير/g,
+    /يبي\s+يفكر/g,
+    /يبي\s+يستشير/g,
+
+    // Scam complaints / Abuse
+    /نصابين/g,
+    /نصاب/g,
+    /بيقول\s+نصابين/g,
+    /بيقول\s+نصب/g,
+    /شتم/g,
+    /سب/g,
+    /قليل\s+الادب/g,
+
+    // Trading specific phrases
     /موقف\s+تداولا?\s+من/g,
     /موقف\s+تداولا?/g,
     /مش\s+عارف\s+التداول/g,
     /مش\s+عارف/g,
     /مش\s+عاوز\s+تداول/g,
     /مش\s+عاوز/g,
+    /مش\s+عايز\s+تداول/g,
     /مش\s+عايز/g,
     /مش\s+مهتم/g,
     /غير\s+مهتم/g,
@@ -116,6 +195,12 @@ const extractCleanCustomerName = (raw) => {
     /ما\s+بتداول/g,
     /ما\s+يتداول/g,
     /لم\s+يتداول/g,
+    /ما\s+يبي\s+يتداول/g,
+    /ما\s+يبي/g,
+    /مش\s+ناوي/g,
+    /رافض\s+التداول/g,
+    /رافض\s+الفكر[ةه]/g,
+    /رافض[ةه]?/g,
     /قفل\s+لما\s+سمع/g,
     /سمعت?\s+تداول/g,
     /قفل\s+السكه/g,
@@ -143,6 +228,7 @@ const extractCleanCustomerName = (raw) => {
     /رقم\s+غير\s+صحيح/g,
     /رقم\s+خطأ/g,
     /رقم\s+غلط/g,
+    /النمر[ةه]\s+غلط/g,
     /مستخرج\s+من\s+نص/g,
     /عميل\s+جديد/g,
     /بالتداول/g,
@@ -162,8 +248,8 @@ const extractCleanCustomerName = (raw) => {
   // 6. Remove symbols, punctuation, brackets
   text = text.replace(/[\[\]\(\)\{\}\<\>\-\_\:\;\,\.\|\*\#\@\+\=\\\/\?\!\~\"\'^%$]/g, ' ');
 
-  // 7. Stop words to strip if isolated
-  const stopWords = new Set(['لا', 'ما', 'من', 'في', 'عن', 'على', 'إلى', 'الي', 'او', 'أو', 'ثم', 'و', 'لما', 'سمع', 'سمعت', 'هو', 'هي', 'أن', 'ان', 'مع', 'لو', 'كان', 'كل', 'بعد', 'قبل', 'وشي', 'وجهي', 'ب', 'ت', 'ك', 'ل']);
+  // 7. Stop words to strip if isolated (including all individual single Arabic letters)
+  const stopWords = new Set(['لا', 'ما', 'من', 'في', 'عن', 'على', 'إلى', 'الي', 'او', 'أو', 'ثم', 'و', 'لما', 'سمع', 'سمعت', 'هو', 'هي', 'أن', 'ان', 'مع', 'لو', 'كان', 'كل', 'بعد', 'قبل', 'وشي', 'وجهي', 'جدا', 'جداً', 'ا', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي']);
 
   // 8. Normalize multiple spaces and split into words
   text = text.replace(/\s+/g, ' ').trim();
@@ -2580,7 +2666,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {selectedCustomers.length > 0 && (
+              {isAdmin && selectedCustomers.length > 0 && (
                 <button 
                   onClick={deleteSelectedCustomers}
                   className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition"
@@ -2880,7 +2966,7 @@ const Dashboard = () => {
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
-                {selectedEmployees.length > 0 && (
+                {isAdmin && selectedEmployees.length > 0 && (
                   <button 
                     onClick={deleteSelectedEmployees}
                     className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition"
@@ -3015,7 +3101,7 @@ const Dashboard = () => {
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
-                {selectedVisitors.length > 0 && (
+                {isAdmin && selectedVisitors.length > 0 && (
                   <button 
                     onClick={deleteSelectedVisitors}
                     className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition"
@@ -4135,9 +4221,15 @@ const Dashboard = () => {
                     );
                   })()
                 ) : (
-                  /* --- ADMIN ALL EMPLOYEES COMPREHENSIVE ANALYSIS --- */
+                  /* --- ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS --- */
                   (() => {
-                    const allEmployeesData = employees.filter(emp => emp.role !== 'admin' && !adminEmails.includes(emp.email?.toLowerCase())).map(emp => {
+                    const allEmployeesData = employees.filter(emp => 
+                      emp.role !== 'admin' && 
+                      !adminEmails.includes(emp.email?.toLowerCase()) && 
+                      emp.jobTitle !== 'Coordinator' && 
+                      emp.jobTitle !== 'منسق للإدارة' && 
+                      emp.role !== 'coordinator'
+                    ).map(emp => {
                       const empLeads = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
                       const total = empLeads.length;
                       const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
