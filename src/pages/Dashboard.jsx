@@ -143,13 +143,20 @@ const Dashboard = () => {
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
 
   // Assignment Transfer Audit Log Helper
-  const createAssignmentLog = (fromName, toName) => ({
-    id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
-    from: fromName || '👑 الإدارة / غير محدد',
-    to: toName || '👑 الإدارة',
-    assignedBy: currentUser?.email ? (employees.find(e => e.email === currentUser.email)?.name || (currentUser.email === 'etegahanalysis@gmail.com' || currentUser.email === 'mohamed.gamal.work0@gmail.com' ? '👑 الإدارة' : currentUser.email.split('@')[0])) : '👑 الإدارة',
-    assignedAt: new Date().toISOString()
-  });
+  const createAssignmentLog = (fromName, toName) => {
+    const isFromAdmin = !fromName || fromName.includes('الرئيسي') || fromName.includes('الإدارة') || fromName.includes('admin') || fromName.includes('gmail');
+    const isToAdmin = !toName || toName.includes('الرئيسي') || toName.includes('الإدارة') || toName.includes('admin') || toName.includes('gmail');
+    const cleanFrom = isFromAdmin ? '👑 الإدارة' : fromName;
+    const cleanTo = isToAdmin ? '👑 الإدارة' : toName;
+
+    return {
+      id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
+      from: cleanFrom,
+      to: cleanTo,
+      assignedBy: '👑 الإدارة',
+      assignedAt: new Date().toISOString()
+    };
+  };
 
   // Add Employee Modal
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
@@ -284,7 +291,7 @@ const Dashboard = () => {
         emps.unshift({
           uid: currentUser.uid,
           id: currentUser.uid,
-          name: 'الإدارة (الرئيسي)',
+          name: 'الإدارة',
           email: currentUser.email,
           role: 'admin'
         });
@@ -913,10 +920,12 @@ const Dashboard = () => {
       }
 
       if (newNoteText.trim()) {
+        const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+        const authorName = isCurrentUserAdmin ? '👑 الإدارة' : (employees.find(e => e.email === currentUser?.email)?.name || currentUser?.email?.split('@')[0] || 'الموظف');
         const noteObj = {
           id: Date.now().toString(),
           text: newNoteText.trim(),
-          author: currentUser?.email || 'الموظف',
+          author: authorName,
           createdAt: new Date().toISOString()
         };
         updatePayload.notesHistory = arrayUnion(noteObj);
@@ -930,6 +939,25 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء حفظ التغييرات');
+    }
+  };
+
+  const handleDeleteSingleNote = async (noteItem, noteIndex) => {
+    if (!isAdmin || !selectedCustomerForNotes) return;
+    if (!window.confirm('هل أنت متأكد من مسح هذه الملاحظة نهائياً من التقرير؟')) return;
+    try {
+      const currentNotes = selectedCustomerForNotes.notesHistory || [];
+      const updatedNotes = currentNotes.filter((n, idx) => (n.id ? n.id !== noteItem.id : idx !== noteIndex));
+      const targetColl = (selectedCustomerForNotes.isLeadCrm || leadsCrm.some(l => l.id === selectedCustomerForNotes.id)) ? 'leads_crm' : 'بيانات_تسجيل_العملاء';
+      await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), {
+        notesHistory: updatedNotes,
+        updatedAt: serverTimestamp()
+      });
+      setSelectedCustomerForNotes(prev => ({ ...prev, notesHistory: updatedNotes }));
+      toast.success('تم مسح الملاحظة بنجاح');
+    } catch (err) {
+      console.error(err);
+      toast.error('خطأ في مسح الملاحظة');
     }
   };
 
@@ -2641,7 +2669,15 @@ const Dashboard = () => {
                     </td>
                     <td className="p-4 text-sm font-semibold text-gray-700">
                       <div>{customer.name}</div>
-                      {customer.addedBy && customer.addedBy !== 'WhatsApp Webhook' && <span className="inline-block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-1">مضاف بواسطة: {employees.find(e => e.email === customer.addedBy)?.name || (customer.addedBy === 'admin' ? 'الإدارة' : customer.addedBy?.split('@')[0])}</span>}
+                      {customer.addedBy && customer.addedBy !== 'WhatsApp Webhook' && (() => {
+                        const isAdderAdmin = adminEmails.includes(customer.addedBy?.toLowerCase()) || customer.addedBy === 'admin' || customer.addedBy?.includes('gmail') || customer.addedBy?.includes('الإدارة') || customer.addedBy?.includes('الرئيسي');
+                        const adderName = isAdderAdmin ? 'الإدارة' : (employees.find(e => e.email === customer.addedBy)?.name || customer.addedBy?.split('@')[0]);
+                        return (
+                          <span className="inline-block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-1">
+                            مضاف بواسطة: {adderName}
+                          </span>
+                        );
+                      })()}
                       {customer.notesHistory && customer.notesHistory.length > 0 && (
                         <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات مضافة</span>
                       )}
@@ -3712,35 +3748,42 @@ const Dashboard = () => {
               </div>
 
               {/* Mode Selection */}
-              <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
-                <button 
-                  onClick={() => setAssignMode('equal')}
-                  className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'equal' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
-                >
-                  🔄 توزيع تلقائي بالتساوي
-                </button>
-                <button 
-                  onClick={() => setAssignMode('single')}
-                  className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'single' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
-                >
-                  👤 تخصيص لموظف معين
-                </button>
-              </div>
+              {!isCoordinator ? (
+                <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
+                  <button 
+                    onClick={() => setAssignMode('equal')}
+                    className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'equal' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
+                  >
+                    🔄 توزيع تلقائي بالتساوي
+                  </button>
+                  <button 
+                    onClick={() => setAssignMode('single')}
+                    className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'single' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
+                  >
+                    👤 تخصيص لموظف معين
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-2.5 rounded-xl mb-4 text-xs font-bold flex items-center justify-between shadow-sm">
+                  <span>👤 تخصيص وتعيين العملاء لموظف معين:</span>
+                  <span className="text-[10px] bg-purple-200 text-purple-800 px-2.5 py-0.5 rounded-full font-bold">📋 منسق للإدارة</span>
+                </div>
+              )}
 
-              {assignMode === 'equal' ? (
+              {(!isCoordinator && assignMode === 'equal') ? (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <label className="block text-xs font-bold text-gray-700">حدد الموظفين النشطين للتقسيم عليهم بالتساوي:</label>
                     <button 
                       type="button"
-                      onClick={() => setAssignEmpUids(employees.map(e => e.uid))}
+                      onClick={() => setAssignEmpUids(employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(e => e.uid))}
                       className="text-[11px] text-purple-600 font-bold hover:underline"
                     >
                       تحديد الكل
                     </button>
                   </div>
                   <div className="max-h-44 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
-                    {employees.map(emp => (
+                    {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                       <label key={emp.uid} className="flex items-center justify-between cursor-pointer text-xs font-bold text-gray-800 hover:bg-purple-50/50 p-1.5 rounded-lg transition">
                         <div className="flex items-center gap-2.5">
                           <input 
@@ -3768,9 +3811,10 @@ const Dashboard = () => {
                     className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-purple-500 bg-white cursor-pointer"
                   >
                     <option value="">-- اختر موظف --</option>
-                    {employees.map(emp => (
+                    <option value="admin">👑 الإدارة</option>
+                    {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                       <option key={emp.uid} value={emp.uid}>
-                        {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name} (${emp.jobTitle || 'Agent'})`}
+                        👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
                       </option>
                     ))}
                   </select>
@@ -3799,21 +3843,34 @@ const Dashboard = () => {
                 <X size={24} />
               </button>
 
-              <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <FileText className="text-amber-600" size={24} />
-                <span>تقرير وملاحظات العميل</span>
-              </h2>
+              <div className="flex items-center justify-between mb-3 pl-8">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <FileText className="text-amber-600" size={24} />
+                  <span>تقرير وملاحظات العميل</span>
+                </h2>
+                {isCoordinator && (
+                  <span className="text-[11px] bg-teal-100 text-teal-800 font-bold px-2.5 py-0.5 rounded-full border border-teal-200">
+                    👁️ قراءة فقط (منسق)
+                  </span>
+                )}
+              </div>
 
               <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل (قابل للتعديل):</label>
-                  <input 
-                    type="text" 
-                    value={modalCustomerName}
-                    onChange={(e) => setModalCustomerName(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-600 bg-white shadow-sm"
-                    placeholder="اسم العميل..."
-                  />
+                  <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل:</label>
+                  {isCoordinator ? (
+                    <div className="w-full px-3 py-1.5 border border-amber-200 rounded-lg text-xs font-black text-gray-800 bg-white shadow-sm">
+                      {modalCustomerName || selectedCustomerForNotes.name || 'عميل جديد'}
+                    </div>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={modalCustomerName}
+                      onChange={(e) => setModalCustomerName(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-600 bg-white shadow-sm"
+                      placeholder="اسم العميل..."
+                    />
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 font-mono font-bold" dir="ltr">📱 {selectedCustomerForNotes.phoneNumber}</p>
               </div>
@@ -3824,18 +3881,24 @@ const Dashboard = () => {
                   <>
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
-                      <select 
-                        value={selectedStatusForNotes}
-                        onChange={(e) => setSelectedStatusForNotes(e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white"
-                      >
-                        <option value="unassigned">⏳ في الانتظار</option>
-                        <option value="interested">🌟 مهتم</option>
-                        <option value="not_interested">❌ غير مهتم</option>
-                        <option value="no_answer">📵 لم يرد</option>
-                        <option value="subscribed">🎉 تم الاشتراك</option>
-                        <option value="started_trial">🚀 بدأ تجربة بالفعل</option>
-                      </select>
+                      {isCoordinator ? (
+                        <div className="w-full p-2.5 border rounded-xl text-xs font-black text-gray-800 bg-gray-50">
+                          {CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ في الانتظار'}
+                        </div>
+                      ) : (
+                        <select 
+                          value={selectedStatusForNotes}
+                          onChange={(e) => setSelectedStatusForNotes(e.target.value)}
+                          className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
+                        >
+                          <option value="unassigned">⏳ في الانتظار</option>
+                          <option value="interested">🌟 مهتم</option>
+                          <option value="not_interested">❌ غير مهتم</option>
+                          <option value="no_answer">📵 لم يرد</option>
+                          <option value="subscribed">🎉 تم الاشتراك</option>
+                          <option value="started_trial">🚀 بدأ تجربة بالفعل</option>
+                        </select>
+                      )}
                     </div>
 
                     {/* Trial Start Date if Status is started_trial */}
@@ -3844,12 +3907,18 @@ const Dashboard = () => {
                         <label className="block text-xs font-bold text-cyan-800 mb-1 flex items-center gap-1">
                           <Calendar size={14} /> تاريخ بدء التجربة:
                         </label>
-                        <input 
-                          type="date"
-                          value={trialDateForNotes}
-                          onChange={(e) => setTrialDateForNotes(e.target.value)}
-                          className="w-full p-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none"
-                        />
+                        {isCoordinator ? (
+                          <div className="w-full p-2 border border-cyan-200 rounded-lg text-xs font-black text-cyan-900 bg-white">
+                            {trialDateForNotes || 'غير محدد'}
+                          </div>
+                        ) : (
+                          <input 
+                            type="date"
+                            value={trialDateForNotes}
+                            onChange={(e) => setTrialDateForNotes(e.target.value)}
+                            className="w-full p-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer"
+                          />
+                        )}
                       </div>
                     )}
                   </>
@@ -3858,17 +3927,35 @@ const Dashboard = () => {
                 {/* Notes History Timeline */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">سجل الملاحظات والتقارير السابقة:</label>
-                  <div className="max-h-36 overflow-y-auto border rounded-xl p-3 bg-gray-50 space-y-2">
+                  <div className="max-h-40 overflow-y-auto border rounded-xl p-3 bg-gray-50 space-y-2">
                     {selectedCustomerForNotes.notesHistory && selectedCustomerForNotes.notesHistory.length > 0 ? (
-                      selectedCustomerForNotes.notesHistory.map((note, i) => (
-                        <div key={note.id || i} className="bg-white p-2.5 rounded-lg border text-xs space-y-1">
-                          <div className="flex justify-between items-center text-[10px] text-gray-400">
-                            <span className="font-bold text-blue-600">👤 {note.author}</span>
-                            <span dir="ltr">{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
+                      selectedCustomerForNotes.notesHistory.map((note, i) => {
+                        const isNoteByAdmin = !note.author || adminEmails.includes(note.author?.toLowerCase()) || note.author === 'admin' || note.author?.includes('gmail') || note.author?.includes('الإدارة') || note.author?.includes('الرئيسي');
+                        const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : (employees.find(e => e.email === note.author)?.name || note.author?.split('@')[0] || 'الموظف');
+
+                        return (
+                          <div key={note.id || i} className="bg-white p-2.5 rounded-lg border text-xs space-y-1 relative group hover:border-amber-300 transition shadow-sm">
+                            <div className="flex justify-between items-center text-[10px] text-gray-400">
+                              <span className="font-bold text-blue-600">👤 {authorDisplay}</span>
+                              <div className="flex items-center gap-2">
+                                {!isNoteByAdmin && note.createdAt && (
+                                  <span dir="ltr">{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
+                                )}
+                                {isAdmin && (
+                                  <button 
+                                    onClick={() => handleDeleteSingleNote(note, i)}
+                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded transition cursor-pointer"
+                                    title="مسح هذه الملاحظة نهائياً من التقرير (خاص بالأدمن)"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-gray-800 font-medium whitespace-pre-wrap">{note.text}</p>
                           </div>
-                          <p className="text-gray-800 font-medium">{note.text}</p>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <p className="text-xs text-gray-400 text-center py-4">لا يوجد ملاحظات مسجلة بعد لهذا العميل.</p>
                     )}
@@ -3880,7 +3967,7 @@ const Dashboard = () => {
                   <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-200/80">
                     <label className="block text-xs font-black text-purple-900 mb-2 flex items-center gap-1.5">
                       <UserCheck size={15} className="text-purple-600" />
-                      <span>🔄 سجل وسلسلة تحويلات العميل بين الموظفين (خاص بالإدارة):</span>
+                      <span>🔄 سجل تحويلات العميل بين الموظفين (خاص بالإدارة):</span>
                     </label>
                     <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                       {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
@@ -3911,25 +3998,36 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Add New Note */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">إضافة ملاحظة / تقرير جديد:</label>
-                  <textarea 
-                    rows={3}
-                    placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
-                    value={newNoteText}
-                    onChange={(e) => setNewNoteText(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-amber-500"
-                  />
-                </div>
+                {/* Add New Note (Hidden for Coordinator) */}
+                {!isCoordinator && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">إضافة ملاحظة / تقرير جديد:</label>
+                    <textarea 
+                      rows={3}
+                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-amber-500"
+                    />
+                  </div>
+                )}
               </div>
 
-              <button 
-                onClick={handleSaveCustomerNotesAndStatus}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm"
-              >
-                💾 حفظ التغييرات والملاحظة
-              </button>
+              {!isCoordinator ? (
+                <button 
+                  onClick={handleSaveCustomerNotesAndStatus}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm cursor-pointer"
+                >
+                  💾 حفظ التغييرات والملاحظة
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsNotesModalOpen(false)}
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition mt-4 shadow-md text-xs cursor-pointer"
+                >
+                  إغلاق التقرير ✕
+                </button>
+              )}
             </div>
           </div>
         )}

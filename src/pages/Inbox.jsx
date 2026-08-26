@@ -150,7 +150,7 @@ export default function Inbox() {
         if (isAdmin) {
           emps.push({
             uid: currentUser.uid,
-            name: '👑 الأدمن (الرئيسي)',
+            name: '👑 الإدارة',
             email: currentUser.email,
             role: 'admin',
             jobTitle: 'Admin'
