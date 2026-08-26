@@ -1455,7 +1455,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1501,7 +1501,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء في الانتظار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{unassignedCount}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{unassignedCount.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1515,7 +1515,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">تسجيل يدوي</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1529,7 +1529,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">إجمالي الموظفين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employees.filter(e => e.role !== 'admin').length}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1543,7 +1543,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
               </div>
             </div>
             
@@ -1557,7 +1557,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">سلة المهملات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{recycleBin.length}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{recycleBin.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1571,7 +1571,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size} قوالب</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب</h3>
               </div>
             </div>
           </div>
@@ -1593,7 +1593,7 @@ const Dashboard = () => {
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
                 <h3 className="text-3xl font-black text-cyan-300">
-                  {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} عميل
+                  {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
               </div>
             </div>
