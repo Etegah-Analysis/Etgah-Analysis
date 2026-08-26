@@ -46,12 +46,18 @@ export default function Inbox() {
       try {
         const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', auth.currentUser.uid)));
         if (!userDoc.empty) {
-          setCurrentEmpName(userDoc.docs[0].data().name || '');
+          const userData = userDoc.docs[0].data();
+          if (userData.jobTitle === 'Coordinator' || userData.jobTitle === 'منسق للإدارة' || userData.role === 'coordinator') {
+            toast.error('غير مصرح لحساب المنسق بدخول محادثات الواتساب');
+            navigate('/dashboard', { replace: true });
+            return;
+          }
+          setCurrentEmpName(userData.name || '');
         }
       } catch (err) { console.error(err); }
     };
     fetchCurrentEmp();
-  }, []);
+  }, [navigate]);
 
   // Swipe to go back on mobile
   const [touchStart, setTouchStart] = useState(null);

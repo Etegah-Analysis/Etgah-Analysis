@@ -195,6 +195,8 @@ const Dashboard = () => {
   const currentUser = auth.currentUser;
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
   const isAdmin = currentUser && adminEmails.includes(currentUser.email?.toLowerCase());
+  const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+  const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
 
   // Anti-Screenshot & Window Blur Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
@@ -1356,13 +1358,15 @@ const Dashboard = () => {
                 <UserPlus size={16} />
               </button>
             )}
-            <button 
-              onClick={() => navigate('/inbox')}
-              className="flex items-center bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition text-xs font-bold gap-1"
-            >
-              <span>WhatsApp Etegah chat</span>
-              <ArrowRight size={14} />
-            </button>
+            {!isCoordinator && (
+              <button 
+                onClick={() => navigate('/inbox')}
+                className="flex items-center bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition text-xs font-bold gap-1"
+              >
+                <span>WhatsApp Etegah chat</span>
+                <ArrowRight size={14} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1380,6 +1384,7 @@ const Dashboard = () => {
               {isAdmin ? '👑 أدمن' : (() => {
                 const emp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
                 const r = emp?.jobTitle || emp?.role || 'Agent';
+                if (r === 'Coordinator' || r === 'منسق للإدارة' || r === 'منسق إدارة') return '📋 منسق إدارة';
                 return r === 'Leader' || r === 'ليدر' ? '👑 Leader' : `👤 ${r}`;
               })()}
             </span>
@@ -1393,13 +1398,15 @@ const Dashboard = () => {
               <UserPlus size={18} className="ml-1.5" /> إضافة موظف
             </button>
           )}
-          <button 
-            onClick={() => navigate('/inbox')}
-            className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5"
-          >
-            <span>WhatsApp Etegah chat</span>
-            <ArrowRight size={18} />
-          </button>
+          {!isCoordinator && (
+            <button 
+              onClick={() => navigate('/inbox')}
+              className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5"
+            >
+              <span>WhatsApp Etegah chat</span>
+              <ArrowRight size={18} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -1575,8 +1582,85 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+        ) : isCoordinator ? (
+          /* Coordinator Cards View */
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
+            {/* Card 1: Dedicated Leads CRM */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <FileSpreadsheet className="text-purple-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+              </div>
+            </div>
+
+            {/* Card 2: Leads CRM Analysis */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLeadsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <BarChart3 className="text-cyan-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300/40">—</h3>
+              </div>
+            </div>
+
+            {/* Card 3: Total Customer Database */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'customers', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Users className="text-blue-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length).toLocaleString()}</h3>
+              </div>
+            </div>
+            
+            {/* Card 4: Pending Customers */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'customers', 'unassigned')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'unassigned' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Clock className="text-red-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء في الانتظار</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{unassignedCount.toLocaleString()}</h3>
+              </div>
+            </div>
+
+            {/* Card 5: Manual Add */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <UserPlus className="text-purple-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">تسجيل يدوي</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
+              </div>
+            </div>
+          </div>
         ) : (
-          /* Employee Cards View */
+          /* Employee (Agent / Leader) Cards View */
           <div className="flex flex-wrap gap-4 mb-6">
             <div 
               onClick={(e) => {
@@ -1848,47 +1932,51 @@ const Dashboard = () => {
                   <FileSpreadsheet className="text-purple-600" size={24} />
                   <span>🎯 Leads CRM</span>
                 </h2>
-                {isAdmin && (
+                {(isAdmin || isCoordinator) && (
                   <span className="bg-purple-200 text-purple-800 text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                    إجمالي {leadsCrm.length} عميل
+                    إجمالي {leadsCrm.length.toLocaleString()} عميل
                   </span>
                 )}
               </div>
 
-              {isAdmin && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button 
-                    onClick={exportLeadsToExcel}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    title="تنزيل جميع العملاء بتفاصيلهم وملحوظاتهم على شيت إكسيل"
-                  >
-                    <Download size={14} /> 📊 تصدير الداتا إلى إكسيل
-                  </button>
-                  <button 
-                    onClick={handleCleanLeadNames}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    title="تنظيف أسماء العملاء وحذف النص الزائد من البيانات المستوردة من vtiger"
-                  >
-                    🧹 تنظيف الأسماء
-                  </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {isAdmin && (
+                  <>
+                    <button 
+                      onClick={exportLeadsToExcel}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تنزيل جميع العملاء بتفاصيلهم وملحوظاتهم على شيت إكسيل"
+                    >
+                      <Download size={14} /> 📊 تصدير الداتا إلى إكسيل
+                    </button>
+                    <button 
+                      onClick={handleCleanLeadNames}
+                      className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تنظيف أسماء العملاء وحذف النص الزائد من البيانات المستوردة من vtiger"
+                    >
+                      🧹 تنظيف الأسماء
+                    </button>
 
-                  <button 
-                    onClick={() => setIsImportModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                  >
-                    <FileSpreadsheet size={14} /> 📥 استيراد Leads جديدة
-                  </button>
+                    <button 
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                    >
+                      <FileSpreadsheet size={14} /> 📥 استيراد Leads جديدة
+                    </button>
+                  </>
+                )}
+                {(isAdmin || isCoordinator) && (
                   <button 
                     onClick={() => {
-                      setAssignEmpUids(employees.map(e => e.uid));
+                      setAssignEmpUids(employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(e => e.uid));
                       setIsAssignModalOpen(true);
                     }}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
                   >
                     <UserCheck2 size={14} /> ⚖️ توزيع Leads CRM
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Filter Bar */}
@@ -1902,7 +1990,7 @@ const Dashboard = () => {
                 return false;
               };
 
-              const scopeLeadsForCount = !isAdmin 
+              const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
                 ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
                 : (selectedEmpFilter === 'all' 
                     ? leadsCrm 
@@ -1920,21 +2008,21 @@ const Dashboard = () => {
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
-                    {/* Employee Filter (Admin Only) - 3D Glassmorphic Dark-Pill */}
-                    {isAdmin && (
+                    {/* Employee Filter (Admin & Coordinator) - 3D Glassmorphic Dark-Pill */}
+                    {(isAdmin || isCoordinator) && (
                       <div className="relative">
                         <select
                           value={selectedEmpFilter}
                           onChange={(e) => setSelectedEmpFilter(e.target.value)}
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
-                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length})</option>
-                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadAssignedToAdmin(c)).length})</option>
-                          {employees.filter(e => e.role !== 'admin').map(emp => {
+                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
+                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadAssignedToAdmin(c)).length.toLocaleString()})</option>
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
                             const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
-                                👤 {emp.name || emp.username} ({count} عميل)
+                                👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
                               </option>
                             );
                           })}
@@ -2058,7 +2146,7 @@ const Dashboard = () => {
 
               let filtered = leadsCrm.filter(c => {
                 // Employee view restriction
-                if (!isAdmin) {
+                if (!isAdmin && !isCoordinator) {
                   if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase()) {
                     return false;
                   }
@@ -2129,12 +2217,12 @@ const Dashboard = () => {
                           <th className="p-4 font-bold text-purple-900 text-sm">تاريخ الاستيراد</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات والواتساب</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedLeads.length === 0 ? (
-                          <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء معينين لك حالياً في قسم Leads CRM.</td></tr>
+                          <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
                         ) : (
                           paginatedLeads.map((customer) => {
                             const currentCrmStatus = customer.crmStatus || 'unassigned';
@@ -2155,13 +2243,15 @@ const Dashboard = () => {
                             <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
                               <div className="flex items-center gap-2">
                                 <span>{customer.phoneNumber}</span>
-                                <button
-                                  onClick={() => handleTransferToWhatsapp(customer)}
-                                  className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm"
-                                  title="تحويل وفتح محادثة الواتساب المباشرة"
-                                >
-                                  <MessageCircle size={14} />
-                                </button>
+                                {!isCoordinator && (
+                                  <button
+                                    onClick={() => handleTransferToWhatsapp(customer)}
+                                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm"
+                                    title="تحويل وفتح محادثة الواتساب المباشرة"
+                                  >
+                                    <MessageCircle size={14} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="p-4 text-sm font-semibold text-gray-700">
@@ -2239,7 +2329,7 @@ const Dashboard = () => {
                               </div>
                             </td>
                             <td className="p-4 text-sm text-gray-600 font-medium">
-                              {isAdmin ? (
+                              {isAdmin || isCoordinator ? (
                                 <select 
                                   value={!customer.assignedToUid || customer.assignedToUid === 'admin' || customer.assignedTo === 'الإدارة' || customer.assignedTo?.includes('gmail') ? "admin" : customer.assignedToUid}
                                   onChange={async (e) => {
@@ -2278,9 +2368,9 @@ const Dashboard = () => {
                                   className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-purple-500 bg-white/70 shadow-sm cursor-pointer mb-1"
                                 >
                                   <option value="admin">👑 الإدارة (الإدارة)</option>
-                                  {employees.filter(e => e.role !== 'admin').map(emp => (
+                                  {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                     <option key={emp.uid} value={emp.uid}>
-                                      👤 {emp.name}
+                                      👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
                                     </option>
                                   ))}
                                 </select>
@@ -2564,9 +2654,10 @@ const Dashboard = () => {
                         className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/70 shadow-sm cursor-pointer mb-1"
                       >
                         <option value="" disabled>-- سحب أو تعيين --</option>
-                        {employees.map(emp => (
+                        <option value="admin">👑 الإدارة (الإدارة)</option>
+                        {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                           <option key={emp.uid} value={emp.uid}>
-                            {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : emp.name}
+                            👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
                           </option>
                         ))}
                       </select>
@@ -2580,19 +2671,23 @@ const Dashboard = () => {
                       >
                         <FileText size={14} className="ml-1" /> التقرير
                       </button>
-                      <button 
-                        onClick={() => navigate('/inbox', { state: { selectedCustomerId: customer.id } })}
-                        className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap"
-                      >
-                        مراسلة <MessageSquare size={14} className="mr-1" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSingleCustomer(customer)}
-                        className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
-                        title="حذف ونقل إلى سلة المهملات"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {!isCoordinator && (
+                        <button 
+                          onClick={() => navigate('/inbox', { state: { selectedCustomerId: customer.id } })}
+                          className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap"
+                        >
+                          مراسلة <MessageSquare size={14} className="mr-1" />
+                        </button>
+                      )}
+                      {!isCoordinator && (
+                        <button
+                          onClick={() => handleDeleteSingleCustomer(customer)}
+                          className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
+                          title="حذف ونقل إلى سلة المهملات"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -2810,6 +2905,10 @@ const Dashboard = () => {
                           {emp.jobTitle === 'Leader' ? (
                             <span className="bg-gradient-to-r from-amber-500 to-purple-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
                               👑 Leader
+                            </span>
+                          ) : emp.jobTitle === 'Coordinator' ? (
+                            <span className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                              📋 منسق للإدارة (Coordinator)
                             </span>
                           ) : (
                             <span className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
@@ -3290,6 +3389,7 @@ const Dashboard = () => {
                   >
                     <option value="Agent">Agent (ايجنت)</option>
                     <option value="Leader">Leader (ليدر)</option>
+                    <option value="Coordinator">منسق للإدارة (Coordinator)</option>
                   </select>
                 </div>
                 <div>
@@ -3384,6 +3484,7 @@ const Dashboard = () => {
                   >
                     <option value="Agent">Agent (ايجنت)</option>
                     <option value="Leader">Leader (ليدر)</option>
+                    <option value="Coordinator">منسق للإدارة (Coordinator)</option>
                   </select>
                 </div>
                 <div>
