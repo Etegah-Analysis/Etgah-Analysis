@@ -1486,8 +1486,8 @@ const Dashboard = () => {
                 <Users className="text-blue-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">إجمالي العملاء</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.length}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length).toLocaleString()}</h3>
               </div>
             </div>
             
