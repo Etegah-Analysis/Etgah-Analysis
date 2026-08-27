@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -319,6 +319,9 @@ const Dashboard = () => {
   const ITEMS_PER_PAGE = 20;
   const [currentPageLeads, setCurrentPageLeads] = useState(1);
   const [currentPageCustomers, setCurrentPageCustomers] = useState(1);
+  const [currentPageTeamTracking, setCurrentPageTeamTracking] = useState(1);
+  const [teamTrackingEmpFilter, setTeamTrackingEmpFilter] = useState('all');
+  const [selectedTeamTrackingLeads, setSelectedTeamTrackingLeads] = useState([]);
 
   useEffect(() => {
     setCurrentPageLeads(1);
@@ -327,6 +330,10 @@ const Dashboard = () => {
   useEffect(() => {
     setCurrentPageCustomers(1);
   }, [customerFilter, tableSearch, selectedEmpFilter, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPageTeamTracking(1);
+  }, [teamTrackingEmpFilter, tableSearch, leadsSortOrder]);
 
   // Notes & Status Modal State
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -885,6 +892,74 @@ const Dashboard = () => {
       setSelectedLeadsCrm(selectedLeadsCrm.filter(id => !itemIds.includes(id)));
     } else {
       setSelectedLeadsCrm([...new Set([...selectedLeadsCrm, ...itemIds])]);
+    }
+  };
+
+  // Pull Single Lead from Team Member to Leader's CRM
+  const handlePullLead = async (lead) => {
+    if (!lead) return;
+    try {
+      const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
+      const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
+      const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+      const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+
+      await updateDoc(doc(db, 'leads_crm', lead.id), {
+        assignedTo: currentUser.email,
+        assignedToUid: currentUser.uid,
+        assignedAt: serverTimestamp(),
+        status: 'assigned',
+        updatedAt: serverTimestamp(),
+        assignmentHistory: arrayUnion(logObj)
+      });
+
+      toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء سحب العميل');
+    }
+  };
+
+  // Bulk Pull Leads from Team Members to Leader's CRM
+  const handleBulkPullLeads = async () => {
+    if (selectedTeamTrackingLeads.length === 0) return;
+    try {
+      const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+      for (const leadId of selectedTeamTrackingLeads) {
+        const lead = leadsCrm.find(l => l.id === leadId);
+        if (!lead) continue;
+        const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
+        const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
+        const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+
+        await updateDoc(doc(db, 'leads_crm', lead.id), {
+          assignedTo: currentUser.email,
+          assignedToUid: currentUser.uid,
+          assignedAt: serverTimestamp(),
+          status: 'assigned',
+          updatedAt: serverTimestamp(),
+          assignmentHistory: arrayUnion(logObj)
+        });
+      }
+      toast.success(`تم سحب ${selectedTeamTrackingLeads.length} عميل بنجاح إلى Leads CRM الخاص بك 📥`);
+      setSelectedTeamTrackingLeads([]);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء سحب العملاء');
+    }
+  };
+
+  const toggleTeamTrackingSelection = (id) => {
+    setSelectedTeamTrackingLeads(prev => prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]);
+  };
+
+  const toggleAllTeamTracking = (paginatedItems) => {
+    const paginatedIds = paginatedItems.map(c => c.id);
+    const allSelected = paginatedIds.length > 0 && paginatedIds.every(id => selectedTeamTrackingLeads.includes(id));
+    if (allSelected) {
+      setSelectedTeamTrackingLeads(prev => prev.filter(id => !paginatedIds.includes(id)));
+    } else {
+      setSelectedTeamTrackingLeads(prev => [...new Set([...prev, ...paginatedIds])]);
     }
   };
 
@@ -1817,8 +1892,111 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+        ) : isLeader ? (
+          /* Leader Dashboard Cards View */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Leader Card 1: Leads CRM (Personal Leads) */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('leads_crm');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض جدول Leads CRM الخاص بك"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <FileSpreadsheet className="text-purple-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
+                <h3 className="text-2xl font-black text-cyan-300">
+                  {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                </h3>
+              </div>
+            </div>
+
+            {/* Leader Card 2: Team Leads Tracking */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('team_leads_tracking');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-purple-950 via-indigo-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لمتابعة عملاء فريقك وسحب الداتا"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <Users className="text-amber-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-amber-200 font-extrabold mb-1">🔄 Team Leads Tracking</p>
+                <h3 className="text-2xl font-black text-amber-300">
+                  {leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل
+                </h3>
+                <span className="text-[10px] text-purple-300 font-bold block mt-0.5">متابعة عملاء التيم والسحب ➔</span>
+              </div>
+            </div>
+
+            {/* Leader Card 3: Team Breakdown (أعضاء الفريق وحجم الداتا تحت كل موظف) */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('team_leads_tracking');
+              }}
+              className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] p-4 border border-indigo-500/40 flex flex-col justify-between cursor-pointer hover:border-indigo-300 transition-all"
+              title="أعضاء فريقك وعدد العملاء تحت كل موظف"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1.5 bg-indigo-500/20 rounded-lg border border-indigo-400/30">
+                    <UserCheck size={16} className="text-indigo-300" />
+                  </div>
+                  <span className="text-xs font-black text-indigo-200">👥 أعضاء فريقي ({myTeamMembers.length})</span>
+                </div>
+                <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-full font-mono">
+                  {leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length} عميل بالتيم
+                </span>
+              </div>
+              <div className="max-h-20 overflow-y-auto space-y-1 pr-1 text-xs">
+                {myTeamMembers.length === 0 ? (
+                  <span className="text-[11px] text-gray-400 font-medium">لم يتم تخصيص موظفين تحتك بعد.</span>
+                ) : (
+                  myTeamMembers.map(emp => {
+                    const empLeadsCount = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                    return (
+                      <div key={emp.uid} className="flex justify-between items-center bg-white/5 px-2 py-1 rounded-lg border border-white/5 text-[11px]">
+                        <span className="font-bold text-gray-200 truncate max-w-[120px]">👤 {emp.name}</span>
+                        <span className="bg-purple-900/80 text-cyan-300 font-mono font-bold px-1.5 py-0.5 rounded text-[10px] border border-purple-400/30">
+                          {empLeadsCount} عميل
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Leader Card 4: Leads CRM Analysis */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLeadsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
+              title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <BarChart3 className="text-cyan-300" size={28} />
+              </div>
+              <div>
+                <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                <h3 className="text-lg font-black text-cyan-300">تحليل الفريق ➔</h3>
+              </div>
+            </div>
+          </div>
         ) : (
-          /* Employee (Agent / Leader) Cards View */
+          /* Regular Employee (Agent) Cards View */
           <div className="flex flex-wrap gap-4 mb-6">
             <div 
               onClick={(e) => {
@@ -2081,8 +2259,282 @@ const Dashboard = () => {
           );
         })()}
 
+        {/* Team Leads Tracking Tab (Dedicated for Leader) */}
+        {isLeader && activeTab === 'team_leads_tracking' && (() => {
+          // Filter leads belonging to leader's team members
+          const teamLeadsPool = leadsCrm.filter(c => {
+            const isUnderMyTeam = myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase());
+            if (!isUnderMyTeam) return false;
+
+            if (teamTrackingEmpFilter !== 'all') {
+              const targetEmp = myTeamMembers.find(e => e.uid === teamTrackingEmpFilter);
+              const matchesUid = c.assignedToUid === teamTrackingEmpFilter;
+              const matchesEmail = targetEmp && c.assignedTo?.toLowerCase() === targetEmp.email?.toLowerCase();
+              if (!matchesUid && !matchesEmail) return false;
+            }
+
+            if (crmStatusFilter !== 'all') {
+              if (c.crmStatus !== crmStatusFilter) return false;
+            }
+
+            if (tableSearch.trim()) {
+              const term = tableSearch.trim().toLowerCase();
+              const matchPhone = c.phoneNumber?.includes(term);
+              const matchName = c.name?.toLowerCase().includes(term);
+              const matchNotes = c.notes?.toLowerCase().includes(term);
+              if (!matchPhone && !matchName && !matchNotes) return false;
+            }
+
+            return true;
+          });
+
+          // Sort leads
+          teamLeadsPool.sort((a, b) => {
+            const dateA = a.assignedAt?.toDate ? a.assignedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0));
+            const dateB = b.assignedAt?.toDate ? b.assignedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0));
+            return leadsSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+          });
+
+          const totalPages = Math.max(1, Math.ceil(teamLeadsPool.length / ITEMS_PER_PAGE));
+          const currentPage = Math.min(currentPageTeamTracking, totalPages);
+          const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+          const paginatedTeamLeads = teamLeadsPool.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+          const isPageAllSelected = paginatedTeamLeads.length > 0 && paginatedTeamLeads.every(c => selectedTeamTrackingLeads.includes(c.id));
+
+          return (
+            <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-white/30 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                    <Users className="text-amber-400" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white flex items-center gap-2">
+                      <span>🔄 متابعة عملاء التيم (Team Leads Tracking)</span>
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                        {teamLeadsPool.length.toLocaleString()} عميل
+                      </span>
+                    </h2>
+                    <p className="text-xs text-purple-200 font-medium">
+                      مراقبة العملاء الموزعين على أفراد فريقك وسحب الداتا في أي وقت لتتحول إلى Leads CRM الخاص بك وتختفي من عند الموظف
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedTeamTrackingLeads.length > 0 && (
+                    <button 
+                      onClick={handleBulkPullLeads}
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer animate-pulse"
+                      title="سحب جميع العملاء المحددين وإعادتهم إلى Leads CRM الخاص بك"
+                    >
+                      <ArrowDownLeft size={16} />
+                      <span>📥 سحب ({selectedTeamTrackingLeads.length}) عميل إلى داتاي</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className="px-6 py-3.5 bg-slate-900/90 border-b border-purple-500/20 flex flex-wrap justify-between items-center gap-3">
+                {/* Employee Filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-purple-200">🔍 فلترة بحسب عضو الفريق:</span>
+                  <select 
+                    value={teamTrackingEmpFilter} 
+                    onChange={(e) => setTeamTrackingEmpFilter(e.target.value)}
+                    className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="all">👥 جميع أعضاء الفريق ({myTeamMembers.length} موظف)</option>
+                    {myTeamMembers.map(emp => {
+                      const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                      return (
+                        <option key={emp.uid} value={emp.uid}>
+                          👤 {emp.name} ({count} عميل)
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {/* Status Filter */}
+                  <select 
+                    value={crmStatusFilter} 
+                    onChange={(e) => setCrmStatusFilter(e.target.value)}
+                    className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="all">🏷️ جميع حالات المتابعة</option>
+                    <option value="started_trial">🚀 بدأ تجربة</option>
+                    <option value="subscribed">🎉 تم الاشتراك</option>
+                    <option value="interested">🌟 مهتم</option>
+                    <option value="no_answer">📵 لم يرد</option>
+                    <option value="not_interested">❌ غير مهتم</option>
+                  </select>
+                </div>
+
+                {/* Search Box & Sort */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="بحث بالرقم أو الاسم..." 
+                      value={tableSearch}
+                      onChange={(e) => setTableSearch(e.target.value)}
+                      className="bg-slate-800 text-white border border-purple-500/40 rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-amber-400 w-48 sm:w-60"
+                    />
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-purple-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                    <tr>
+                      <th className="p-3.5 text-center w-12">
+                        <input 
+                          type="checkbox" 
+                          checked={isPageAllSelected}
+                          onChange={() => toggleAllTeamTracking(paginatedTeamLeads)}
+                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                      </th>
+                      <th className="p-3.5">الرقم</th>
+                      <th className="p-3.5">اسم العميل</th>
+                      <th className="p-3.5">عضو الفريق الحالي</th>
+                      <th className="p-3.5 text-center">تاريخ الإسناد</th>
+                      <th className="p-3.5 text-center">حالة المتابعة</th>
+                      <th className="p-3.5 text-center">التقرير والملاحظات</th>
+                      <th className="p-3.5 text-center">إجراء السحب</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white/90 text-gray-800">
+                    {paginatedTeamLeads.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="p-8 text-center text-gray-500">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Users size={36} className="text-gray-300" />
+                            <p className="font-bold text-sm">لا يوجد عملاء مخصصين لأعضاء فريقك حالياً تحت هذا الفلتر.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedTeamLeads.map((customer) => {
+                        const assignedEmp = employees.find(e => e.uid === customer.assignedToUid || e.email?.toLowerCase() === customer.assignedTo?.toLowerCase());
+                        const isSelected = selectedTeamTrackingLeads.includes(customer.id);
+
+                        return (
+                          <tr key={customer.id} className={`hover:bg-purple-50/60 transition ${isSelected ? 'bg-purple-100/70' : ''}`}>
+                            <td className="p-3.5 text-center">
+                              <input 
+                                type="checkbox" 
+                                checked={isSelected}
+                                onChange={() => toggleTeamTrackingSelection(customer.id)}
+                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-3.5 font-mono font-bold text-purple-900" dir="ltr">
+                              {customer.phoneNumber}
+                            </td>
+                            <td className="p-3.5 font-bold text-gray-900">
+                              {customer.name || 'عميل جديد'}
+                            </td>
+                            <td className="p-3.5">
+                              <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shadow-sm">
+                                <span>👤</span>
+                                <span>{assignedEmp?.name || customer.assignedTo || 'عضو بالفريق'}</span>
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-center text-gray-500 text-[11px] font-mono">
+                              {customer.assignedAt?.toDate ? customer.assignedAt.toDate().toLocaleDateString('ar-EG') : (customer.createdAt?.toDate ? customer.createdAt.toDate().toLocaleDateString('ar-EG') : '—')}
+                            </td>
+                            <td className="p-3.5 text-center">
+                              {(() => {
+                                const st = customer.crmStatus;
+                                if (st === 'started_trial') return <span className="bg-cyan-100 text-cyan-800 font-bold px-2.5 py-1 rounded-full text-[11px] border border-cyan-300">🚀 بدأ تجربة</span>;
+                                if (st === 'subscribed') return <span className="bg-purple-100 text-purple-800 font-bold px-2.5 py-1 rounded-full text-[11px] border border-purple-300">🎉 تم الاشتراك</span>;
+                                if (st === 'interested') return <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full text-[11px] border border-emerald-300">🌟 مهتم</span>;
+                                if (st === 'no_answer') return <span className="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full text-[11px] border border-amber-300">📵 لم يرد</span>;
+                                if (st === 'not_interested') return <span className="bg-rose-100 text-rose-800 font-bold px-2.5 py-1 rounded-full text-[11px] border border-rose-300">❌ غير مهتم</span>;
+                                return <span className="bg-gray-100 text-gray-700 font-medium px-2 py-0.5 rounded-full text-[11px]">في الانتظار</span>;
+                              })()}
+                            </td>
+                            <td className="p-3.5 text-center">
+                              <button 
+                                onClick={() => openNotesModal(customer)}
+                                className="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 mx-auto cursor-pointer shadow-sm"
+                                title="عرض ملحوظات الموظف وتقرير العميل"
+                              >
+                                <FileText size={13} />
+                                <span>التقرير {customer.notes ? '📝' : ''}</span>
+                              </button>
+                            </td>
+                            <td className="p-3.5 text-center">
+                              <button 
+                                onClick={() => handlePullLead(customer)}
+                                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 mx-auto shadow-md active:scale-95 cursor-pointer"
+                                title="سحب هذا العميل من الموظف وإعادته فوراً إلى Leads CRM الخاص بك"
+                              >
+                                <ArrowDownLeft size={14} />
+                                <span>سحب الداتا 📥</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center text-xs">
+                  <span className="text-gray-600 font-bold">
+                    الصفحة {currentPage} من {totalPages} (إجمالي {teamLeadsPool.length} عميل)
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => setCurrentPageTeamTracking(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                    >
+                      السابق
+                    </button>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum = i + 1;
+                      if (totalPages > 5 && currentPage > 3) {
+                        pageNum = currentPage - 3 + i;
+                        if (pageNum > totalPages) pageNum = totalPages - 4 + i;
+                      }
+                      return (
+                        <button 
+                          key={pageNum}
+                          onClick={() => setCurrentPageTeamTracking(pageNum)}
+                          className={`w-8 h-8 rounded-lg font-bold transition ${currentPage === pageNum ? 'bg-purple-700 text-white' : 'bg-white border border-gray-300 hover:bg-gray-100 text-gray-700'}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button 
+                      onClick={() => setCurrentPageTeamTracking(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Dedicated Leads CRM Tab */}
-        {(activeTab === 'leads_crm' || !isAdmin) && (
+        {(activeTab === 'leads_crm' || (!isAdmin && activeTab !== 'team_leads_tracking' && activeTab !== 'customers')) && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
