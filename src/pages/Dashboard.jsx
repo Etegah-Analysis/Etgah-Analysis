@@ -1145,6 +1145,7 @@ const Dashboard = () => {
         jobTitle: newEmpJobTitle || 'Agent',
         leaderUid: leaderObj ? leaderObj.uid : '',
         leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : '',
+        leaderAssignedAt: leaderObj ? serverTimestamp() : null,
         role: 'employee',
         isActive: true,
         createdAt: new Date()
@@ -1181,18 +1182,27 @@ const Dashboard = () => {
     try {
       const emailToCreate = editEmpUsername.includes('@') ? editEmpUsername.trim() : `${editEmpUsername.trim()}@etegah.com`;
       const leaderObj = editEmpJobTitle === 'Agent' && editEmpLeaderUid ? employees.find(l => l.uid === editEmpLeaderUid) : null;
+      const currentLeaderUid = editEmp.leaderUid || '';
+      const newLeaderUid = leaderObj ? leaderObj.uid : '';
+      const isLeaderChanged = currentLeaderUid !== newLeaderUid;
 
-      // 1. Update Firestore document directly (Always succeeds!)
-      await setDoc(doc(db, 'users', editEmp.uid), { 
+      const updateData = { 
         password: editEmpPassword,
         name: editEmpName,
         username: editEmpUsername,
         email: emailToCreate,
         empCode: editEmpCode || '',
         jobTitle: editEmpJobTitle || 'Agent',
-        leaderUid: leaderObj ? leaderObj.uid : '',
+        leaderUid: newLeaderUid,
         leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : ''
-      }, { merge: true });
+      };
+
+      if (isLeaderChanged) {
+        updateData.leaderAssignedAt = newLeaderUid ? serverTimestamp() : null;
+      }
+
+      // 1. Update Firestore document directly (Always succeeds!)
+      await setDoc(doc(db, 'users', editEmp.uid), updateData, { merge: true });
 
       // 2. Try updating Auth password / email in background if secondary auth credentials exist
       try {
@@ -3539,12 +3549,28 @@ const Dashboard = () => {
                               <span>ليدر ({teamMembersCount} موظف)</span>
                             </span>
                           ) : emp.leaderUid ? (
-                            <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
-                              <span>👑</span>
-                              <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'فريق الليدر'}</span>
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
+                                <span>👑</span>
+                                <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'فريق الليدر'}</span>
+                              </span>
+                              {emp.leaderAssignedAt && (
+                                <span className="text-[10px] text-purple-700 font-mono flex items-center gap-1" title="تاريخ ووقت التعيين تحت هذا الليدر">
+                                  <span>⏱️</span>
+                                  <span dir="ltr">{formatDate(emp.leaderAssignedAt)}</span>
+                                </span>
+                              )}
+                            </div>
                           ) : (
-                            <span className="text-gray-400 font-medium text-[11px]">مباشر للإدارة</span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-gray-400 font-medium text-[11px]">مباشر للإدارة</span>
+                              {emp.leaderAssignedAt && (
+                                <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1" title="تاريخ التحويل إلى الإدارة">
+                                  <span>⏱️</span>
+                                  <span dir="ltr">{formatDate(emp.leaderAssignedAt)}</span>
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                         <td className="p-4 text-sm">
