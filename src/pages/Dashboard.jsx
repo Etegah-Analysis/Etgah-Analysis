@@ -1894,7 +1894,7 @@ const Dashboard = () => {
           </div>
         ) : isLeader ? (
           /* Leader Dashboard Cards View */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {/* Leader Card 1: Leads CRM (Personal Leads) */}
             <div 
               onClick={(e) => {
@@ -1916,68 +1916,31 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 2: Team Leads Tracking */}
+            {/* Leader Card 2: Team Members & Total Team Leads */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
                 setActiveTab('team_leads_tracking');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`bg-gradient-to-br from-purple-950 via-indigo-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لمتابعة عملاء فريقك وسحب الداتا"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
                 <Users className="text-amber-400" size={28} />
               </div>
               <div>
-                <p className="text-xs text-amber-200 font-extrabold mb-1">🔄 Team Leads Tracking</p>
+                <p className="text-xs text-amber-200 font-extrabold mb-1">👥 أعضاء فريقي</p>
                 <h3 className="text-2xl font-black text-amber-300">
-                  {leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل
+                  {myTeamMembers.length} موظف
                 </h3>
-                <span className="text-[10px] text-purple-300 font-bold block mt-0.5">متابعة عملاء التيم والسحب ➔</span>
-              </div>
-            </div>
-
-            {/* Leader Card 3: Team Breakdown (أعضاء الفريق وحجم الداتا تحت كل موظف) */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('team_leads_tracking');
-              }}
-              className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] p-4 border border-indigo-500/40 flex flex-col justify-between cursor-pointer hover:border-indigo-300 transition-all"
-              title="أعضاء فريقك وعدد العملاء تحت كل موظف"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1.5 bg-indigo-500/20 rounded-lg border border-indigo-400/30">
-                    <UserCheck size={16} className="text-indigo-300" />
-                  </div>
-                  <span className="text-xs font-black text-indigo-200">👥 أعضاء فريقي ({myTeamMembers.length})</span>
-                </div>
-                <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-full font-mono">
-                  {leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length} عميل بالتيم
+                <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
+                  ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
                 </span>
               </div>
-              <div className="max-h-20 overflow-y-auto space-y-1 pr-1 text-xs">
-                {myTeamMembers.length === 0 ? (
-                  <span className="text-[11px] text-gray-400 font-medium">لم يتم تخصيص موظفين تحتك بعد.</span>
-                ) : (
-                  myTeamMembers.map(emp => {
-                    const empLeadsCount = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
-                    return (
-                      <div key={emp.uid} className="flex justify-between items-center bg-white/5 px-2 py-1 rounded-lg border border-white/5 text-[11px]">
-                        <span className="font-bold text-gray-200 truncate max-w-[120px]">👤 {emp.name}</span>
-                        <span className="bg-purple-900/80 text-cyan-300 font-mono font-bold px-1.5 py-0.5 rounded text-[10px] border border-purple-400/30">
-                          {empLeadsCount} عميل
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
             </div>
 
-            {/* Leader Card 4: Leads CRM Analysis */}
+            {/* Leader Card 3: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2318,7 +2281,7 @@ const Dashboard = () => {
                       </span>
                     </h2>
                     <p className="text-xs text-purple-200 font-medium">
-                      مراقبة العملاء الموزعين على أفراد فريقك وسحب الداتا في أي وقت لتتحول إلى Leads CRM الخاص بك وتختفي من عند الموظف
+                      مراقبة العملاء الموزعين على أفراد فريقك وسحب الداتا في أي وقت لتتحول إلى Leads CRM الخاص بك
                     </p>
                   </div>
                 </div>
