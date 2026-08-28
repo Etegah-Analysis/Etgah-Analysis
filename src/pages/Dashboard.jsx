@@ -281,6 +281,7 @@ const Dashboard = () => {
 
   const [customers, setCustomers] = useState([]);
   const [leadsCrm, setLeadsCrm] = useState([]);
+  const [employeeLeads, setEmployeeLeads] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [visitors, setVisitors] = useState([]);
   const [recycleBin, setRecycleBin] = useState([]);
@@ -289,10 +290,19 @@ const Dashboard = () => {
   
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedLeadsCrm, setSelectedLeadsCrm] = useState([]);
+  const [selectedEmployeeLeads, setSelectedEmployeeLeads] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedVisitors, setSelectedVisitors] = useState([]);
   const [selectedRecycleItems, setSelectedRecycleItems] = useState([]);
   const [selectedEmpFilter, setSelectedEmpFilter] = useState('all');
+
+  // Employee Leads Tab Filters & Pagination State
+  const [currentPageEmpLeads, setCurrentPageEmpLeads] = useState(1);
+  const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('all');
+  const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('all');
+  const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
+  const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
+  const [empLeadsSortOrder, setEmpLeadsSortOrder] = useState('desc');
 
   // Lead Import Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -329,6 +339,10 @@ const Dashboard = () => {
   useEffect(() => {
     setCurrentPageLeads(1);
   }, [selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, tableSearch, leadsSortOrder]);
+
+  useEffect(() => {
+    setCurrentPageEmpLeads(1);
+  }, [empLeadsEmpFilter, empLeadsStatusFilter, empLeadsDateFrom, empLeadsDateTo, tableSearch, empLeadsSortOrder]);
 
   useEffect(() => {
     setCurrentPageCustomers(1);
@@ -494,6 +508,18 @@ const Dashboard = () => {
       toast.error("خطأ في جلب بيانات Leads CRM: " + error.message);
     });
 
+    const empLeadsUnsub = onSnapshot(collection(db, 'employee_leads'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      data.sort((a, b) => {
+        const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
+        const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
+        return timeB - timeA;
+      });
+      setEmployeeLeads(data);
+    }, (error) => {
+      console.error("Error fetching employee_leads:", error);
+    });
+
     const empUnsub = onSnapshot(collection(db, 'users'), (snapshot) => {
       const emps = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       
@@ -545,6 +571,7 @@ const Dashboard = () => {
     return () => {
       custUnsub();
       leadsCrmUnsub();
+      empLeadsUnsub();
       empUnsub();
       visUnsub();
       rbUnsub();
@@ -794,7 +821,7 @@ const Dashboard = () => {
         if (!cleanPhone.startsWith('+')) cleanPhone = `+${cleanPhone}`;
 
         const crmDocId = cleanPhone.replace(/[^0-9]/g, '');
-        const crmRef = doc(db, 'leads_crm', crmDocId);
+        const crmRef = doc(db, 'employee_leads', crmDocId);
         const crmSnap = await getDoc(crmRef);
 
         const sourceLabel = importTab === 'gsheet' ? 'رابط Google Sheet' : importTab === 'text' ? 'نص / سكرين شوت' : importTab === 'manual' ? 'إضافة يدوية' : 'ملف Excel / CSV';
@@ -838,9 +865,9 @@ const Dashboard = () => {
       }
       const skippedCount = importRows.length - savedCount;
       if (skippedCount > 0) {
-        toast.success(`تم حفظ ${savedCount} عميل جديد (وتخطي ${skippedCount} عميل مكرر مسبقاً في CRM)`);
+        toast.success(`تم حفظ ${savedCount} عميل جديد في (داتا مضافة بواسطة الموظف) وتخطي ${skippedCount} مكرر`);
       } else {
-        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قاعدة بيانات الـ CRM 🚀`);
+        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (داتا مضافة بواسطة الموظف) 🚀`);
       }
       setIsImportModalOpen(false);
       setImportRows([]);
@@ -849,10 +876,11 @@ const Dashboard = () => {
       setManualName('');
       setManualPhone('');
       setManualNotes('');
-      setActiveTab('leads_crm');
+      setActiveTab('employee_leads');
+      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء حفظ العملاء في Leads CRM');
+      toast.error('حدث خطأ أثناء حفظ العملاء في (داتا مضافة بواسطة الموظف)');
     } finally {
       setImportLoading(false);
     }
@@ -1050,6 +1078,17 @@ const Dashboard = () => {
     }
   };
 
+  const determineCustomerCollection = (customerOrId) => {
+    const id = typeof customerOrId === 'string' ? customerOrId : customerOrId?.id;
+    if (employeeLeads.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isEmployeeLead)) {
+      return 'employee_leads';
+    }
+    if (leadsCrm.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isLeadCrm)) {
+      return 'leads_crm';
+    }
+    return 'بيانات_تسجيل_العملاء';
+  };
+
   const handleTransferToWhatsapp = async (customer) => {
     try {
       let phoneNum = customer.phoneNumber.replace(/[^0-9]/g, '');
@@ -1064,7 +1103,7 @@ const Dashboard = () => {
         createdAt: new Date().toISOString()
       };
 
-      const targetColl = leadsCrm.some(l => l.id === customer.id) ? 'leads_crm' : 'بيانات_تسجيل_العملاء';
+      const targetColl = determineCustomerCollection(customer);
       await updateDoc(doc(db, targetColl, customer.id), {
         transferredToWhatsapp: true,
         transferredAt: serverTimestamp(),
@@ -1081,7 +1120,8 @@ const Dashboard = () => {
 
   const handleUpdateCustomerCrmStatus = async (customerId, newStatus) => {
     try {
-      await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', customerId), {
+      const targetColl = determineCustomerCollection(customerId);
+      await updateDoc(doc(db, targetColl, customerId), {
         crmStatus: newStatus,
         updatedAt: serverTimestamp()
       });
@@ -1103,8 +1143,7 @@ const Dashboard = () => {
       return;
     }
     try {
-      const isLead = leadsCrm.some(l => l.id === leadId);
-      const targetColl = isLead ? 'leads_crm' : 'بيانات_تسجيل_العملاء';
+      const targetColl = determineCustomerCollection(leadId);
       await updateDoc(doc(db, targetColl, leadId), {
         name: editingLeadName.trim(),
         updatedAt: serverTimestamp()
@@ -1119,7 +1158,8 @@ const Dashboard = () => {
   };
 
   const handleOpenNotesModal = (customer, isLeadCrm = false) => {
-    setSelectedCustomerForNotes({ ...customer, isLeadCrm });
+    const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
+    setSelectedCustomerForNotes({ ...customer, isLeadCrm, isEmployeeLead: isEmpLead });
     setSelectedStatusForNotes(customer.crmStatus || 'unassigned');
     setTrialDateForNotes(customer.trialStartDate || '');
     setModalCustomerName(customer.name || '');
@@ -1155,7 +1195,7 @@ const Dashboard = () => {
         updatePayload.notesHistory = arrayUnion(noteObj);
       }
 
-      const targetColl = (selectedCustomerForNotes.isLeadCrm || leadsCrm.some(l => l.id === selectedCustomerForNotes.id)) ? 'leads_crm' : 'بيانات_تسجيل_العملاء';
+      const targetColl = determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
       toast.success('تم حفظ التغييرات والاسم والملاحظات بنجاح');
       setIsNotesModalOpen(false);
@@ -1172,7 +1212,7 @@ const Dashboard = () => {
     try {
       const currentNotes = selectedCustomerForNotes.notesHistory || [];
       const updatedNotes = currentNotes.filter((n, idx) => (n.id ? n.id !== noteItem.id : idx !== noteIndex));
-      const targetColl = (selectedCustomerForNotes.isLeadCrm || leadsCrm.some(l => l.id === selectedCustomerForNotes.id)) ? 'leads_crm' : 'بيانات_تسجيل_العملاء';
+      const targetColl = determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), {
         notesHistory: updatedNotes,
         updatedAt: serverTimestamp()
@@ -1182,6 +1222,83 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
       toast.error('خطأ في مسح الملاحظة');
+    }
+  };
+
+  // Selection & Clean Helpers for Employee Leads Tab
+  const toggleEmployeeLeadSelection = (id) => {
+    setSelectedEmployeeLeads(prev => prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]);
+  };
+  const toggleAllEmployeeLeads = (pageItems) => {
+    const items = Array.isArray(pageItems) ? pageItems : employeeLeads;
+    const itemIds = items.map(item => item.id);
+    const isAllSelected = itemIds.length > 0 && itemIds.every(id => selectedEmployeeLeads.includes(id));
+    if (isAllSelected) {
+      setSelectedEmployeeLeads(selectedEmployeeLeads.filter(id => !itemIds.includes(id)));
+    } else {
+      setSelectedEmployeeLeads([...new Set([...selectedEmployeeLeads, ...itemIds])]);
+    }
+  };
+
+  const handleCleanEmpLeadNames = async () => {
+    if (!employeeLeads || employeeLeads.length === 0) {
+      toast.error('لا يوجد عملاء لتنظيف أسمائهم حالياً');
+      return;
+    }
+    if (!window.confirm(`سيتم فحص ${employeeLeads.length} سجل في (داتا مضافة بواسطة الموظف) وحذف أي نصوص زائدة أو تواريخ وإبقاء الاسم النظيف فقط. هل تريد المتابعة؟`)) return;
+    
+    const toastId = toast.loading(`جاري فحص وتنظيف ${employeeLeads.length} عميل...`);
+    let fixed = 0;
+    try {
+      const toUpdate = [];
+      for (const lead of employeeLeads) {
+        const rawName = lead.name || '';
+        const cleaned = extractCleanCustomerName(rawName);
+        if (cleaned !== rawName) {
+          toUpdate.push({ id: lead.id, cleanedName: cleaned });
+        }
+      }
+
+      if (toUpdate.length === 0) {
+        toast.success('جميع أسماء العملاء نظيفة بالفعل! ✨', { id: toastId });
+        return;
+      }
+
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        const chunk = toUpdate.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        for (const item of chunk) {
+          const leadRef = doc(db, 'employee_leads', item.id);
+          batch.update(leadRef, { name: item.cleanedName, updatedAt: serverTimestamp() });
+        }
+        await batch.commit();
+        fixed += chunk.length;
+      }
+
+      toast.success(`✅ تم تنظيف أسماء ${fixed} عميل بنجاح!`, { id: toastId, duration: 5000 });
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء تنظيف الأسماء: ' + err.message, { id: toastId });
+    }
+  };
+
+  const handleDeleteSelectedEmpLeads = async () => {
+    if (!isAdmin && !isCoordinator) return;
+    if (selectedEmployeeLeads.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedEmployeeLeads.length} عميل من (داتا مضافة بواسطة الموظف)؟`)) return;
+    
+    try {
+      const batch = writeBatch(db);
+      selectedEmployeeLeads.forEach(id => {
+        batch.delete(doc(db, 'employee_leads', id));
+      });
+      await batch.commit();
+      setSelectedEmployeeLeads([]);
+      toast.success(`تم حذف ${selectedEmployeeLeads.length} عميل بنجاح`);
+    } catch (err) {
+      console.error(err);
+      toast.error('خطأ أثناء حذف العملاء');
     }
   };
 
@@ -1593,6 +1710,52 @@ const Dashboard = () => {
     }
   };
 
+  const exportEmployeeLeadsToExcel = () => {
+    if (!employeeLeads || employeeLeads.length === 0) {
+      toast.error('لا يوجد عملاء لتصديرهم في داتا مضافة بواسطة الموظف');
+      return;
+    }
+
+    try {
+      const excelData = employeeLeads.map((lead, idx) => {
+        const emp = employees.find(e => e.uid === lead.assignedToUid || e.email?.toLowerCase() === lead.assignedTo?.toLowerCase());
+        const empName = emp ? (emp.name || emp.username) : (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : (lead.assignedTo || 'غير محدد'));
+        const statusLabel = CRM_STATUS_MAP[lead.crmStatus]?.label || lead.crmStatus || '⏳ في الانتظار';
+        
+        let compiledNotes = '';
+        if (lead.notesHistory && lead.notesHistory.length > 0) {
+          compiledNotes = lead.notesHistory.map(n => `[${n.author}]: ${n.text}`).join(' | ');
+        } else if (lead.notes) {
+          compiledNotes = lead.notes;
+        }
+
+        return {
+          '#': idx + 1,
+          'اسم العميل': lead.name || 'عميل جديد',
+          'رقم الهاتف': lead.phoneNumber || '',
+          'حالة CRM': statusLabel,
+          'الموظف المسؤول': empName,
+          'أضيف بواسطة': lead.addedBy || 'غير محدد',
+          'المصدر': lead.source || 'إكسيل',
+          'تاريخ الإضافة': formatDate(lead.createdAt || lead.updatedAt),
+          'تاريخ بدء التجربة': lead.trialStartDate || 'غير محدد',
+          'الملاحظات والتقارير': compiledNotes
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'داتا مضافة بواسطة الموظف');
+      
+      const fileName = `تصدير_داتا_مضافة_بواسطة_الموظف_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      toast.success(`تم تصدير ${employeeLeads.length} عميل إلى ملف إكسيل بنجاح 🟢`);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء تصدير ملف الإكسيل');
+    }
+  };
+
   return (
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
@@ -1771,21 +1934,22 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 2: Import & Add Data */}
+            {/* Card 2: Employee Added Data */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
-                setIsImportModalOpen(true);
+                setActiveTab('employee_leads');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لرفع شيت إكسيل، شيت جوجل، صور، أو إضافة يدوية"
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Upload className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
-                <h3 className="text-sm sm:text-base font-black text-emerald-300">إكسيل / شيت / يدوي</h3>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{employeeLeads.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1817,7 +1981,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length).toLocaleString()}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length).toLocaleString()}</h3>
               </div>
             </div>
             
@@ -1922,21 +2086,22 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 2: Import & Add Data */}
+            {/* Card 2: Employee Added Data */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
-                setIsImportModalOpen(true);
+                setActiveTab('employee_leads');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لرفع شيت إكسيل، شيت جوجل، صور، أو إضافة يدوية"
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Upload className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
-                <h3 className="text-sm sm:text-base font-black text-emerald-300">إكسيل / شيت / يدوي</h3>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{employeeLeads.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -1968,7 +2133,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length).toLocaleString()}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length).toLocaleString()}</h3>
               </div>
             </div>
             
@@ -2024,26 +2189,24 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 2: Import & Add Leads */}
+            {/* Leader Card 2: Employee Added Data */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
-                setIsImportModalOpen(true);
+                setActiveTab('employee_leads');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لرفع شيت إكسيل، أو رابط شيت جوجل، أو سكرين شوت، أو إضافة عميل يدوياً"
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
                 <Upload className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
-                <h3 className="text-sm font-black text-emerald-300">
-                  إكسيل / صور / شيت / يدوي
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-2xl font-black text-emerald-300">
+                  {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
                 </h3>
-                <span className="text-[10px] text-emerald-200/80 font-bold block mt-0.5">
-                  + تنزل في داتاي مباشرة
-                </span>
               </div>
             </div>
 
@@ -2113,26 +2276,24 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Agent Card 2: Import & Add Leads */}
+            {/* Agent Card 2: Employee Added Data */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
-                setIsImportModalOpen(true);
+                setActiveTab('employee_leads');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لرفع شيت إكسيل، أو رابط شيت جوجل، أو سكرين شوت، أو إضافة عميل يدوياً لحسابك"
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
                 <Upload className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
-                <h3 className="text-sm font-black text-emerald-300">
-                  إكسيل / صور / شيت / يدوي
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-3xl font-black text-emerald-300">
+                  {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
-                <span className="text-[10px] text-emerald-200/80 font-bold block mt-0.5">
-                  + تنزل في حسابي مباشرة
-                </span>
               </div>
             </div>
 
@@ -2652,7 +2813,7 @@ const Dashboard = () => {
         })()}
 
         {/* Dedicated Leads CRM Tab */}
-        {(activeTab === 'leads_crm' || (!isAdmin && activeTab !== 'team_leads_tracking' && activeTab !== 'customers')) && (
+        {(activeTab === 'leads_crm' || (!isAdmin && activeTab !== 'team_leads_tracking' && activeTab !== 'employee_leads' && activeTab !== 'customers')) && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
@@ -3254,6 +3415,628 @@ const Dashboard = () => {
                           }}
                           disabled={validPageLeads === totalPagesLeads}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          التالي ▶
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Dedicated Employee Added Leads CRM Tab */}
+        {activeTab === 'employee_leads' && (
+          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-white flex flex-wrap justify-between items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-lg font-bold text-emerald-950 flex items-center gap-2">
+                  <Upload className="text-emerald-600" size={24} />
+                  <span>📁 داتا مضافة بواسطة الموظف</span>
+                </h2>
+                <span className="bg-emerald-200 text-emerald-900 text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                  {isAdmin || isCoordinator ? `إجمالي ${employeeLeads.length.toLocaleString()} عميل` : `داتاي المرفوعة (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (isLeader && myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))).length.toLocaleString()} عميل)`}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button 
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} /> 📥 إضافة واستيراد داتا جديدة
+                </button>
+                {isAdmin && (
+                  <>
+                    <button 
+                      onClick={exportEmployeeLeadsToExcel}
+                      className="bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تصدير هذه الداتا إلى إكسيل"
+                    >
+                      <Download size={14} /> 📊 تصدير إكسيل
+                    </button>
+                    <button 
+                      onClick={handleCleanEmpLeadNames}
+                      className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تنظيف أسماء العملاء وحذف النصوص الزائدة"
+                    >
+                      🧹 تنظيف الأسماء
+                    </button>
+                  </>
+                )}
+                {(isAdmin || isCoordinator) && selectedEmployeeLeads.length > 0 && (
+                  <button 
+                    onClick={handleDeleteSelectedEmpLeads}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <Trash2 size={14} /> مسح المحدد ({selectedEmployeeLeads.length})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter & Status Bar */}
+            {(() => {
+              const scopeEmpLeads = (!isAdmin && !isCoordinator) 
+                ? (isLeader
+                    ? (empLeadsEmpFilter === 'all'
+                        ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))
+                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                      )
+                    : employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
+                  )
+                : (empLeadsEmpFilter === 'all' 
+                    ? employeeLeads 
+                    : (empLeadsEmpFilter === 'admin' 
+                        ? employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.addedByUid === 'admin')
+                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                      )
+                  );
+
+              const getEmpLeadStatusCount = (statusKey) => {
+                if (statusKey === 'all') return scopeEmpLeads.length;
+                return scopeEmpLeads.filter(c => (c.crmStatus || 'unassigned') === statusKey).length;
+              };
+
+              return (
+                <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
+                    {/* Employee Filter Dropdown for Admin, Coordinator, Leader */}
+                    {(isAdmin || isCoordinator || isLeader) && (
+                      <div className="relative">
+                        <select
+                          value={empLeadsEmpFilter}
+                          onChange={(e) => setEmpLeadsEmpFilter(e.target.value)}
+                          className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(16,185,129,0.35)] border border-emerald-400/40 hover:border-emerald-300 transition-all cursor-pointer appearance-none"
+                        >
+                          <option value="all" className="bg-slate-950 text-white">
+                            {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.length.toLocaleString()})`}
+                          </option>
+                          {(isAdmin || isCoordinator) && (
+                            <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.addedByUid === 'admin').length.toLocaleString()})</option>
+                          )}
+                          {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
+                            const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
+                            return (
+                              <option key={emp.uid} value={emp.uid} className="bg-slate-950 text-white">
+                                👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-300 text-[10px] font-bold">
+                          ▼
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status Tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        { key: 'all', label: 'الكل', bg: 'bg-slate-800 text-white' },
+                        { key: 'unassigned', label: '⏳ في الانتظار', bg: 'bg-gray-100 text-gray-700' },
+                        { key: 'interested', label: '🌟 مهتم', bg: 'bg-emerald-100 text-emerald-800' },
+                        { key: 'not_interested', label: '❌ غير مهتم', bg: 'bg-rose-100 text-rose-800' },
+                        { key: 'no_answer', label: '📵 لم يرد', bg: 'bg-amber-100 text-amber-800' },
+                        { key: 'subscribed', label: '🎉 تم الاشتراك', bg: 'bg-purple-100 text-purple-800' },
+                        { key: 'started_trial', label: '🚀 بدأ تجربة', bg: 'bg-cyan-100 text-cyan-800' },
+                      ].map(tab => {
+                        const count = getEmpLeadStatusCount(tab.key);
+                        const isSelected = empLeadsStatusFilter === tab.key;
+                        return (
+                          <button
+                            key={tab.key}
+                            onClick={() => setEmpLeadsStatusFilter(tab.key)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                              isSelected ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-400' : `${tab.bg} hover:opacity-80`
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${isSelected ? 'bg-white/20 text-white' : 'bg-black/10'}`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Search, Date & Sort Controls */}
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <div className="flex items-center gap-1 bg-white border border-emerald-200 rounded-xl px-2 py-1 shadow-sm text-xs">
+                      <span className="text-[11px] text-gray-500 font-bold">من:</span>
+                      <input 
+                        type="date" 
+                        value={empLeadsDateFrom} 
+                        onChange={(e) => setEmpLeadsDateFrom(e.target.value)}
+                        className="text-xs outline-none bg-transparent text-gray-700" 
+                      />
+                      <span className="text-[11px] text-gray-500 font-bold">إلى:</span>
+                      <input 
+                        type="date" 
+                        value={empLeadsDateTo} 
+                        onChange={(e) => setEmpLeadsDateTo(e.target.value)}
+                        className="text-xs outline-none bg-transparent text-gray-700" 
+                      />
+                      {(empLeadsDateFrom || empLeadsDateTo) && (
+                        <button 
+                          onClick={() => { setEmpLeadsDateFrom(''); setEmpLeadsDateTo(''); }}
+                          className="text-[10px] text-red-500 hover:underline font-bold mr-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setEmpLeadsSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      className="bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title={empLeadsSortOrder === 'desc' ? 'الترتيب: الأحدث أولاً (انقر للتبديل)' : 'الترتيب: الأقدم أولاً (انقر للتبديل)'}
+                    >
+                      <ArrowUpDown size={13} className="text-emerald-600" />
+                      <span>{empLeadsSortOrder === 'desc' ? 'الأحدث ⬇' : 'الأقدم ⬆'}</span>
+                    </button>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="ابحث بالاسم أو الهاتف..."
+                        value={tableSearch}
+                        onChange={(e) => setTableSearch(e.target.value)}
+                        className="w-48 sm:w-56 px-3 py-1.5 pr-8 bg-white border border-emerald-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm"
+                      />
+                      <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      {tableSearch && (
+                        <button onClick={() => setTableSearch('')} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Table Content */}
+            {(() => {
+              let filtered = employeeLeads.filter(c => {
+                // Role restriction
+                if (!isAdmin && !isCoordinator) {
+                  if (isLeader) {
+                    if (empLeadsEmpFilter === 'all') {
+                      const matchesSelf = c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid;
+                      const matchesTeam = myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
+                      if (!matchesSelf && !matchesTeam) return false;
+                    } else {
+                      const emp = employees.find(e => e.uid === empLeadsEmpFilter);
+                      const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
+                      const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
+                      if (!matchesAssigned && !matchesAdded) return false;
+                    }
+                  } else {
+                    if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase() && c.addedByUid !== currentUser?.uid) {
+                      return false;
+                    }
+                  }
+                } else if (empLeadsEmpFilter && empLeadsEmpFilter !== 'all') {
+                  if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
+                    if (c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedToUid !== 'unassigned' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail')) return false;
+                  } else {
+                    const emp = employees.find(e => e.uid === empLeadsEmpFilter);
+                    const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
+                    const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
+                    if (!matchesAssigned && !matchesAdded) return false;
+                  }
+                }
+
+                if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
+                  const currentStatus = c.crmStatus || 'unassigned';
+                  if (currentStatus !== empLeadsStatusFilter) return false;
+                }
+
+                // Date Filter
+                if (empLeadsDateFrom) {
+                  const fromTime = new Date(empLeadsDateFrom).setHours(0, 0, 0, 0);
+                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
+                  if (itemTime > 0 && itemTime < fromTime) return false;
+                }
+                if (empLeadsDateTo) {
+                  const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
+                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
+                  if (itemTime > 0 && itemTime > toTime) return false;
+                }
+
+                const search = tableSearch.trim();
+                if (!search) return true;
+                const term = search.toLowerCase();
+                return c.name?.toLowerCase().includes(term) || c.phoneNumber?.includes(term);
+              });
+
+              // Sorting
+              filtered.sort((a, b) => {
+                const timeA = getTimestampMillis(a.createdAt) || getTimestampMillis(a.updatedAt);
+                const timeB = getTimestampMillis(b.createdAt) || getTimestampMillis(b.updatedAt);
+                return empLeadsSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+              });
+
+              const totalPagesEmpLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+              const validPageEmpLeads = Math.min(currentPageEmpLeads, totalPagesEmpLeads);
+              const startIndexEmpLeads = (validPageEmpLeads - 1) * ITEMS_PER_PAGE;
+              const paginatedEmpLeads = filtered.slice(startIndexEmpLeads, startIndexEmpLeads + ITEMS_PER_PAGE);
+
+              const isPageSelected = paginatedEmpLeads.length > 0 && paginatedEmpLeads.every(c => selectedEmployeeLeads.includes(c.id));
+
+              return (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right border-collapse">
+                      <thead>
+                        <tr className="bg-emerald-50/80 border-b border-emerald-100">
+                          {(isAdmin || isCoordinator || isLeader) && (
+                            <th className="p-4 w-12 text-center">
+                              <input 
+                                type="checkbox" 
+                                checked={isPageSelected} 
+                                onChange={() => toggleAllEmployeeLeads(paginatedEmpLeads)} 
+                                className="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600" 
+                              />
+                            </th>
+                          )}
+                          <th className="p-4 font-bold text-emerald-950 text-sm">رقم الهاتف</th>
+                          <th className="p-4 font-bold text-emerald-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
+                          <th className="p-4 font-bold text-emerald-950 text-sm">تاريخ الإضافة</th>
+                          <th className="p-4 font-bold text-emerald-950 text-sm">حالة المتابعة (CRM)</th>
+                          <th className="p-4 font-bold text-emerald-950 text-sm">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-emerald-950 text-sm text-center">الإجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedEmpLeads.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="p-10 text-center text-gray-500 font-bold">
+                              <div className="flex flex-col items-center justify-center gap-2">
+                                <Upload size={36} className="text-gray-300" />
+                                <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
+                                <button
+                                  onClick={() => setIsImportModalOpen(true)}
+                                  className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
+                                >
+                                  + إضافة / استيراد داتا الآن
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedEmpLeads.map((customer) => {
+                            const currentCrmStatus = customer.crmStatus || 'unassigned';
+                            const statusInfo = CRM_STATUS_MAP[currentCrmStatus] || CRM_STATUS_MAP.unassigned;
+
+                            return (
+                              <tr key={customer.id} className="hover:bg-emerald-50/30 transition border-b border-gray-100/50">
+                                {(isAdmin || isCoordinator || isLeader) && (
+                                  <td className="p-4 text-center">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={selectedEmployeeLeads.includes(customer.id)} 
+                                      onChange={() => toggleEmployeeLeadSelection(customer.id)} 
+                                      className="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600" 
+                                    />
+                                  </td>
+                                )}
+                                <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                                  <div className="flex items-center gap-2">
+                                    <span>{customer.phoneNumber}</span>
+                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
+                                      <button
+                                        onClick={() => handleTransferToWhatsapp(customer)}
+                                        className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm cursor-pointer"
+                                        title="تحويل وفتح محادثة الواتساب المباشرة"
+                                      >
+                                        <MessageCircle size={14} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-4 text-sm font-semibold text-gray-700">
+                                  {editingLeadId === customer.id ? (
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <input 
+                                        type="text" 
+                                        value={editingLeadName} 
+                                        onChange={(e) => setEditingLeadName(e.target.value)}
+                                        className="border border-emerald-400 rounded px-2 py-0.5 text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white shadow-sm"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveLeadName(customer.id);
+                                          if (e.key === 'Escape') setEditingLeadId(null);
+                                        }}
+                                      />
+                                      <button 
+                                        onClick={() => handleSaveLeadName(customer.id)} 
+                                        className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded transition text-xs font-bold shadow-sm cursor-pointer"
+                                        title="حفظ الاسم"
+                                      >
+                                        ✓
+                                      </button>
+                                      <button 
+                                        onClick={() => setEditingLeadId(null)} 
+                                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-1.5 py-0.5 rounded transition text-xs font-bold cursor-pointer"
+                                        title="إلغاء"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 group mb-1">
+                                      <span className="font-bold text-gray-800">{customer.name || 'عميل جديد'}</span>
+                                      <button 
+                                        onClick={() => {
+                                          setEditingLeadId(customer.id);
+                                          setEditingLeadName(customer.name || '');
+                                        }}
+                                        className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md hover:bg-emerald-100/60 transition cursor-pointer"
+                                        title="تعديل اسم العميل"
+                                      >
+                                        <Edit3 size={13} />
+                                      </button>
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    {customer.source && (
+                                      <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
+                                        📦 {customer.source}
+                                      </span>
+                                    )}
+                                    {customer.addedBy && (
+                                      <span className="text-[10px] bg-teal-50 text-teal-900 px-1.5 py-0.5 rounded font-bold border border-teal-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
+                                        👤 مضاف بواسطة: {customer.addedBy}
+                                      </span>
+                                    )}
+                                    {customer.notesHistory && customer.notesHistory.length > 0 && (
+                                      <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                                <td className="p-4 text-sm">
+                                  <div className="flex flex-col gap-1">
+                                    <select 
+                                      value={currentCrmStatus}
+                                      onChange={async (e) => {
+                                        const newStatus = e.target.value;
+                                        try {
+                                          await updateDoc(doc(db, 'employee_leads', customer.id), { crmStatus: newStatus, updatedAt: serverTimestamp() });
+                                          toast.success('تم تحديث حالة العميل');
+                                        } catch (err) { toast.error('خطأ في تحديث الحالة'); }
+                                      }}
+                                      className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none ${statusInfo.bg}`}
+                                    >
+                                      <option value="unassigned">⏳ في الانتظار</option>
+                                      <option value="interested">🌟 مهتم</option>
+                                      <option value="not_interested">❌ غير مهتم</option>
+                                      <option value="no_answer">📵 لم يرد</option>
+                                      <option value="subscribed">🎉 تم الاشتراك</option>
+                                      <option value="started_trial">🚀 بدأ تجربة بالفعل</option>
+                                    </select>
+                                    {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
+                                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 التجربة: {customer.trialStartDate}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-4 text-sm text-gray-600 font-medium">
+                                  {(isAdmin || isCoordinator || isLeader) ? (
+                                    <select 
+                                      value={!customer.assignedToUid || customer.assignedToUid === 'admin' || customer.assignedTo === 'الإدارة' || customer.assignedTo?.includes('gmail') ? "admin" : customer.assignedToUid}
+                                      onChange={async (e) => {
+                                        const uid = e.target.value;
+                                        const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+                                        const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+                                        
+                                        if (uid === 'admin') {
+                                          const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+                                          try {
+                                            await updateDoc(doc(db, 'employee_leads', customer.id), {
+                                              assignedToUid: 'admin',
+                                              assignedTo: 'الإدارة',
+                                              assignedAt: serverTimestamp(),
+                                              status: 'unassigned',
+                                              updatedAt: serverTimestamp(),
+                                              assignmentHistory: arrayUnion(logObj)
+                                            });
+                                            toast.success('تم إرجاع العميل إلى الإدارة 👑');
+                                          } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
+                                        } else {
+                                          const emp = employees.find(x => x.uid === uid);
+                                          const logObj = createAssignmentLog(prevEmpName, `👤 ${emp?.name}`, assignerDisplay);
+                                          try {
+                                            await updateDoc(doc(db, 'employee_leads', customer.id), {
+                                              assignedToUid: uid,
+                                              assignedTo: emp?.email || '',
+                                              assignedAt: serverTimestamp(),
+                                              status: 'assigned',
+                                              updatedAt: serverTimestamp(),
+                                              assignmentHistory: arrayUnion(logObj)
+                                            });
+                                            toast.success(`تم تعيين العميل إلى ${emp?.name}`);
+                                          } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
+                                        }
+                                      }}
+                                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-emerald-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                                    >
+                                      {isLeader ? (
+                                        <>
+                                          <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                                          {myTeamMembers.map(emp => (
+                                            <option key={emp.uid} value={emp.uid}>
+                                              👤 {emp.name || emp.username}
+                                            </option>
+                                          ))}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <option value="admin">👑 الإدارة (غير مخصص)</option>
+                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                                            <option key={emp.uid} value={emp.uid}>
+                                              👤 {emp.name || emp.username} ({emp.jobTitle === 'Leader' ? 'ليدر 👑' : 'ايجنت'})
+                                            </option>
+                                          ))}
+                                        </>
+                                      )}
+                                    </select>
+                                  ) : (
+                                    <div className="font-bold text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded inline-block">
+                                      👤 {customer.assignedTo === currentUser?.email ? (currentEmpUser?.name || 'أنا') : (customer.assignedTo || 'حسابي')}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="p-4 text-sm text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button 
+                                      onClick={() => handleOpenNotesModal(customer, false)}
+                                      className="bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                                      title="عرض وإضافة ملاحظات ومتابعة العميل"
+                                    >
+                                      <FileText size={13} />
+                                      <span>تقرير {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : ''}</span>
+                                    </button>
+                                    {isAdmin && (
+                                      <button 
+                                        onClick={async () => {
+                                          if (window.confirm('هل تريد حذف هذا العميل من داتا الموظف نهائياً؟')) {
+                                            await deleteDoc(doc(db, 'employee_leads', customer.id));
+                                            toast.success('تم حذف العميل');
+                                          }
+                                        }}
+                                        className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                                        title="حذف العميل"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Bar */}
+                  {filtered.length > 0 && (
+                    <div className="px-6 py-4 border-t border-emerald-100 bg-emerald-50/40 flex flex-wrap justify-between items-center gap-3">
+                      <div className="text-xs font-bold text-emerald-950">
+                        عرض <span className="text-emerald-700 font-black">{startIndexEmpLeads + 1}</span> إلى <span className="text-emerald-700 font-black">{Math.min(startIndexEmpLeads + ITEMS_PER_PAGE, filtered.length)}</span> من إجمالي <span className="text-emerald-700 font-black">{filtered.length}</span> عميل
+                      </div>
+                      
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Custom Page Jump Input */}
+                        <div className="flex items-center gap-1 bg-white border border-emerald-200 rounded-xl px-2 py-1 shadow-sm">
+                          <span className="text-[11px] text-emerald-950 font-bold">صفحة:</span>
+                          <input 
+                            type="number"
+                            min="1"
+                            max={totalPagesEmpLeads}
+                            defaultValue=""
+                            placeholder={String(validPageEmpLeads)}
+                            className="w-14 text-center text-xs font-black border border-emerald-200 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 bg-emerald-50/50"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const val = parseInt(e.target.value, 10);
+                                if (val >= 1 && val <= totalPagesEmpLeads) {
+                                  setCurrentPageEmpLeads(val);
+                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                } else {
+                                  toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesEmpLeads}`);
+                                }
+                              }
+                            }}
+                          />
+                          <span className="text-[11px] text-emerald-400 font-bold">/ {totalPagesEmpLeads}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              const inputEl = e.currentTarget.parentElement.querySelector('input');
+                              const val = parseInt(inputEl?.value, 10);
+                              if (val >= 1 && val <= totalPagesEmpLeads) {
+                                setCurrentPageEmpLeads(val);
+                                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                              } else {
+                                toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesEmpLeads}`);
+                              }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md transition shadow-xs cursor-pointer"
+                            title="الانتقال إلى الصفحة المحددة"
+                          >
+                            انتقال ↵
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setCurrentPageEmpLeads(prev => Math.max(prev - 1, 1));
+                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={validPageEmpLeads === 1}
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          ◀ السابق
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPagesEmpLeads }, (_, i) => i + 1)
+                            .filter(page => page === 1 || page === totalPagesEmpLeads || Math.abs(page - validPageEmpLeads) <= 2)
+                            .map((page, idx, arr) => {
+                              const showDots = idx > 0 && page - arr[idx - 1] > 1;
+                              return (
+                                <React.Fragment key={page}>
+                                  {showDots && <span className="text-xs text-emerald-400 font-bold px-1">...</span>}
+                                  <button
+                                    onClick={() => {
+                                      setCurrentPageEmpLeads(page);
+                                      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
+                                      validPageEmpLeads === page
+                                        ? 'bg-emerald-600 text-white shadow-md'
+                                        : 'bg-white text-emerald-950 border border-emerald-200 hover:bg-emerald-50'
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setCurrentPageEmpLeads(prev => Math.min(prev + 1, totalPagesEmpLeads));
+                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={validPageEmpLeads === totalPagesEmpLeads}
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                         >
                           التالي ▶
                         </button>
@@ -4387,17 +5170,17 @@ const Dashboard = () => {
 
               <div className="mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <FileSpreadsheet className="text-blue-600" size={26} />
-                  <span>📥 إضافة واستيراد داتا عملاء (CRM)</span>
+                  <Upload className="text-emerald-600" size={26} />
+                  <span>📁 إضافة واستيراد داتا مضافة بواسطة الموظف</span>
                 </h2>
                 <p className="text-xs text-gray-500 font-medium mt-1">
                   {!isAdmin && !isCoordinator ? (
                     <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                      👤 أي داتا ستضيفها ستنزل مباشرة في حسابك بـ Leads CRM وستتمكن من متابعتها ومراسلتها فوراً
+                      👤 سيتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) وتظهر في كارتك الخاص لتتمكن من متابعتها ومراسلتها فوراً
                     </span>
                   ) : (
-                    <span className="text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block">
-                      👑 يتم استيراد وحفظ البيانات في قاعدة بيانات Leads CRM المركزية مع إمكانية التوزيع
+                    <span className="text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded border border-teal-200 inline-block">
+                      👑 يتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) مع إمكانية تتبع وفلترة كل موظف
                     </span>
                   )}
                 </p>
@@ -4567,7 +5350,7 @@ const Dashboard = () => {
                     disabled={importLoading}
                     className="w-full bg-primary hover:bg-green-600 text-white font-black py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {importLoading ? 'جاري التخزين...' : `✅ حفظ الـ ${importRows.length} عميل في قاعدة بيانات الـ CRM`}
+                    {importLoading ? 'جاري التخزين...' : `✅ حفظ الـ ${importRows.length} عميل في قسم (داتا مضافة بواسطة الموظف)`}
                   </button>
                 </div>
               )}
