@@ -5746,7 +5746,11 @@ const Dashboard = () => {
                 {isAgent ? (
                   /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
-                    const empLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
+                    // Combine assigned Leads CRM + Employee Added Leads for this agent
+                    const empCrmLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
+                    const empAddedLeads = employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
+                    const empLeads = [...empCrmLeads, ...empAddedLeads];
+
                     const total = empLeads.length;
                     const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
                     const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
@@ -5763,8 +5767,11 @@ const Dashboard = () => {
                         {/* Overall Score Badge */}
                         <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-900 p-5 rounded-2xl border border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
                           <div>
-                            <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي العملاء المخصصين لك:</span>
+                            <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (الموزعة والمضافة لك):</span>
                             <span className="text-3xl font-black text-white">{total} عميل</span>
+                            <span className="text-[11px] text-purple-400 font-medium block mt-0.5">
+                              ({empCrmLeads.length} من Leads CRM + {empAddedLeads.length} داتا مضافة)
+                            </span>
                           </div>
                           <div className="text-center md:text-left bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20">
                             <span className="text-xs text-purple-200 font-bold block mb-1">معدل النجاح والتفاعل الإيجابي 📈</span>
@@ -5835,10 +5842,16 @@ const Dashboard = () => {
                   (() => {
                     const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)];
                     const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())];
-                    const teamLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || teamEmails.includes(c.assignedTo?.toLowerCase()));
+                    
+                    const teamCrmLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || teamEmails.includes(c.assignedTo?.toLowerCase()));
+                    const teamEmpAddedLeads = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || teamEmails.includes(c.assignedTo?.toLowerCase()) || (myTeamMembers.some(m => m.name && c.addedBy === m.name)));
+                    const teamLeads = [...teamCrmLeads, ...teamEmpAddedLeads];
                     
                     const teamEmployeesData = [currentEmpUser, ...myTeamMembers].filter(Boolean).map(emp => {
-                      const empLeads = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
+                      const empCrm = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
+                      const empAdded = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name));
+                      const empLeads = [...empCrm, ...empAdded];
+
                       const total = empLeads.length;
                       const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
                       const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
@@ -5853,6 +5866,8 @@ const Dashboard = () => {
                       return {
                         emp,
                         total,
+                        crmCount: empCrm.length,
+                        addedCount: empAdded.length,
                         subscribed,
                         trial,
                         interested,
@@ -5877,8 +5892,11 @@ const Dashboard = () => {
                         {/* Team Summary Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك</span>
-                            <span className="text-3xl font-black text-white">{totalTeamLeads} عميل</span>
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك (الموزعة والمضافة)</span>
+                            <span className="text-3xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
+                              ({teamCrmLeads.length.toLocaleString()} Leads CRM + {teamEmpAddedLeads.length.toLocaleString()} داتا مضافة)
+                            </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
@@ -5916,7 +5934,7 @@ const Dashboard = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {teamEmployeesData.map(({ emp, total, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
+                                {teamEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -5925,7 +5943,10 @@ const Dashboard = () => {
                                         <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0.2 rounded">أنت (الليدر)</span>
                                       )}
                                     </td>
-                                    <td className="p-3 text-center font-black">{total}</td>
+                                    <td className="p-3 text-center font-black">
+                                      <span>{total}</span>
+                                      <span className="text-[10px] text-purple-400 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                    </td>
                                     <td className="p-3 text-center">
                                       <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
                                         {successRate}%
@@ -5959,6 +5980,18 @@ const Dashboard = () => {
                 ) : (
                   /* --- 3. ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS + ADMIN LEADERS BREAKDOWN --- */
                   (() => {
+                    // Distributed Leads from leads_crm (assigned to active employees)
+                    const distributedCrmLeads = leadsCrm.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail'));
+                    
+                    // Total Active Distributed & Employee-Added Leads
+                    const totalDistributedLeads = distributedCrmLeads.length;
+                    const totalEmpAddedLeads = employeeLeads.length;
+                    const totalCompanyActiveLeads = totalDistributedLeads + totalEmpAddedLeads;
+
+                    const allCompanyActiveLeads = [...distributedCrmLeads, ...employeeLeads];
+                    const totalCompanySuccessful = allCompanyActiveLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length;
+                    const overallCompanyRate = totalCompanyActiveLeads > 0 ? Math.round((totalCompanySuccessful / totalCompanyActiveLeads) * 100) : 0;
+
                     const allEmployeesData = employees.filter(emp => 
                       emp.role !== 'admin' && 
                       !adminEmails.includes(emp.email?.toLowerCase()) && 
@@ -5966,7 +5999,10 @@ const Dashboard = () => {
                       emp.jobTitle !== 'منسق للإدارة' && 
                       emp.role !== 'coordinator'
                     ).map(emp => {
-                      const empLeads = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
+                      const empCrm = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
+                      const empAdded = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name));
+                      const empLeads = [...empCrm, ...empAdded];
+
                       const total = empLeads.length;
                       const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
                       const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
@@ -5981,6 +6017,8 @@ const Dashboard = () => {
                       return {
                         emp,
                         total,
+                        crmCount: empCrm.length,
+                        addedCount: empAdded.length,
                         subscribed,
                         trial,
                         interested,
@@ -5994,10 +6032,6 @@ const Dashboard = () => {
 
                     // Sort employees by successRate & total leads
                     allEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
-
-                    const totalCompanyLeads = leadsCrm.length;
-                    const totalCompanySuccessful = leadsCrm.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length;
-                    const overallCompanyRate = totalCompanyLeads > 0 ? Math.round((totalCompanySuccessful / totalCompanyLeads) * 100) : 0;
                     const topEmp = allEmployeesData.find(e => e.total > 0);
 
                     // Leaders & Teams Performance Breakdown (for Admin)
@@ -6005,7 +6039,11 @@ const Dashboard = () => {
                     const leadersTeamData = leadersList.map(leader => {
                       const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
                       const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
-                      const teamLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamMembers.some(tm => tm.email?.toLowerCase() === c.assignedTo?.toLowerCase())));
+                      const teamEmails = [leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase())];
+
+                      const teamCrm = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase())));
+                      const teamAdded = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase())) || (teamMembers.some(tm => tm.name && c.addedBy === tm.name)) || (leader.name && c.addedBy === leader.name));
+                      const teamLeads = [...teamCrm, ...teamAdded];
 
                       const total = teamLeads.length;
                       const subscribed = teamLeads.filter(c => c.crmStatus === 'subscribed').length;
@@ -6021,6 +6059,8 @@ const Dashboard = () => {
                         leader,
                         teamMembersCount: teamMembers.length,
                         total,
+                        crmCount: teamCrm.length,
+                        addedCount: teamAdded.length,
                         subscribed,
                         trial,
                         interested,
@@ -6037,13 +6077,19 @@ const Dashboard = () => {
                         {/* Company Summary Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا Leads CRM</span>
-                            <span className="text-3xl font-black text-white">{totalCompanyLeads} عميل</span>
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا الموزعة والمضافة للتقييم</span>
+                            <span className="text-3xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
+                              ({totalDistributedLeads.toLocaleString()} موزعة من Leads CRM + {totalEmpAddedLeads.toLocaleString()} داتا مضافة)
+                            </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
                             <span className="text-3xl font-black text-emerald-400">{overallCompanyRate}%</span>
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
+                              ({totalCompanySuccessful.toLocaleString()} عميل ناجح من إجمالي {totalCompanyActiveLeads.toLocaleString()})
+                            </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
@@ -6051,6 +6097,11 @@ const Dashboard = () => {
                             <span className="text-xl font-black text-amber-300 truncate block">
                               {topEmp ? `${topEmp.emp.name} (${topEmp.successRate}%)` : 'لا يوجد'}
                             </span>
+                            {topEmp && (
+                              <span className="text-[11px] text-amber-200 font-medium block mt-0.5">
+                                ({topEmp.successfulCount} ناجح من إجمالي {topEmp.total})
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -6079,14 +6130,17 @@ const Dashboard = () => {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800 text-slate-200">
-                                  {leadersTeamData.map(({ leader, teamMembersCount, total, subscribed, trial, interested, noAnswer, notInterested, successRate }, idx) => (
+                                  {leadersTeamData.map(({ leader, teamMembersCount, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, idx) => (
                                     <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
                                       <td className="p-3 font-bold flex items-center gap-2">
                                         <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
                                         <span>{leader.name || leader.username}</span>
                                       </td>
                                       <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
-                                      <td className="p-3 text-center font-black">{total}</td>
+                                      <td className="p-3 text-center font-black">
+                                        <span>{total}</span>
+                                        <span className="text-[10px] text-amber-400/80 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                      </td>
                                       <td className="p-3 text-center">
                                         <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
                                           {successRate}%
@@ -6128,7 +6182,7 @@ const Dashboard = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {allEmployeesData.map(({ emp, total, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
+                                {allEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -6143,7 +6197,10 @@ const Dashboard = () => {
                                         <span className="text-slate-500 text-[10px]">مباشر للإدارة</span>
                                       )}
                                     </td>
-                                    <td className="p-3 text-center font-black">{total}</td>
+                                    <td className="p-3 text-center font-black">
+                                      <span>{total}</span>
+                                      <span className="text-[10px] text-purple-400 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                    </td>
                                     <td className="p-3 text-center">
                                       <div className="flex items-center justify-center gap-1.5">
                                         <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
