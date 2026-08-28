@@ -296,10 +296,13 @@ const Dashboard = () => {
 
   // Lead Import Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importTab, setImportTab] = useState('file'); // 'file', 'gsheet', 'text'
+  const [importTab, setImportTab] = useState('file'); // 'file', 'gsheet', 'text', 'manual'
   const [importRows, setImportRows] = useState([]);
   const [gsheetUrl, setGsheetUrl] = useState('');
   const [rawImportText, setRawImportText] = useState('');
+  const [manualName, setManualName] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualNotes, setManualNotes] = useState('');
   const [importLoading, setImportLoading] = useState(false);
 
   // Lead Auto/Manual Distribution State
@@ -660,29 +663,60 @@ const Dashboard = () => {
 
   const handleTextExtract = () => {
     if (!rawImportText.trim()) return;
-    const lines = rawImportText.split('\n');
+    const textContent = rawImportText.trim();
+    const lines = textContent.split('\n');
     const parsed = [];
+    const seenPhones = new Set();
 
     lines.forEach(line => {
       const text = line.trim();
       if (!text) return;
 
-      const phoneMatch = text.match(/(?:\+?\d{1,4}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}/);
-      if (phoneMatch) {
-        const rawPhone = phoneMatch[0].replace(/[\s\-\(\)]/g, '');
-        const rawNamePart = text.replace(phoneMatch[0], '').replace(/[,\t:;]/g, '').trim();
-        const cleanName = extractCleanCustomerName(rawNamePart);
-        parsed.push({
-          name: cleanName || 'عميل جديد',
-          phone: rawPhone,
-          email: '',
-          notes: text
+      const phoneMatches = text.match(/(?:\+?\d{1,4}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}/g);
+      if (phoneMatches) {
+        phoneMatches.forEach(rawMatch => {
+          const rawPhone = rawMatch.replace(/[\s\-\(\)]/g, '');
+          if (rawPhone.length >= 8 && !seenPhones.has(rawPhone)) {
+            seenPhones.add(rawPhone);
+            const rawNamePart = text.replace(rawMatch, '').replace(/[,\t:;|\-\[\]]/g, '').trim();
+            const cleanName = extractCleanCustomerName(rawNamePart);
+            parsed.push({
+              name: cleanName || 'عميل جديد',
+              phone: rawPhone,
+              email: '',
+              notes: text !== rawMatch ? text : ''
+            });
+          }
         });
       }
     });
 
     setImportRows(parsed);
-    toast.success(`تم استخراج ${parsed.length} عميل من النص`);
+    if (parsed.length > 0) {
+      toast.success(`تم استخراج ${parsed.length} عميل من النص بنجاح 🎯`);
+    } else {
+      toast.error('لم يتم العثور على أرقام هواتف صالحة في النص المدخل');
+    }
+  };
+
+  const handleAddManualLeadToImport = (e) => {
+    e?.preventDefault();
+    if (!manualPhone.trim() && !manualName.trim()) {
+      toast.error('يرجى إدخال رقم الهاتف أو اسم العميل على الأقل');
+      return;
+    }
+    const cleanName = extractCleanCustomerName(manualName.trim());
+    const newRow = {
+      name: cleanName || 'عميل جديد',
+      phone: manualPhone.trim(),
+      email: '',
+      notes: manualNotes.trim()
+    };
+    setImportRows(prev => [newRow, ...prev]);
+    toast.success(`تمت إضافة (${newRow.name}) إلى قائمة المعاينة 📋`);
+    setManualName('');
+    setManualPhone('');
+    setManualNotes('');
   };
 
   // Ultra-fast batch clean junk, notes, dates, and usernames from all stored lead names
@@ -749,6 +783,11 @@ const Dashboard = () => {
     if (importRows.length === 0) return;
     setImportLoading(true);
     try {
+      const isPersonal = !isAdmin && !isCoordinator;
+      const empUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+      const empName = isAdmin ? '👑 الإدارة' : (empUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
+      const empRole = isAdmin ? 'Admin' : (isCoordinator ? 'Coordinator' : (isLeader ? 'Leader' : 'Agent'));
+
       let savedCount = 0;
       for (const item of importRows) {
         let cleanPhone = item.phone.replace(/[^0-9+]/g, '');
@@ -758,35 +797,58 @@ const Dashboard = () => {
         const crmRef = doc(db, 'leads_crm', crmDocId);
         const crmSnap = await getDoc(crmRef);
 
+        const sourceLabel = importTab === 'gsheet' ? 'رابط Google Sheet' : importTab === 'text' ? 'نص / سكرين شوت' : importTab === 'manual' ? 'إضافة يدوية' : 'ملف Excel / CSV';
+
         if (!crmSnap.exists()) {
-          await setDoc(crmRef, {
+          const docData = {
             phoneNumber: cleanPhone,
             name: item.name || 'عميل جديد',
             email: item.email || '',
             notes: item.notes || '',
-            source: importTab === 'gsheet' ? 'gsheet' : importTab === 'text' ? 'pdf_text' : 'excel_import',
+            source: sourceLabel,
             assignedSender: 'campaigns',
-            status: 'unassigned',
-            crmStatus: 'unassigned',
-            addedBy: currentUser?.email || 'admin',
+            addedBy: empName,
+            addedByUid: currentUser?.uid || '',
+            addedByRole: empRole,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-            lastMessage: 'تم استيراد الداتا في Leads CRM',
             unread: 0
-          });
+          };
+
+          if (isPersonal) {
+            // Automatically assigned to this Agent or Leader
+            docData.assignedTo = currentUser.email;
+            docData.assignedToUid = currentUser.uid;
+            docData.assignedAt = serverTimestamp();
+            docData.status = 'assigned';
+            docData.crmStatus = 'unassigned';
+            const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `إضافة واستيراد داتا بواسطة (${empName})`);
+            docData.assignmentHistory = [logObj];
+          } else {
+            // Admin or Coordinator
+            docData.assignedTo = 'الإدارة';
+            docData.assignedToUid = 'admin';
+            docData.status = 'unassigned';
+            docData.crmStatus = 'unassigned';
+          }
+
+          await setDoc(crmRef, docData);
           savedCount++;
         }
       }
       const skippedCount = importRows.length - savedCount;
       if (skippedCount > 0) {
-        toast.success(`تم استيراد وحفظ ${savedCount} عميل جديد (وتخطي ${skippedCount} عميل مكرر مسبقاً في Leads CRM)`);
+        toast.success(`تم حفظ ${savedCount} عميل جديد (وتخطي ${skippedCount} عميل مكرر مسبقاً في CRM)`);
       } else {
-        toast.success(`تم استيراد وحفظ ${savedCount} عميل جديد في قسم Leads CRM المنفصل`);
+        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قاعدة بيانات الـ CRM 🚀`);
       }
       setIsImportModalOpen(false);
       setImportRows([]);
       setGsheetUrl('');
       setRawImportText('');
+      setManualName('');
+      setManualPhone('');
+      setManualNotes('');
       setActiveTab('leads_crm');
     } catch (err) {
       console.error(err);
@@ -1694,8 +1756,8 @@ const Dashboard = () => {
 
         {/* Stats Cards */}
         {isAdmin ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
-            {/* Card: Dedicated Leads CRM */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
+            {/* Card 1: Dedicated Leads CRM */}
             <div 
               onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1709,7 +1771,25 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Leads CRM Analysis */}
+            {/* Card 2: Import & Add Data */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImportModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لرفع شيت إكسيل، شيت جوجل، صور، أو إضافة يدوية"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Upload className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
+                <h3 className="text-sm sm:text-base font-black text-emerald-300">إكسيل / شيت / يدوي</h3>
+              </div>
+            </div>
+
+            {/* Card 3: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -1727,7 +1807,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Total Customers */}
+            {/* Card 4: Total Customers */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1741,7 +1821,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card: Pending Customers */}
+            {/* Card 5: Pending Customers */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'unassigned')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'unassigned' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1755,7 +1835,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Manual Add */}
+            {/* Card 6: Manual Add */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'manual')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1769,7 +1849,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Employees Count */}
+            {/* Card 7: Employees Count */}
             <div 
               onClick={(e) => handleCardClick(e, 'employees', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employees' ? 'border-green-400 scale-105 shadow-[0_8px_25px_rgba(34,197,94,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1783,7 +1863,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Visitors */}
+            {/* Card 8: Visitors */}
             <div 
               onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1797,7 +1877,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card: Recycle Bin */}
+            {/* Card 9: Recycle Bin */}
             <div 
               onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'recycle_bin' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1811,7 +1891,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card: Campaigns */}
+            {/* Card 10: Campaigns */}
             <div 
               onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1827,7 +1907,7 @@ const Dashboard = () => {
           </div>
         ) : isCoordinator ? (
           /* Coordinator Cards View */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
             {/* Card 1: Dedicated Leads CRM */}
             <div 
               onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
@@ -1842,7 +1922,25 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 2: Leads CRM Analysis */}
+            {/* Card 2: Import & Add Data */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImportModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لرفع شيت إكسيل، شيت جوجل، صور، أو إضافة يدوية"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Upload className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
+                <h3 className="text-sm sm:text-base font-black text-emerald-300">إكسيل / شيت / يدوي</h3>
+              </div>
+            </div>
+
+            {/* Card 3: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -1860,7 +1958,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 3: Total Customer Database */}
+            {/* Card 4: Total Customer Database */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1874,7 +1972,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card 4: Pending Customers */}
+            {/* Card 5: Pending Customers */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'unassigned')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'unassigned' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1888,7 +1986,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 5: Manual Add */}
+            {/* Card 6: Manual Add */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'manual')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -1903,8 +2001,8 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View */
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          /* Leader Dashboard Cards View (4 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Leader Card 1: Leads CRM (Personal Leads) */}
             <div 
               onClick={(e) => {
@@ -1926,7 +2024,30 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 2: Team Members & Total Team Leads */}
+            {/* Leader Card 2: Import & Add Leads */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImportModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لرفع شيت إكسيل، أو رابط شيت جوجل، أو سكرين شوت، أو إضافة عميل يدوياً"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <Upload className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
+                <h3 className="text-sm font-black text-emerald-300">
+                  إكسيل / صور / شيت / يدوي
+                </h3>
+                <span className="text-[10px] text-emerald-200/80 font-bold block mt-0.5">
+                  + تنزل في داتاي مباشرة
+                </span>
+              </div>
+            </div>
+
+            {/* Leader Card 3: Team Members & Total Team Leads */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -1950,7 +2071,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 3: Leads CRM Analysis */}
+            {/* Leader Card 4: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -1969,35 +2090,59 @@ const Dashboard = () => {
             </div>
           </div>
         ) : (
-          /* Regular Employee (Agent) Cards View */
-          <div className="flex flex-wrap gap-4 mb-6">
+          /* Regular Employee (Agent) Cards View (3 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* Agent Card 1: Leads CRM */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
                 setActiveTab('leads_crm');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center min-w-[240px] cursor-pointer hover:scale-105 transition-all transform"
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
               title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
                 <FileSpreadsheet className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
+                <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
                 <h3 className="text-3xl font-black text-cyan-300">
                   {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
               </div>
             </div>
 
-            {/* Employee Card: Leads CRM Analysis */}
+            {/* Agent Card 2: Import & Add Leads */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImportModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border border-emerald-400/40 hover:border-emerald-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لرفع شيت إكسيل، أو رابط شيت جوجل، أو سكرين شوت، أو إضافة عميل يدوياً لحسابك"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <Upload className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">📥 إضافة واستيراد داتا</p>
+                <h3 className="text-sm font-black text-emerald-300">
+                  إكسيل / صور / شيت / يدوي
+                </h3>
+                <span className="text-[10px] text-emerald-200/80 font-bold block mt-0.5">
+                  + تنزل في حسابي مباشرة
+                </span>
+              </div>
+            </div>
+
+            {/* Agent Card 3: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
                 setIsLeadsAnalysisModalOpen(true);
               }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center min-w-[240px] cursor-pointer hover:scale-105 transition-all transform"
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
               title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
@@ -2574,12 +2719,12 @@ const Dashboard = () => {
               };
 
               const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
-                ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
+                ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || c.addedByUid === currentUser?.uid)
                 : (selectedEmpFilter === 'all' 
                     ? leadsCrm 
                     : (selectedEmpFilter === 'admin' 
                         ? leadsCrm.filter(c => isLeadAssignedToAdmin(c))
-                        : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === selectedEmpFilter)?.email?.toLowerCase())
+                        : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === selectedEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === selectedEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === selectedEmpFilter)?.name))
                       )
                   );
 
@@ -2602,7 +2747,7 @@ const Dashboard = () => {
                           <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
                           <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadAssignedToAdmin(c)).length.toLocaleString()})</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
-                            const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
                                 👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
@@ -2730,7 +2875,7 @@ const Dashboard = () => {
               let filtered = leadsCrm.filter(c => {
                 // Employee view restriction
                 if (!isAdmin && !isCoordinator) {
-                  if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase()) {
+                  if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase() && c.addedByUid !== currentUser?.uid) {
                     return false;
                   }
                 } else if (selectedEmpFilter && selectedEmpFilter !== 'all') {
@@ -2738,7 +2883,9 @@ const Dashboard = () => {
                     if (!isLeadAssignedToAdmin(c)) return false;
                   } else {
                     const emp = employees.find(e => e.uid === selectedEmpFilter);
-                    if (c.assignedToUid !== selectedEmpFilter && c.assignedTo?.toLowerCase() !== emp?.email?.toLowerCase()) return false;
+                    const matchesAssigned = c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
+                    const matchesAdded = c.addedByUid === selectedEmpFilter || (emp?.name && c.addedBy === emp.name);
+                    if (!matchesAssigned && !matchesAdded) return false;
                   }
                 }
 
@@ -2881,9 +3028,21 @@ const Dashboard = () => {
                                   </button>
                                 </div>
                               )}
-                              {customer.notesHistory && customer.notesHistory.length > 0 && (
-                                <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات</span>
-                              )}
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                {customer.source && (
+                                  <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold border border-purple-200">
+                                    📦 {customer.source}
+                                  </span>
+                                )}
+                                {customer.addedBy && customer.addedBy !== 'admin' && (
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
+                                    👤 مضاف بواسطة: {customer.addedBy}
+                                  </span>
+                                )}
+                                {customer.notesHistory && customer.notesHistory.length > 0 && (
+                                  <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                             <td className="p-4 text-sm">
@@ -4215,7 +4374,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Modal 1: Import Leads (Excel, GSheet, Text/PDF Parser) */}
+        {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
         {isImportModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsImportModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -4226,30 +4385,49 @@ const Dashboard = () => {
                 <X size={24} />
               </button>
 
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FileSpreadsheet className="text-blue-600" size={26} />
-                <span>📥 استيراد داتا عملاء جديدة</span>
-              </h2>
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FileSpreadsheet className="text-blue-600" size={26} />
+                  <span>📥 إضافة واستيراد داتا عملاء (CRM)</span>
+                </h2>
+                <p className="text-xs text-gray-500 font-medium mt-1">
+                  {!isAdmin && !isCoordinator ? (
+                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                      👤 أي داتا ستضيفها ستنزل مباشرة في حسابك بـ Leads CRM وستتمكن من متابعتها ومراسلتها فوراً
+                    </span>
+                  ) : (
+                    <span className="text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block">
+                      👑 يتم استيراد وحفظ البيانات في قاعدة بيانات Leads CRM المركزية مع إمكانية التوزيع
+                    </span>
+                  )}
+                </p>
+              </div>
 
               {/* Import Tabs */}
-              <div className="flex border-b border-gray-200 mb-6 gap-2">
+              <div className="flex border-b border-gray-200 mb-6 gap-2 overflow-x-auto pb-1">
                 <button 
                   onClick={() => setImportTab('file')}
-                  className={`pb-2.5 px-4 font-bold text-sm transition border-b-2 flex items-center gap-2 ${importTab === 'file' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  className={`pb-2 px-3.5 font-bold text-xs sm:text-sm transition border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${importTab === 'file' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                   <FileSpreadsheet size={16} /> رفع ملف Excel / CSV
                 </button>
                 <button 
                   onClick={() => setImportTab('gsheet')}
-                  className={`pb-2.5 px-4 font-bold text-sm transition border-b-2 flex items-center gap-2 ${importTab === 'gsheet' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  className={`pb-2 px-3.5 font-bold text-xs sm:text-sm transition border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${importTab === 'gsheet' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                   <Share2 size={16} /> رابط Google Sheet
                 </button>
                 <button 
                   onClick={() => setImportTab('text')}
-                  className={`pb-2.5 px-4 font-bold text-sm transition border-b-2 flex items-center gap-2 ${importTab === 'text' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  className={`pb-2 px-3.5 font-bold text-xs sm:text-sm transition border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${importTab === 'text' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
-                  <FileText size={16} /> استخراج من PDF / صور
+                  <FileText size={16} /> استخراج من صور / نص
+                </button>
+                <button 
+                  onClick={() => setImportTab('manual')}
+                  className={`pb-2 px-3.5 font-bold text-xs sm:text-sm transition border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${importTab === 'manual' ? 'border-amber-600 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  <UserPlus size={16} /> إضافة يدوية مباشرة
                 </button>
               </div>
 
@@ -4287,21 +4465,21 @@ const Dashboard = () => {
                   <button 
                     onClick={handleGsheetImport}
                     disabled={importLoading}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     {importLoading ? 'جاري التحميل...' : '🔗 جلب البيانات من Google Sheet'}
                   </button>
                 </div>
               )}
 
-              {/* Tab 3: Text & PDF Extractor */}
+              {/* Tab 3: Text & PDF / Screenshot Extractor */}
               {importTab === 'text' && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">انقلي/الصقي النص من ملف PDF أو من سكرين شوتس الشيتات</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">الصق النص المنسوخ من شيت أو سكرين شوت أو محادثة</label>
                     <textarea 
                       rows={5}
-                      placeholder="انسخ النص المجمع من ملف الـ PDF أو الشيت والصقه هنا... سيستخرج النظام أرقام الجوال والأسماء تلقائياً."
+                      placeholder="انسخ النص أو الأرقام من أي شيت أو سكرين شوت أو محادثة والصقه هنا... سيستخرج النظام أرقام الجوال والأسماء تلقائياً بدقة."
                       value={rawImportText}
                       onChange={(e) => setRawImportText(e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg text-xs outline-none focus:border-purple-500 font-mono"
@@ -4309,21 +4487,66 @@ const Dashboard = () => {
                   </div>
                   <button 
                     onClick={handleTextExtract}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2"
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                    🔍 استخراج الأرقام والأسماء الآن
+                    🔍 استخراج الأرقام والأسماء تلقائياً الآن
                   </button>
                 </div>
+              )}
+
+              {/* Tab 4: Manual Direct Lead Entry */}
+              {importTab === 'manual' && (
+                <form onSubmit={handleAddManualLeadToImport} className="space-y-3 bg-amber-50/40 p-4 rounded-xl border border-amber-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">اسم العميل</label>
+                      <input 
+                        type="text" 
+                        placeholder="مثال: أحمد محمد"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">رقم الهاتف (مع أو بدون كود الدولة)</label>
+                      <input 
+                        type="tel" 
+                        placeholder="مثال: 01012345678 أو 966501234567"
+                        value={manualPhone}
+                        onChange={(e) => setManualPhone(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs font-mono outline-none focus:border-amber-500 bg-white"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات العميل (اختياري)</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: مهتم بالباقة السنوية / تواصل لاحقاً"
+                      value={manualNotes}
+                      onChange={(e) => setManualNotes(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs outline-none focus:border-amber-500 bg-white"
+                    />
+                  </div>
+                  <button 
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-1.5 shadow-sm text-xs cursor-pointer"
+                  >
+                    <span>+ إضافة العميل إلى قائمة المعاينة ↵</span>
+                  </button>
+                </form>
               )}
 
               {/* Preview extracted leads */}
               {importRows.length > 0 && (
                 <div className="mt-6 border-t pt-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-green-700">معاينة البيانات الاستيرادية ({importRows.length} عميل جاهز للحفظ):</span>
+                    <span className="text-sm font-bold text-green-700">معاينة البيانات ({importRows.length} عميل جاهز للحفظ):</span>
                     <button 
                       onClick={() => setImportRows([])}
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs text-red-500 hover:underline cursor-pointer"
                     >
                       إلغاء المعاينة
                     </button>
@@ -4342,7 +4565,7 @@ const Dashboard = () => {
                   <button 
                     onClick={handleSaveImportedLeads}
                     disabled={importLoading}
-                    className="w-full bg-primary hover:bg-green-600 text-white font-black py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm flex items-center justify-center gap-2"
+                    className="w-full bg-primary hover:bg-green-600 text-white font-black py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {importLoading ? 'جاري التخزين...' : `✅ حفظ الـ ${importRows.length} عميل في قاعدة بيانات الـ CRM`}
                   </button>
