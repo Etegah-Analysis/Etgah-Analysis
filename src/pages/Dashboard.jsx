@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -1941,15 +1941,15 @@ const Dashboard = () => {
                 setActiveTab('employee_leads');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Upload className="text-emerald-400" size={28} />
+                <Upload className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{employeeLeads.length.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -2093,15 +2093,15 @@ const Dashboard = () => {
                 setActiveTab('employee_leads');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Upload className="text-emerald-400" size={28} />
+                <Upload className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{employeeLeads.length.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
               </div>
             </div>
 
@@ -2196,15 +2196,15 @@ const Dashboard = () => {
                 setActiveTab('employee_leads');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Upload className="text-emerald-400" size={28} />
+                <Upload className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-2xl font-black text-emerald-300">
+                <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-2xl font-black text-cyan-300">
                   {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
                 </h3>
               </div>
@@ -2283,15 +2283,15 @@ const Dashboard = () => {
                 setActiveTab('employee_leads');
                 tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.3)] p-5 border ${activeTab === 'employee_leads' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-400/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Upload className="text-emerald-400" size={28} />
+                <Upload className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-3xl font-black text-emerald-300">
+                <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <h3 className="text-3xl font-black text-cyan-300">
                   {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
               </div>
@@ -3429,14 +3429,14 @@ const Dashboard = () => {
 
         {/* Dedicated Employee Added Leads CRM Tab */}
         {activeTab === 'employee_leads' && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-white flex flex-wrap justify-between items-center gap-3">
+          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-emerald-950 flex items-center gap-2">
-                  <Upload className="text-emerald-600" size={24} />
+                <h2 className="text-lg font-bold text-purple-900 flex items-center gap-2">
+                  <Upload className="text-purple-600" size={24} />
                   <span>📁 داتا مضافة بواسطة الموظف</span>
                 </h2>
-                <span className="bg-emerald-200 text-emerald-900 text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                <span className="bg-purple-200 text-purple-800 text-xs font-black px-3 py-1 rounded-full shadow-sm">
                   {isAdmin || isCoordinator ? `إجمالي ${employeeLeads.length.toLocaleString()} عميل` : `داتاي المرفوعة (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (isLeader && myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))).length.toLocaleString()} عميل)`}
                 </span>
               </div>
@@ -3444,7 +3444,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <button 
                   onClick={() => setIsImportModalOpen(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet size={14} /> 📥 إضافة واستيراد داتا جديدة
                 </button>
@@ -3501,7 +3501,7 @@ const Dashboard = () => {
               };
 
               return (
-                <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
+                <div className="px-6 py-3.5 bg-purple-50/30 border-b flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter Dropdown for Admin, Coordinator, Leader */}
                     {(isAdmin || isCoordinator || isLeader) && (
@@ -3509,7 +3509,7 @@ const Dashboard = () => {
                         <select
                           value={empLeadsEmpFilter}
                           onChange={(e) => setEmpLeadsEmpFilter(e.target.value)}
-                          className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(16,185,129,0.35)] border border-emerald-400/40 hover:border-emerald-300 transition-all cursor-pointer appearance-none"
+                          className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(147,51,234,0.35)] border border-purple-400/40 hover:border-purple-300 transition-all cursor-pointer appearance-none"
                         >
                           <option value="all" className="bg-slate-950 text-white">
                             {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.length.toLocaleString()})`}
@@ -3526,7 +3526,7 @@ const Dashboard = () => {
                             );
                           })}
                         </select>
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-300 text-[10px] font-bold">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
                           ▼
                         </div>
                       </div>
@@ -3550,7 +3550,7 @@ const Dashboard = () => {
                             key={tab.key}
                             onClick={() => setEmpLeadsStatusFilter(tab.key)}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                              isSelected ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-400' : `${tab.bg} hover:opacity-80`
+                              isSelected ? 'bg-purple-700 text-white shadow-sm ring-2 ring-purple-400' : `${tab.bg} hover:opacity-80`
                             }`}
                           >
                             <span>{tab.label}</span>
@@ -3565,7 +3565,7 @@ const Dashboard = () => {
 
                   {/* Search, Date & Sort Controls */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <div className="flex items-center gap-1 bg-white border border-emerald-200 rounded-xl px-2 py-1 shadow-sm text-xs">
+                    <div className="flex items-center gap-1 bg-white border border-purple-200 rounded-xl px-2 py-1 shadow-sm text-xs">
                       <span className="text-[11px] text-gray-500 font-bold">من:</span>
                       <input 
                         type="date" 
@@ -3592,10 +3592,10 @@ const Dashboard = () => {
 
                     <button
                       onClick={() => setEmpLeadsSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                      className="bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      className="bg-white hover:bg-purple-50 text-purple-900 border border-purple-200 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                       title={empLeadsSortOrder === 'desc' ? 'الترتيب: الأحدث أولاً (انقر للتبديل)' : 'الترتيب: الأقدم أولاً (انقر للتبديل)'}
                     >
-                      <ArrowUpDown size={13} className="text-emerald-600" />
+                      <ArrowUpDown size={13} className="text-purple-600" />
                       <span>{empLeadsSortOrder === 'desc' ? 'الأحدث ⬇' : 'الأقدم ⬆'}</span>
                     </button>
 
@@ -3605,7 +3605,7 @@ const Dashboard = () => {
                         placeholder="ابحث بالاسم أو الهاتف..."
                         value={tableSearch}
                         onChange={(e) => setTableSearch(e.target.value)}
-                        className="w-48 sm:w-56 px-3 py-1.5 pr-8 bg-white border border-emerald-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm"
+                        className="w-48 sm:w-56 px-3 py-1.5 pr-8 bg-white border border-purple-200 rounded-xl text-xs outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-sm"
                       />
                       <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                       {tableSearch && (
@@ -3691,23 +3691,23 @@ const Dashboard = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
                       <thead>
-                        <tr className="bg-emerald-50/80 border-b border-emerald-100">
+                        <tr className="bg-purple-50/80 border-b border-purple-100">
                           {(isAdmin || isCoordinator || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
                                 checked={isPageSelected} 
                                 onChange={() => toggleAllEmployeeLeads(paginatedEmpLeads)} 
-                                className="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600" 
+                                className="w-4 h-4 text-purple-600 rounded cursor-pointer accent-purple-600" 
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-emerald-950 text-sm">رقم الهاتف</th>
-                          <th className="p-4 font-bold text-emerald-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
-                          <th className="p-4 font-bold text-emerald-950 text-sm">تاريخ الإضافة</th>
-                          <th className="p-4 font-bold text-emerald-950 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-emerald-950 text-sm">الموظف المسؤول</th>
-                          <th className="p-4 font-bold text-emerald-950 text-sm text-center">الإجراءات</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">تاريخ الإضافة</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3719,7 +3719,7 @@ const Dashboard = () => {
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
                                 <button
                                   onClick={() => setIsImportModalOpen(true)}
-                                  className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
+                                  className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
                                 >
                                   + إضافة / استيراد داتا الآن
                                 </button>
@@ -3732,14 +3732,14 @@ const Dashboard = () => {
                             const statusInfo = CRM_STATUS_MAP[currentCrmStatus] || CRM_STATUS_MAP.unassigned;
 
                             return (
-                              <tr key={customer.id} className="hover:bg-emerald-50/30 transition border-b border-gray-100/50">
+                              <tr key={customer.id} className="hover:bg-purple-50/30 transition border-b border-gray-100/50">
                                 {(isAdmin || isCoordinator || isLeader) && (
                                   <td className="p-4 text-center">
                                     <input 
                                       type="checkbox" 
                                       checked={selectedEmployeeLeads.includes(customer.id)} 
                                       onChange={() => toggleEmployeeLeadSelection(customer.id)} 
-                                      className="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600" 
+                                      className="w-4 h-4 text-purple-600 rounded cursor-pointer accent-purple-600" 
                                     />
                                   </td>
                                 )}
@@ -3764,7 +3764,7 @@ const Dashboard = () => {
                                         type="text" 
                                         value={editingLeadName} 
                                         onChange={(e) => setEditingLeadName(e.target.value)}
-                                        className="border border-emerald-400 rounded px-2 py-0.5 text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white shadow-sm"
+                                        className="border border-purple-400 rounded px-2 py-0.5 text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white shadow-sm"
                                         autoFocus
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') handleSaveLeadName(customer.id);
@@ -3794,7 +3794,7 @@ const Dashboard = () => {
                                           setEditingLeadId(customer.id);
                                           setEditingLeadName(customer.name || '');
                                         }}
-                                        className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md hover:bg-emerald-100/60 transition cursor-pointer"
+                                        className="text-purple-600 hover:text-purple-800 p-1 rounded-md hover:bg-purple-100/60 transition cursor-pointer"
                                         title="تعديل اسم العميل"
                                       >
                                         <Edit3 size={13} />
@@ -3803,12 +3803,12 @@ const Dashboard = () => {
                                   )}
                                   <div className="flex flex-wrap items-center gap-1 mt-1">
                                     {customer.source && (
-                                      <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
+                                      <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
                                         📦 {customer.source}
                                       </span>
                                     )}
                                     {customer.addedBy && (
-                                      <span className="text-[10px] bg-teal-50 text-teal-900 px-1.5 py-0.5 rounded font-bold border border-teal-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
+                                      <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
                                         👤 مضاف بواسطة: {customer.addedBy}
                                       </span>
                                     )}
@@ -3881,7 +3881,7 @@ const Dashboard = () => {
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
                                       }}
-                                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-emerald-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-purple-500 bg-white/70 shadow-sm cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -3913,7 +3913,7 @@ const Dashboard = () => {
                                   <div className="flex items-center justify-center gap-1.5">
                                     <button 
                                       onClick={() => handleOpenNotesModal(customer, false)}
-                                      className="bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                                      className="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
                                       title="عرض وإضافة ملاحظات ومتابعة العميل"
                                     >
                                       <FileText size={13} />
@@ -3945,22 +3945,22 @@ const Dashboard = () => {
 
                   {/* Pagination Bar */}
                   {filtered.length > 0 && (
-                    <div className="px-6 py-4 border-t border-emerald-100 bg-emerald-50/40 flex flex-wrap justify-between items-center gap-3">
-                      <div className="text-xs font-bold text-emerald-950">
-                        عرض <span className="text-emerald-700 font-black">{startIndexEmpLeads + 1}</span> إلى <span className="text-emerald-700 font-black">{Math.min(startIndexEmpLeads + ITEMS_PER_PAGE, filtered.length)}</span> من إجمالي <span className="text-emerald-700 font-black">{filtered.length}</span> عميل
+                    <div className="px-6 py-4 border-t border-purple-100 bg-purple-50/40 flex flex-wrap justify-between items-center gap-3">
+                      <div className="text-xs font-bold text-purple-900">
+                        عرض <span className="text-purple-700 font-black">{startIndexEmpLeads + 1}</span> إلى <span className="text-purple-700 font-black">{Math.min(startIndexEmpLeads + ITEMS_PER_PAGE, filtered.length)}</span> من إجمالي <span className="text-purple-700 font-black">{filtered.length}</span> عميل
                       </div>
                       
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* Custom Page Jump Input */}
-                        <div className="flex items-center gap-1 bg-white border border-emerald-200 rounded-xl px-2 py-1 shadow-sm">
-                          <span className="text-[11px] text-emerald-950 font-bold">صفحة:</span>
+                        <div className="flex items-center gap-1 bg-white border border-purple-200 rounded-xl px-2 py-1 shadow-sm">
+                          <span className="text-[11px] text-purple-900 font-bold">صفحة:</span>
                           <input 
                             type="number"
                             min="1"
                             max={totalPagesEmpLeads}
                             defaultValue=""
                             placeholder={String(validPageEmpLeads)}
-                            className="w-14 text-center text-xs font-black border border-emerald-200 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 bg-emerald-50/50"
+                            className="w-14 text-center text-xs font-black border border-purple-200 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-500 text-purple-950 bg-purple-50/50"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 const val = parseInt(e.target.value, 10);
@@ -3973,7 +3973,7 @@ const Dashboard = () => {
                               }
                             }}
                           />
-                          <span className="text-[11px] text-emerald-400 font-bold">/ {totalPagesEmpLeads}</span>
+                          <span className="text-[11px] text-purple-400 font-bold">/ {totalPagesEmpLeads}</span>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -3986,7 +3986,7 @@ const Dashboard = () => {
                                 toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesEmpLeads}`);
                               }
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md transition shadow-xs cursor-pointer"
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md transition shadow-xs cursor-pointer"
                             title="الانتقال إلى الصفحة المحددة"
                           >
                             انتقال ↵
@@ -3999,7 +3999,7 @@ const Dashboard = () => {
                             tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
                           }}
                           disabled={validPageEmpLeads === 1}
-                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                         >
                           ◀ السابق
                         </button>
@@ -4011,7 +4011,7 @@ const Dashboard = () => {
                               const showDots = idx > 0 && page - arr[idx - 1] > 1;
                               return (
                                 <React.Fragment key={page}>
-                                  {showDots && <span className="text-xs text-emerald-400 font-bold px-1">...</span>}
+                                  {showDots && <span className="text-xs text-purple-400 font-bold px-1">...</span>}
                                   <button
                                     onClick={() => {
                                       setCurrentPageEmpLeads(page);
@@ -4019,8 +4019,8 @@ const Dashboard = () => {
                                     }}
                                     className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
                                       validPageEmpLeads === page
-                                        ? 'bg-emerald-600 text-white shadow-md'
-                                        : 'bg-white text-emerald-950 border border-emerald-200 hover:bg-emerald-50'
+                                        ? 'bg-purple-600 text-white shadow-md'
+                                        : 'bg-white text-purple-900 border border-purple-200 hover:bg-purple-50'
                                     }`}
                                   >
                                     {page}
@@ -4036,7 +4036,7 @@ const Dashboard = () => {
                             tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
                           }}
                           disabled={validPageEmpLeads === totalPagesEmpLeads}
-                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                         >
                           التالي ▶
                         </button>
