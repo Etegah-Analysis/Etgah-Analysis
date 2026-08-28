@@ -5769,8 +5769,8 @@ const Dashboard = () => {
                           <div>
                             <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (الموزعة والمضافة لك):</span>
                             <span className="text-3xl font-black text-white">{total} عميل</span>
-                            <span className="text-[11px] text-purple-400 font-medium block mt-0.5">
-                              ({empCrmLeads.length} من Leads CRM + {empAddedLeads.length} داتا مضافة)
+                            <span className="text-[11px] text-purple-400 font-medium block mt-0.5" dir="rtl">
+                              ({empCrmLeads.length.toLocaleString()} موزع + {empAddedLeads.length.toLocaleString()} مضاف)
                             </span>
                           </div>
                           <div className="text-center md:text-left bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20">
@@ -5894,8 +5894,8 @@ const Dashboard = () => {
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك (الموزعة والمضافة)</span>
                             <span className="text-3xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
-                              ({teamCrmLeads.length.toLocaleString()} Leads CRM + {teamEmpAddedLeads.length.toLocaleString()} داتا مضافة)
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({teamCrmLeads.length.toLocaleString()} موزع + {teamEmpAddedLeads.length.toLocaleString()} مضاف)
                             </span>
                           </div>
 
@@ -5945,7 +5945,7 @@ const Dashboard = () => {
                                     </td>
                                     <td className="p-3 text-center font-black">
                                       <span>{total}</span>
-                                      <span className="text-[10px] text-purple-400 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                      <span className="text-[10px] text-purple-400 block font-normal" dir="rtl">({crmCount} موزع + {addedCount} مضاف)</span>
                                     </td>
                                     <td className="p-3 text-center">
                                       <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
@@ -6079,16 +6079,16 @@ const Dashboard = () => {
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا الموزعة والمضافة للتقييم</span>
                             <span className="text-3xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
-                              ({totalDistributedLeads.toLocaleString()} موزعة من Leads CRM + {totalEmpAddedLeads.toLocaleString()} داتا مضافة)
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
                             </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
                             <span className="text-3xl font-black text-emerald-400">{overallCompanyRate}%</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5">
-                              ({totalCompanySuccessful.toLocaleString()} عميل ناجح من إجمالي {totalCompanyActiveLeads.toLocaleString()})
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({totalCompanySuccessful.toLocaleString()} عميل ناجح من {totalCompanyActiveLeads.toLocaleString()})
                             </span>
                           </div>
 
@@ -6098,8 +6098,8 @@ const Dashboard = () => {
                               {topEmp ? `${topEmp.emp.name} (${topEmp.successRate}%)` : 'لا يوجد'}
                             </span>
                             {topEmp && (
-                              <span className="text-[11px] text-amber-200 font-medium block mt-0.5">
-                                ({topEmp.successfulCount} ناجح من إجمالي {topEmp.total})
+                              <span className="text-[11px] text-amber-200 font-medium block mt-0.5" dir="rtl">
+                                ({topEmp.successfulCount} ناجح من {topEmp.total})
                               </span>
                             )}
                           </div>
@@ -6139,7 +6139,7 @@ const Dashboard = () => {
                                       <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
                                       <td className="p-3 text-center font-black">
                                         <span>{total}</span>
-                                        <span className="text-[10px] text-amber-400/80 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                        <span className="text-[10px] text-amber-400/80 block font-normal" dir="rtl">({crmCount} موزع + {addedCount} مضاف)</span>
                                       </td>
                                       <td className="p-3 text-center">
                                         <span className={`font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
@@ -6199,7 +6199,7 @@ const Dashboard = () => {
                                     </td>
                                     <td className="p-3 text-center font-black">
                                       <span>{total}</span>
-                                      <span className="text-[10px] text-purple-400 block font-normal">({crmCount} crm / {addedCount} مضاف)</span>
+                                      <span className="text-[10px] text-purple-400 block font-normal" dir="rtl">({crmCount} موزع + {addedCount} مضاف)</span>
                                     </td>
                                     <td className="p-3 text-center">
                                       <div className="flex items-center justify-center gap-1.5">
