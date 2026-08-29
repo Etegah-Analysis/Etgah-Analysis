@@ -1821,6 +1821,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleLeadCrm = async (lead) => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من حذف العميل "${lead.name}" من قسم Leads CRM؟`)) return;
     try {
       await deleteDoc(doc(db, 'leads_crm', lead.id));
@@ -1832,6 +1836,10 @@ const Dashboard = () => {
   };
 
   const deleteSelectedLeadsCrm = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من حذف ${selectedLeadsCrm.length} عميل محدد من قسم Leads CRM؟`)) return;
     try {
       for (const id of selectedLeadsCrm) {
@@ -2051,7 +2059,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSelectedEmpLeads = async () => {
-    if (!isAdmin && !isCoordinator) return;
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (selectedEmployeeLeads.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من حذف ${selectedEmployeeLeads.length} عميل من (داتا مضافة بواسطة الموظف)؟`)) return;
     
@@ -2061,8 +2072,9 @@ const Dashboard = () => {
         batch.delete(doc(db, 'employee_leads', id));
       });
       await batch.commit();
+      const count = selectedEmployeeLeads.length;
       setSelectedEmployeeLeads([]);
-      toast.success(`تم حذف ${selectedEmployeeLeads.length} عميل بنجاح`);
+      toast.success(`تم حذف ${count} عميل بنجاح`);
     } catch (err) {
       console.error(err);
       toast.error('خطأ أثناء حذف العملاء');
@@ -2197,6 +2209,10 @@ const Dashboard = () => {
     }
   };
   const deleteSelectedCustomers = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedCustomers.length} عميل إلى سلة المهملات؟`)) return;
     for (const id of selectedCustomers) {
       const customer = customers.find(c => c.id === id);
@@ -2222,6 +2238,10 @@ const Dashboard = () => {
     else setSelectedEmployees(emps.map(e => e.id));
   };
   const deleteSelectedEmployees = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedEmployees.length} موظف إلى سلة المهملات؟`)) return;
     for (const id of selectedEmployees) {
       const emp = employees.find(e => e.id === id);
@@ -2248,10 +2268,18 @@ const Dashboard = () => {
     setSelectedVisitors(prev => prev.includes(id) ? prev.filter(vId => vId !== id) : [...prev, id]);
   };
   const toggleAllVisitors = () => {
-    if (selectedVisitors.length === visitors.length && visitors.length > 0) setSelectedVisitors([]);
-    else setSelectedVisitors(visitors.map(v => v.id));
+    const combinedIds = [
+      ...visitors.map(v => v.id),
+      ...customers.filter(c => c.addedBy === 'WhatsApp Webhook').map(c => c.id)
+    ];
+    if (selectedVisitors.length === combinedIds.length && combinedIds.length > 0) setSelectedVisitors([]);
+    else setSelectedVisitors(combinedIds);
   };
   const deleteSelectedVisitors = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedVisitors.length} زائر إلى سلة المهملات؟`)) return;
     for (const id of selectedVisitors) {
       const visitor = visitors.find(v => v.id === id);
@@ -2279,6 +2307,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleVisitor = async (item) => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من مسح الزائر (${item.name || item.phone}) ونقله إلى سلة المهملات؟`)) return;
     try {
       if (item.source === 'موقع الويب') {
@@ -2306,6 +2338,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleCustomer = async (cust) => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من مسح العميل (${cust.name || cust.phoneNumber}) ونقله إلى سلة المهملات؟`)) return;
     try {
       await setDoc(doc(db, 'recycle_bin', cust.id), {
@@ -2323,6 +2359,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleEmployee = async (emp) => {
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من مسح الموظف (${emp.name}) ونقله إلى سلة المهملات؟`)) return;
     try {
       await setDoc(doc(db, 'recycle_bin', emp.id), {
@@ -2340,6 +2380,10 @@ const Dashboard = () => {
   };
 
   const handleRestore = async (item) => {
+    if (!isAdmin) {
+      toast.error('صلاحية استرجاع البيانات محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     try {
       const { originalCollection, type, deletedAt, id, ...restData } = item;
       await setDoc(doc(db, originalCollection, item.id), restData);
@@ -2348,6 +2392,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteForever = async (id) => {
+    if (!isAdmin) {
+      toast.error('صلاحية الحذف النهائي للأبد محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if(window.confirm('هل أنت متأكد من الحذف النهائي للأبد؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
         await deleteDoc(doc(db, 'recycle_bin', id));
@@ -2368,6 +2416,10 @@ const Dashboard = () => {
     else setSelectedRecycleItems(filteredItems.map(i => i.id));
   };
   const restoreSelectedRecycleItems = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية الاسترجاع محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من استرجاع ${selectedRecycleItems.length} عنصر؟`)) return;
     for (const id of selectedRecycleItems) {
       const item = recycleBin.find(i => i.id === id);
@@ -2378,6 +2430,10 @@ const Dashboard = () => {
     setSelectedRecycleItems([]);
   };
   const deleteSelectedRecycleItemsForever = async () => {
+    if (!isAdmin) {
+      toast.error('صلاحية الحذف النهائي محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedRecycleItems.length} عنصر للأبد؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
     try {
       for (const id of selectedRecycleItems) {
@@ -5099,7 +5155,7 @@ const Dashboard = () => {
                     </button>
                   </>
                 )}
-                {(isAdmin || isCoordinator) && selectedEmployeeLeads.length > 0 && (
+                {isAdmin && selectedEmployeeLeads.length > 0 && (
                   <button 
                     onClick={handleDeleteSelectedEmpLeads}
                     className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
@@ -5388,7 +5444,7 @@ const Dashboard = () => {
                     <table className="w-full text-right border-collapse">
                       <thead>
                         <tr className="bg-purple-50/80 border-b border-purple-100">
-                          {(isAdmin || isCoordinator || isLeader) && (
+                          {isAdmin && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
@@ -5429,7 +5485,7 @@ const Dashboard = () => {
 
                             return (
                               <tr key={customer.id} className="hover:bg-purple-50/30 transition border-b border-gray-100/50">
-                                {(isAdmin || isCoordinator || isLeader) && (
+                                {isAdmin && (
                                   <td className="p-4 text-center">
                                     <input 
                                       type="checkbox" 
@@ -6791,13 +6847,15 @@ const Dashboard = () => {
                       <td className="p-4 text-sm text-gray-600">{visitor.email || 'غير متوفر'}</td>
                       <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
                       <td className="p-4">
-                        <button
-                          onClick={() => handleDeleteSingleVisitor({ source: 'موقع الويب', id: visitor.id, name: `${visitor.firstName || ''} ${visitor.lastName || ''}`, _raw: visitor })}
-                          className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
-                          title="حذف ونقل إلى سلة المهملات"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteSingleVisitor({ source: 'موقع الويب', id: visitor.id, name: `${visitor.firstName || ''} ${visitor.lastName || ''}`, _raw: visitor })}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
+                            title="حذف ونقل إلى سلة المهملات"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -6830,7 +6888,7 @@ const Dashboard = () => {
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-indigo-400" size={14} />
                 </div>
-                {selectedVisitors.length > 0 && (
+                {isAdmin && selectedVisitors.length > 0 && (
                   <button 
                     onClick={deleteSelectedVisitors}
                     className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition shadow-sm"
@@ -6844,21 +6902,23 @@ const Dashboard = () => {
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="bg-indigo-50/50 border-b border-indigo-100">
-                    <th className="p-4 w-12 text-center">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedVisitors.length > 0} 
-                        onChange={() => {
-                          const combinedIds = [
-                            ...visitors.map(v => v.id),
-                            ...customers.filter(c => c.addedBy === 'WhatsApp Webhook').map(c => c.id)
-                          ];
-                          if (selectedVisitors.length > 0) setSelectedVisitors([]);
-                          else setSelectedVisitors(combinedIds);
-                        }} 
-                        className="w-4 h-4 text-primary rounded" 
-                      />
-                    </th>
+                    {isAdmin && (
+                      <th className="p-4 w-12 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedVisitors.length > 0} 
+                          onChange={() => {
+                            const combinedIds = [
+                              ...visitors.map(v => v.id),
+                              ...customers.filter(c => c.addedBy === 'WhatsApp Webhook').map(c => c.id)
+                            ];
+                            if (selectedVisitors.length > 0) setSelectedVisitors([]);
+                            else setSelectedVisitors(combinedIds);
+                          }} 
+                          className="w-4 h-4 text-primary rounded" 
+                        />
+                      </th>
+                    )}
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم / رقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الحالة في قائمة الانتظار</th>
@@ -6918,14 +6978,16 @@ const Dashboard = () => {
                       }
                       rows.push(
                         <tr key={visitor.id} className="hover:bg-indigo-50/30 transition border-b border-indigo-50">
-                          <td className="p-4 text-center">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedVisitors.includes(visitor.id)} 
-                              onChange={() => toggleVisitorSelection(visitor.id)} 
-                              className="w-4 h-4 text-primary rounded" 
-                            />
-                          </td>
+                          {isAdmin && (
+                            <td className="p-4 text-center">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedVisitors.includes(visitor.id)} 
+                                onChange={() => toggleVisitorSelection(visitor.id)} 
+                                className="w-4 h-4 text-primary rounded" 
+                              />
+                            </td>
+                          )}
                           <td className="p-4">
                             <p className="text-sm font-bold text-gray-800">{visitor.name || 'غير معروف'}</p>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -6983,13 +7045,15 @@ const Dashboard = () => {
                                 <span className="text-[11px] font-black">WhatsApp</span>
                               </button>
                             )}
-                            <button
-                              onClick={() => handleDeleteSingleVisitor(visitor)}
-                              className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
-                              title="حذف ونقل إلى سلة المهملات"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteSingleVisitor(visitor)}
+                                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
+                                title="حذف ونقل إلى سلة المهملات"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
