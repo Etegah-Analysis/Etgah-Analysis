@@ -337,6 +337,27 @@ const Dashboard = () => {
   const [teamTrackingEmpFilter, setTeamTrackingEmpFilter] = useState('all');
   const [selectedTeamTrackingLeads, setSelectedTeamTrackingLeads] = useState([]);
 
+  // Subscribed Clients Tab & Details Modal State
+  const [currentPageSubscribed, setCurrentPageSubscribed] = useState(1);
+  const [subscribedEmpFilter, setSubscribedEmpFilter] = useState('all');
+  const [selectedSubscribedClients, setSelectedSubscribedClients] = useState([]);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [selectedSubCustomer, setSelectedSubCustomer] = useState(null);
+  const [subStartDate, setSubStartDate] = useState('');
+  const [subEndDate, setSubEndDate] = useState('');
+  const [subServiceType, setSubServiceType] = useState('الباقة السنوية');
+  const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
+  const [subPaidAmount, setSubPaidAmount] = useState('');
+  const [subRemainingAmount, setSubRemainingAmount] = useState('');
+  const [subReceiptProof, setSubReceiptProof] = useState('');
+  const [subReceiptFileUrl, setSubReceiptFileUrl] = useState('');
+  const [subNotes, setSubNotes] = useState('');
+  const [subSaving, setSubSaving] = useState(false);
+
+  useEffect(() => {
+    setCurrentPageSubscribed(1);
+  }, [subscribedEmpFilter, dateFromFilter, dateToFilter, tableSearch, leadsSortOrder]);
+
   useEffect(() => {
     setCurrentPageLeads(1);
   }, [selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, tableSearch, leadsSortOrder]);
@@ -712,6 +733,47 @@ const Dashboard = () => {
   const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
   const unassignedCount = unassignedWhatsappCount;
   const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'WhatsApp Webhook').length;
+
+  // --- SUBSCRIBED CLIENTS DATA POOL (العملاء المشتركين) ---
+  const getIsSubscribed = (c) => {
+    if (!c) return false;
+    const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+    return st === 'subscribed';
+  };
+
+  // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers
+  const allSubscribedClients = Array.from(
+    new Map(
+      [...leadsCrm, ...employeeLeads, ...customers]
+        .filter(getIsSubscribed)
+        .map(c => [c.phoneNumber || c.id, c])
+    ).values()
+  );
+
+  const leaderSubscribedClients = Array.from(
+    new Map(
+      [...leadsCrm, ...employeeLeads, ...customers]
+        .filter(c => getIsSubscribed(c) && (
+          c.assignedToUid === currentUser?.uid || 
+          c.addedByUid === currentUser?.uid || 
+          c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() ||
+          myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
+        ))
+        .map(c => [c.phoneNumber || c.id, c])
+    ).values()
+  );
+
+  const agentSubscribedClients = Array.from(
+    new Map(
+      [...leadsCrm, ...employeeLeads, ...customers]
+        .filter(c => getIsSubscribed(c) && (
+          c.assignedToUid === currentUser?.uid || 
+          c.addedByUid === currentUser?.uid || 
+          c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()
+        ))
+        .map(c => [c.phoneNumber || c.id, c])
+    ).values()
+  );
 
   // --- LEAD IMPORT & EXCEL / GSHEETS / TEXT PARSER HANDLERS ---
   const handleFileUpload = (e) => {
@@ -1937,6 +1999,136 @@ const Dashboard = () => {
     }
   };
 
+  const openSubscriptionModal = (customer) => {
+    setSelectedSubCustomer(customer);
+    const details = customer.subscriptionDetails || {};
+    setSubStartDate(details.startDate || new Date().toISOString().slice(0, 10));
+    setSubEndDate(details.endDate || '');
+    setSubServiceType(details.serviceType || 'الباقة السنوية');
+    setSubPaymentType(details.paymentType || 'full');
+    setSubPaidAmount(details.paidAmount || '');
+    setSubRemainingAmount(details.remainingAmount || '');
+    setSubReceiptProof(details.receiptProof || '');
+    setSubReceiptFileUrl(details.receiptUrl || '');
+    setSubNotes(details.notes || '');
+    setIsSubscriptionModalOpen(true);
+  };
+
+  const handleReceiptFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setSubReceiptFileUrl(uploadEvent.target.result);
+      toast.success('تم رفع صورة إشعار التحويل بنجاح 📄');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSubscriptionDetails = async (e) => {
+    e?.preventDefault();
+    if (!selectedSubCustomer) return;
+    if (!subStartDate || !subEndDate) {
+      toast.error('يرجى تحديد تاريخ بداية ونهاية الخدمة (حقول إجبارية) ⚠️');
+      return;
+    }
+    if (!subReceiptProof.trim() && !subReceiptFileUrl) {
+      toast.error('يرجى إدخال إشعار التحويل / كود العملية أو رفع الإشعار (إجباري) ⚠️');
+      return;
+    }
+
+    setSubSaving(true);
+    try {
+      const subData = {
+        startDate: subStartDate,
+        endDate: subEndDate,
+        serviceType: subServiceType || 'الباقة السنوية',
+        paymentType: subPaymentType,
+        paidAmount: subPaidAmount,
+        remainingAmount: subPaymentType === 'partial' ? subRemainingAmount : '',
+        receiptProof: subReceiptProof.trim(),
+        receiptUrl: subReceiptFileUrl || '',
+        notes: subNotes.trim(),
+        savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
+        savedByUid: currentUser?.uid || 'admin',
+        savedAt: new Date().toISOString()
+      };
+
+      const targetId = selectedSubCustomer.id;
+      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+      const promises = [
+        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'leads_crm', phoneDocId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'employee_leads', phoneDocId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'بيانات_تسجيل_العملاء', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {})
+      ];
+
+      await Promise.all(promises);
+
+      toast.success('تم حفظ وتأكيد بيانات اشتراك العميل بنجاح 💳✨');
+      setIsSubscriptionModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك');
+    } finally {
+      setSubSaving(false);
+    }
+  };
+
+  const exportSubscribedClientsToExcel = () => {
+    const scopeList = (isAdmin || isCoordinator) 
+      ? allSubscribedClients 
+      : isLeader 
+        ? leaderSubscribedClients 
+        : agentSubscribedClients;
+
+    if (scopeList.length === 0) {
+      toast.error('لا يوجد عملاء مشتركين لتصديرهم');
+      return;
+    }
+
+    try {
+      const excelData = scopeList.map((client, idx) => {
+        const emp = employees.find(e => e.uid === client.assignedToUid || e.email?.toLowerCase() === client.assignedTo?.toLowerCase());
+        const empName = emp ? (emp.name || emp.username) : (client.assignedTo === 'admin' || client.assignedTo === 'الإدارة' ? '👑 الإدارة' : (client.assignedTo || 'غير محدد'));
+        const sub = client.subscriptionDetails || {};
+
+        let paymentLabel = 'غير محدد';
+        if (sub.paymentType === 'full') paymentLabel = `كامل (${sub.paidAmount || '0'})`;
+        else if (sub.paymentType === 'percentage') paymentLabel = `نسبة (${sub.paidAmount || '0'})`;
+        else if (sub.paymentType === 'partial') paymentLabel = `جزء وباقي جزء (مدفوع: ${sub.paidAmount || '0'} - متبقي: ${sub.remainingAmount || '0'})`;
+
+        return {
+          '#': idx + 1,
+          'اسم العميل': client.name || 'عميل مشترك',
+          'رقم الهاتف': client.phoneNumber || '',
+          'الموظف المسؤول': empName,
+          'نوع الخدمة / الباقة': sub.serviceType || 'غير محدد',
+          'تاريخ بداية الخدمة': sub.startDate || 'غير مسجل',
+          'تاريخ نهاية الخدمة': sub.endDate || 'غير مسجل',
+          'حالة الدفع والمبلغ': paymentLabel,
+          'إشعار التحويل / كود العملية': sub.receiptProof || 'غير مسجل',
+          'ملاحظات الاشتراك': sub.notes || '',
+          'تاريخ تسجيل الاشتراك': sub.savedAt ? formatDate(sub.savedAt) : formatDate(client.updatedAt || client.createdAt)
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'العملاء المشتركين');
+      
+      const fileName = `العملاء_المشتركين_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      toast.success(`تم تصدير ${scopeList.length} مشترك إلى إكسيل بنجاح 🟢`);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء تصدير ملف الإكسيل');
+    }
+  };
+
   return (
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
@@ -2134,7 +2326,29 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 3: Leads CRM Analysis */}
+            {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('subscribed_clients');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Award className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                  (اشتراكات مؤكدة)
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2300,7 +2514,29 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 3: Leads CRM Analysis */}
+            {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('subscribed_clients');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Award className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                  (اشتراكات مؤكدة)
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2376,8 +2612,8 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View (5 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          /* Leader Dashboard Cards View (6 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
             {/* Leader Card 1: Leads CRM (Personal Leads) */}
             <div 
               onClick={(e) => {
@@ -2420,7 +2656,29 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 3: Website WhatsApp Leads */}
+            {/* Leader Card 3: Subscribed Clients */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('subscribed_clients');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <Award className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-2xl font-black text-emerald-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                  (مشتركي الفريق)
+                </span>
+              </div>
+            </div>
+
+            {/* Leader Card 4: Website WhatsApp Leads */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'website')}
               className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -2437,7 +2695,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 4: Team Members & Total Team Leads */}
+            {/* Leader Card 5: Team Members & Total Team Leads */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2461,7 +2719,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 5: Leads CRM Analysis */}
+            {/* Leader Card 6: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2480,8 +2738,8 @@ const Dashboard = () => {
             </div>
           </div>
         ) : (
-          /* Regular Employee (Agent) Cards View (4 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          /* Regular Employee (Agent) Cards View (5 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {/* Agent Card 1: Leads CRM */}
             <div 
               onClick={(e) => {
@@ -2497,7 +2755,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
-                <h3 className="text-3xl font-black text-cyan-300">
+                <h3 className="text-2xl font-black text-cyan-300">
                   {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
               </div>
@@ -2518,13 +2776,35 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-3xl font-black text-cyan-300">
+                <h3 className="text-2xl font-black text-cyan-300">
                   {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                 </h3>
               </div>
             </div>
 
-            {/* Agent Card 3: Website WhatsApp Leads */}
+            {/* Agent Card 3: Subscribed Clients */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveTab('subscribed_clients');
+                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <Award className="text-emerald-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-2xl font-black text-emerald-300">{agentSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                  (مشتركي الخاصين)
+                </span>
+              </div>
+            </div>
+
+            {/* Agent Card 4: Website WhatsApp Leads */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'website')}
               className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -2535,13 +2815,13 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-3xl font-black text-cyan-300">
+                <h3 className="text-2xl font-black text-cyan-300">
                   {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
                 </h3>
               </div>
             </div>
 
-            {/* Agent Card 4: Leads CRM Analysis */}
+            {/* Agent Card 5: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2555,7 +2835,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-3xl font-black text-cyan-300/40">—</h3>
+                <h3 className="text-2xl font-black text-cyan-300/40">—</h3>
               </div>
             </div>
           </div>
@@ -4305,6 +4585,422 @@ const Dashboard = () => {
                           }}
                           disabled={validPageEmpLeads === totalPagesEmpLeads}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          التالي ▶
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Dedicated Subscribed Clients Tab (العملاء المشتركين) */}
+        {activeTab === 'subscribed_clients' && (
+          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white flex flex-wrap justify-between items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-lg font-black text-emerald-950 flex items-center gap-2">
+                  <Award className="text-emerald-600" size={26} />
+                  <span>🎉 العملاء المشتركين (إدارة وتفاصيل الاشتراكات)</span>
+                </h2>
+                <span className="bg-emerald-200 text-emerald-900 text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                  {isAdmin || isCoordinator ? `إجمالي ${allSubscribedClients.length.toLocaleString()} مشترك` : isLeader ? `مشتركي الفريق (${leaderSubscribedClients.length.toLocaleString()} مشترك)` : `مشتركي الخاصين (${agentSubscribedClients.length.toLocaleString()} مشترك)`}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button 
+                  onClick={exportSubscribedClientsToExcel}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="تصدير بيانات واشتراكات العملاء إلى إكسيل"
+                >
+                  <Download size={14} /> 📊 تصدير المشتركين إكسيل
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Bar */}
+            {(() => {
+              const scopeSubscribed = (!isAdmin && !isCoordinator)
+                ? (isLeader
+                    ? (subscribedEmpFilter === 'all'
+                        ? leaderSubscribedClients
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                    : agentSubscribedClients)
+                : (subscribedEmpFilter === 'all'
+                    ? allSubscribedClients
+                    : (subscribedEmpFilter === 'admin'
+                        ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+
+              return (
+                <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
+                    {/* Employee Filter */}
+                    {(isAdmin || isCoordinator || isLeader) && (
+                      <div className="relative">
+                        <select
+                          value={subscribedEmpFilter}
+                          onChange={(e) => setSubscribedEmpFilter(e.target.value)}
+                          className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-md border border-emerald-400/40 cursor-pointer appearance-none"
+                        >
+                          <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({scopeSubscribed.length})</option>
+                          {isLeader ? (
+                            <>
+                              <option value={currentUser?.uid} className="bg-slate-900 text-white">👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
+                              {myTeamMembers.map(emp => {
+                                const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                                return (
+                                  <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                    👤 {emp.name} ({count} مشترك)
+                                  </option>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(emp => {
+                              const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                              return (
+                                <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                  👤 {emp.name || emp.username} ({count} مشترك)
+                                </option>
+                              );
+                            })
+                          )}
+                        </select>
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-300 text-[10px] font-bold">
+                          ▼
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Modern Date Filter */}
+                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full px-3 py-1 text-xs font-black shadow-md border border-emerald-400/40">
+                      <span className="flex items-center gap-1 text-emerald-200 font-black text-[11px] shrink-0">
+                        📅 التاريخ:
+                      </span>
+                      <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 min-w-[105px] justify-between cursor-pointer">
+                        <span className="text-[10px] text-emerald-200 font-bold shrink-0">من</span>
+                        {!dateFromFilter && <span className="text-[11px] text-emerald-300 font-mono font-bold">--/--/----</span>}
+                        <input 
+                          type="date" 
+                          value={dateFromFilter}
+                          onChange={(e) => setDateFromFilter(e.target.value)}
+                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateFromFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
+                        />
+                      </div>
+                      <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 min-w-[105px] justify-between cursor-pointer">
+                        <span className="text-[10px] text-emerald-200 font-bold shrink-0">إلى</span>
+                        {!dateToFilter && <span className="text-[11px] text-emerald-300 font-mono font-bold">--/--/----</span>}
+                        <input 
+                          type="date" 
+                          value={dateToFilter}
+                          onChange={(e) => setDateToFilter(e.target.value)}
+                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateToFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
+                        />
+                      </div>
+                      {(dateFromFilter || dateToFilter) && (
+                        <button 
+                          onClick={() => { setDateFromFilter(''); setDateToFilter(''); }}
+                          className="text-emerald-300 hover:text-white text-xs px-1"
+                          title="إعادة ضبط التاريخ"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative min-w-[220px]">
+                    <input 
+                      type="text" 
+                      placeholder="🔍 بحث بالاسم أو رقم الهاتف..."
+                      value={tableSearch}
+                      onChange={(e) => setTableSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-white border border-emerald-200 rounded-full text-xs font-bold text-gray-800 outline-none focus:border-emerald-500 shadow-sm"
+                    />
+                    {tableSearch && (
+                      <button 
+                        onClick={() => setTableSearch('')}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Table Content */}
+            {(() => {
+              let filtered = (!isAdmin && !isCoordinator)
+                ? (isLeader
+                    ? (subscribedEmpFilter === 'all'
+                        ? leaderSubscribedClients
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                    : agentSubscribedClients)
+                : (subscribedEmpFilter === 'all'
+                    ? allSubscribedClients
+                    : (subscribedEmpFilter === 'admin'
+                        ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+
+              if (tableSearch.trim()) {
+                const q = tableSearch.trim().toLowerCase();
+                filtered = filtered.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.phoneNumber && c.phoneNumber.includes(q)) || (c.notes && c.notes.toLowerCase().includes(q)) || (c.subscriptionDetails?.serviceType && c.subscriptionDetails.serviceType.toLowerCase().includes(q)));
+              }
+
+              if (dateFromFilter) {
+                filtered = filtered.filter(c => {
+                  const d = c.subscriptionDetails?.startDate || (c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 10) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 10) : '');
+                  return d >= dateFromFilter;
+                });
+              }
+              if (dateToFilter) {
+                filtered = filtered.filter(c => {
+                  const d = c.subscriptionDetails?.startDate || (c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 10) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 10) : '');
+                  return d <= dateToFilter;
+                });
+              }
+
+              const totalPagesSub = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+              const validPageSub = Math.min(Math.max(1, currentPageSubscribed), totalPagesSub);
+              const startIndexSub = (validPageSub - 1) * ITEMS_PER_PAGE;
+              const paginatedSub = filtered.slice(startIndexSub, startIndexSub + ITEMS_PER_PAGE);
+
+              return (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right border-collapse">
+                      <thead>
+                        <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
+                          <th className="p-3.5 text-center">رقم الهاتف</th>
+                          <th className="p-3.5">اسم العميل</th>
+                          <th className="p-3.5 text-center">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
+                          <th className="p-3.5 text-center">فترة الاشتراك</th>
+                          <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>
+                          <th className="p-3.5 text-center">الإجراءات وتفاصيل الاشتراك</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-xs">
+                        {paginatedSub.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="p-10 text-center text-gray-500 font-bold">
+                              لا يوجد عملاء مشتركين يطابقون شروط البحث الحالية 🎉
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedSub.map((customer, idx) => {
+                            const sub = customer.subscriptionDetails || {};
+                            const hasCompleteSub = sub.startDate && sub.receiptProof;
+                            const emp = employees.find(e => e.uid === customer.assignedToUid || e.email?.toLowerCase() === customer.assignedTo?.toLowerCase());
+                            const empName = emp ? (emp.name || emp.username) : (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : (customer.assignedTo || 'غير محدد'));
+
+                            return (
+                              <tr key={customer.id || idx} className="hover:bg-emerald-50/40 transition">
+                                <td className="p-3.5 text-center font-mono font-bold text-gray-900" dir="ltr">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <span>{customer.phoneNumber || '—'}</span>
+                                    {customer.phoneNumber && (
+                                      <button 
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(customer.phoneNumber);
+                                          toast.success('تم نسخ الرقم 📋');
+                                        }}
+                                        className="text-gray-400 hover:text-emerald-600 p-1"
+                                        title="نسخ رقم الهاتف"
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3.5 font-bold text-gray-800">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-black">
+                                      {startIndexSub + idx + 1}
+                                    </span>
+                                    <span className="font-extrabold text-emerald-950">{customer.name || 'عميل مشترك'}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3.5 text-center font-bold text-purple-900">
+                                  {(isAdmin || isCoordinator || isLeader) ? (
+                                    <select 
+                                      value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
+                                      onChange={async (e) => {
+                                        const uid = e.target.value;
+                                        const prevEmpName = employees.find(x => x.uid === customer.assignedToUid || x.email === customer.assignedTo)?.name || '👑 الإدارة';
+                                        const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+                                        
+                                        if (uid === 'admin') {
+                                          const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          toast.success('تم تعيين العميل إلى الإدارة 👑');
+                                        } else {
+                                          const targetEmp = employees.find(x => x.uid === uid);
+                                          const logObj = createAssignmentLog(prevEmpName, `👤 ${targetEmp?.name}`, assignerDisplay);
+                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
+                                        }
+                                      }}
+                                      className="border border-emerald-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer"
+                                    >
+                                      {isLeader ? (
+                                        <>
+                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
+                                          {myTeamMembers.map(empItem => (
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                                          ))}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <option value="admin">👑 الإدارة</option>
+                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                                          ))}
+                                        </>
+                                      )}
+                                    </select>
+                                  ) : (
+                                    <span>👤 {empName}</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-full text-[11px]">
+                                    {sub.serviceType || 'الباقة السنوية'}
+                                  </span>
+                                </td>
+                                <td className="p-3.5 text-center font-mono text-[11px]">
+                                  {sub.startDate && sub.endDate ? (
+                                    <div className="text-gray-700 font-bold">
+                                      <span>{sub.startDate}</span>
+                                      <span className="mx-1 text-emerald-600">➔</span>
+                                      <span>{sub.endDate}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-rose-500 font-bold">غير مسجل ⚠️</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  {sub.paymentType ? (
+                                    <span className="bg-purple-50 text-purple-900 border border-purple-200 px-2 py-0.5 rounded font-bold text-[11px]">
+                                      {sub.paymentType === 'full' ? `كامل (${sub.paidAmount || '0'})` : sub.paymentType === 'percentage' ? `نسبة (${sub.paidAmount || '0'})` : `جزء (${sub.paidAmount || '0'} / باقي: ${sub.remainingAmount || '0'})`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs font-medium">غير محدد</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    {/* Glassmorphic Subscription Details Button */}
+                                    <button 
+                                      onClick={() => openSubscriptionModal(customer)}
+                                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 ${
+                                        hasCompleteSub 
+                                          ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-800 border border-emerald-500/50 backdrop-blur-md'
+                                          : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-800 border border-rose-500/50 backdrop-blur-md animate-pulse'
+                                      }`}
+                                      title={hasCompleteSub ? "عرض وتعديل بيانات واشتراك العميل" : "يرجى ملء بيانات الاشتراك وإشعار التحويل"}
+                                    >
+                                      <CreditCard size={14} className={hasCompleteSub ? "text-emerald-700" : "text-rose-600"} />
+                                      <span>{hasCompleteSub ? 'بيانات الاشتراك (مسجلة ✓)' : 'بيانات الاشتراك (ناقصة ⚠️)'}</span>
+                                    </button>
+
+                                    {/* Comment Button */}
+                                    <button 
+                                      onClick={() => handleOpenNotesModal(customer)}
+                                      className="bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold px-2.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                      title="عرض وإضافة ملاحظات وتقارير العميل"
+                                    >
+                                      <FileText size={12} className="text-amber-700" />
+                                      <span>Comment</span>
+                                      {customer.notesHistory?.length > 0 && (
+                                        <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                          {customer.notesHistory.length}
+                                        </span>
+                                      )}
+                                    </button>
+
+                                    {/* WhatsApp 3D Action Button */}
+                                    {hasWhatsappPermission && customer.phoneNumber && (
+                                      <button 
+                                        onClick={() => handleOpenWhatsAppChat(customer)}
+                                        className="relative group overflow-hidden bg-gradient-to-r from-[#25D366] via-[#1EBE5D] to-[#128C7E] text-white px-3 py-1.5 rounded-xl font-black text-xs shadow-[0_4px_12px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_18px_rgba(37,211,102,0.5)] border border-emerald-300/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                                        title="فتح المحادثة الفورية عبر واتساب"
+                                      >
+                                        <img 
+                                          src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
+                                          alt="WhatsApp" 
+                                          className="w-4 h-4 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
+                                        />
+                                        <span>WhatsApp</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Subscribed Pagination */}
+                  {filtered.length > ITEMS_PER_PAGE && (
+                    <div className="px-6 py-4 border-t border-emerald-100 bg-emerald-50/40 flex flex-wrap justify-between items-center gap-3">
+                      <div className="text-xs font-bold text-emerald-950">
+                        عرض <span className="text-emerald-700 font-black">{startIndexSub + 1}</span> إلى <span className="text-emerald-700 font-black">{Math.min(startIndexSub + ITEMS_PER_PAGE, filtered.length)}</span> من إجمالي <span className="text-emerald-700 font-black">{filtered.length}</span> مشترك
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setCurrentPageSubscribed(prev => Math.max(prev - 1, 1));
+                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={validPageSub === 1}
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          ◀ السابق
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPagesSub }, (_, i) => i + 1)
+                            .filter(page => page === 1 || page === totalPagesSub || Math.abs(page - validPageSub) <= 2)
+                            .map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => {
+                                  setCurrentPageSubscribed(page);
+                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
+                                  validPageSub === page
+                                    ? 'bg-emerald-600 text-white shadow-md'
+                                    : 'bg-white text-emerald-950 border border-emerald-200 hover:bg-emerald-50'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setCurrentPageSubscribed(prev => Math.min(prev + 1, totalPagesSub));
+                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={validPageSub === totalPagesSub}
+                          className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                         >
                           التالي ▶
                         </button>
@@ -6367,8 +7063,8 @@ const Dashboard = () => {
                           </div>
                         </div>
 
-                        {/* Admin Leaders & Teams Breakdown */}
-                        {isAdmin && leadersTeamData.length > 0 && (
+                        {/* Admin & Coordinator Leaders & Teams Breakdown */}
+                        {(isAdmin || isCoordinator) && leadersTeamData.length > 0 && (
                           <div className="bg-slate-950 rounded-2xl border border-amber-500/30 overflow-hidden shadow-xl">
                             <div className="p-4 border-b border-amber-500/20 flex justify-between items-center bg-amber-950/30">
                               <h3 className="text-sm font-black text-amber-200 flex items-center gap-2">
@@ -6916,6 +7612,222 @@ const Dashboard = () => {
                 </div>
 
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Client Subscription Details (بيانات اشتراك العميل) */}
+        {isSubscriptionModalOpen && selectedSubCustomer && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsSubscriptionModalOpen(false)}>
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative max-h-[90vh] flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-2xl shadow-lg border border-emerald-300/40">
+                    <CreditCard size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white flex items-center gap-2">
+                      <span>💳 بيانات وتفاصيل اشتراك العميل</span>
+                    </h2>
+                    <p className="text-xs text-emerald-300 font-bold mt-0.5">
+                      {selectedSubCustomer.name || 'عميل مشترك'} • <span dir="ltr" className="font-mono text-cyan-300">{selectedSubCustomer.phoneNumber || ''}</span>
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsSubscriptionModalOpen(false)} 
+                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body / Form */}
+              <form onSubmit={handleSaveSubscriptionDetails} className="flex-1 overflow-y-auto space-y-4 pr-1">
+                {/* Required Alert Banner */}
+                <div className="bg-emerald-950/60 border border-emerald-500/30 rounded-2xl p-3 text-xs text-emerald-200 shadow-inner flex items-center gap-2">
+                  <span className="text-base">📌</span>
+                  <span>
+                    يرجى تعبئة بيانات الباقة وإشعار التحويل. علامة (<span className="text-rose-400 font-bold">*</span>) تعني حقل إجباري.
+                  </span>
+                </div>
+
+                {/* 1. Service Dates (Start & End) - Required */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3.5 rounded-2xl border border-emerald-500/20">
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1">
+                      <span>📅 تاريخ بداية الخدمة</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
+                    <input 
+                      type="date"
+                      required
+                      value={subStartDate}
+                      onChange={(e) => setSubStartDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1">
+                      <span>📅 تاريخ نهاية الخدمة</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
+                    <input 
+                      type="date"
+                      required
+                      value={subEndDate}
+                      onChange={(e) => setSubEndDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Service Type & Payment Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">نوع الخدمة / الباقة</label>
+                    <select
+                      value={subServiceType}
+                      onChange={(e) => setSubServiceType(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
+                    >
+                      <option value="الباقة الشهرية">الباقة الشهرية (1 شهر)</option>
+                      <option value="الباقة ربع السنوية (3 شهور)">الباقة ربع السنوية (3 شهور)</option>
+                      <option value="الباقة النصف سنوية (6 شهور)">الباقة النصف سنوية (6 شهور)</option>
+                      <option value="الباقة السنوية">الباقة السنوية (12 شهر)</option>
+                      <option value="باقة VIP">باقة VIP خاصة</option>
+                      <option value="توصيات الأسهم والعملات">توصيات الأسهم والعملات</option>
+                      <option value="كورس تدريبي خاص">كورس تدريبي خاص</option>
+                      <option value="استشارة خاصة">استشارة خاصة</option>
+                      <option value="أخرى">أخرى</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">نوع الدفع</label>
+                    <select
+                      value={subPaymentType}
+                      onChange={(e) => setSubPaymentType(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
+                    >
+                      <option value="full">كامل (Full Payment)</option>
+                      <option value="percentage">نسبة (Percentage)</option>
+                      <option value="partial">جزء وباقي جزء (Installment / Partial)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. Amounts (Paid & Remaining) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">المبلغ المدفوع</label>
+                    <input 
+                      type="text"
+                      placeholder="مثال: 500$ أو 2000 ريال"
+                      value={subPaidAmount}
+                      onChange={(e) => setSubPaidAmount(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                    />
+                  </div>
+
+                  {subPaymentType === 'partial' && (
+                    <div>
+                      <label className="block text-xs font-bold text-amber-300 mb-1.5">المبلغ المتبقي</label>
+                      <input 
+                        type="text"
+                        placeholder="مثال: 300$ أو 1000 ريال"
+                        value={subRemainingAmount}
+                        onChange={(e) => setSubRemainingAmount(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-950 border border-amber-500/50 rounded-xl text-xs font-bold text-amber-200 outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Transfer Receipt / Proof - Required */}
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span>🧾 إشعار التحويل / كود العملية (بالإنجليزي)</span>
+                        <span className="text-rose-400 font-black">*</span>
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-normal">كتابة أو نسخ ولصق</span>
+                    </label>
+                    <input 
+                      type="text"
+                      dir="ltr"
+                      required={!subReceiptFileUrl}
+                      placeholder="e.g. TXN-94820194 / AlRajhi Ref: 48201948"
+                      value={subReceiptProof}
+                      onChange={(e) => setSubReceiptProof(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-mono font-bold text-cyan-300 outline-none focus:border-emerald-400 text-left"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>📁 أو رفع صورة إشعار التحويل:</span>
+                      {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم إرفاق صورة</span>}
+                    </label>
+                    <input 
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleReceiptFileUpload}
+                      className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                    />
+                    {subReceiptFileUrl && (
+                      <div className="mt-2.5 p-2 bg-slate-900 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+                        <span className="text-xs text-emerald-300 font-bold truncate">معاينة صورة الإشعار المرفق</span>
+                        <a 
+                          href={subReceiptFileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-cyan-300 text-xs font-bold underline hover:text-cyan-200"
+                        >
+                          عرض بالحجم الكامل ↗
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 5. Notes (Optional) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">ملاحظات الاشتراك (اختياري)</label>
+                  <textarea 
+                    rows={2}
+                    placeholder="أي تفاصيل أو شروط خاصة بالاشتراك..."
+                    value={subNotes}
+                    onChange={(e) => setSubNotes(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-medium text-white outline-none focus:border-emerald-400"
+                  />
+                </div>
+
+                {/* Submit & Cancel Buttons */}
+                <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsSubscriptionModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={subSaving}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-2 px-6 rounded-xl transition flex items-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
+                  >
+                    <Save size={15} />
+                    <span>{subSaving ? 'جاري الحفظ...' : 'حفظ وتأكيد بيانات الاشتراك 💾'}</span>
+                  </button>
+                </div>
+              </form>
+
             </div>
           </div>
         )}
