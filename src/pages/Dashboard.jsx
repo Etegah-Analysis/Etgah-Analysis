@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -384,6 +384,19 @@ const Dashboard = () => {
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
 
+  // Internal Mail / Gmail System State
+  const [internalEmails, setInternalEmails] = useState([]);
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [mailRecipientUid, setMailRecipientUid] = useState('');
+  const [mailSubject, setMailSubject] = useState('');
+  const [mailBody, setMailBody] = useState('');
+  const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
+  const [mailSearchTerm, setMailSearchTerm] = useState('');
+  const [mailSending, setMailSending] = useState(false);
+
   // Admin emails definition
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
 
@@ -613,6 +626,19 @@ const Dashboard = () => {
       setTemplateMessages(data);
     });
 
+    // Fetch Internal Emails (Gmail System)
+    const emailsUnsub = onSnapshot(collection(db, 'internal_emails'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      data.sort((a, b) => {
+        const timeA = getTimestampMillis(a.createdAt);
+        const timeB = getTimestampMillis(b.createdAt);
+        return timeB - timeA;
+      });
+      setInternalEmails(data);
+    }, (error) => {
+      console.error('Error fetching internal_emails:', error);
+    });
+
     return () => {
       custUnsub();
       leadsCrmUnsub();
@@ -621,6 +647,7 @@ const Dashboard = () => {
       visUnsub();
       rbUnsub();
       templatesUnsub();
+      emailsUnsub();
     };
   }, []);
 
@@ -681,26 +708,254 @@ const Dashboard = () => {
     }, 100);
   };
 
-  const handleCardClick = (e, type, filter) => {
+  const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
+    
+    // Toggle close if clicking background or already active tab
+    if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
+      setActiveTab('analytics');
+      return;
+    }
+
     if (type === 'leads_crm') {
-      setSelectedEmpFilter('admin');
+      setSelectedEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
       setCrmStatusFilter('unassigned');
     } else if (type === 'employee_leads') {
-      setEmpLeadsEmpFilter('admin');
+      setEmpLeadsEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
       setEmpLeadsStatusFilter('unassigned');
+    } else if (type === 'subscribed_clients') {
+      setSubscribedEmpFilter('all');
     } else if (type === 'customers') {
       setSelectedEmpFilter('all');
     } else {
       setSelectedEmpFilter('all');
     }
-    if (activeTab === type && customerFilter === filter) {
-      setActiveTab('analytics');
+
+    setActiveTab(type);
+    setCustomerFilter(filter);
+    setTableSearch('');
+    scrollToTable();
+  };
+
+  // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
+  const myUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+  const myEmail = currentUser?.email?.toLowerCase() || '';
+
+  // Calculate allowed recipients based on user role
+  const getAllowedRecipients = () => {
+    const list = [];
+    if (isAdmin) {
+      list.push({ uid: 'all', type: 'all', name: '📢 جميع الموظفين بالمنصة (All Staff)', role: 'all' });
+      employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid).forEach(e => {
+        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
+      });
+    } else if (isCoordinator) {
+      list.push({ uid: 'all', type: 'all', name: '📢 جميع الموظفين بالمنصة (All Staff)', role: 'all' });
+      list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
+      employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid).forEach(e => {
+        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
+      });
+    } else if (isLeader) {
+      list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
+      const coord = employees.find(e => e.jobTitle === 'Coordinator' || e.jobTitle === 'منسق للإدارة');
+      if (coord) {
+        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.name})`, email: coord.email, role: 'Coordinator' });
+      }
+      if (myTeamMembers.length > 0) {
+        list.push({ uid: 'team', type: 'team', name: `👥 فريقي بالكامل (${myTeamMembers.length} موظف)`, role: 'team' });
+        myTeamMembers.forEach(e => {
+          list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (عضو بالفريق)`, email: e.email, role: 'Agent' });
+        });
+      }
     } else {
-      setActiveTab(type);
-      setCustomerFilter(filter);
-      setTableSearch('');
-      scrollToTable();
+      // Agent
+      list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
+      const coord = employees.find(e => e.jobTitle === 'Coordinator' || e.jobTitle === 'منسق للإدارة');
+      if (coord) {
+        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.name})`, email: coord.email, role: 'Coordinator' });
+      }
+      const myLeaderUid = currentEmpUser?.leaderUid;
+      if (myLeaderUid) {
+        const leader = employees.find(e => e.uid === myLeaderUid);
+        if (leader) {
+          list.push({ uid: leader.uid, type: 'leader', name: `👑 الليدر المشرف (${leader.name})`, email: leader.email, role: 'Leader' });
+        }
+      }
+    }
+    return list;
+  };
+
+  // Helper to determine if an email is meant for the current user's inbox
+  const isEmailForMe = (mail) => {
+    if (!mail) return false;
+    if (isAdmin) {
+      return mail.recipientType === 'all' || mail.recipientType === 'admin' || mail.recipientUid === 'admin' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+    }
+    if (isCoordinator) {
+      return mail.recipientType === 'all' || mail.recipientType === 'coordinator' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+    }
+    if (isLeader) {
+      if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+      if (mail.recipientType === 'leader' && myTeamMembers.some(m => m.uid === mail.senderUid || m.email?.toLowerCase() === mail.senderEmail?.toLowerCase())) return true;
+      return false;
+    }
+    // Agent
+    if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+    if (mail.recipientType === 'team' && (mail.teamMemberUids?.includes(currentUser?.uid) || mail.teamLeaderUid === currentEmpUser?.leaderUid)) return true;
+    return false;
+  };
+
+  // Unread emails count
+  const unreadMailCount = internalEmails.filter(m => isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length;
+
+  // File / Image Attachment Upload for Mail
+  const handleMailAttachmentUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error(`الملف (${file.name}) كبير جداً. الحد الأقصى 8MB`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        setMailAttachments(prev => [
+          ...prev,
+          {
+            name: file.name,
+            url: uploadEvent.target.result,
+            type: file.type.startsWith('image/') ? 'image' : 'file',
+            size: (file.size / 1024).toFixed(1) + ' KB'
+          }
+        ]);
+        toast.success(`تم إرفاق (${file.name}) 📎`);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveAttachment = (idx) => {
+    setMailAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Send Internal Email Handler
+  const handleSendInternalEmail = async (e) => {
+    e.preventDefault();
+    if (!mailRecipientUid) {
+      toast.error('يرجى اختيار المستلم 👤');
+      return;
+    }
+    if (!mailSubject.trim()) {
+      toast.error('يرجى كتابة عنوان / موضوع الإيميل');
+      return;
+    }
+    if (!mailBody.trim()) {
+      toast.error('يرجى كتابة نص ومحتوى الرسالة');
+      return;
+    }
+
+    const allowed = getAllowedRecipients();
+    const recipient = allowed.find(r => r.uid === mailRecipientUid);
+    if (!recipient) {
+      toast.error('المستلم غير صالح أو غير مسموح لك بمراسلته');
+      return;
+    }
+
+    setMailSending(true);
+    try {
+      const emailDoc = {
+        senderUid: isAdmin ? 'admin' : (currentUser?.uid || ''),
+        senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'موظف'),
+        senderEmail: currentUser?.email || '',
+        senderRole: isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent',
+        recipientType: recipient.type,
+        recipientUid: recipient.uid,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email || '',
+        teamLeaderUid: (isLeader && recipient.type === 'team') ? currentUser?.uid : '',
+        teamMemberUids: (isLeader && recipient.type === 'team') ? myTeamMembers.map(m => m.uid) : [],
+        subject: mailSubject.trim(),
+        body: mailBody.trim(),
+        attachments: mailAttachments,
+        createdAt: serverTimestamp(),
+        readBy: [isAdmin ? 'admin' : currentUser?.uid],
+        starredBy: [],
+        deletedBy: []
+      };
+
+      await setDoc(doc(collection(db, 'internal_emails')), emailDoc);
+      toast.success('تم إرسال الإيميل بنجاح 🚀');
+      
+      // Reset compose form
+      setMailSubject('');
+      setMailBody('');
+      setMailAttachments([]);
+      setMailRecipientUid('');
+      setIsComposeOpen(false);
+    } catch (err) {
+      console.error("Error sending email:", err);
+      toast.error('حدث خطأ أثناء إرسال الإيميل: ' + err.message);
+    } finally {
+      setMailSending(false);
+    }
+  };
+
+  // Toggle Star on Email
+  const handleToggleStarEmail = async (mail, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    try {
+      const isStarred = mail.starredBy?.includes(myUid);
+      const emailRef = doc(db, 'internal_emails', mail.id);
+      if (isStarred) {
+        await updateDoc(emailRef, {
+          starredBy: (mail.starredBy || []).filter(u => u !== myUid)
+        });
+      } else {
+        await updateDoc(emailRef, {
+          starredBy: arrayUnion(myUid)
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Delete Email for Me
+  const handleDeleteEmail = async (mail, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!window.confirm('هل أنت متأكد من حذف هذا الإيميل من بريدك؟')) return;
+    try {
+      const emailRef = doc(db, 'internal_emails', mail.id);
+      if (isAdmin && mailActiveFolder === 'all_system') {
+        await deleteDoc(emailRef);
+        toast.success('تم حذف الإيميل نهائياً من السيستم 🗑️');
+      } else {
+        await updateDoc(emailRef, {
+          deletedBy: arrayUnion(myUid)
+        });
+        toast.success('تم حذف الإيميل من بريدك');
+      }
+      if (selectedEmail?.id === mail.id) {
+        setSelectedEmail(null);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء الحذف');
+    }
+  };
+
+  // Open Email and Mark as Read
+  const handleOpenEmailDetails = async (mail) => {
+    setSelectedEmail(mail);
+    if (!mail.readBy?.includes(myUid)) {
+      try {
+        await updateDoc(doc(db, 'internal_emails', mail.id), {
+          readBy: arrayUnion(myUid)
+        });
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -2173,6 +2428,23 @@ const Dashboard = () => {
           
           {/* Mobile action buttons inline with title */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
+            {/* Mobile Internal Mail Button */}
+            <button 
+              onClick={() => {
+                setIsMailModalOpen(true);
+                setMailActiveFolder('inbox');
+              }}
+              className="relative flex items-center bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-bold text-xs cursor-pointer"
+              title="بريد اتجاه الداخلي (Gmail)"
+            >
+              <Mail size={16} />
+              {unreadMailCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                  {unreadMailCount}
+                </span>
+              )}
+            </button>
+
             {isAdmin && (
               <button 
                 onClick={openAddEmployeeModal}
@@ -2220,6 +2492,24 @@ const Dashboard = () => {
               })()}
             </span>
           </div>
+
+          {/* Desktop Internal Mail Button */}
+          <button 
+            onClick={() => {
+              setIsMailModalOpen(true);
+              setMailActiveFolder('inbox');
+            }}
+            className="flex items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-3.5 py-2 rounded-lg transition text-xs font-black gap-1.5 shadow-md cursor-pointer active:scale-95 border border-white/20"
+            title="فتح بريد اتجاه الداخلي (Gmail)"
+          >
+            <Mail size={16} />
+            <span>بريد اتجاه</span>
+            {unreadMailCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
+                {unreadMailCount}
+              </span>
+            )}
+          </button>
 
           {isAdmin && (
             <button 
@@ -2309,11 +2599,7 @@ const Dashboard = () => {
 
             {/* Card 2: Employee Added Data */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('employee_leads');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
@@ -2328,21 +2614,17 @@ const Dashboard = () => {
 
             {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('subscribed_clients');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Award className="text-emerald-400" size={28} />
+                <Award className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (اشتراكات مؤكدة)
                 </span>
               </div>
@@ -2497,11 +2779,7 @@ const Dashboard = () => {
 
             {/* Card 2: Employee Added Data */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('employee_leads');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
             >
@@ -2516,21 +2794,17 @@ const Dashboard = () => {
 
             {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('subscribed_clients');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Award className="text-emerald-400" size={28} />
+                <Award className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-emerald-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (اشتراكات مؤكدة)
                 </span>
               </div>
@@ -2616,11 +2890,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
             {/* Leader Card 1: Leads CRM (Personal Leads) */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('leads_crm');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
               className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض جدول Leads CRM الخاص بك"
             >
@@ -2637,11 +2907,7 @@ const Dashboard = () => {
 
             {/* Leader Card 2: Employee Added Data */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('employee_leads');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
               className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
@@ -2658,21 +2924,17 @@ const Dashboard = () => {
 
             {/* Leader Card 3: Subscribed Clients */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('subscribed_clients');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Award className="text-emerald-400" size={28} />
+                <Award className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-2xl font-black text-emerald-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (مشتركي الفريق)
                 </span>
               </div>
@@ -2697,11 +2959,7 @@ const Dashboard = () => {
 
             {/* Leader Card 5: Team Members & Total Team Leads */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('team_leads_tracking');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
               className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لمتابعة عملاء فريقك وسحب الداتا"
             >
@@ -2742,12 +3000,8 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {/* Agent Card 1: Leads CRM */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('leads_crm');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
+              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
@@ -2763,11 +3017,7 @@ const Dashboard = () => {
 
             {/* Agent Card 2: Employee Added Data */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('employee_leads');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
               className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
             >
@@ -2784,21 +3034,17 @@ const Dashboard = () => {
 
             {/* Agent Card 3: Subscribed Clients */}
             <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTab('subscribed_clients');
-                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)]' : 'border-emerald-500/40 hover:border-emerald-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
               title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Award className="text-emerald-400" size={28} />
+                <Award className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs text-emerald-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-2xl font-black text-emerald-300">{agentSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-emerald-400/90 font-medium block mt-0.5" dir="rtl">
+                <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (مشتركي الخاصين)
                 </span>
               </div>
@@ -3225,7 +3471,7 @@ const Dashboard = () => {
         })()}
 
         {/* Dedicated Leads CRM Tab */}
-        {(activeTab === 'leads_crm' || (!isAdmin && activeTab !== 'team_leads_tracking' && activeTab !== 'employee_leads' && activeTab !== 'customers')) && (
+        {activeTab === 'leads_crm' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
@@ -4612,13 +4858,15 @@ const Dashboard = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <button 
-                  onClick={exportSubscribedClientsToExcel}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  title="تصدير بيانات واشتراكات العملاء إلى إكسيل"
-                >
-                  <Download size={14} /> 📊 تصدير المشتركين إكسيل
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={exportSubscribedClientsToExcel}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    title="تصدير بيانات واشتراكات العملاء إلى إكسيل"
+                  >
+                    <Download size={14} /> 📊 تصدير المشتركين إكسيل
+                  </button>
+                )}
               </div>
             </div>
 
@@ -7829,6 +8077,529 @@ const Dashboard = () => {
               </form>
 
             </div>
+          </div>
+        )}
+
+        {/* Internal Mail System Modal (بريد اتجاه الداخلي - Gmail System) */}
+        {isMailModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4" onClick={() => setIsMailModalOpen(false)}>
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col border border-purple-500/30 overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Mail Header */}
+              <div className="px-5 py-3.5 border-b border-purple-500/20 bg-slate-950 flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 rounded-xl shadow-md border border-white/20">
+                    <Mail size={22} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                      <span>✉️ بريد اتجاه الداخلي</span>
+                      <span className="text-[10px] font-bold bg-purple-900/80 text-purple-200 border border-purple-400/30 px-2 py-0.5 rounded-full">
+                        {isAdmin ? '👑 حساب الإدارة' : isCoordinator ? '📋 منسق الإدارة' : isLeader ? '👑 ليدر فريق' : '👤 موظف'}
+                      </span>
+                    </h2>
+                    <p className="text-[11px] text-purple-300/80 font-medium">
+                      نظام المراسلات والإيميلات الداخلية المشفرة لفريق اتجاه
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mail Search Bar */}
+                <div className="flex-1 max-w-md mx-2">
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder={isAdmin ? "بحث في كافة الإيميلات بالموضوع، المحتوى، أو اسم الموظف..." : "بحث في الإيميلات..."}
+                      value={mailSearchTerm}
+                      onChange={(e) => setMailSearchTerm(e.target.value)}
+                      className="w-full bg-slate-900 text-white placeholder-purple-300/50 border border-purple-500/40 rounded-full py-1.5 pl-8 pr-9 text-xs font-bold focus:outline-none focus:border-cyan-400 shadow-inner"
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400" size={14} />
+                    {mailSearchTerm && (
+                      <button 
+                        onClick={() => setMailSearchTerm('')}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs font-black"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button 
+                  onClick={() => setIsMailModalOpen(false)}
+                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                  title="إغلاق البريد"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Mail Main Layout (Sidebar + Content Area) */}
+              <div className="flex-1 flex overflow-hidden">
+                
+                {/* Left Sidebar / Folders */}
+                <div className="w-56 sm:w-64 bg-slate-950/70 border-l border-purple-500/20 p-3 sm:p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
+                  <div className="space-y-2">
+                    {/* Compose Button */}
+                    <button 
+                      onClick={() => setIsComposeOpen(true)}
+                      className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-2.5 px-4 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer mb-4 border border-white/20"
+                    >
+                      <Send size={15} />
+                      <span>✏️ إنشاء رسالة جديدة</span>
+                    </button>
+
+                    {/* Folder 1: Inbox */}
+                    <button 
+                      onClick={() => {
+                        setMailActiveFolder('inbox');
+                        setSelectedEmail(null);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'inbox' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Inbox size={16} className="text-purple-400" />
+                        <span>📥 البريد الوارد</span>
+                      </div>
+                      {unreadMailCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                          {unreadMailCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Folder 2: Sent */}
+                    <button 
+                      onClick={() => {
+                        setMailActiveFolder('sent');
+                        setSelectedEmail(null);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'sent' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Send size={16} className="text-indigo-400" />
+                        <span>📤 البريد المرسل</span>
+                      </div>
+                      <span className="text-slate-500 text-[11px] font-mono">
+                        {internalEmails.filter(m => (m.senderUid === myUid || m.senderEmail?.toLowerCase() === myEmail) && !m.deletedBy?.includes(myUid)).length}
+                      </span>
+                    </button>
+
+                    {/* Folder 3: Starred */}
+                    <button 
+                      onClick={() => {
+                        setMailActiveFolder('starred');
+                        setSelectedEmail(null);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'starred' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Star size={16} className="text-amber-400 fill-amber-400/30" />
+                        <span>⭐ الرسائل المميزة</span>
+                      </div>
+                      <span className="text-slate-500 text-[11px] font-mono">
+                        {internalEmails.filter(m => m.starredBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length}
+                      </span>
+                    </button>
+
+                    {/* Folder 4: Admin Global Archive (Admin Only) */}
+                    {isAdmin && (
+                      <div className="pt-2 border-t border-purple-500/20 mt-2">
+                        <button 
+                          onClick={() => {
+                            setMailActiveFolder('all_system');
+                            setSelectedEmail(null);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-black transition cursor-pointer ${mailActiveFolder === 'all_system' && !selectedEmail ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-amber-300/80 hover:bg-amber-950/40'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Globe size={16} className="text-amber-400" />
+                            <span>🌐 كافة إيميلات ومراسلات النظام</span>
+                          </div>
+                          <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
+                            {internalEmails.length}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sidebar Footer Info */}
+                  <div className="p-2 bg-slate-900/60 rounded-xl border border-purple-500/10 text-[10px] text-purple-300/70 text-center">
+                    <span>Etegah Secure Internal Mail v1.0</span>
+                  </div>
+                </div>
+
+                {/* Right Panel: Email List OR Single Email Viewer */}
+                <div className="flex-1 bg-slate-900 flex flex-col overflow-hidden">
+                  
+                  {/* Single Email Detailed View */}
+                  {selectedEmail ? (
+                    <div className="flex-1 flex flex-col p-5 overflow-y-auto">
+                      {/* Top Action Bar */}
+                      <div className="flex justify-between items-center pb-4 border-b border-purple-500/20 mb-4 gap-2">
+                        <button 
+                          onClick={() => setSelectedEmail(null)}
+                          className="bg-slate-800 hover:bg-slate-700 text-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>⬅️ العودة للقائمة</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={(e) => handleToggleStarEmail(selectedEmail, e)}
+                            className={`p-2 rounded-xl transition cursor-pointer ${selectedEmail.starredBy?.includes(myUid) ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400 hover:text-amber-300'}`}
+                            title="تمييز بنجمة"
+                          >
+                            <Star size={16} className={selectedEmail.starredBy?.includes(myUid) ? 'fill-amber-300' : ''} />
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              // Pre-fill reply
+                              const replyRecipientUid = selectedEmail.senderUid === myUid ? selectedEmail.recipientUid : selectedEmail.senderUid;
+                              setMailRecipientUid(replyRecipientUid || 'admin');
+                              setMailSubject(`Re: ${selectedEmail.subject}`);
+                              setMailBody(`\n\n--- رد على رسالة (${selectedEmail.senderName}) ---\n` + selectedEmail.body);
+                              setIsComposeOpen(true);
+                            }}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <Reply size={15} />
+                            <span>↩️ رد</span>
+                          </button>
+
+                          <button 
+                            onClick={(e) => handleDeleteEmail(selectedEmail, e)}
+                            className="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white p-2 rounded-xl transition cursor-pointer border border-rose-500/30"
+                            title="حذف الرسالة"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Email Header */}
+                      <div className="mb-4 bg-slate-950/60 p-4 rounded-2xl border border-purple-500/20">
+                        <h1 className="text-lg sm:text-xl font-black text-white mb-2 leading-snug">
+                          {selectedEmail.subject}
+                        </h1>
+
+                        <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-cyan-300">من: {selectedEmail.senderName}</span>
+                            <span className="text-purple-300/70 font-mono text-[11px]">({selectedEmail.senderEmail})</span>
+                            <span className="bg-purple-900 text-purple-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                              {selectedEmail.senderRole}
+                            </span>
+                          </div>
+
+                          <span className="text-gray-400 text-[11px] font-mono" dir="ltr">
+                            {formatDate(selectedEmail.createdAt)}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 text-xs text-purple-300/80">
+                          <span>إلى: </span>
+                          <span className="font-bold text-white">{selectedEmail.recipientName}</span>
+                        </div>
+                      </div>
+
+                      {/* Email Body Content */}
+                      <div className="flex-1 bg-slate-950/40 p-5 rounded-2xl border border-purple-500/10 mb-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-100 font-sans select-text">
+                        {selectedEmail.body}
+                      </div>
+
+                      {/* Attachments Section */}
+                      {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                        <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 space-y-3">
+                          <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                            <Paperclip size={15} />
+                            <span>المرفقات ({selectedEmail.attachments.length}):</span>
+                          </span>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {selectedEmail.attachments.map((file, idx) => (
+                              <div key={idx} className="bg-slate-900 p-3 rounded-xl border border-purple-500/20 flex flex-col justify-between gap-2 hover:border-purple-400 transition">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <span className="text-lg">{file.type === 'image' ? '🖼️' : '📄'}</span>
+                                  <div className="overflow-hidden">
+                                    <p className="text-xs font-bold text-white truncate" title={file.name}>{file.name}</p>
+                                    <span className="text-[10px] text-gray-400 font-mono">{file.size}</span>
+                                  </div>
+                                </div>
+
+                                {file.type === 'image' && file.url && (
+                                  <img 
+                                    src={file.url} 
+                                    alt={file.name} 
+                                    className="w-full h-24 object-cover rounded-lg border border-purple-500/20 cursor-pointer hover:opacity-90"
+                                    onClick={() => window.open(file.url, '_blank')}
+                                  />
+                                )}
+
+                                <a 
+                                  href={file.url} 
+                                  download={file.name}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="w-full bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white py-1.5 px-3 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 text-center"
+                                >
+                                  <Download size={13} />
+                                  <span>تنزيل / معاينة المرفق</span>
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Email List View */
+                    <div className="flex-1 flex flex-col overflow-y-auto">
+                      {(() => {
+                        let filteredMails = [];
+                        if (mailActiveFolder === 'inbox') {
+                          filteredMails = internalEmails.filter(m => isEmailForMe(m) && !m.deletedBy?.includes(myUid));
+                        } else if (mailActiveFolder === 'sent') {
+                          filteredMails = internalEmails.filter(m => (m.senderUid === myUid || m.senderEmail?.toLowerCase() === myEmail) && !m.deletedBy?.includes(myUid));
+                        } else if (mailActiveFolder === 'starred') {
+                          filteredMails = internalEmails.filter(m => m.starredBy?.includes(myUid) && !m.deletedBy?.includes(myUid));
+                        } else if (mailActiveFolder === 'all_system' && isAdmin) {
+                          filteredMails = internalEmails;
+                        }
+
+                        // Search filter
+                        if (mailSearchTerm.trim()) {
+                          const term = mailSearchTerm.trim().toLowerCase();
+                          filteredMails = filteredMails.filter(m => 
+                            m.subject?.toLowerCase().includes(term) ||
+                            m.body?.toLowerCase().includes(term) ||
+                            m.senderName?.toLowerCase().includes(term) ||
+                            m.senderEmail?.toLowerCase().includes(term) ||
+                            m.recipientName?.toLowerCase().includes(term)
+                          );
+                        }
+
+                        if (filteredMails.length === 0) {
+                          return (
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400">
+                              <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-3 text-3xl">
+                                ✉️
+                              </div>
+                              <h3 className="text-base font-bold text-white mb-1">لا توجد رسائل في هذا المجلد</h3>
+                              <p className="text-xs text-purple-300/70 max-w-sm">
+                                {mailSearchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'صندوق البريد خالي حالياً.'}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="divide-y divide-purple-500/10">
+                            {filteredMails.map((mail) => {
+                              const isUnread = !mail.readBy?.includes(myUid);
+                              const isStarred = mail.starredBy?.includes(myUid);
+
+                              return (
+                                <div 
+                                  key={mail.id}
+                                  onClick={() => handleOpenEmailDetails(mail)}
+                                  className={`p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-purple-950/30 transition cursor-pointer ${isUnread ? 'bg-purple-950/40 font-bold border-r-4 border-cyan-400' : 'text-slate-300'}`}
+                                >
+                                  {/* Star & Sender */}
+                                  <div className="flex items-center gap-3 min-w-[160px] sm:min-w-[200px] shrink-0">
+                                    <button 
+                                      onClick={(e) => handleToggleStarEmail(mail, e)}
+                                      className="text-slate-500 hover:text-amber-400 transition"
+                                      title="تمييز بنجمة"
+                                    >
+                                      <Star size={16} className={isStarred ? 'text-amber-400 fill-amber-400' : ''} />
+                                    </button>
+
+                                    <div>
+                                      <span className={`text-xs block truncate ${isUnread ? 'text-white font-black' : 'text-slate-300'}`}>
+                                        {mailActiveFolder === 'sent' ? `إلى: ${mail.recipientName}` : mail.senderName}
+                                      </span>
+                                      {isAdmin && mailActiveFolder === 'all_system' && (
+                                        <span className="text-[10px] text-amber-400 font-normal block truncate">
+                                          من: {mail.senderName} ➔ إلى: {mail.recipientName}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Subject & Snippet */}
+                                  <div className="flex-1 flex items-center gap-2 overflow-hidden">
+                                    <span className={`text-xs truncate ${isUnread ? 'text-cyan-300 font-black' : 'text-slate-200'}`}>
+                                      {mail.subject}
+                                    </span>
+                                    <span className="text-slate-500 text-xs truncate hidden sm:inline">
+                                      — {mail.body?.replace(/\n/g, ' ')}
+                                    </span>
+                                    {mail.attachments && mail.attachments.length > 0 && (
+                                      <span className="bg-purple-900/60 text-purple-300 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0" title="يحتوي على مرفقات">
+                                        <Paperclip size={11} />
+                                        <span>{mail.attachments.length}</span>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Date & Actions */}
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[11px] font-mono text-slate-400" dir="ltr">
+                                      {mail.createdAt ? formatDate(mail.createdAt).split(' ')[0] : 'الآن'}
+                                    </span>
+                                    <button 
+                                      onClick={(e) => handleDeleteEmail(mail, e)}
+                                      className="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition"
+                                      title="حذف"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Compose Email Modal Drawer (Gmail-style Compose) */}
+        {isComposeOpen && (
+          <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:bottom-6 sm:left-6 z-50 bg-slate-900 text-white rounded-3xl border border-purple-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.6)] w-full sm:w-[540px] flex flex-col overflow-hidden max-h-[85vh]">
+            {/* Header */}
+            <div className="px-5 py-3 bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 flex justify-between items-center">
+              <span className="text-xs font-black text-white flex items-center gap-2">
+                <Send size={15} />
+                <span>✏️ إنشاء رسالة جديدة (إيميل داخلي)</span>
+              </span>
+              <button 
+                onClick={() => setIsComposeOpen(false)}
+                className="text-white/80 hover:text-white text-xs font-black"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Compose Form */}
+            <form onSubmit={handleSendInternalEmail} className="p-4 space-y-3 flex-1 flex flex-col overflow-y-auto">
+              {/* Recipient Dropdown */}
+              <div>
+                <label className="block text-[11px] font-bold text-purple-200 mb-1">إلى (المستلم):</label>
+                <select 
+                  required
+                  value={mailRecipientUid}
+                  onChange={(e) => setMailRecipientUid(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-cyan-400 cursor-pointer"
+                >
+                  <option value="">-- اختر المستلم المسموح لك بمراسلته --</option>
+                  {getAllowedRecipients().map((r) => (
+                    <option key={r.uid} value={r.uid} className="bg-slate-900 text-white font-bold">
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-[11px] font-bold text-purple-200 mb-1">موضوع الرسالة:</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="عنوان الموضوع..."
+                  value={mailSubject}
+                  onChange={(e) => setMailSubject(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 flex flex-col">
+                <label className="block text-[11px] font-bold text-purple-200 mb-1">نص الرسالة والمحتوى:</label>
+                <textarea 
+                  required
+                  rows={6}
+                  placeholder="اكتب رسالتك وتفاصيلها هنا..."
+                  value={mailBody}
+                  onChange={(e) => setMailBody(e.target.value)}
+                  className="w-full flex-1 px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-medium text-white outline-none focus:border-cyan-400 resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* Attachments Preview Chips */}
+              {mailAttachments.length > 0 && (
+                <div className="p-2 bg-slate-950 rounded-xl border border-purple-500/20 space-y-1.5">
+                  <span className="text-[11px] font-bold text-cyan-300 block">الملفات المرفقة ({mailAttachments.length}):</span>
+                  <div className="flex flex-wrap gap-2">
+                    {mailAttachments.map((f, i) => (
+                      <span key={i} className="inline-flex items-center gap-1.5 bg-purple-900/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-purple-400/30">
+                        <span>📎 {f.name} ({f.size})</span>
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveAttachment(i)} 
+                          className="text-rose-400 hover:text-rose-200 font-black ml-1"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions Footer */}
+              <div className="flex justify-between items-center pt-2 border-t border-purple-500/20">
+                <label className="bg-slate-800 hover:bg-slate-700 text-purple-200 hover:text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-purple-500/30">
+                  <Paperclip size={14} />
+                  <span>📎 إرفاق ملفات أو صور</span>
+                  <input 
+                    type="file" 
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xlsx,.txt"
+                    onChange={handleMailAttachmentUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setMailSubject('');
+                      setMailBody('');
+                      setMailAttachments([]);
+                      setIsComposeOpen(false);
+                    }}
+                    className="text-slate-400 hover:text-rose-400 text-xs font-bold px-3 py-2"
+                  >
+                    تجاهل
+                  </button>
+
+                  <button 
+                    type="submit" 
+                    disabled={mailSending}
+                    className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-black px-5 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer disabled:opacity-50"
+                  >
+                    <Send size={14} />
+                    <span>{mailSending ? 'جاري الإرسال...' : 'إرسال 🚀'}</span>
+                  </button>
+                </div>
+              </div>
+
+            </form>
           </div>
         )}
 
