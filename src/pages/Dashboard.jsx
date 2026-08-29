@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -939,19 +939,28 @@ const Dashboard = () => {
     }
   };
 
-  // --- LEAD DISTRIBUTION & AUTO-ASSIGNMENT HANDLERS (Leads CRM) ---
+  // --- LEAD DISTRIBUTION & ASSIGNMENT HANDLERS (Leads CRM) ---
   const handleExecuteAssignment = async () => {
-    let targetLeads = [];
-    if (assignSourcePool === 'selected' && selectedLeadsCrm.length > 0) {
-      targetLeads = leadsCrm.filter(c => selectedLeadsCrm.includes(c.id));
-    } else if (assignSourcePool === 'unassigned') {
-      targetLeads = leadsCrm.filter(c => c.status === 'unassigned' || !c.assignedTo);
-    } else {
-      targetLeads = [...leadsCrm];
+    if (selectedLeadsCrm.length === 0) {
+      toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
+      return;
     }
 
+    if (!singleAssignEmpUid) {
+      toast.error('يرجى اختيار الموظف المستلم للتوزيع');
+      return;
+    }
+
+    const targetLeads = leadsCrm.filter(c => selectedLeadsCrm.includes(c.id));
     if (targetLeads.length === 0) {
-      toast.error('لا يوجد عملاء في هذه الفئة المحددة للتوزيع في Leads CRM');
+      toast.error('لم يتم العثور على بيانات العملاء المحددين للتوزيع');
+      return;
+    }
+
+    const isTargetAdmin = singleAssignEmpUid === 'admin';
+    const emp = isTargetAdmin ? null : employees.find(e => e.uid === singleAssignEmpUid);
+    if (!isTargetAdmin && !emp) {
+      toast.error('الموظف المختار غير موجود');
       return;
     }
 
@@ -959,15 +968,21 @@ const Dashboard = () => {
     try {
       const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
 
-      if (assignMode === 'single') {
-        const emp = employees.find(e => e.uid === singleAssignEmpUid);
-        if (!emp) {
-          toast.error('يرجى اختيار الموظف');
-          setAssignLoading(false);
-          return;
-        }
-        for (const lead of targetLeads) {
-          const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+      for (const lead of targetLeads) {
+        const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+
+        if (isTargetAdmin) {
+          const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+          await updateDoc(doc(db, 'leads_crm', lead.id), {
+            assignedTo: 'الإدارة',
+            assignedToUid: 'admin',
+            assignedAt: serverTimestamp(),
+            status: 'unassigned',
+            crmStatus: 'unassigned',
+            updatedAt: serverTimestamp(),
+            assignmentHistory: arrayUnion(logObj)
+          });
+        } else {
           const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
           const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
 
@@ -976,38 +991,14 @@ const Dashboard = () => {
             assignedToUid: emp.uid,
             assignedAt: serverTimestamp(),
             status: 'assigned',
+            crmStatus: 'unassigned', // Initial state is pending/unassigned so it appears in employee pending tab and Card 5!
             updatedAt: serverTimestamp(),
             assignmentHistory: arrayUnion(logObj)
           });
         }
-        toast.success(`تم تعيين ${targetLeads.length} عميل إلى الموظف ${emp.name}`);
-      } else {
-        const activeEmps = employees.filter(e => assignEmpUids.includes(e.uid));
-        if (activeEmps.length === 0) {
-          toast.error('يرجى اختيار موظف واحد على الأقل للتوزيع');
-          setAssignLoading(false);
-          return;
-        }
-
-        for (let i = 0; i < targetLeads.length; i++) {
-          const lead = targetLeads[i];
-          const emp = activeEmps[i % activeEmps.length];
-          const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
-          const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
-          const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
-
-          await updateDoc(doc(db, 'leads_crm', lead.id), {
-            assignedTo: emp.email,
-            assignedToUid: emp.uid,
-            assignedAt: serverTimestamp(),
-            status: 'assigned',
-            updatedAt: serverTimestamp(),
-            assignmentHistory: arrayUnion(logObj)
-          });
-        }
-        toast.success(`تم توزيع ${targetLeads.length} عميل بالتساوي على ${activeEmps.length} موظف في Leads CRM`);
       }
 
+      toast.success(isTargetAdmin ? `تم إرجاع ${targetLeads.length} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${targetLeads.length} عميل محدد إلى الموظف ${emp.name} بنجاح 🚀`);
       setIsAssignModalOpen(false);
       setSelectedLeadsCrm([]);
     } catch (err) {
@@ -2809,12 +2800,15 @@ const Dashboard = () => {
                 {(isAdmin || isCoordinator) && (
                   <button 
                     onClick={() => {
-                      setAssignEmpUids(employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(e => e.uid));
+                      if (selectedLeadsCrm.length === 0) {
+                        toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
+                        return;
+                      }
                       setIsAssignModalOpen(true);
                     }}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                    className={`${selectedLeadsCrm.length > 0 ? 'bg-purple-600 hover:bg-purple-700 shadow-md animate-pulse ring-2 ring-purple-300' : 'bg-purple-900/70 hover:bg-purple-800 text-purple-200'} text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer`}
                   >
-                    <UserCheck2 size={14} /> ⚖️ توزيع Leads CRM
+                    <UserCheck2 size={14} /> ⚖️ توزيع العملاء المحددين {selectedLeadsCrm.length > 0 ? `(${selectedLeadsCrm.length})` : ''}
                   </button>
                 )}
               </div>
@@ -5336,136 +5330,69 @@ const Dashboard = () => {
                 <X size={24} />
               </button>
 
-              <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <UserCheck2 className="text-purple-600" size={26} />
-                <span>⚖️ توزيع وتقسيم العملاء على الموظفين</span>
+              <h2 className="text-lg font-black text-gray-800 mb-3 flex items-center gap-2 border-b pb-3">
+                <UserCheck2 className="text-purple-600" size={24} />
+                <span>⚖️ توزيع العملاء المحددين</span>
               </h2>
 
-              {/* Source Pool Selection */}
-              <div className="mb-4">
-                <label className="block text-xs font-bold text-gray-700 mb-2">اختر فئة العملاء المراد توزيعهم:</label>
-                <div className={`grid ${selectedLeadsCrm.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-2 text-xs font-bold`}>
-                  <button 
-                    type="button"
-                    onClick={() => setAssignSourcePool('all')}
-                    className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${assignSourcePool === 'all' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                  >
-                    <span>🎯 جميع Leads CRM</span>
-                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-black">{leadsCrm.length.toLocaleString()}</span>
-                  </button>
-
-                  {selectedLeadsCrm.length > 0 && (
-                    <button 
-                      type="button"
-                      onClick={() => setAssignSourcePool('selected')}
-                      className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${assignSourcePool === 'selected' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                    >
-                      <span>✅ العملاء المحددين يدويًا بالصح</span>
-                      <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-black">{selectedLeadsCrm.length.toLocaleString()}</span>
-                    </button>
-                  )}
+              {/* Selected Count Banner */}
+              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white p-4 rounded-xl mb-4 shadow-md flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/10 rounded-lg">
+                    <CheckSquare size={20} className="text-emerald-400" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-purple-200 block font-bold">عدد العملاء المحددين للتوزيع:</span>
+                    <span className="text-lg font-black text-cyan-300">{selectedLeadsCrm.length} عميل محدد</span>
+                  </div>
                 </div>
+                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-1 rounded-full font-bold">
+                  جاهز للتوزيع
+                </span>
               </div>
 
-              {/* Mode Selection */}
-              {!isCoordinator ? (
-                <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
-                  <button 
-                    onClick={() => setAssignMode('equal')}
-                    className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'equal' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
-                  >
-                    🔄 توزيع تلقائي بالتساوي
-                  </button>
-                  <button 
-                    onClick={() => setAssignMode('single')}
-                    className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${assignMode === 'single' ? 'bg-purple-600 text-white shadow' : 'text-gray-600'}`}
-                  >
-                    👤 تخصيص لموظف معين
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-2.5 rounded-xl mb-4 text-xs font-bold flex items-center justify-between shadow-sm">
-                  <span>👤 تخصيص وتعيين العملاء لموظف معين:</span>
-                  <span className="text-[10px] bg-purple-200 text-purple-800 px-2.5 py-0.5 rounded-full font-bold">📋 منسق للإدارة</span>
-                </div>
-              )}
-
-              {(!isCoordinator && assignMode === 'equal') ? (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-xs font-bold text-gray-700">
-                      {isLeader ? 'حدد أعضاء فريقك للتقسيم عليهم بالتساوي:' : 'حدد الموظفين النشطين للتقسيم عليهم بالتساوي:'}
-                    </label>
-                    <button 
-                      type="button"
-                      onClick={() => setAssignEmpUids(employees.filter(e => isLeader ? (e.uid === currentUser?.uid || e.leaderUid === currentUser?.uid) : (e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(e => e.uid))}
-                      className="text-[11px] text-purple-600 font-bold hover:underline"
-                    >
-                      تحديد الكل
-                    </button>
-                  </div>
-                  <div className="max-h-44 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
-                    {employees.filter(e => isLeader ? (e.uid === currentUser?.uid || e.leaderUid === currentUser?.uid) : (e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => (
-                      <label key={emp.uid} className="flex items-center justify-between cursor-pointer text-xs font-bold text-gray-800 hover:bg-purple-50/50 p-1.5 rounded-lg transition">
-                        <div className="flex items-center gap-2.5">
-                          <input 
-                            type="checkbox"
-                            checked={assignEmpUids.includes(emp.uid)}
-                            onChange={(e) => {
-                              if (e.target.checked) setAssignEmpUids([...assignEmpUids, emp.uid]);
-                              else setAssignEmpUids(assignEmpUids.filter(id => id !== emp.uid));
-                            }}
-                            className="w-4 h-4 text-purple-600 rounded cursor-pointer"
-                          />
-                          <span>👤 {emp.name || emp.username || emp.email?.split('@')[0]}</span>
-                        </div>
-                        <span className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-mono">
-                          {emp.uid === currentUser?.uid ? '👑 الليدر (أنت)' : emp.jobTitle || emp.role || 'Agent'}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="block text-xs font-bold text-gray-700">
-                    {isLeader ? 'اختر الموظف المستلم من فريقك:' : 'اختر الموظف المستلم:'}
-                  </label>
-                  <select 
-                    value={singleAssignEmpUid}
-                    onChange={(e) => setSingleAssignEmpUid(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-purple-500 bg-white cursor-pointer"
-                  >
-                    <option value="">-- اختر موظف --</option>
-                    {isLeader ? (
-                      <>
-                        <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
-                        {myTeamMembers.map(emp => (
-                          <option key={emp.uid} value={emp.uid}>
-                            👤 {emp.name} (عضو فريقي)
-                          </option>
-                        ))}
-                      </>
-                    ) : (
-                      <>
-                        <option value="admin">👑 الإدارة</option>
-                        {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
-                          <option key={emp.uid} value={emp.uid}>
-                            👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-              )}
+              {/* Target Employee Selection */}
+              <div className="space-y-2 mb-5">
+                <label className="block text-xs font-bold text-gray-700">
+                  {isLeader ? 'اختر الموظف المستلم من فريقك:' : 'اختر الموظف المسؤول المستلم:'}
+                </label>
+                <select 
+                  value={singleAssignEmpUid}
+                  onChange={(e) => setSingleAssignEmpUid(e.target.value)}
+                  className="w-full p-3 border border-purple-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-purple-500 bg-purple-50/40 cursor-pointer shadow-inner"
+                >
+                  <option value="">-- اختر الموظف المستلم --</option>
+                  {isLeader ? (
+                    <>
+                      <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                      {myTeamMembers.map(emp => (
+                        <option key={emp.uid} value={emp.uid}>
+                          👤 {emp.name} (عضو فريقي)
+                        </option>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <option value="admin">👑 الإدارة (إرجاع كداتا غير موزعة)</option>
+                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                        <option key={emp.uid} value={emp.uid}>
+                          👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  💡 سيتم تحويل العملاء المحددين إلى الموظف المختار وتحديث حالتهم لتبدأ المتابعة في قائمة الانتظار.
+                </p>
+              </div>
 
               <button 
                 onClick={handleExecuteAssignment}
-                disabled={assignLoading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition mt-5 shadow-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={assignLoading || selectedLeadsCrm.length === 0 || !singleAssignEmpUid}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black py-3 px-4 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {assignLoading ? 'جاري التوزيع...' : '🚀 تنفيذ وتحديث التوزيع الآن'}
+                {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${selectedLeadsCrm.length} عميل)`}
               </button>
             </div>
           </div>
