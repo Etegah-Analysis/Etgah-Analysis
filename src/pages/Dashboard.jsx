@@ -603,8 +603,12 @@ const Dashboard = () => {
     }
   };
 
-  // Export Call Performance Logs to Excel
+  // Export Call Performance Logs to Excel (Admin Only)
   const handleExportCallLogsToExcel = (logsToExport) => {
+    if (!isAdmin) {
+      toast.error('تصدير التقارير إلى Excel متاح فقط للإدارة والأدمن 🔒');
+      return;
+    }
     if (!logsToExport || logsToExport.length === 0) {
       toast.error('لا توجد بيانات مكالمات لتصديرها');
       return;
@@ -2353,6 +2357,10 @@ const Dashboard = () => {
   };
 
   const exportLeadsToExcel = () => {
+    if (!isAdmin) {
+      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      return;
+    }
     if (!leadsCrm || leadsCrm.length === 0) {
       toast.error('لا يوجد عملاء لتصديرهم في Leads CRM');
       return;
@@ -2398,6 +2406,10 @@ const Dashboard = () => {
   };
 
   const exportEmployeeLeadsToExcel = () => {
+    if (!isAdmin) {
+      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      return;
+    }
     if (!employeeLeads || employeeLeads.length === 0) {
       toast.error('لا يوجد عملاء لتصديرهم في داتا مضافة بواسطة الموظف');
       return;
@@ -2523,11 +2535,11 @@ const Dashboard = () => {
   };
 
   const exportSubscribedClientsToExcel = () => {
-    const scopeList = (isAdmin || isCoordinator) 
-      ? allSubscribedClients 
-      : isLeader 
-        ? leaderSubscribedClients 
-        : agentSubscribedClients;
+    if (!isAdmin) {
+      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      return;
+    }
+    const scopeList = allSubscribedClients;
 
     if (scopeList.length === 0) {
       toast.error('لا يوجد عملاء مشتركين لتصديرهم');
@@ -7915,14 +7927,16 @@ const Dashboard = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <button 
-                      onClick={() => handleExportCallLogsToExcel(filteredLogs)}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
-                      title="تصدير المكالمات المعروضة إلى ملف Excel"
-                    >
-                      <Download size={14} />
-                      <span>تصدير Excel</span>
-                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleExportCallLogsToExcel(filteredLogs)}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
+                        title="تصدير المكالمات المعروضة إلى ملف Excel"
+                      >
+                        <Download size={14} />
+                        <span>تصدير Excel</span>
+                      </button>
+                    )}
                     <button 
                       onClick={() => setIsCallsAnalysisModalOpen(false)} 
                       className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
