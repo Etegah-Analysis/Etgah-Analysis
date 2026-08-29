@@ -2697,7 +2697,7 @@ const Dashboard = () => {
                                 title="عرض ملحوظات الموظف وتقرير العميل"
                               >
                                 <FileText size={13} />
-                                <span>التقرير {customer.notes ? '📝' : ''}</span>
+                                <span>Comment {customer.notes ? '📝' : ''}</span>
                               </button>
                             </td>
                             <td className="p-3.5 text-center">
@@ -3245,7 +3245,7 @@ const Dashboard = () => {
                                 onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
                                 className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm"
                               >
-                                <FileText size={14} className="ml-1" /> التقرير
+                                <FileText size={14} className="ml-1" /> Comment
                               </button>
                               {isAdmin && (
                                 <button
@@ -3866,7 +3866,7 @@ const Dashboard = () => {
                                       title="عرض وإضافة ملاحظات ومتابعة العميل"
                                     >
                                       <FileText size={13} />
-                                      <span>تقرير {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : ''}</span>
+                                      <span>Comment {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : ''}</span>
                                     </button>
                                     {isAdmin && (
                                       <button 
@@ -4178,17 +4178,19 @@ const Dashboard = () => {
                     <td className="p-4 flex items-center gap-1.5 justify-center">
                       <button 
                         onClick={() => handleOpenNotesModal(customer)}
-                        className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm"
-                        title="تسجيل تقرير / إضافة ملاحظات وتحديد تاريخ التجربة"
+                        className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm cursor-pointer"
+                        title="Comment"
                       >
-                        <FileText size={14} className="ml-1" /> التقرير
+                        <FileText size={14} className="ml-1" /> Comment
                       </button>
                       {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) && (
                         <button 
                           onClick={() => navigate('/inbox', { state: { selectedCustomerId: customer.id } })}
-                          className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap"
+                          className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                          title="مراسلة عبر واتساب"
                         >
-                          مراسلة <MessageSquare size={14} className="mr-1" />
+                          <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                          <span className="text-[11px] font-black">WhatsApp</span>
                         </button>
                       )}
                       {isAdmin && (
@@ -4746,9 +4748,11 @@ const Dashboard = () => {
                             {visitor.status !== 'website_visitor' && (
                               <button 
                                 onClick={() => navigate('/inbox', { state: { selectedCustomerId: visitor.id } })}
-                                className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                title="مراسلة عبر واتساب"
                               >
-                                مراسلة <MessageSquare size={12} />
+                                <MessageCircle size={14} className="drop-shadow-sm fill-white/20" />
+                                <span className="text-[11px] font-black">WhatsApp</span>
                               </button>
                             )}
                             <button
