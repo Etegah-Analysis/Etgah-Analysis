@@ -3194,12 +3194,22 @@ const Dashboard = () => {
         {/* Dynamic Security Watermark for Employees */}
         {!isAdmin && currentUser && (() => {
           const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
-          const empLabel = `${currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee'} • ${currentUser?.email || ''} • Etegah CRM`;
-          const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='220' opacity='0.08'><text x='50%' y='50%' font-size='13' font-weight='bold' font-family='sans-serif' fill='%23000' text-anchor='middle' transform='rotate(-25 170 110)'>${empLabel}</text></svg>`;
-          const bgUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}")`;
+          const empName = currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee';
+          const empJob = currentEmp?.jobTitle || (currentEmp?.role === 'coordinator' ? 'Coordinator' : 'Agent');
+          const empEmail = currentUser?.email || '';
+          const empCode = currentEmp?.empCode ? `#${currentEmp.empCode}` : '';
+          
+          const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='440' height='260' opacity='0.22'>
+            <g transform='rotate(-22 220 130)' text-anchor='middle' font-family='Cairo, sans-serif' font-weight='900'>
+              <text x='220' y='105' font-size='16' fill='%236366f1'>👤 ${empName} (${empJob}) ${empCode}</text>
+              <text x='220' y='130' font-size='13' fill='%239333ea'>✉️ ${empEmail}</text>
+              <text x='220' y='155' font-size='11' fill='%230f172a'>🔒 سرّي ومحمي • منصة اتجاه CRM</text>
+            </g>
+          </svg>`;
+          const bgUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svgContent.replace(/\n\s+/g, ''))}")`;
           return (
             <div 
-              className="fixed inset-0 pointer-events-none z-30 select-none overflow-hidden"
+              className="fixed inset-0 pointer-events-none z-40 select-none overflow-hidden"
               style={{
                 backgroundImage: bgUrl,
                 backgroundRepeat: 'repeat',
