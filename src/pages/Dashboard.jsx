@@ -488,11 +488,16 @@ const Dashboard = () => {
   const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
   const isAllowedToManageLeads = isAdmin || isCoordinator || isLeader;
 
-  // Anti-Screenshot & Window Blur Protection for Employees
+  // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) return; // Admin has full unrestricted access
+    if (isAdmin) {
+      document.body.classList.remove('no-select');
+      return; // Admin has full unrestricted access
+    }
+
+    document.body.classList.add('no-select');
 
     const handleBlur = () => setIsWindowBlurred(true);
     const handleFocus = () => setIsWindowBlurred(false);
@@ -505,6 +510,8 @@ const Dashboard = () => {
     };
 
     const handleKeyDown = (e) => {
+      const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+
       // Intercept PrintScreen key
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
         setIsWindowBlurred(true);
@@ -513,14 +520,52 @@ const Dashboard = () => {
         }
         setTimeout(() => setIsWindowBlurred(false), 2500);
       }
+
       // Block Ctrl+P (Print)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
-        toast.error('الطباعة غير مسموحة لحماية خصوصية العملاء');
+        toast.error('الطباعة غير مسموحة لحماية خصوصية بيانات العملاء 🔒', { id: 'no-print-toast' });
       }
+
       // Block Ctrl+S (Save page)
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
+      }
+
+      // Block Ctrl+C (Copy), Ctrl+A (Select All), Ctrl+X (Cut), Ctrl+U (View Source) outside text inputs
+      if (!isInput && (e.ctrlKey || e.metaKey)) {
+        const k = e.key.toLowerCase();
+        if (k === 'c' || k === 'x' || k === 'a' || k === 'u') {
+          e.preventDefault();
+          toast.error('نسخ وتحديد النصوص غير مسموح لحماية خصوصية بيانات العملاء 🔒', { id: 'no-copy-toast' });
+        }
+      }
+    };
+
+    const handleContextMenu = (e) => {
+      const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (!isInput) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    const handleCopy = (e) => {
+      const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (!isInput) {
+        e.preventDefault();
+        if (e.clipboardData) {
+          e.clipboardData.setData('text/plain', '');
+        }
+        toast.error('نسخ وتحديد النصوص غير مسموح لحماية خصوصية بيانات العملاء 🔒', { id: 'no-copy-toast' });
+      }
+    };
+
+    const handleDragStart = (e) => {
+      const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (!isInput) {
+        e.preventDefault();
+        return false;
       }
     };
 
@@ -528,12 +573,19 @@ const Dashboard = () => {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('dragstart', handleDragStart);
 
     return () => {
+      document.body.classList.remove('no-select');
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('dragstart', handleDragStart);
     };
   }, [isAdmin]);
 
