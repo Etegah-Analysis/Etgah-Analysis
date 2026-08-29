@@ -2452,136 +2452,103 @@ const Dashboard = () => {
       
       {/* Header */}
       <header 
-        className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-10 px-4 md:px-6 py-3.5 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3"
+        className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-10 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col md:flex-row justify-between items-center gap-2.5 sm:gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top bar / Title & Mobile Actions */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+        {/* Top bar on mobile / Brand + User info */}
+        <div className="flex items-center justify-between w-full md:w-auto gap-2">
+          {/* Logo & Platform Name */}
+          <div className="flex items-center gap-2">
             <div className="relative group shrink-0">
-              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-purple-500 rounded-full blur-[4px] opacity-80 group-hover:opacity-100 transition duration-300 animate-pulse"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-purple-500 rounded-full blur-[3px] opacity-80 animate-pulse"></div>
               <img 
                 src="/logo.jpg" 
                 alt="Logo 3D" 
-                className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-emerald-300 shadow-[0_4px_16px_rgba(16,185,129,0.6)] transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 cursor-pointer" 
+                className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-emerald-300 shadow-md" 
               />
             </div>
-            <h1 className="text-base sm:text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-2 whitespace-nowrap">
-              {isAdmin ? (
-                <span>Etegah <span className="text-primary text-xs md:text-sm bg-primary/10 px-2 py-0.5 rounded-full font-black">CRM</span></span>
-              ) : (
-                <span>Etegah <span className="text-purple-700 bg-purple-100 text-xs md:text-sm px-2.5 py-1 rounded-full font-black shadow-sm border border-purple-300">CRM</span></span>
-              )}
+            <h1 className="text-sm sm:text-base md:text-xl font-black text-gray-800 flex items-center gap-1.5 whitespace-nowrap">
+              <span>Etegah</span>
+              <span className={`text-[11px] sm:text-xs px-2 py-0.5 rounded-full font-black shadow-sm border ${
+                isAdmin 
+                  ? 'text-primary bg-primary/10 border-emerald-300' 
+                  : 'text-purple-700 bg-purple-100 border-purple-300'
+              }`}>
+                CRM
+              </span>
             </h1>
           </div>
-          
-          {/* Mobile action buttons inline with title */}
-          <div className="flex md:hidden items-center gap-1.5 shrink-0">
-            {/* Mobile Internal Mail Button */}
-            <button 
-              onClick={() => {
-                setIsMailModalOpen(true);
-                setMailActiveFolder('inbox');
-              }}
-              className="relative flex items-center bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-bold text-xs cursor-pointer"
-              title="بريد اتجاه الداخلي (Gmail)"
-            >
-              <Mail size={16} />
-              {unreadMailCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
-                  {unreadMailCount}
-                </span>
-              )}
-            </button>
 
-            {isAdmin && (
-              <button 
-                onClick={openAddEmployeeModal}
-                className="flex items-center bg-primary text-white p-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-xs"
-                title="إضافة موظف"
-              >
-                <UserPlus size={16} />
-              </button>
-            )}
-            <button 
-              onClick={() => navigate('/inbox')}
-              className="flex items-center bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition text-xs font-bold gap-1"
-            >
-              <span>WhatsApp Etegah chat</span>
-              <ArrowRight size={14} />
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 p-1.5 rounded-lg transition text-xs font-bold shadow-sm cursor-pointer"
-              title="تسجيل الخروج"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Desktop Action Buttons & User Badge */}
-        <div className="hidden md:flex items-center space-x-3 space-x-reverse shrink-0">
-          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm shrink-0">
-            <div className="relative group shrink-0">
+          {/* User Badge - Visible & Clean on Mobile & Desktop */}
+          <div className="flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200 shadow-sm shrink-0">
+            <div className="relative group shrink-0 hidden sm:block">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-[2px] opacity-70"></div>
-              <img src="/logo.jpg" alt="Logo" className="relative w-5 h-5 rounded-full object-cover border border-amber-300" />
+              <img src="/logo.jpg" alt="Logo" className="relative w-4 h-4 rounded-full object-cover border border-amber-300" />
             </div>
-            <span className="text-xs font-bold text-gray-700" dir="ltr">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-700 truncate max-w-[85px] sm:max-w-[120px]" dir="ltr">
               {employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || currentUser?.email?.split('@')[0]}
             </span>
-            <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+            <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
               {isAdmin ? '👑 أدمن' : (() => {
                 const emp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
                 const r = emp?.jobTitle || emp?.role || 'Agent';
-                if (r === 'Coordinator' || r === 'منسق للإدارة' || r === 'منسق إدارة') return '📋 منسق إدارة';
+                if (r === 'Coordinator' || r === 'منسق للإدارة' || r === 'منسق إدارة') return '📋 منسق';
                 return r === 'Leader' || r === 'ليدر' ? '👑 Leader' : `👤 ${r}`;
               })()}
             </span>
           </div>
+        </div>
 
-          {/* Desktop Internal Mail Button */}
+        {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
+          {/* بريد اتجاه الداخلي */}
           <button 
             onClick={() => {
               setIsMailModalOpen(true);
               setMailActiveFolder('inbox');
             }}
-            className="flex items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-3.5 py-2 rounded-lg transition text-xs font-black gap-1.5 shadow-md cursor-pointer active:scale-95 border border-white/20"
+            className="relative flex items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-white/20 shrink-0"
             title="فتح بريد اتجاه الداخلي (Gmail)"
           >
-            <Mail size={16} />
-            <span>بريد اتجاه</span>
+            <Mail size={15} />
+            <span className="whitespace-nowrap">بريد اتجاه</span>
             {unreadMailCount > 0 && (
-              <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
+              <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
                 {unreadMailCount}
               </span>
             )}
           </button>
 
+          {/* إضافة موظف (للأدمن فقط) */}
           {isAdmin && (
             <button 
               onClick={openAddEmployeeModal}
-              className="flex items-center bg-primary text-white px-3.5 py-2 rounded-lg hover:bg-green-600 transition shadow-sm font-bold text-sm cursor-pointer"
+              className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm font-bold text-xs gap-1 cursor-pointer active:scale-95 shrink-0"
+              title="إضافة موظف جديد"
             >
-              <UserPlus size={18} className="ml-1.5" /> إضافة موظف
+              <UserPlus size={15} />
+              <span className="whitespace-nowrap">إضافة موظف</span>
             </button>
           )}
+
+          {/* WhatsApp Chat Button */}
           <button 
             onClick={() => navigate('/inbox')}
-            className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5 cursor-pointer"
+            className="flex items-center bg-slate-900 hover:bg-black text-white px-2.5 sm:px-3.5 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-gray-700 shrink-0"
+            title="الانتقال إلى محادثات واتساب"
           >
-            <span>WhatsApp Etegah chat</span>
-            <ArrowRight size={18} />
+            <span className="whitespace-nowrap">WhatsApp Chat</span>
+            <ArrowRight size={14} className="transform rotate-180 md:rotate-0" />
           </button>
 
-          {/* Logout Button */}
+          {/* تسجيل الخروج */}
           <button 
             onClick={handleLogout}
-            className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg transition text-xs font-bold gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 cursor-pointer shadow-sm active:scale-95 shrink-0"
             title="تسجيل الخروج من الحساب"
           >
-            <LogOut size={16} />
-            <span>تسجيل الخروج</span>
+            <LogOut size={15} />
+            <span className="whitespace-nowrap">خروج</span>
           </button>
         </div>
       </header>
