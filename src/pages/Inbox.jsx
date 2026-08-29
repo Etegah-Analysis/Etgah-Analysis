@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc, storage, setDoc } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, Sparkles, Hash, MessageCircle } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -335,6 +335,23 @@ export default function Inbox() {
       document.removeEventListener('dragstart', handleDragStart);
     };
   }, [isAdmin]);
+
+  // Direct Click-to-Call via MicroSIP Handler
+  const handleCallViaMicroSip = (rawPhone) => {
+    if (!rawPhone) {
+      toast.error('رقم الهاتف غير متوفر للاتصال');
+      return;
+    }
+    const cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
+    if (!cleanPhone) {
+      toast.error('رقم الهاتف غير صالح');
+      return;
+    }
+    
+    // Trigger MicroSIP / SIP URL
+    window.location.href = `sip:${cleanPhone}`;
+    toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
+  };
 
   const formatJobTitle = (title) => {
     if (!title) return 'Agent';
@@ -1830,7 +1847,19 @@ export default function Inbox() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="font-bold text-white text-base truncate">{activeChat.name || 'عميل بدون اسم'}</h2>
-                      <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
+                        {!isCoordinator && activeChat.phoneNumber && (
+                          <button
+                            onClick={() => handleCallViaMicroSip(activeChat.phoneNumber)}
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                            title="اتصال مباشر عبر MicroSIP 📞"
+                          >
+                            <PhoneCall size={12} className="animate-pulse" />
+                            <span>اتصال MicroSIP</span>
+                          </button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         {/* شارة مصدر العميل */}
                         {activeChat.source === 'website' ? (

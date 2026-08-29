@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -533,6 +533,23 @@ const Dashboard = () => {
     } finally {
       setIsTogglingLock(false);
     }
+  };
+
+  // Direct Click-to-Call via MicroSIP Handler
+  const handleCallViaMicroSip = (rawPhone) => {
+    if (!rawPhone) {
+      toast.error('رقم الهاتف غير متوفر للاتصال');
+      return;
+    }
+    const cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
+    if (!cleanPhone) {
+      toast.error('رقم الهاتف غير صالح');
+      return;
+    }
+    
+    // Trigger MicroSIP / SIP URL
+    window.location.href = `sip:${cleanPhone}`;
+    toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
   };
 
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
@@ -3905,7 +3922,19 @@ const Dashboard = () => {
                               </td>
                             )}
                             <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                              <span>{customer.phoneNumber}</span>
+                              <div className="flex items-center gap-2">
+                                <span>{customer.phoneNumber}</span>
+                                {!isCoordinator && customer.phoneNumber && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                                    className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                                    title="اتصال مباشر عبر MicroSIP 📞"
+                                  >
+                                    <PhoneCall size={12} className="animate-pulse" />
+                                    <span>اتصال</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 text-sm font-semibold text-gray-700">
                               {editingLeadId === customer.id ? (
@@ -4594,7 +4623,19 @@ const Dashboard = () => {
                                   </td>
                                 )}
                                 <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                                  <span>{customer.phoneNumber}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>{customer.phoneNumber}</span>
+                                    {!isCoordinator && customer.phoneNumber && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                                        title="اتصال مباشر عبر MicroSIP 📞"
+                                      >
+                                        <PhoneCall size={12} className="animate-pulse" />
+                                        <span>اتصال</span>
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-4 text-sm font-semibold text-gray-700">
                                   {editingLeadId === customer.id ? (
@@ -5112,18 +5153,16 @@ const Dashboard = () => {
                             return (
                               <tr key={customer.id || idx} className="hover:bg-emerald-50/40 transition">
                                 <td className="p-3.5 text-center font-mono font-bold text-gray-900" dir="ltr">
-                                  <div className="flex items-center justify-center gap-1.5">
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     <span>{customer.phoneNumber || '—'}</span>
-                                    {customer.phoneNumber && (
-                                      <button 
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(customer.phoneNumber);
-                                          toast.success('تم نسخ الرقم 📋');
-                                        }}
-                                        className="text-gray-400 hover:text-emerald-600 p-1"
-                                        title="نسخ رقم الهاتف"
+                                    {customer.phoneNumber && !isCoordinator && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                                        title="اتصال مباشر عبر MicroSIP 📞"
                                       >
-                                        <Copy size={12} />
+                                        <PhoneCall size={12} className="animate-pulse" />
+                                        <span>اتصال</span>
                                       </button>
                                     )}
                                   </div>
@@ -5444,7 +5483,19 @@ const Dashboard = () => {
                       <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded" />
                     </td>
                     <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                      <span>{customer.phoneNumber}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{customer.phoneNumber}</span>
+                        {!isCoordinator && customer.phoneNumber && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                            title="اتصال مباشر عبر MicroSIP 📞"
+                          >
+                            <PhoneCall size={12} className="animate-pulse" />
+                            <span>اتصال</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-sm font-semibold text-gray-700">
                       <div>{customer.name}</div>
@@ -6060,7 +6111,19 @@ const Dashboard = () => {
                           </td>
                           <td className="p-4">
                             <p className="text-sm font-bold text-gray-800">{visitor.name || 'غير معروف'}</p>
-                            <p className="text-xs text-gray-500 font-mono" dir="ltr">{visitor.phone}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-gray-500 font-mono" dir="ltr">{visitor.phone}</p>
+                              {!isCoordinator && visitor.phone && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(visitor.phone); }}
+                                  className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                                  title="اتصال مباشر عبر MicroSIP 📞"
+                                >
+                                  <PhoneCall size={12} className="animate-pulse" />
+                                  <span>اتصال</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <div className="flex flex-col gap-1">
