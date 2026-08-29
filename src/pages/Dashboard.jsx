@@ -2872,7 +2872,6 @@ const Dashboard = () => {
                         className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                       >
                         <option value="unassigned" className="bg-purple-950 text-white">⏳ في الانتظار ({getCrmStatusCount('unassigned')})</option>
-                        <option value="all" className="bg-purple-950 text-white">🌟 جميع الحالات ({getCrmStatusCount('all')})</option>
                         <option value="interested" className="bg-purple-950 text-white">🌟 مهتم ({getCrmStatusCount('interested')})</option>
                         <option value="not_interested" className="bg-purple-950 text-white">❌ غير مهتم ({getCrmStatusCount('not_interested')})</option>
                         <option value="no_answer" className="bg-purple-950 text-white">📵 لم يرد ({getCrmStatusCount('no_answer')})</option>
@@ -3475,7 +3474,6 @@ const Dashboard = () => {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[
                         { key: 'unassigned', label: '⏳ في الانتظار', bg: 'bg-gray-100 text-gray-700' },
-                        { key: 'all', label: 'الكل', bg: 'bg-slate-800 text-white' },
                         { key: 'interested', label: '🌟 مهتم', bg: 'bg-emerald-100 text-emerald-800' },
                         { key: 'not_interested', label: '❌ غير مهتم', bg: 'bg-rose-100 text-rose-800' },
                         { key: 'no_answer', label: '📵 لم يرد', bg: 'bg-amber-100 text-amber-800' },
