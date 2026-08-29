@@ -618,8 +618,10 @@ const Dashboard = () => {
     } else if (type === 'employee_leads') {
       setEmpLeadsEmpFilter('admin');
       setEmpLeadsStatusFilter('unassigned');
+    } else if (type === 'customers') {
+      setSelectedEmpFilter('all');
     } else {
-      setSelectedEmpFilter('admin');
+      setSelectedEmpFilter('all');
     }
     if (activeTab === type && customerFilter === filter) {
       setActiveTab('analytics');
@@ -4065,15 +4067,12 @@ const Dashboard = () => {
                 if (selectedEmpFilter && selectedEmpFilter !== 'all') {
                   if (selectedEmpFilter === 'unassigned') {
                     if (c.status !== 'unassigned' && c.assignedTo) return false;
+                  } else if (selectedEmpFilter === 'admin') {
+                    if (c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo)) return false;
                   } else {
                     const emp = employees.find(e => e.uid === selectedEmpFilter);
                     if (c.assignedToUid !== selectedEmpFilter && c.assignedTo !== emp?.email) return false;
                   }
-                }
-
-                // Filter by CRM Status
-                if (crmStatusFilter && crmStatusFilter !== 'all') {
-                  if (c.crmStatus !== crmStatusFilter) return false;
                 }
 
                 const search = tableSearch.trim() || dashboardSearch.trim();
