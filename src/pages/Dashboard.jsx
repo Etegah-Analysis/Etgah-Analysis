@@ -2490,128 +2490,6 @@ const Dashboard = () => {
           );
         })()}
 
-        {/* Analytics Tab (Admin Only) */}
-        {isAdmin && activeTab === 'analytics' && (() => {
-          const employeeStats = employees.filter(e => e.role !== 'admin').map(emp => {
-            const empCustomers = customers.filter(c => c.assignedToUid === emp.uid);
-            const unreadCustomers = empCustomers.filter(c => c.unread > 0);
-            return {
-              name: emp.name || emp.username || emp.email?.split('@')[0],
-              totalAssigned: empCustomers.length,
-              unreadCount: unreadCustomers.length,
-            };
-          });
-
-          const mostAssigned = [...employeeStats].sort((a,b) => b.totalAssigned - a.totalAssigned)[0];
-          const zeroAssigned = employeeStats.filter(e => e.totalAssigned === 0);
-          const mostUnread = [...employeeStats].sort((a,b) => b.unreadCount - a.unreadCount)[0];
-
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-              {/* Card 1 */}
-              <div 
-                onClick={() => setAnalyticsDetail('assigned')}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl p-6 rounded-2xl border border-purple-400/30 shadow-[0_8px_32px_rgba(112,26,117,0.35)] cursor-pointer hover:scale-[1.02] hover:border-purple-300 transition-all flex items-center justify-between group"
-              >
-                <h3 className="font-bold text-xl text-cyan-300 flex items-center m-0">
-                  <UserCheck className="ml-3 text-emerald-400" size={26} /> الأكثر استلاماً للعملاء
-                </h3>
-                <span className="text-xs font-bold bg-white/10 text-purple-200 border border-white/20 px-4 py-2 rounded-full shadow-sm group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                  عرض التفاصيل
-                </span>
-              </div>
-
-              {/* Card 2 */}
-              <div 
-                onClick={() => setAnalyticsDetail('unread')}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl p-6 rounded-2xl border border-purple-400/30 shadow-[0_8px_32px_rgba(112,26,117,0.35)] cursor-pointer hover:scale-[1.02] hover:border-purple-300 transition-all flex items-center justify-between group"
-              >
-                <h3 className="font-bold text-xl text-rose-300 flex items-center m-0">
-                  <Clock className="ml-3 text-rose-400" size={26} /> بطء في الاستجابة (لم يقرأ)
-                </h3>
-                <span className="text-xs font-bold bg-white/10 text-purple-200 border border-white/20 px-4 py-2 rounded-full shadow-sm group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                  عرض التفاصيل
-                </span>
-              </div>
-
-              {/* Card 3 */}
-              <div 
-                onClick={() => setAnalyticsDetail('zero')}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl p-6 rounded-2xl border border-purple-400/30 shadow-[0_8px_32px_rgba(112,26,117,0.35)] md:col-span-2 cursor-pointer hover:scale-[1.02] hover:border-purple-300 transition-all flex items-center justify-between group"
-              >
-                <h3 className="font-bold text-xl text-amber-300 flex items-center m-0">
-                  <Users className="ml-3 text-amber-400" size={26} /> موظفين لم يستلموا أي عميل بعد
-                </h3>
-                <span className="text-xs font-bold bg-white/10 text-purple-200 border border-white/20 px-4 py-2 rounded-full shadow-sm group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                  عرض التفاصيل
-                </span>
-              </div>
-
-              {/* Modals for Analytics Details */}
-              {analyticsDetail && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setAnalyticsDetail(null)}>
-                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative" onClick={e => e.stopPropagation()}>
-                    <button 
-                      onClick={() => setAnalyticsDetail(null)} 
-                      className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
-                    >
-                      <X size={24} />
-                    </button>
-                    
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">
-                      {analyticsDetail === 'assigned' && 'تفاصيل استلام العملاء (ترتيب الموظفين)'}
-                      {analyticsDetail === 'unread' && 'تفاصيل التأخير والرسائل غير المقروءة'}
-                      {analyticsDetail === 'zero' && 'قائمة الموظفين غير المستلمين لأي عميل'}
-                    </h2>
-
-                    <div className="max-h-[60vh] overflow-y-auto">
-                      {analyticsDetail === 'assigned' && (
-                        <div className="space-y-4">
-                          {employeeStats.sort((a,b) => b.totalAssigned - a.totalAssigned).map((stat, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                              <span className="font-bold text-gray-800 text-base">{stat.name}</span>
-                              <span className="bg-blue-100 text-blue-800 text-sm font-black px-3 py-1 rounded-full">
-                                {stat.totalAssigned} عميل
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {analyticsDetail === 'unread' && (
-                        <div className="space-y-4">
-                          {[...employeeStats].sort((a,b) => b.unreadCount - a.unreadCount).map((emp, idx) => (
-                            <div key={emp.name} className="flex items-center justify-between p-4 bg-red-50/50 rounded-xl border border-red-100">
-                              <span className="font-bold text-lg text-gray-800">{emp.name}</span>
-                              <span className={`font-bold px-4 py-1 rounded-full ${emp.unreadCount > 0 ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100'}`}>
-                                {emp.unreadCount > 0 ? `${emp.unreadCount} غير مقروءة` : 'لا يوجد تأخير'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {analyticsDetail === 'zero' && (
-                        <div className="space-y-4">
-                          {zeroAssigned.length > 0 ? (
-                            zeroAssigned.map((emp) => (
-                              <div key={emp.name} className="p-4 bg-orange-50 rounded-xl border border-orange-100">
-                                <span className="font-bold text-lg text-gray-800">{emp.name}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="p-8 text-center text-gray-500 font-bold bg-gray-50 rounded-xl">لا يوجد موظفين في هذه القائمة.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
         {/* Team Leads Tracking Tab (Dedicated for Leader) */}
         {isLeader && activeTab === 'team_leads_tracking' && (() => {
           // Filter leads belonging to leader's team members
@@ -2986,7 +2864,7 @@ const Dashboard = () => {
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
                           <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
-                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadAssignedToAdmin(c)).length.toLocaleString()})</option>
+                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
                             const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
