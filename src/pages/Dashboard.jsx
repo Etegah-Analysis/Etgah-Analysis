@@ -359,11 +359,36 @@ const Dashboard = () => {
   const [selectedStatusForNotes, setSelectedStatusForNotes] = useState('interested');
   const [trialDateForNotes, setTrialDateForNotes] = useState('');
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
+  const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
+
+  // Helper to check if a value refers to Admin
+  const isAdminIdentifier = (val) => {
+    if (!val) return false;
+    const lower = String(val).toLowerCase().trim();
+    return (
+      adminEmails.includes(lower) ||
+      lower === 'admin' ||
+      lower === 'الإدارة' ||
+      lower.includes('gmail.com') ||
+      lower.includes('mohamed.gamal') ||
+      lower.includes('etegah') ||
+      lower.includes('الرئيسي')
+    );
+  };
+
+  // Helper to sanitize display names so admin emails are never shown
+  const sanitizeDisplayName = (nameOrEmail) => {
+    if (!nameOrEmail) return 'الإدارة';
+    if (isAdminIdentifier(nameOrEmail)) return 'الإدارة';
+    const emp = employees.find(e => e.email?.toLowerCase() === String(nameOrEmail).toLowerCase() || e.uid === nameOrEmail);
+    if (emp) return emp.name || emp.username;
+    return nameOrEmail;
+  };
 
   // Assignment Transfer Audit Log Helper
   const createAssignmentLog = (fromName, toName, customAssignedBy) => {
-    const isFromAdmin = !fromName || fromName.includes('الرئيسي') || fromName.includes('الإدارة') || fromName.includes('admin') || fromName.includes('gmail');
-    const isToAdmin = !toName || toName.includes('الرئيسي') || toName.includes('الإدارة') || toName.includes('admin') || toName.includes('gmail');
+    const isFromAdmin = !fromName || fromName.includes('الرئيسي') || fromName.includes('الإدارة') || fromName.includes('admin') || fromName.includes('gmail') || fromName.includes('gamal');
+    const isToAdmin = !toName || toName.includes('الرئيسي') || toName.includes('الإدارة') || toName.includes('admin') || toName.includes('gmail') || toName.includes('gamal');
     const cleanFrom = isFromAdmin ? '👑 الإدارة' : fromName;
     const cleanTo = isToAdmin ? '👑 الإدارة' : toName;
 
@@ -1973,15 +1998,19 @@ const Dashboard = () => {
 
             {/* Card 4: Total Customers */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSystemTotalClientsModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Users className="text-blue-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length).toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
               </div>
             </div>
             
@@ -2008,7 +2037,7 @@ const Dashboard = () => {
                 <UserPlus className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">تسجيل يدوي</p>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
                 <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
               </div>
             </div>
@@ -2125,15 +2154,19 @@ const Dashboard = () => {
 
             {/* Card 4: Total Customer Database */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'all' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSystemTotalClientsModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Users className="text-blue-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي قاعدة العملاء</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length).toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
               </div>
             </div>
             
@@ -2151,7 +2184,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 6: Manual Add */}
+            {/* Card 6: Manual Add WhatsApp */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'manual')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -2160,7 +2193,7 @@ const Dashboard = () => {
                 <UserPlus className="text-purple-300" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">تسجيل يدوي</p>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
                 <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
               </div>
             </div>
@@ -3189,21 +3222,25 @@ const Dashboard = () => {
                                   </button>
                                 </div>
                               )}
-                              <div className="flex flex-wrap items-center gap-1 mt-1">
-                                {customer.source && (
-                                  <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold border border-purple-200">
-                                    📦 {customer.source}
-                                  </span>
-                                )}
-                                {customer.addedBy && customer.addedBy !== 'admin' && (
-                                  <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
-                                    👤 مضاف بواسطة: {customer.addedBy}
-                                  </span>
-                                )}
-                                {customer.notesHistory && customer.notesHistory.length > 0 && (
-                                  <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
-                                )}
-                              </div>
+                              {(() => {
+                                const isAdderAdmin = !customer.addedBy || isAdminIdentifier(customer.addedBy);
+                                const adderName = isAdderAdmin ? 'الإدارة' : sanitizeDisplayName(customer.addedBy);
+                                return (
+                                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    {!isAdderAdmin && customer.source && (
+                                      <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold border border-purple-200">
+                                        📦 {customer.source}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
+                                      👤 مضاف بواسطة: {adderName}
+                                    </span>
+                                    {customer.notesHistory && customer.notesHistory.length > 0 && (
+                                      <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                             <td className="p-4 text-sm">
@@ -3661,7 +3698,7 @@ const Dashboard = () => {
                   if (itemTime > 0 && itemTime < fromTime) return false;
                 }
                 if (empLeadsDateTo) {
-                  const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
+                const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
                   const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
                   if (itemTime > 0 && itemTime > toTime) return false;
                 }
@@ -3801,21 +3838,25 @@ const Dashboard = () => {
                                       </button>
                                     </div>
                                   )}
-                                  <div className="flex flex-wrap items-center gap-1 mt-1">
-                                    {customer.source && (
-                                      <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
-                                        📦 {customer.source}
-                                      </span>
-                                    )}
-                                    {customer.addedBy && (
-                                      <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${customer.addedBy}`}>
-                                        👤 مضاف بواسطة: {customer.addedBy}
-                                      </span>
-                                    )}
-                                    {customer.notesHistory && customer.notesHistory.length > 0 && (
-                                      <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const isAdderAdmin = !customer.addedBy || isAdminIdentifier(customer.addedBy);
+                                    const adderName = isAdderAdmin ? 'الإدارة' : sanitizeDisplayName(customer.addedBy);
+                                    return (
+                                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                                        {!isAdderAdmin && customer.source && (
+                                          <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
+                                            📦 {customer.source}
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
+                                          👤 مضاف بواسطة: {adderName}
+                                        </span>
+                                        {customer.notesHistory && customer.notesHistory.length > 0 && (
+                                          <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                                 <td className="p-4 text-sm">
@@ -5604,8 +5645,8 @@ const Dashboard = () => {
                   <div className="max-h-40 overflow-y-auto border rounded-xl p-3 bg-gray-50 space-y-2">
                     {selectedCustomerForNotes.notesHistory && selectedCustomerForNotes.notesHistory.length > 0 ? (
                       selectedCustomerForNotes.notesHistory.map((note, i) => {
-                        const isNoteByAdmin = !note.author || adminEmails.includes(note.author?.toLowerCase()) || note.author === 'admin' || note.author?.includes('gmail') || note.author?.includes('الإدارة') || note.author?.includes('الرئيسي');
-                        const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : (employees.find(e => e.email === note.author)?.name || note.author?.split('@')[0] || 'الموظف');
+                        const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
+                        const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
 
                         return (
                           <div key={note.id || i} className="bg-white p-2.5 rounded-lg border text-xs space-y-1 relative group hover:border-amber-300 transition shadow-sm">
@@ -6234,6 +6275,269 @@ const Dashboard = () => {
                     );
                   })()
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal 5: System Total Clients Distribution & Breakdown */}
+        {isSystemTotalClientsModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsSystemTotalClientsModalOpen(false)}>
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-purple-500/20 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-lg border border-blue-300/40">
+                    <Globe size={24} className="text-cyan-300" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white flex items-center gap-2">
+                      <span>خريطة وتوزيع عملاء السيستم 🌐</span>
+                    </h2>
+                    <p className="text-xs text-purple-300 font-medium">
+                      تفصيل وتوزيع إجمالي العملاء على الكروت وأقسام المنصة وفرق العمل
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsSystemTotalClientsModalOpen(false)} 
+                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-6">
+                {/* Total Big Badge */}
+                <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 p-5 rounded-2xl border border-blue-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+                  <div>
+                    <span className="text-xs text-blue-300 font-bold block mb-1">إجمالي عدد العملاء على السيستم بالكامل:</span>
+                    <span className="text-3xl sm:text-4xl font-black text-cyan-300">
+                      {(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()} عميل
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <span className="bg-purple-900/60 border border-purple-400/40 text-purple-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      🎯 Leads CRM: {leadsCrm.length.toLocaleString()}
+                    </span>
+                    <span className="bg-indigo-900/60 border border-indigo-400/40 text-indigo-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      📁 مضافة بالموظف: {employeeLeads.length.toLocaleString()}
+                    </span>
+                    <span className="bg-emerald-900/60 border border-emerald-400/40 text-emerald-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      💬 واتساب: {customers.length.toLocaleString()}
+                    </span>
+                    <span className="bg-cyan-900/60 border border-cyan-400/40 text-cyan-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      🌐 زوار: {whatsappVisitorsCount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Section Breakdown Grid */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-purple-200">📊 أماكن توزيع العملاء في الكروت والأقسام:</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    
+                    {/* Card 1: Leads CRM */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-purple-900/60 rounded-xl text-purple-300">
+                            <FileSpreadsheet size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">🎯 Leads CRM (الداتا المركزية)</h4>
+                            <p className="text-[11px] text-purple-300">الداتا المستوردة والرئيسية للشركة</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</span>
+                      </div>
+                      <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
+                        <div className="flex justify-between py-0.5">
+                          <span>👤 موزعة على الموظفين:</span>
+                          <span className="font-bold text-emerald-400">{leadsCrm.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail')).length.toLocaleString()} عميل</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span>👑 في انتظار التوزيع بالإدارة:</span>
+                          <span className="font-bold text-amber-400">{leadsCrm.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail')).length.toLocaleString()} عميل</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsSystemTotalClientsModalOpen(false);
+                          setActiveTab('leads_crm');
+                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال إلى جدول Leads CRM ➔
+                      </button>
+                    </div>
+
+                    {/* Card 2: Employee Leads */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-indigo-500/30 hover:border-indigo-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-indigo-900/60 rounded-xl text-indigo-300">
+                            <Upload size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">📁 داتا مضافة بواسطة الموظف</h4>
+                            <p className="text-[11px] text-indigo-300">داتا رفعها الإيجنتس والليدرز</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</span>
+                      </div>
+                      <div className="text-xs text-indigo-300/80 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20 mb-3" dir="rtl">
+                        <div className="flex justify-between py-0.5">
+                          <span>👥 عدد الموظفين الذين أضافوا داتا:</span>
+                          <span className="font-bold text-indigo-200">{new Set(employeeLeads.map(c => c.addedBy || c.addedByUid)).size} موظف</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span>🎉 عملاء تم تحويلهم بنجاح:</span>
+                          <span className="font-bold text-emerald-400">{employeeLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length.toLocaleString()} عميل</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsSystemTotalClientsModalOpen(false);
+                          setActiveTab('employee_leads');
+                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال إلى داتا الموظفين ➔
+                      </button>
+                    </div>
+
+                    {/* Card 3: Manual Add WhatsApp */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-purple-900/60 rounded-xl text-purple-300">
+                            <UserPlus size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">💬 داتا مضافة يدوياً WhatsApp</h4>
+                            <p className="text-[11px] text-purple-300">عملاء مضافين يدوياً من الشات والمحادثات</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">
+                          {customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
+                        <div className="flex justify-between py-0.5">
+                          <span>⏳ عملاء في الانتظار:</span>
+                          <span className="font-bold text-amber-400">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook' && (!c.assignedToUid || c.assignedToUid === 'admin')).length.toLocaleString()} عميل</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span>👤 مخصصين لمتابعة الموظفين:</span>
+                          <span className="font-bold text-emerald-400">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook' && c.assignedToUid && c.assignedToUid !== 'admin').length.toLocaleString()} عميل</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsSystemTotalClientsModalOpen(false);
+                          handleCardClick(null, 'customers', 'manual');
+                        }}
+                        className="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال إلى المضافين يدوياً ➔
+                      </button>
+                    </div>
+
+                    {/* Card 4: WhatsApp Direct & Bot */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 hover:border-emerald-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-emerald-900/60 rounded-xl text-emerald-300">
+                            <Users size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">🤖 عملاء محادثات الواتساب التلقائي</h4>
+                            <p className="text-[11px] text-emerald-300">عملاء الشات المباشر وردود البوت</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">
+                          {customers.filter(c => !c.addedBy || c.addedBy === 'WhatsApp Webhook').length.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3" dir="rtl">
+                        <div className="flex justify-between py-0.5">
+                          <span>💬 إجمالي محادثات الواتساب:</span>
+                          <span className="font-bold text-emerald-200">{customers.length.toLocaleString()} محادثة</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span>🌐 زوار الموقع النشطين:</span>
+                          <span className="font-bold text-cyan-400">{whatsappVisitorsCount.toLocaleString()} زائر</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsSystemTotalClientsModalOpen(false);
+                          handleCardClick(null, 'customers', 'all');
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال إلى عملاء الواتساب ➔
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Team Distribution Breakdown (Admin View) */}
+                {isAdmin && (
+                  <div className="bg-slate-950 rounded-2xl border border-amber-500/20 overflow-hidden shadow-lg">
+                    <div className="p-4 border-b border-amber-500/20 bg-amber-950/30 flex justify-between items-center">
+                      <h3 className="text-sm font-black text-amber-200">👑 توزيع الداتا عبر الليدرز وفرق العمل</h3>
+                      <span className="text-xs text-amber-300 font-bold">{employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').length} ليدر</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right text-xs">
+                        <thead className="bg-slate-900 text-amber-300 border-b border-slate-800">
+                          <tr>
+                            <th className="p-3">الليدر</th>
+                            <th className="p-3 text-center">أعضاء الفريق</th>
+                            <th className="p-3 text-center">🎯 Leads CRM</th>
+                            <th className="p-3 text-center">📁 داتا الموظف</th>
+                            <th className="p-3 text-center">💬 واتساب مخصص</th>
+                            <th className="p-3 text-center">المجموع الكلي</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800 text-slate-200">
+                          {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').map((leader, idx) => {
+                            const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
+                            const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
+                            const teamEmails = [leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase())];
+
+                            const crmCount = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
+                            const empCount = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
+                            const whatsappCount = customers.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
+                            const totalTeamAll = crmCount + empCount + whatsappCount;
+
+                            return (
+                              <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
+                                <td className="p-3 font-bold flex items-center gap-2">
+                                  <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                                  <span>{leader.name || leader.username}</span>
+                                </td>
+                                <td className="p-3 text-center font-bold text-amber-400">{teamMembers.length} موظف</td>
+                                <td className="p-3 text-center font-bold text-purple-400">{crmCount.toLocaleString()}</td>
+                                <td className="p-3 text-center font-bold text-indigo-400">{empCount.toLocaleString()}</td>
+                                <td className="p-3 text-center font-bold text-emerald-400">{whatsappCount.toLocaleString()}</td>
+                                <td className="p-3 text-center font-black text-cyan-300 text-sm">{totalTeamAll.toLocaleString()}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
