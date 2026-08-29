@@ -909,13 +909,12 @@ const Dashboard = () => {
       console.error('Error fetching recycle_bin:', error);
     });
 
-    // Fetch Template Messages for Campaign Analytics
-    // Filter messages that start with "[قالب"
+    // Fetch Template & Campaign Messages for Campaign Analytics
     const templatesUnsub = onSnapshot(collection(db, 'رسائل_الموظفين_للعملاء'), (snapshot) => {
       const data = [];
       snapshot.forEach(doc => {
         const msg = doc.data();
-        if (msg.isTemplate || (msg.text && msg.text.includes('[قالب'))) {
+        if (msg.isTemplate || (msg.text && msg.text.includes('[قالب')) || msg.campaignSource || msg.source === 'crm_sheet' || msg.source === 'excel_import') {
           data.push({ id: doc.id, ...msg });
         }
       });
@@ -2685,6 +2684,213 @@ const Dashboard = () => {
     }
   };
 
+  // --- CRM SHEET WHATSAPP CAMPAIGN STATES & HANDLERS ---
+  const CRM_CAMPAIGN_TEMPLATES = [
+    {
+      id: 'welcome_msg',
+      name: 'رسالة الترحيب والتعريف بالخدمات 🤝 (الافتراضي)',
+      text: `السلام عليكم 🤝 .. مع حضرتك منصه اتجاه التحليل الذكي 📉📈 .. نقدم خدمات دعم فني للسوق السعودي 🇸🇦 و السوق الامريكي 🇺🇸
+لو حضرتك مهتم بالتفاصيل ارسل تم
+
+نأسف للازعاج . نحن هنا لخدمتك وتحقيق عائد مضمون لك
+--------------------------------------------
+[🔘 مهتم | 🔘 غير مهتم]`
+    },
+    {
+      id: 'followup_msg',
+      name: 'رسالة المتابعة وخدمات التوصيات 📊',
+      text: `أهلاً بك 🌟 .. منصة اتجاه للتحليل الذكي توفر لك توصيات وتحليلات حصرية لحظية لأقوى الأسهم والفرص الاستثمارية 📈.
+يسعدنا تقديم تجربة مجانية مميزة لحسابك.
+
+للرد والتفعيل يرجى إرسال كلمة (مهتم).`
+    },
+    {
+      id: 'custom',
+      name: '📝 رسالة ترويجية مخصصة',
+      text: ''
+    }
+  ];
+
+  const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
+  const [crmCampaignBatchSize, setCrmCampaignBatchSize] = useState(5); // 1 to 10
+  const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('welcome_msg');
+  const [crmCampaignCustomText, setCrmCampaignCustomText] = useState('');
+  const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
+  const [crmCampaignSending, setCrmCampaignSending] = useState(false);
+  const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
+  const [campaignSourceFilter, setCampaignSourceFilter] = useState('all'); // 'all', 'crm_sheet', 'excel_import', 'direct'
+
+  const openCrmCampaignModal = (poolType = 'leads_crm') => {
+    if (isCoordinator) {
+      toast.error('صلاحية إرسال الحملات غير مفعلة لحساب المنسق 🔒');
+      return;
+    }
+    setCrmCampaignTargetPool(poolType);
+    setCrmCampaignProgress(0);
+    setIsCrmCampaignModalOpen(true);
+  };
+
+  const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize) => {
+    const isEmpLeadsPool = crmCampaignTargetPool === 'employee_leads';
+    const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
+    const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
+
+    let candidateLeads = [];
+    if (selectedIds.length > 0) {
+      candidateLeads = sourceList.filter(c => selectedIds.includes(c.id));
+    } else {
+      candidateLeads = sourceList.filter(c => {
+        if (isAdmin) return true;
+        if (isLeader) {
+          return c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
+        }
+        return c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase();
+      });
+    }
+
+    const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
+    const count = Math.min(10, Math.max(1, batchCount));
+    return validLeads.slice(0, count);
+  };
+
+  const handleSendCrmCampaign = async () => {
+    const targets = getCrmCampaignTargetLeads(crmCampaignBatchSize);
+    if (!targets || targets.length === 0) {
+      toast.error('لا يوجد عملاء متاحين لإرسال الحملة الإعلانية');
+      return;
+    }
+
+    const templateObj = CRM_CAMPAIGN_TEMPLATES.find(t => t.id === crmCampaignTemplateId);
+    const msgText = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText.trim() : (templateObj?.text || '');
+
+    if (!msgText) {
+      toast.error('يرجى كتابة نص الرسالة الإعلانية أو اختيار قالب');
+      return;
+    }
+
+    setCrmCampaignSending(true);
+    setCrmCampaignProgress(0);
+
+    let successCount = 0;
+    let failCount = 0;
+    const senderName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
+
+    for (let i = 0; i < targets.length; i++) {
+      const lead = targets[i];
+      let cleanPhone = String(lead.phoneNumber || '').replace(/[^0-9+]/g, '');
+      if (!cleanPhone.startsWith('+')) {
+        if (cleanPhone.startsWith('0')) cleanPhone = '+20' + cleanPhone.substring(1);
+        else if (cleanPhone.startsWith('5')) cleanPhone = '+966' + cleanPhone;
+        else if (!cleanPhone.startsWith('20') && !cleanPhone.startsWith('966')) cleanPhone = '+' + cleanPhone;
+      }
+
+      const clientName = lead.name || 'عميل جديد';
+      const crmDocId = cleanPhone.replace(/[^0-9]/g, '');
+
+      try {
+        let metaMsgId = null;
+        try {
+          if (crmCampaignTemplateId !== 'custom') {
+            const res = await fetch('/api/sendTemplate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: cleanPhone,
+                templateName: crmCampaignTemplateId,
+                languageCode: 'ar_EG'
+              })
+            });
+            const resData = await res.json();
+            if (res.ok && resData.success) {
+              metaMsgId = resData.metaMessageId || null;
+            }
+          } else {
+            const res = await fetch('/api/sendMessage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: cleanPhone,
+                text: msgText
+              })
+            });
+            const resData = await res.json();
+            if (res.ok && resData.success) {
+              metaMsgId = resData.metaMessageId || null;
+            }
+          }
+        } catch (apiErr) {
+          console.error("API send error:", apiErr);
+        }
+
+        // Ensure chat appears on WhatsApp Inbox page for this employee
+        await setDoc(doc(db, 'بيانات_تسجيل_العملاء', crmDocId), {
+          phoneNumber: cleanPhone,
+          name: clientName,
+          assignedTo: currentUser?.email || 'admin',
+          assignedToUid: currentUser?.uid || 'admin',
+          source: 'crm_sheet',
+          campaignSource: 'crm_sheet',
+          assignedSender: 'campaigns',
+          status: 'assigned',
+          lastMessage: msgText,
+          updatedAt: serverTimestamp(),
+          createdAt: lead.createdAt || serverTimestamp(),
+          unread: 0
+        }, { merge: true });
+
+        // Record message in 'رسائل_الموظفين_للعملاء' for Campaign Analytics
+        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+          conversationId: crmDocId,
+          text: msgText,
+          templateName: templateObj?.name || (crmCampaignTemplateId === 'custom' ? 'رسالة ترويجية مخصصة' : crmCampaignTemplateId),
+          isTemplate: true,
+          campaignSource: 'crm_sheet',
+          source: 'crm_sheet',
+          sender: 'agent',
+          senderName: senderName,
+          senderEmail: currentUser?.email || 'unknown',
+          senderUid: currentUser?.uid || 'unknown',
+          recipientPhone: cleanPhone,
+          status: 'delivered',
+          timestamp: serverTimestamp(),
+          metaMessageId: metaMsgId
+        });
+
+        // Add history note to lead in CRM collection
+        const noteLog = {
+          id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
+          author: senderName,
+          text: `[حملة واتساب CRM]: تم إرسال رسالة الحملة بنجاح (${templateObj?.name || 'رسالة مخصصة'})`,
+          date: new Date().toISOString()
+        };
+
+        const targetCol = crmCampaignTargetPool === 'employee_leads' ? 'employee_leads' : 'leads_crm';
+        await updateDoc(doc(db, targetCol, lead.id), {
+          notesHistory: arrayUnion(noteLog),
+          lastContactedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        successCount++;
+      } catch (err) {
+        console.error("Error processing lead:", lead, err);
+        failCount++;
+      }
+
+      setCrmCampaignProgress(i + 1);
+    }
+
+    setCrmCampaignSending(false);
+    setIsCrmCampaignModalOpen(false);
+
+    if (successCount > 0) {
+      toast.success(`تم إرسال الحملة الإعلانية لـ (${successCount}) عميل بنجاح 🚀 ستجد المحادثات في صفحة الواتساب!`, { duration: 6000 });
+    }
+    if (failCount > 0) {
+      toast.error(`تعذر إرسال (${failCount}) أرقام.`);
+    }
+  };
+
   // --- CALL PERFORMANCE ANALYTICS COMPUTATIONS ---
   const roleFilteredCallLogs = callLogs.filter(log => {
     if (isAdmin || isCoordinator) return true;
@@ -2929,10 +3135,10 @@ const Dashboard = () => {
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
                 <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {(leadsCrm.length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                  {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                 </h3>
                 <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (إجمالي داتا التقييم)
+                  ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
                 </span>
               </div>
             </div>
@@ -3068,8 +3274,13 @@ const Dashboard = () => {
                 <BarChart3 className="text-amber-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                </span>
               </div>
             </div>
           </div>
@@ -3137,10 +3348,10 @@ const Dashboard = () => {
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
                 <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {(leadsCrm.length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                  {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                 </h3>
                 <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (إجمالي داتا التقييم)
+                  ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
                 </span>
               </div>
             </div>
@@ -3485,19 +3696,36 @@ const Dashboard = () => {
 
         {/* Campaigns Analytics Tab */}
         {activeTab === 'campaigns' && (() => {
-          // Group template messages by template name and employee
+          // Calculate source metrics
+          const crmSheetMsgs = templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet');
+          const excelMsgs = templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import');
+          const directMsgs = templateMessages.filter(m => !m.campaignSource && !m.source && (m.isTemplate || m.text?.includes('[قالب')));
+
+          // Filter by active source tab
+          const filteredMessages = templateMessages.filter(msg => {
+            const src = msg.campaignSource || msg.source || 'direct';
+            if (campaignSourceFilter === 'all') return true;
+            if (campaignSourceFilter === 'crm_sheet') return src === 'crm_sheet';
+            if (campaignSourceFilter === 'excel_import') return src === 'excel_import';
+            if (campaignSourceFilter === 'direct') return src !== 'crm_sheet' && src !== 'excel_import';
+            return true;
+          });
+
+          // Group template messages by template name, employee, and source
           const groupedCampaigns = {};
           
-          templateMessages.forEach(msg => {
-            const templateName = msg.templateName || (msg.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف');
+          filteredMessages.forEach(msg => {
+            const templateName = msg.templateName || (msg.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'رسالة ترويجية');
             const empEmail = msg.senderEmail || 'مجهول';
+            const src = msg.campaignSource || msg.source || 'direct';
             const chatId = msg.conversationId || msg.recipientPhone || msg.to || 'unknown';
             
-            const key = `${templateName}_${empEmail}`;
+            const key = `${templateName}_${empEmail}_${src}`;
             if (!groupedCampaigns[key]) {
               groupedCampaigns[key] = {
                 templateName,
                 empEmail,
+                source: src,
                 sent: 0,
                 delivered: 0,
                 read: 0,
@@ -3506,7 +3734,7 @@ const Dashboard = () => {
             }
             
             groupedCampaigns[key].sent++;
-            if (msg.status === 'delivered' || msg.status === 'read') groupedCampaigns[key].delivered++;
+            if (msg.status === 'delivered' || msg.status === 'read' || msg.status === 'sent') groupedCampaigns[key].delivered++;
             if (msg.status === 'read') groupedCampaigns[key].read++;
 
             groupedCampaigns[key].chatMap[chatId] = (groupedCampaigns[key].chatMap[chatId] || 0) + 1;
@@ -3522,57 +3750,139 @@ const Dashboard = () => {
             return { ...campaign, sentOnce, sentTwice, sentMore };
           }).sort((a,b) => b.sent - a.sent);
 
+          const totalSentAll = templateMessages.length;
+          const totalDeliveredAll = templateMessages.filter(m => m.status === 'delivered' || m.status === 'read' || m.status === 'sent').length;
+          const totalReadAll = templateMessages.filter(m => m.status === 'read').length;
+          const avgOpenRateAll = totalDeliveredAll > 0 ? Math.round((totalReadAll / totalDeliveredAll) * 100) : 0;
+
           return (
             <div 
               ref={tableSectionRef}
-              className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden mt-6"
+              className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/60 overflow-hidden mt-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-800">إحصائيات أداء القوالب والحملات التسويقية</h2>
+              {/* Header & KPI Summary */}
+              <div className="px-6 py-5 border-b border-gray-200/80 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50">
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                  <div>
+                    <h2 className="text-lg font-black text-purple-950 flex items-center gap-2">
+                      <BarChart3 className="text-purple-600" size={24} />
+                      <span>📢 تحليلات وإحصائيات أداء الحملات التسويقية</span>
+                    </h2>
+                    <p className="text-xs text-purple-800/80 font-semibold mt-0.5">
+                      مقارنة أداء حملات شيت CRM مقابل حملات إكسيل الواتساب والقوالب الفردية
+                    </p>
+                  </div>
+
+                  {/* Filter Tabs */}
+                  <div className="flex items-center gap-1.5 flex-wrap bg-white/80 p-1 rounded-xl border border-purple-200 shadow-sm">
+                    {[
+                      { key: 'all', label: 'الكل 📊', count: totalSentAll },
+                      { key: 'crm_sheet', label: '🎯 حملات شيت CRM', count: crmSheetMsgs.length },
+                      { key: 'excel_import', label: '📁 حملات إكسيل الواتساب', count: excelMsgs.length },
+                      { key: 'direct', label: '💬 قوالب المحادثات', count: directMsgs.length },
+                    ].map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setCampaignSourceFilter(tab.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          campaignSourceFilter === tab.key
+                            ? 'bg-purple-700 text-white shadow-md'
+                            : 'text-gray-600 hover:bg-purple-100/60'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                          campaignSourceFilter === tab.key ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4 Summary KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-white/80 border border-purple-200/80 p-3 rounded-xl shadow-xs">
+                    <span className="text-[11px] font-bold text-gray-500 block">📊 إجمالي الإرسال</span>
+                    <span className="text-lg font-black text-purple-900">{totalSentAll.toLocaleString()} رسالة</span>
+                  </div>
+                  <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl shadow-xs">
+                    <span className="text-[11px] font-bold text-emerald-700 block">🎯 حملات شيت CRM</span>
+                    <span className="text-lg font-black text-emerald-900">{crmSheetMsgs.length.toLocaleString()} رسالة</span>
+                  </div>
+                  <div className="bg-blue-50/80 border border-blue-200 p-3 rounded-xl shadow-xs">
+                    <span className="text-[11px] font-bold text-blue-700 block">📁 حملات إكسيل الواتساب</span>
+                    <span className="text-lg font-black text-blue-900">{excelMsgs.length.toLocaleString()} رسالة</span>
+                  </div>
+                  <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-xl shadow-xs">
+                    <span className="text-[11px] font-bold text-amber-700 block">📈 نسبة الفتح والتسليم</span>
+                    <span className="text-lg font-black text-amber-900">%{avgOpenRateAll} فتح ({totalDeliveredAll} مسلّم)</span>
+                  </div>
+                </div>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-right border-collapse">
                   <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="p-4 font-semibold text-gray-600 text-sm">اسم القالب</th>
-                      <th className="p-4 font-semibold text-gray-600 text-sm">الموظف المُرسل</th>
-                      <th className="p-4 font-semibold text-gray-600 text-sm text-center">إجمالي الإرسال</th>
-                      <th className="p-4 font-semibold text-blue-700 text-sm text-center bg-blue-50/50">مرة واحدة 📩</th>
-                      <th className="p-4 font-semibold text-purple-700 text-sm text-center bg-purple-50/50">مرتين 📩📩</th>
-                      <th className="p-4 font-semibold text-amber-700 text-sm text-center bg-amber-50/50">3+ مرات 📩🔥</th>
-                      <th className="p-4 font-semibold text-gray-600 text-sm text-center">تم التسليم (✔️✔️)</th>
-                      <th className="p-4 font-semibold text-gray-600 text-sm text-center">تم الفتح (✔️✔️)</th>
-                      <th className="p-4 font-semibold text-gray-600 text-sm text-center">نسبة الفتح (Open Rate)</th>
+                    <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 text-xs">
+                      <th className="p-3.5 font-bold">اسم القالب / الرسالة</th>
+                      <th className="p-3.5 font-bold text-center">نوع الحملة ومصدرها</th>
+                      <th className="p-3.5 font-bold">الموظف المُرسل</th>
+                      <th className="p-3.5 font-bold text-center">إجمالي الإرسال</th>
+                      <th className="p-3.5 font-bold text-blue-700 text-center bg-blue-50/50">مرة واحدة 📩</th>
+                      <th className="p-3.5 font-bold text-purple-700 text-center bg-purple-50/50">مرتين 📩📩</th>
+                      <th className="p-3.5 font-bold text-amber-700 text-center bg-amber-50/50">3+ مرات 📩🔥</th>
+                      <th className="p-3.5 font-bold text-emerald-700 text-center">تم التسليم (✔️✔️)</th>
+                      <th className="p-3.5 font-bold text-cyan-700 text-center">تم الفتح (✔️✔️)</th>
+                      <th className="p-3.5 font-bold text-gray-700 text-center">معدل الفتح</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100/50">
+                  <tbody className="divide-y divide-gray-100">
                     {campaignsList.map((campaign, idx) => {
                       const empName = employees.find(e => e.email === campaign.empEmail)?.name || campaign.empEmail.split('@')[0];
                       const openRate = campaign.delivered > 0 ? Math.round((campaign.read / campaign.delivered) * 100) : 0;
                       return (
-                        <tr key={idx} className="hover:bg-gray-50 transition">
-                          <td className="p-4 text-sm font-bold text-gray-800">{campaign.templateName}</td>
-                          <td className="p-4 text-sm font-semibold text-blue-600">{empName}</td>
-                          <td className="p-4 text-sm font-bold text-gray-700 text-center">{campaign.sent}</td>
-                          <td className="p-4 text-sm font-bold text-blue-700 text-center bg-blue-50/30">{campaign.sentOnce}</td>
-                          <td className="p-4 text-sm font-bold text-purple-700 text-center bg-purple-50/30">{campaign.sentTwice}</td>
-                          <td className="p-4 text-sm font-bold text-amber-700 text-center bg-amber-50/30">{campaign.sentMore}</td>
-                          <td className="p-4 text-sm font-bold text-gray-700 text-center">{campaign.delivered}</td>
-                          <td className="p-4 text-sm font-bold text-green-600 text-center">{campaign.read}</td>
-                          <td className="p-4 text-center">
-                            <div className="flex items-center justify-center">
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${openRate >= 50 ? 'bg-green-100 text-green-700' : openRate >= 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                %{openRate}
+                        <tr key={idx} className="hover:bg-purple-50/30 transition">
+                          <td className="p-3.5 text-xs font-black text-gray-900">{campaign.templateName}</td>
+                          <td className="p-3.5 text-center">
+                            {campaign.source === 'crm_sheet' ? (
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
+                                🎯 شيت CRM
                               </span>
-                            </div>
+                            ) : campaign.source === 'excel_import' ? (
+                              <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
+                                📁 إكسيل واتساب
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-800 border border-purple-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
+                                💬 محادثة مباشرة
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-xs font-bold text-blue-700">{empName}</td>
+                          <td className="p-3.5 text-xs font-black text-gray-800 text-center">{campaign.sent}</td>
+                          <td className="p-3.5 text-xs font-bold text-blue-700 text-center bg-blue-50/30">{campaign.sentOnce}</td>
+                          <td className="p-3.5 text-xs font-bold text-purple-700 text-center bg-purple-50/30">{campaign.sentTwice}</td>
+                          <td className="p-3.5 text-xs font-bold text-amber-700 text-center bg-amber-50/30">{campaign.sentMore}</td>
+                          <td className="p-3.5 text-xs font-bold text-emerald-700 text-center">{campaign.delivered}</td>
+                          <td className="p-3.5 text-xs font-bold text-cyan-700 text-center">{campaign.read}</td>
+                          <td className="p-3.5 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black shadow-xs ${
+                              openRate >= 50 ? 'bg-emerald-100 text-emerald-800' : openRate >= 20 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              %{openRate}
+                            </span>
                           </td>
                         </tr>
                       );
                     })}
                     {campaignsList.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="p-8 text-center text-gray-500">لا يوجد قوالب تم إرسالها بعد.</td>
+                        <td colSpan="10" className="p-8 text-center text-gray-500 font-bold">
+                          لا توجد سجلات حملات مطابقة في هذا التبويب حالياً.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -3890,6 +4200,17 @@ const Dashboard = () => {
                 >
                   <UserPlus size={14} /> ➕ إضافة عميل يدوي
                 </button>
+
+                {!isCoordinator && (
+                  <button 
+                    onClick={() => openCrmCampaignModal('leads_crm')}
+                    className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء الشيت الحاليين (من 1 إلى 10 عملاء)"
+                  >
+                    <MessageSquare size={14} className="text-emerald-200" />
+                    <span>📢 إرسال حملة واتساب (CRM)</span>
+                  </button>
+                )}
 
                 {isAdmin && (
                   <>
@@ -4577,6 +4898,17 @@ const Dashboard = () => {
                 >
                   <UserPlus size={14} /> ➕ إضافة عميل يدوي
                 </button>
+
+                {!isCoordinator && (
+                  <button 
+                    onClick={() => openCrmCampaignModal('employee_leads')}
+                    className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء الداتا المضافة (من 1 إلى 10 عملاء)"
+                  >
+                    <MessageSquare size={14} className="text-emerald-200" />
+                    <span>📢 إرسال حملة واتساب (CRM)</span>
+                  </button>
+                )}
 
                 <button 
                   onClick={() => setIsImportModalOpen(true)}
@@ -8446,6 +8778,220 @@ const Dashboard = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal: Send CRM Sheet WhatsApp Campaign (1 to 10 leads) */}
+        {isCrmCampaignModalOpen && (() => {
+          const currentTargets = getCrmCampaignTargetLeads(crmCampaignBatchSize);
+          const templateObj = CRM_CAMPAIGN_TEMPLATES.find(t => t.id === crmCampaignTemplateId);
+          const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
+
+          return (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}>
+              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative max-h-[90vh] flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                
+                {/* Modal Header */}
+                <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20 mb-4 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-700 rounded-2xl shadow-lg border border-emerald-300/40">
+                      <MessageSquare size={24} className="text-emerald-200" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                        <span>📢 إرسال حملة واتساب لشيت العملاء (CRM Campaign)</span>
+                      </h2>
+                      <p className="text-xs text-emerald-300 font-semibold mt-0.5">
+                        إرسال رسائل ترويجية مباشرة لأرقام العملاء (من 1 إلى 10 عملاء) وترحيلهم فوراً لشات الواتساب
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    disabled={crmCampaignSending}
+                    onClick={() => setIsCrmCampaignModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+                  
+                  {/* Step 1: Batch Size Selector (1 to 10 Numbers) */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20 shadow-inner">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                        <span>1️⃣ اختر عدد العملاء لإرسال الحملة (من 1 إلى 10 أرقام):</span>
+                      </span>
+                      <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-black border border-emerald-400/40">
+                        تم تحديد: {currentTargets.length} عميل
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          disabled={crmCampaignSending}
+                          onClick={() => setCrmCampaignBatchSize(num)}
+                          className={`py-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                            crmCampaignBatchSize === num
+                              ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-slate-950 shadow-lg scale-105 ring-2 ring-emerald-300'
+                              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          <span className="text-sm">{num}</span>
+                          <span className="text-[9px] opacity-80">{num === 1 ? 'رقم' : 'أرقام'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Selected Leads Preview List */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 shadow-inner">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-xs font-black text-slate-300">
+                        2️⃣ قائمة العملاء المستهدفين في هذه الدفعة ({currentTargets.length}):
+                      </span>
+                      <span className="text-[11px] text-purple-300 font-bold">
+                        {crmCampaignTargetPool === 'employee_leads' ? '📂 داتا الموظف' : '🎯 Leads CRM'}
+                      </span>
+                    </div>
+
+                    {currentTargets.length === 0 ? (
+                      <div className="p-4 bg-slate-900 rounded-xl text-center text-xs text-rose-300 font-bold border border-rose-500/20">
+                        ⚠️ لا توجد أرقام هواتف صالحة متاحة في الشيت حالياً.
+                      </div>
+                    ) : (
+                      <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                        {currentTargets.map((lead, idx) => (
+                          <div key={lead.id || idx} className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800/80 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px] font-black">
+                                {idx + 1}
+                              </span>
+                              <span className="font-black text-white">{lead.name || 'عميل'}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-emerald-400 font-bold" dir="ltr">{lead.phoneNumber}</span>
+                              <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">
+                                {lead.crmStatus === 'interested' ? '🌟 مهتم' : lead.crmStatus === 'no_answer' ? '📵 لم يرد' : '⏳ في الانتظار'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 3: Template or Custom Message Selector */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20 shadow-inner">
+                    <span className="text-xs font-black text-emerald-300 block mb-2.5">
+                      3️⃣ اختيار القالب التسويقي أو كتابة رسالة مخصصة:
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                      {CRM_CAMPAIGN_TEMPLATES.map(tmpl => (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          disabled={crmCampaignSending}
+                          onClick={() => setCrmCampaignTemplateId(tmpl.id)}
+                          className={`p-2.5 rounded-xl text-right text-xs font-bold transition border cursor-pointer ${
+                            crmCampaignTemplateId === tmpl.id
+                              ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-sm ring-1 ring-emerald-400/50'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <input 
+                              type="radio" 
+                              checked={crmCampaignTemplateId === tmpl.id} 
+                              onChange={() => {}} 
+                              className="accent-emerald-500 pointer-events-none"
+                            />
+                            <span>{tmpl.name}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {crmCampaignTemplateId === 'custom' ? (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">اكتب نص الرسالة الإعلانية المخصصة:</label>
+                        <textarea
+                          rows={4}
+                          disabled={crmCampaignSending}
+                          value={crmCampaignCustomText}
+                          onChange={(e) => setCrmCampaignCustomText(e.target.value)}
+                          placeholder="السلام عليكم .. نقدم لحضرتك أقوى الفرص والتوصيات الاستثمارية..."
+                          className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl p-3 text-xs text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans"
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <span className="text-[10px] text-slate-400 font-bold block mb-1">معاينة نص الرسالة التي ستصل للعميل:</span>
+                        <p className="text-xs text-emerald-200 font-sans leading-relaxed whitespace-pre-line bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                          {currentMsgPreview}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Live Sending Progress Indicator */}
+                  {crmCampaignSending && (
+                    <div className="bg-emerald-950/80 border border-emerald-500/40 p-4 rounded-2xl">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-black text-emerald-300 animate-pulse">
+                          🚀 جاري إرسال الحملة الإعلانية وتوثيق المحادثات...
+                        </span>
+                        <span className="text-xs font-mono font-black text-emerald-300">
+                          {crmCampaignProgress} / {currentTargets.length}
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${(crmCampaignProgress / Math.max(1, currentTargets.length)) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Modal Footer Actions */}
+                <div className="pt-4 border-t border-slate-800 flex justify-between items-center gap-3 shrink-0 mt-2">
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    💡 ستظهر جميع المحادثات المرسلة في صفحة الواتساب الخاصة بك فوراً
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={crmCampaignSending}
+                      onClick={() => setIsCrmCampaignModalOpen(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer disabled:opacity-40"
+                    >
+                      إلغاء
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={crmCampaignSending || currentTargets.length === 0 || !currentMsgPreview?.trim()}
+                      onClick={handleSendCrmCampaign}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Send size={15} />
+                      <span>{crmCampaignSending ? 'جاري الإرسال...' : `🚀 إرسال الحملة لـ (${currentTargets.length}) عميل`}</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
           );
