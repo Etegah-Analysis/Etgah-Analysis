@@ -360,6 +360,7 @@ const Dashboard = () => {
   const [trialDateForNotes, setTrialDateForNotes] = useState('');
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
+  const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
 
   // Helper to check if a value refers to Admin
   const isAdminIdentifier = (val) => {
@@ -625,7 +626,11 @@ const Dashboard = () => {
     }
   };
 
-  const unassignedCount = customers.filter(c => c.status === 'unassigned').length;
+  const unassignedWhatsappCount = customers.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.status === 'unassigned').length;
+  const unassignedLeadsCrmCount = leadsCrm.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail') || c.status === 'unassigned' || c.crmStatus === 'unassigned').length;
+  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.crmStatus === 'unassigned' || !c.crmStatus).length;
+  const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
+  const unassignedCount = unassignedWhatsappCount;
   const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'WhatsApp Webhook').length;
 
   // --- LEAD IMPORT & EXCEL / GSHEETS / TEXT PARSER HANDLERS ---
@@ -2014,17 +2019,24 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card 5: Pending Customers */}
+            {/* Card 5: Pending Customers (All Sources) */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'unassigned')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'unassigned' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPendingClientsModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Clock className="text-red-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء في الانتظار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{unassignedCount.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (واتساب + CRM + داتا الموظف)
+                </span>
               </div>
             </div>
 
@@ -2099,7 +2111,6 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isCoordinator ? (
-          /* Coordinator Cards View */
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
             {/* Card 1: Dedicated Leads CRM */}
             <div 
@@ -2170,17 +2181,24 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card 5: Pending Customers */}
+            {/* Card 5: Pending Customers (All Sources) */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'unassigned')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'unassigned' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPendingClientsModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                 <Clock className="text-red-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء في الانتظار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{unassignedCount.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (واتساب + CRM + داتا الموظف)
+                </span>
               </div>
             </div>
 
@@ -6537,6 +6555,158 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )}
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal 6: Pending Clients Breakdown & Distribution */}
+        {isPendingClientsModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsPendingClientsModalOpen(false)}>
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-rose-500/20 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-tr from-rose-600 to-indigo-600 rounded-2xl shadow-lg border border-rose-300/40">
+                    <Clock size={24} className="text-cyan-300" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white flex items-center gap-2">
+                      <span>خريطة وتوزيع عملاء الانتظار ⏳</span>
+                    </h2>
+                    <p className="text-xs text-purple-300 font-medium">
+                      تفصيل عملاء الانتظار غير المعينين في (الواتساب + Leads CRM + داتا الموظف) والانتقال المباشر
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsPendingClientsModalOpen(false)} 
+                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-6">
+                {/* Total Big Badge */}
+                <div className="bg-gradient-to-r from-rose-950 via-purple-950 to-slate-900 p-5 rounded-2xl border border-rose-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+                  <div>
+                    <span className="text-xs text-rose-300 font-bold block mb-1">إجمالي عملاء الانتظار على السيستم بالكامل:</span>
+                    <span className="text-3xl sm:text-4xl font-black text-cyan-300">
+                      {totalPendingAll.toLocaleString()} عميل
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <span className="bg-purple-900/60 border border-purple-400/40 text-purple-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      🎯 انتظار Leads CRM: {unassignedLeadsCrmCount.toLocaleString()}
+                    </span>
+                    <span className="bg-indigo-900/60 border border-indigo-400/40 text-indigo-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      📁 انتظار داتا الموظف: {unassignedEmployeeLeadsCount.toLocaleString()}
+                    </span>
+                    <span className="bg-emerald-900/60 border border-emerald-400/40 text-emerald-200 text-xs px-3 py-1.5 rounded-xl font-bold">
+                      💬 انتظار الواتساب: {unassignedWhatsappCount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Section Breakdown Grid */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-purple-200">🔍 اختر القسم المطلوب للانتقال الفوري إلى عملاء الانتظار:</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    
+                    {/* Card 1: Leads CRM Pending */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-purple-900/60 rounded-xl text-purple-300">
+                            <FileSpreadsheet size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">🎯 انتظار Leads CRM</h4>
+                            <p className="text-[11px] text-purple-300">داتا مركزية في انتظار التوزيع</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">{unassignedLeadsCrmCount.toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3">
+                        عملاء مسجلين في الـ CRM المركزي لم يتم توزيعهم أو تعيينهم لأي موظف بعد.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setIsPendingClientsModalOpen(false);
+                          setActiveTab('leads_crm');
+                          setCrmStatusFilter('unassigned');
+                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال لانتظار Leads CRM ➔
+                      </button>
+                    </div>
+
+                    {/* Card 2: Employee Leads Pending */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-indigo-500/30 hover:border-indigo-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-indigo-900/60 rounded-xl text-indigo-300">
+                            <Upload size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">📁 انتظار داتا الموظف</h4>
+                            <p className="text-[11px] text-indigo-300">داتا مضافة في انتظار المتابعة</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">{unassignedEmployeeLeadsCount.toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-indigo-300/80 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20 mb-3">
+                        عملاء تمت إضافتهم عبر شيتات أو يدوياً ولم يتم تغيير حالتهم بعد عن حالة الانتظار.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setIsPendingClientsModalOpen(false);
+                          setActiveTab('employee_leads');
+                          setEmpLeadsStatusFilter('unassigned');
+                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال لانتظار داتا الموظف ➔
+                      </button>
+                    </div>
+
+                    {/* Card 3: WhatsApp Pending */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 hover:border-emerald-400 transition flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-emerald-900/60 rounded-xl text-emerald-300">
+                            <Clock size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-white">💬 انتظار الواتساب</h4>
+                            <p className="text-[11px] text-emerald-300">محادثات في انتظار التعيين</p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-black text-cyan-300">{unassignedWhatsappCount.toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3">
+                        عملاء تواصلوا عبر الواتساب أو تمت إضافتهم يدوياً وهم حالياً في انتظار التعيين.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setIsPendingClientsModalOpen(false);
+                          handleCardClick(null, 'customers', 'unassigned');
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        الانتقال لانتظار الواتساب ➔
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
 
               </div>
             </div>
