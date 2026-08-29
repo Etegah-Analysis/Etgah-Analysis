@@ -602,13 +602,13 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Auto-sync existing manual WhatsApp customers into employee_leads
+  // Auto-sync manual WhatsApp customers into employee_leads and keep customers for Website WhatsApp
   useEffect(() => {
     if (!customers || customers.length === 0) return;
     const manualList = customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook');
     if (manualList.length === 0) return;
 
-    const syncManualToEmployeeLeads = async () => {
+    const syncAndClean = async () => {
       for (const c of manualList) {
         try {
           const cleanPhone = (c.phoneNumber || '').replace(/[^0-9+]/g, '');
@@ -639,13 +639,16 @@ const Dashboard = () => {
               unread: 0
             }, { merge: true });
           }
+
+          // Delete from customers collection so customers collection contains purely Website WhatsApp leads
+          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id));
         } catch (err) {
-          console.error("Auto sync manual to employee_leads error:", err);
+          console.error("Auto sync/cleanup error:", err);
         }
       }
     };
 
-    syncManualToEmployeeLeads();
+    syncAndClean();
   }, [customers, employees]);
 
   const scrollToTable = () => {
@@ -2107,17 +2110,21 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 6: Manual Add */}
+            {/* Card 6: Website WhatsApp Leads */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'customers', 'website')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <UserPlus className="text-purple-300" size={28} />
+                <Globe className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || c.source === 'webhook' || !c.addedBy).length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (رسائل وتسجيلات الموقع)
+                </span>
               </div>
             </div>
 
@@ -2269,17 +2276,21 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 6: Manual Add WhatsApp */}
+            {/* Card 6: Website WhatsApp Leads */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              onClick={(e) => handleCardClick(e, 'customers', 'website')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
             >
               <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <UserPlus className="text-purple-300" size={28} />
+                <Globe className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}</h3>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || c.source === 'webhook' || !c.addedBy).length.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (رسائل وتسجيلات الموقع)
+                </span>
               </div>
             </div>
           </div>
@@ -2328,19 +2339,19 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 3: Manual WhatsApp Data */}
+            {/* Leader Card 3: Website WhatsApp Leads */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض الداتا المضافة يدوياً في الواتساب"
+              onClick={(e) => handleCardClick(e, 'customers', 'website')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <UserPlus className="text-purple-300" size={28} />
+                <Globe className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
                 <h3 className="text-2xl font-black text-cyan-300">
-                  {customers.filter(c => (c.addedBy && c.addedBy !== 'WhatsApp Webhook') && (c.addedByUid === currentUser?.uid || c.addedBy === currentUser?.email || c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.addedByUid || m.uid === c.assignedToUid))).length.toLocaleString()}
+                  {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
                 </h3>
               </div>
             </div>
@@ -2432,19 +2443,19 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Agent Card 3: Manual WhatsApp Data */}
+            {/* Agent Card 3: Website WhatsApp Leads */}
             <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض الداتا المضافة يدوياً في الواتساب"
+              onClick={(e) => handleCardClick(e, 'customers', 'website')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <UserPlus className="text-purple-300" size={28} />
+                <Globe className="text-emerald-400" size={28} />
               </div>
               <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
                 <h3 className="text-3xl font-black text-cyan-300">
-                  {customers.filter(c => (c.addedBy && c.addedBy !== 'WhatsApp Webhook') && (c.addedByUid === currentUser?.uid || c.addedBy === currentUser?.email || c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
+                  {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
                 </h3>
               </div>
             </div>
@@ -5706,40 +5717,68 @@ const Dashboard = () => {
 
               {/* Modal Body */}
               <div className="flex-1 overflow-y-auto pr-1 space-y-6">
+                {/* Information Guide Banner */}
+                <div className="bg-purple-950/60 border border-purple-500/30 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs text-purple-200 shadow-inner">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💡</span>
+                    <span>
+                      <strong>طريقة احتساب التحليلات:</strong> نسبة النجاح تُحسب بناءً على تحويل العملاء من حالة (في الانتظار) إلى حالات التفاعل الإيجابي (🌟 مهتم / 🚀 بدأ تجربة / 🎉 تم الاشتراك). بمجرد قيام الموظف بتغيير حالة العميل يتم تحديث النسب فورياً.
+                    </span>
+                  </div>
+                </div>
+
                 {isAgent ? (
                   /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
+                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+
                     // Combine assigned Leads CRM + Employee Added Leads for this agent
                     const empCrmLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
                     const empAddedLeads = employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
                     const empLeads = [...empCrmLeads, ...empAddedLeads];
 
                     const total = empLeads.length;
-                    const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
-                    const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
-                    const interested = empLeads.filter(c => c.crmStatus === 'interested').length;
-                    const noAnswer = empLeads.filter(c => c.crmStatus === 'no_answer').length;
-                    const notInterested = empLeads.filter(c => c.crmStatus === 'not_interested').length;
-                    const pending = empLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
+                    const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
+                    const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
+                    const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
+                    const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
+                    const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
+                    const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
 
                     const successfulCount = subscribed + trial + interested;
+                    const contactedCount = total - pending;
                     const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+                    const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
 
                     return (
                       <div className="space-y-5">
-                        {/* Overall Score Badge */}
-                        <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-900 p-5 rounded-2xl border border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
-                          <div>
-                            <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (الموزعة والمضافة لك):</span>
-                            <span className="text-3xl font-black text-white">{total} عميل</span>
+                        {/* Overall Score Badges */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-xl">
+                            <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (موزع + مضاف):</span>
+                            <span className="text-2xl font-black text-white">{total} عميل</span>
                             <span className="text-[11px] text-purple-400 font-medium block mt-0.5" dir="rtl">
                               ({empCrmLeads.length.toLocaleString()} موزع + {empAddedLeads.length.toLocaleString()} مضاف)
                             </span>
                           </div>
-                          <div className="text-center md:text-left bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">معدل النجاح والتفاعل الإيجابي 📈</span>
+
+                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40 shadow-xl text-center sm:text-right">
+                            <span className="text-xs text-indigo-200 font-bold block mb-1">معدل النجاح والتفاعل الإيجابي 📈</span>
                             <span className={`text-3xl font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
                               {successRate}%
+                            </span>
+                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({successfulCount} ناجح من {total})
+                            </span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-xl text-center sm:text-right">
+                            <span className="text-xs text-teal-200 font-bold block mb-1">معدل المتابعة والتواصل 📞</span>
+                            <span className="text-3xl font-black text-teal-300">
+                              {interactionRate}%
+                            </span>
+                            <span className="text-[11px] text-teal-400 font-medium block mt-0.5" dir="rtl">
+                              ({contactedCount} تم التواصل معهم)
                             </span>
                           </div>
                         </div>
@@ -5748,14 +5787,14 @@ const Dashboard = () => {
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs font-bold text-purple-200">
                             <span>مؤشر التفاعل والإنجاز</span>
-                            <span>{successfulCount} من {total} عميل ناجح</span>
+                            <span>{successfulCount} من {total} عميل ناجح ({successRate}%)</span>
                           </div>
-                          <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-purple-500/30 flex">
-                            <div style={{ width: `${total > 0 ? (subscribed / total) * 100 : 0}%` }} className="bg-purple-500 h-full" title="تم الاشتراك"></div>
-                            <div style={{ width: `${total > 0 ? (trial / total) * 100 : 0}%` }} className="bg-cyan-400 h-full" title="بدأ تجربة"></div>
-                            <div style={{ width: `${total > 0 ? (interested / total) * 100 : 0}%` }} className="bg-emerald-500 h-full" title="مهتم"></div>
-                            <div style={{ width: `${total > 0 ? (noAnswer / total) * 100 : 0}%` }} className="bg-amber-500 h-full" title="لم يرد"></div>
-                            <div style={{ width: `${total > 0 ? (notInterested / total) * 100 : 0}%` }} className="bg-rose-500 h-full" title="غير مهتم"></div>
+                          <div className="h-3.5 w-full bg-slate-800 rounded-full overflow-hidden border border-purple-500/30 flex">
+                            <div style={{ width: `${total > 0 ? (subscribed / total) * 100 : 0}%` }} className="bg-purple-500 h-full" title={`تم الاشتراك: ${subscribed}`}></div>
+                            <div style={{ width: `${total > 0 ? (trial / total) * 100 : 0}%` }} className="bg-cyan-400 h-full" title={`بدأ تجربة: ${trial}`}></div>
+                            <div style={{ width: `${total > 0 ? (interested / total) * 100 : 0}%` }} className="bg-emerald-500 h-full" title={`مهتم: ${interested}`}></div>
+                            <div style={{ width: `${total > 0 ? (noAnswer / total) * 100 : 0}%` }} className="bg-amber-500 h-full" title={`لم يرد: ${noAnswer}`}></div>
+                            <div style={{ width: `${total > 0 ? (notInterested / total) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`غير مهتم: ${notInterested}`}></div>
                           </div>
                         </div>
 
@@ -5764,37 +5803,37 @@ const Dashboard = () => {
                           <div className="bg-purple-900/40 p-4 rounded-xl border border-purple-500/40">
                             <span className="text-xs text-purple-300 font-bold block mb-1">🎉 تم الاشتراك</span>
                             <span className="text-2xl font-black text-purple-300">{subscribed}</span>
-                            <span className="text-[10px] text-purple-400 font-mono block mt-1">({total > 0 ? Math.round((subscribed/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-purple-400 font-mono block mt-1">({total > 0 ? ((subscribed/total)*100).toFixed(1) : 0}%)</span>
                           </div>
 
                           <div className="bg-cyan-900/40 p-4 rounded-xl border border-cyan-500/40">
                             <span className="text-xs text-cyan-300 font-bold block mb-1">🚀 بدأ تجربة بالفعل</span>
                             <span className="text-2xl font-black text-cyan-300">{trial}</span>
-                            <span className="text-[10px] text-cyan-400 font-mono block mt-1">({total > 0 ? Math.round((trial/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-cyan-400 font-mono block mt-1">({total > 0 ? ((trial/total)*100).toFixed(1) : 0}%)</span>
                           </div>
 
                           <div className="bg-emerald-900/40 p-4 rounded-xl border border-emerald-500/40">
                             <span className="text-xs text-emerald-300 font-bold block mb-1">🌟 مهتم</span>
                             <span className="text-2xl font-black text-emerald-300">{interested}</span>
-                            <span className="text-[10px] text-emerald-400 font-mono block mt-1">({total > 0 ? Math.round((interested/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-emerald-400 font-mono block mt-1">({total > 0 ? ((interested/total)*100).toFixed(1) : 0}%)</span>
                           </div>
 
                           <div className="bg-amber-900/40 p-4 rounded-xl border border-amber-500/40">
                             <span className="text-xs text-amber-300 font-bold block mb-1">📵 لم يرد</span>
                             <span className="text-2xl font-black text-amber-300">{noAnswer}</span>
-                            <span className="text-[10px] text-amber-400 font-mono block mt-1">({total > 0 ? Math.round((noAnswer/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-amber-400 font-mono block mt-1">({total > 0 ? ((noAnswer/total)*100).toFixed(1) : 0}%)</span>
                           </div>
 
                           <div className="bg-rose-900/40 p-4 rounded-xl border border-rose-500/40">
                             <span className="text-xs text-rose-300 font-bold block mb-1">❌ غير مهتم</span>
                             <span className="text-2xl font-black text-rose-300">{notInterested}</span>
-                            <span className="text-[10px] text-rose-400 font-mono block mt-1">({total > 0 ? Math.round((notInterested/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-rose-400 font-mono block mt-1">({total > 0 ? ((notInterested/total)*100).toFixed(1) : 0}%)</span>
                           </div>
 
                           <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                             <span className="text-xs text-slate-300 font-bold block mb-1">⏳ في الانتظار</span>
                             <span className="text-2xl font-black text-slate-200">{pending}</span>
-                            <span className="text-[10px] text-slate-400 font-mono block mt-1">({total > 0 ? Math.round((pending/total)*100) : 0}%)</span>
+                            <span className="text-[10px] text-slate-400 font-mono block mt-1">({total > 0 ? ((pending/total)*100).toFixed(1) : 0}%)</span>
                           </div>
                         </div>
                       </div>
@@ -5803,6 +5842,7 @@ const Dashboard = () => {
                 ) : isLeader ? (
                   /* --- 2. LEADER TEAM PERFORMANCE ANALYSIS --- */
                   (() => {
+                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
                     const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)];
                     const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())];
                     
@@ -5816,15 +5856,17 @@ const Dashboard = () => {
                       const empLeads = [...empCrm, ...empAdded];
 
                       const total = empLeads.length;
-                      const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
-                      const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
-                      const interested = empLeads.filter(c => c.crmStatus === 'interested').length;
-                      const noAnswer = empLeads.filter(c => c.crmStatus === 'no_answer').length;
-                      const notInterested = empLeads.filter(c => c.crmStatus === 'not_interested').length;
-                      const pending = empLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
+                      const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
+                      const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
+                      const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
+                      const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
+                      const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
+                      const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
 
                       const successfulCount = subscribed + trial + interested;
+                      const contactedCount = total - pending;
                       const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
 
                       return {
                         emp,
@@ -5838,7 +5880,9 @@ const Dashboard = () => {
                         notInterested,
                         pending,
                         successfulCount,
-                        successRate
+                        contactedCount,
+                        successRate,
+                        interactionRate
                       };
                     });
 
@@ -5846,30 +5890,43 @@ const Dashboard = () => {
                     teamEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
 
                     const totalTeamLeads = teamLeads.length;
-                    const totalTeamSuccessful = teamLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length;
+                    const totalTeamSuccessful = teamLeads.filter(c => ['subscribed','started_trial','interested'].includes(getStatus(c))).length;
+                    const totalTeamContacted = teamLeads.filter(c => getStatus(c) !== 'unassigned').length;
                     const overallTeamRate = totalTeamLeads > 0 ? Math.round((totalTeamSuccessful / totalTeamLeads) * 100) : 0;
+                    const overallTeamContactRate = totalTeamLeads > 0 ? Math.round((totalTeamContacted / totalTeamLeads) * 100) : 0;
                     const topTeamMember = teamEmployeesData.find(e => e.total > 0);
 
                     return (
                       <div className="space-y-6">
                         {/* Team Summary Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك (الموزعة والمضافة)</span>
-                            <span className="text-3xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك</span>
+                            <span className="text-2xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
+                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
                               ({teamCrmLeads.length.toLocaleString()} موزع + {teamEmpAddedLeads.length.toLocaleString()} مضاف)
                             </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
-                            <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
-                            <span className="text-3xl font-black text-emerald-400">{overallTeamRate}%</span>
+                            <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق 📈</span>
+                            <span className="text-2xl font-black text-emerald-400">{overallTeamRate}%</span>
+                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({totalTeamSuccessful.toLocaleString()} ناجح من {totalTeamLeads.toLocaleString()})
+                            </span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40">
+                            <span className="text-xs text-teal-200 font-bold block mb-1">معدل متابعة الفريق 📞</span>
+                            <span className="text-2xl font-black text-teal-300">{overallTeamContactRate}%</span>
+                            <span className="text-[10px] text-teal-400 font-medium block mt-0.5" dir="rtl">
+                              ({totalTeamContacted.toLocaleString()} تم التواصل)
+                            </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
-                            <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً في فريقك 🏆</span>
-                            <span className="text-xl font-black text-amber-300 truncate block">
+                            <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
+                            <span className="text-lg font-black text-amber-300 truncate block">
                               {topTeamMember ? `${topTeamMember.emp.name} (${topTeamMember.successRate}%)` : 'لا يوجد'}
                             </span>
                           </div>
@@ -5888,6 +5945,7 @@ const Dashboard = () => {
                                   <th className="p-3">عضو الفريق</th>
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center">نسبة النجاح</th>
+                                  <th className="p-3 text-center">التواصل</th>
                                   <th className="p-3 text-center">🎉 اشتراك</th>
                                   <th className="p-3 text-center">🚀 تجربة</th>
                                   <th className="p-3 text-center">🌟 مهتم</th>
@@ -5897,7 +5955,7 @@ const Dashboard = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {teamEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
+                                {teamEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate, interactionRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -5915,6 +5973,7 @@ const Dashboard = () => {
                                         {successRate}%
                                       </span>
                                     </td>
+                                    <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                     <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
                                     <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
                                     <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
@@ -5943,6 +6002,8 @@ const Dashboard = () => {
                 ) : (
                   /* --- 3. ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS + ADMIN LEADERS BREAKDOWN --- */
                   (() => {
+                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+
                     // Distributed Leads from leads_crm (assigned to active employees)
                     const distributedCrmLeads = leadsCrm.filter(c => isLeadAssignedToEmployee(c));
                     
@@ -5952,8 +6013,10 @@ const Dashboard = () => {
                     const totalCompanyActiveLeads = totalDistributedLeads + totalEmpAddedLeads;
 
                     const allCompanyActiveLeads = [...distributedCrmLeads, ...employeeLeads];
-                    const totalCompanySuccessful = allCompanyActiveLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length;
+                    const totalCompanySuccessful = allCompanyActiveLeads.filter(c => ['subscribed','started_trial','interested'].includes(getStatus(c))).length;
+                    const totalCompanyContacted = allCompanyActiveLeads.filter(c => getStatus(c) !== 'unassigned').length;
                     const overallCompanyRate = totalCompanyActiveLeads > 0 ? Math.round((totalCompanySuccessful / totalCompanyActiveLeads) * 100) : 0;
+                    const overallCompanyContactRate = totalCompanyActiveLeads > 0 ? Math.round((totalCompanyContacted / totalCompanyActiveLeads) * 100) : 0;
 
                     const allEmployeesData = employees.filter(emp => 
                       emp.role !== 'admin' && 
@@ -5967,15 +6030,17 @@ const Dashboard = () => {
                       const empLeads = [...empCrm, ...empAdded];
 
                       const total = empLeads.length;
-                      const subscribed = empLeads.filter(c => c.crmStatus === 'subscribed').length;
-                      const trial = empLeads.filter(c => c.crmStatus === 'started_trial').length;
-                      const interested = empLeads.filter(c => c.crmStatus === 'interested').length;
-                      const noAnswer = empLeads.filter(c => c.crmStatus === 'no_answer').length;
-                      const notInterested = empLeads.filter(c => c.crmStatus === 'not_interested').length;
-                      const pending = empLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
+                      const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
+                      const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
+                      const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
+                      const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
+                      const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
+                      const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
 
                       const successfulCount = subscribed + trial + interested;
+                      const contactedCount = total - pending;
                       const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
 
                       return {
                         emp,
@@ -5989,7 +6054,9 @@ const Dashboard = () => {
                         notInterested,
                         pending,
                         successfulCount,
-                        successRate
+                        contactedCount,
+                        successRate,
+                        interactionRate
                       };
                     });
 
@@ -6009,14 +6076,17 @@ const Dashboard = () => {
                       const teamLeads = [...teamCrm, ...teamAdded];
 
                       const total = teamLeads.length;
-                      const subscribed = teamLeads.filter(c => c.crmStatus === 'subscribed').length;
-                      const trial = teamLeads.filter(c => c.crmStatus === 'started_trial').length;
-                      const interested = teamLeads.filter(c => c.crmStatus === 'interested').length;
-                      const noAnswer = teamLeads.filter(c => c.crmStatus === 'no_answer').length;
-                      const notInterested = teamLeads.filter(c => c.crmStatus === 'not_interested').length;
+                      const subscribed = teamLeads.filter(c => getStatus(c) === 'subscribed').length;
+                      const trial = teamLeads.filter(c => getStatus(c) === 'started_trial').length;
+                      const interested = teamLeads.filter(c => getStatus(c) === 'interested').length;
+                      const noAnswer = teamLeads.filter(c => getStatus(c) === 'no_answer').length;
+                      const notInterested = teamLeads.filter(c => getStatus(c) === 'not_interested').length;
+                      const pending = teamLeads.filter(c => getStatus(c) === 'unassigned').length;
 
                       const successfulCount = subscribed + trial + interested;
+                      const contactedCount = total - pending;
                       const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
 
                       return {
                         leader,
@@ -6030,7 +6100,9 @@ const Dashboard = () => {
                         noAnswer,
                         notInterested,
                         successfulCount,
-                        successRate
+                        contactedCount,
+                        successRate,
+                        interactionRate
                       };
                     });
                     leadersTeamData.sort((a, b) => b.successRate - a.successRate || b.total - a.total);
@@ -6038,30 +6110,38 @@ const Dashboard = () => {
                     return (
                       <div className="space-y-6">
                         {/* Company Summary Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا الموزعة والمضافة للتقييم</span>
-                            <span className="text-3xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا للتقييم</span>
+                            <span className="text-2xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
+                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
                               ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
                             </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
-                            <span className="text-3xl font-black text-emerald-400">{overallCompanyRate}%</span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
-                              ({totalCompanySuccessful.toLocaleString()} عميل ناجح من {totalCompanyActiveLeads.toLocaleString()})
+                            <span className="text-2xl font-black text-emerald-400">{overallCompanyRate}%</span>
+                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
+                              ({totalCompanySuccessful.toLocaleString()} ناجح من {totalCompanyActiveLeads.toLocaleString()})
+                            </span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40">
+                            <span className="text-xs text-teal-200 font-bold block mb-1">معدل التواصل العام 📞</span>
+                            <span className="text-2xl font-black text-teal-300">{overallCompanyContactRate}%</span>
+                            <span className="text-[10px] text-teal-400 font-medium block mt-0.5" dir="rtl">
+                              ({totalCompanyContacted.toLocaleString()} تم التواصل)
                             </span>
                           </div>
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
                             <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
-                            <span className="text-xl font-black text-amber-300 truncate block">
+                            <span className="text-lg font-black text-amber-300 truncate block">
                               {topEmp ? `${topEmp.emp.name} (${topEmp.successRate}%)` : 'لا يوجد'}
                             </span>
                             {topEmp && (
-                              <span className="text-[11px] text-amber-200 font-medium block mt-0.5" dir="rtl">
+                              <span className="text-[10px] text-amber-200 font-medium block mt-0.5" dir="rtl">
                                 ({topEmp.successfulCount} ناجح من {topEmp.total})
                               </span>
                             )}
@@ -6085,6 +6165,7 @@ const Dashboard = () => {
                                     <th className="p-3 text-center">أعضاء الفريق</th>
                                     <th className="p-3 text-center">إجمالي الداتا</th>
                                     <th className="p-3 text-center">نسبة النجاح</th>
+                                    <th className="p-3 text-center">التواصل</th>
                                     <th className="p-3 text-center">🎉 اشتراك</th>
                                     <th className="p-3 text-center">🚀 تجربة</th>
                                     <th className="p-3 text-center">🌟 مهتم</th>
@@ -6093,7 +6174,7 @@ const Dashboard = () => {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800 text-slate-200">
-                                  {leadersTeamData.map(({ leader, teamMembersCount, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, idx) => (
+                                  {leadersTeamData.map(({ leader, teamMembersCount, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate, interactionRate }, idx) => (
                                     <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
                                       <td className="p-3 font-bold flex items-center gap-2">
                                         <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
@@ -6109,6 +6190,7 @@ const Dashboard = () => {
                                           {successRate}%
                                         </span>
                                       </td>
+                                      <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                       <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
                                       <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
                                       <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
@@ -6136,6 +6218,7 @@ const Dashboard = () => {
                                   <th className="p-3 text-center">الفريق / الليدر</th>
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center">نسبة النجاح</th>
+                                  <th className="p-3 text-center">التواصل</th>
                                   <th className="p-3 text-center">🎉 اشتراك</th>
                                   <th className="p-3 text-center">🚀 تجربة</th>
                                   <th className="p-3 text-center">🌟 مهتم</th>
@@ -6145,7 +6228,7 @@ const Dashboard = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {allEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate }, i) => (
+                                {allEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, noAnswer, notInterested, successRate, interactionRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -6171,6 +6254,7 @@ const Dashboard = () => {
                                         </span>
                                       </div>
                                     </td>
+                                    <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                     <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
                                     <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
                                     <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
