@@ -921,21 +921,18 @@ const Dashboard = () => {
     }
   };
 
-  // Delete Email for Me
+  // Delete Email (Admin Only)
   const handleDeleteEmail = async (mail, e) => {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (!window.confirm('هل أنت متأكد من حذف هذا الإيميل من بريدك؟')) return;
+    if (!isAdmin) {
+      toast.error('عذراً، حذف الإيميلات مقتصر على الإدارة فقط 🔒');
+      return;
+    }
+    if (!window.confirm('هل أنت متأكد من حذف هذا الإيميل نهائياً من السيستم؟')) return;
     try {
       const emailRef = doc(db, 'internal_emails', mail.id);
-      if (isAdmin && mailActiveFolder === 'all_system') {
-        await deleteDoc(emailRef);
-        toast.success('تم حذف الإيميل نهائياً من السيستم 🗑️');
-      } else {
-        await updateDoc(emailRef, {
-          deletedBy: arrayUnion(myUid)
-        });
-        toast.success('تم حذف الإيميل من بريدك');
-      }
+      await deleteDoc(emailRef);
+      toast.success('تم حذف الإيميل بنجاح 🗑️');
       if (selectedEmail?.id === mail.id) {
         setSelectedEmail(null);
       }
@@ -2454,15 +2451,13 @@ const Dashboard = () => {
                 <UserPlus size={16} />
               </button>
             )}
-            {!isCoordinator && (
-              <button 
-                onClick={() => navigate('/inbox')}
-                className="flex items-center bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition text-xs font-bold gap-1"
-              >
-                <span>WhatsApp Etegah chat</span>
-                <ArrowRight size={14} />
-              </button>
-            )}
+            <button 
+              onClick={() => navigate('/inbox')}
+              className="flex items-center bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition text-xs font-bold gap-1"
+            >
+              <span>WhatsApp Etegah chat</span>
+              <ArrowRight size={14} />
+            </button>
             <button 
               onClick={handleLogout}
               className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 p-1.5 rounded-lg transition text-xs font-bold shadow-sm cursor-pointer"
@@ -2519,15 +2514,13 @@ const Dashboard = () => {
               <UserPlus size={18} className="ml-1.5" /> إضافة موظف
             </button>
           )}
-          {!isCoordinator && (
-            <button 
-              onClick={() => navigate('/inbox')}
-              className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5 cursor-pointer"
-            >
-              <span>WhatsApp Etegah chat</span>
-              <ArrowRight size={18} />
-            </button>
-          )}
+          <button 
+            onClick={() => navigate('/inbox')}
+            className="flex items-center bg-gray-800 text-white px-3.5 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-bold gap-1.5 cursor-pointer"
+          >
+            <span>WhatsApp Etegah chat</span>
+            <ArrowRight size={18} />
+          </button>
 
           {/* Logout Button */}
           <button 
@@ -8271,13 +8264,15 @@ const Dashboard = () => {
                             <span>↩️ رد</span>
                           </button>
 
-                          <button 
-                            onClick={(e) => handleDeleteEmail(selectedEmail, e)}
-                            className="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white p-2 rounded-xl transition cursor-pointer border border-rose-500/30"
-                            title="حذف الرسالة"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {isAdmin && (
+                            <button 
+                              onClick={(e) => handleDeleteEmail(selectedEmail, e)}
+                              className="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white p-2 rounded-xl transition cursor-pointer border border-rose-500/30"
+                              title="حذف الرسالة نهائياً (للإدارة فقط)"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -8452,13 +8447,15 @@ const Dashboard = () => {
                                     <span className="text-[11px] font-mono text-slate-400" dir="ltr">
                                       {mail.createdAt ? formatDate(mail.createdAt).split(' ')[0] : 'الآن'}
                                     </span>
-                                    <button 
-                                      onClick={(e) => handleDeleteEmail(mail, e)}
-                                      className="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition"
-                                      title="حذف"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
+                                    {isAdmin && (
+                                      <button 
+                                        onClick={(e) => handleDeleteEmail(mail, e)}
+                                        className="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition"
+                                        title="حذف الرسالة (للإدارة فقط)"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );

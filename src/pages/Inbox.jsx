@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc, storage } from '../firebase';
+import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc, storage, setDoc } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, Sparkles, Hash, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -18,6 +18,16 @@ export default function Inbox() {
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
+
+  // Internal Employee Groups States
+  const [internalGroups, setInternalGroups] = useState([]);
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isGroupInfoModalOpen, setIsGroupInfoModalOpen] = useState(false);
+  const [chatTabFilter, setChatTabFilter] = useState('all'); // 'all' | 'direct' | 'groups'
+  const [newMemberToAddUid, setNewMemberToAddUid] = useState('');
 
   React.useEffect(() => {
     document.title = 'CRM WhatsApp Etegah';
@@ -47,12 +57,7 @@ export default function Inbox() {
         const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', auth.currentUser.uid)));
         if (!userDoc.empty) {
           const userData = userDoc.docs[0].data();
-          if (userData.jobTitle === 'Coordinator' || userData.jobTitle === 'منسق للإدارة' || userData.role === 'coordinator') {
-            toast.error('غير مصرح لحساب المنسق بدخول محادثات الواتساب');
-            navigate('/dashboard', { replace: true });
-            return;
-          }
-          setCurrentEmpName(userData.name || '');
+          setCurrentEmpName(userData.name || userData.username || '');
         }
       } catch (err) { console.error(err); }
     };
@@ -140,6 +145,24 @@ export default function Inbox() {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState('hide'); // default to 'hide' for Admin on load and return from Dashboard
 
+  const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+  const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
+  const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
+  const isAgent = !isAdmin && !isCoordinator && !isLeader;
+  const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
+  const canCreateGroup = isAdmin || isCoordinator || isLeader;
+
+  // Allowed members when creating or adding to a group based on role
+  const getEligibleMembersForGroup = () => {
+    if (isAdmin || isCoordinator) {
+      return employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid);
+    }
+    if (isLeader) {
+      return myTeamMembers;
+    }
+    return [];
+  };
+
   useEffect(() => {
     if (!currentUser) return;
     const fetchEmployees = async () => {
@@ -150,10 +173,12 @@ export default function Inbox() {
         if (isAdmin) {
           emps.push({
             uid: currentUser.uid,
+            id: currentUser.uid,
             name: '👑 الإدارة',
             email: currentUser.email,
             role: 'admin',
-            jobTitle: 'Admin'
+            jobTitle: 'Admin',
+            leaderUid: ''
           });
         }
 
@@ -162,11 +187,13 @@ export default function Inbox() {
           if (!isAdmin || (d.uid !== currentUser.uid && d.email?.toLowerCase() !== currentUser.email?.toLowerCase())) {
             emps.push({
               uid: d.uid || doc.id,
+              id: d.uid || doc.id,
               name: d.name || d.displayName || d.username || d.email?.split('@')[0] || 'موظف',
               username: d.username || d.name || d.displayName || d.email?.split('@')[0] || 'موظف',
               email: d.email || '',
               role: d.role || 'employee',
-              jobTitle: d.jobTitle || 'موظف'
+              jobTitle: d.jobTitle || 'موظف',
+              leaderUid: d.leaderUid || ''
             });
           }
         });
@@ -176,6 +203,36 @@ export default function Inbox() {
       }
     };
     fetchEmployees();
+  }, [currentUser, isAdmin]);
+
+  // Realtime subscription to Internal Employee Groups
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, 'internal_groups'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const groupsData = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const isMember = 
+          isAdmin || 
+          data.members?.includes(currentUser.uid) || 
+          data.members?.includes(currentUser.email?.toLowerCase()) ||
+          data.members?.includes('admin') ||
+          data.createdByUid === currentUser.uid;
+
+        if (isMember) {
+          groupsData.push({
+            id: docSnap.id,
+            isGroup: true,
+            ...data
+          });
+        }
+      });
+      setInternalGroups(groupsData);
+    }, (err) => {
+      console.error("Error fetching internal groups:", err);
+    });
+    return () => unsubscribe();
   }, [currentUser, isAdmin]);
 
   // Anti-Screenshot & Window Blur Protection for Employees
@@ -494,11 +551,176 @@ export default function Inbox() {
     setActiveChat(chat);
     if (chat.unread > 0) {
       try {
-        const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chat.id);
-        await updateDoc(chatRef, { unread: 0 });
+        if (chat.isGroup) {
+          const groupRef = doc(db, 'internal_groups', chat.id);
+          await updateDoc(groupRef, { unread: 0 });
+        } else {
+          const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chat.id);
+          await updateDoc(chatRef, { unread: 0 });
+        }
       } catch (err) {
         console.error("خطأ في تصفير العداد", err);
       }
+    }
+  };
+
+  // Create New Employee Group
+  const handleCreateGroup = async (e) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) {
+      toast.error('يرجى إدخال اسم الجروب');
+      return;
+    }
+    if (!canCreateGroup) {
+      toast.error('غير مصرح لك بإنشاء جروبات');
+      return;
+    }
+    setIsCreatingGroup(true);
+    try {
+      const creatorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser.email?.split('@')[0] || 'موظف');
+      const creatorRole = isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent';
+
+      // Ensure Admin is always included in members
+      const finalMembers = Array.from(new Set([
+        'admin',
+        currentUser.uid,
+        ...selectedGroupMemberUids
+      ])).filter(Boolean);
+
+      const groupDoc = {
+        name: newGroupName.trim(),
+        isGroup: true,
+        createdByUid: currentUser.uid,
+        createdByName: creatorName,
+        createdByEmail: currentUser.email,
+        createdByRole: creatorRole,
+        members: finalMembers,
+        adminMandatory: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessage: '🎉 تم إنشاء الجروب',
+        lastMessageSender: creatorName,
+        unread: 0
+      };
+
+      const docRef = await addDoc(collection(db, 'internal_groups'), groupDoc);
+
+      // Add welcome system message
+      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+        conversationId: docRef.id,
+        text: `🎉 تم إنشاء الجروب بنجاح بواسطة ${creatorName}`,
+        sender: 'system',
+        senderName: 'النظام',
+        isGroupMessage: true,
+        timestamp: serverTimestamp(),
+        status: 'delivered'
+      });
+
+      toast.success('تم إنشاء جروب الموظفين بنجاح 🚀');
+      setIsCreateGroupModalOpen(false);
+      setNewGroupName('');
+      setSelectedGroupMemberUids([]);
+      setActiveChat({ id: docRef.id, isGroup: true, ...groupDoc });
+    } catch (err) {
+      console.error(err);
+      toast.error('خطأ في إنشاء الجروب: ' + err.message);
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
+
+  // Add Member to Active Group
+  const handleAddMemberToGroup = async () => {
+    if (!newMemberToAddUid || !activeChat?.isGroup) return;
+    const empToAdd = employees.find(e => e.uid === newMemberToAddUid);
+    if (!empToAdd) return;
+
+    if (isLeader && !myTeamMembers.some(m => m.uid === newMemberToAddUid)) {
+      toast.error('بصفتك ليدر، يمكنك فقط إضافة أعضاء فريقك المعينين تحتك 🔒');
+      return;
+    }
+
+    try {
+      const updatedMembers = Array.from(new Set([...(activeChat.members || []), newMemberToAddUid, 'admin']));
+      await updateDoc(doc(db, 'internal_groups', activeChat.id), {
+        members: updatedMembers,
+        updatedAt: serverTimestamp()
+      });
+
+      const actorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser.email?.split('@')[0] || 'موظف');
+      const addedName = empToAdd.name || empToAdd.username || empToAdd.email;
+
+      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+        conversationId: activeChat.id,
+        text: `➕ قام ${actorName} بإضافة (${addedName}) إلى الجروب`,
+        sender: 'system',
+        senderName: 'النظام',
+        isGroupMessage: true,
+        timestamp: serverTimestamp(),
+        status: 'delivered'
+      });
+
+      setActiveChat(prev => ({ ...prev, members: updatedMembers }));
+      setNewMemberToAddUid('');
+      toast.success(`تمت إضافة ${addedName} بنجاح`);
+    } catch (err) {
+      console.error(err);
+      toast.error('خطأ في إضافة العضو');
+    }
+  };
+
+  // Remove Member from Active Group
+  const handleRemoveMemberFromGroup = async (memberUid) => {
+    if (!activeChat?.isGroup) return;
+
+    // Check if target is admin
+    const isTargetAdmin = memberUid === 'admin' || employees.some(e => e.uid === memberUid && (e.role === 'admin' || adminEmails.includes(e.email?.toLowerCase())));
+    if (isTargetAdmin) {
+      toast.error('لا يمكن إخراج الإدارة من الجروب إطلاقاً 🔒');
+      return;
+    }
+
+    if (isLeader && !myTeamMembers.some(m => m.uid === memberUid)) {
+      toast.error('بصفتك ليدر، يمكنك فقط إخراج أعضاء فريقك المعينين تحتك 🔒');
+      return;
+    }
+
+    if (isAgent) {
+      toast.error('ليس لديك صلاحية لإخراج الأعضاء');
+      return;
+    }
+
+    const targetEmp = employees.find(e => e.uid === memberUid);
+    const targetName = targetEmp ? (targetEmp.name || targetEmp.username) : 'الموظف';
+
+    if (!window.confirm(`هل أنت متأكد من إخراج (${targetName}) من الجروب؟`)) return;
+
+    try {
+      const updatedMembers = (activeChat.members || []).filter(u => u !== memberUid);
+      if (!updatedMembers.includes('admin')) updatedMembers.push('admin');
+
+      await updateDoc(doc(db, 'internal_groups', activeChat.id), {
+        members: updatedMembers,
+        updatedAt: serverTimestamp()
+      });
+
+      const actorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser.email?.split('@')[0] || 'موظف');
+
+      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+        conversationId: activeChat.id,
+        text: `❌ قام ${actorName} بإخراج (${targetName}) من الجروب`,
+        sender: 'system',
+        senderName: 'النظام',
+        isGroupMessage: true,
+        timestamp: serverTimestamp(),
+        status: 'delivered'
+      });
+
+      setActiveChat(prev => ({ ...prev, members: updatedMembers }));
+      toast.success(`تم إخراج ${targetName} من الجروب`);
+    } catch (err) {
+      console.error(err);
+      toast.error('خطأ في إخراج العضو');
     }
   };
 
@@ -538,6 +760,48 @@ export default function Inbox() {
         return;
       }
       setUploadingAttachment(false);
+    }
+
+    // Group Message Handling (Internal WhatsApp Group)
+    if (activeChat.isGroup) {
+      try {
+        const senderDisplayName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser?.email?.split('@')[0] || 'موظف');
+        const senderRoleName = isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent';
+
+        const msgData = {
+          conversationId: activeChat.id,
+          text: msgText,
+          sender: currentUser.uid,
+          senderUid: currentUser.uid,
+          senderName: senderDisplayName,
+          senderEmail: currentUser.email,
+          senderRole: senderRoleName,
+          isGroupMessage: true,
+          timestamp: serverTimestamp(),
+          status: 'delivered',
+          replyTo: replyingToMessage || null
+        };
+
+        if (mediaUrl) {
+          msgData.mediaUrl = mediaUrl;
+          msgData.fileType = fileType;
+          msgData.fileName = fileName;
+        }
+
+        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), msgData);
+
+        await updateDoc(doc(db, 'internal_groups', activeChat.id), {
+          lastMessage: msgText || (fileName ? `📎 ${fileName}` : 'مرفق'),
+          lastMessageSender: senderDisplayName,
+          updatedAt: serverTimestamp()
+        });
+
+        setReplyingToMessage(null);
+      } catch (err) {
+        console.error("خطأ في إرسال رسالة الجروب:", err);
+        toast.error('خطأ في إرسال الرسالة: ' + err.message);
+      }
+      return;
     }
 
     try {
@@ -1019,11 +1283,37 @@ export default function Inbox() {
     }
   };
 
+  const combinedChats = React.useMemo(() => {
+    const all = [...chats, ...internalGroups];
+    all.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      const timeA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+      const timeB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+      return timeB - timeA;
+    });
+    return all;
+  }, [chats, internalGroups]);
+
   const isChatUnreplied = (chat) => {
     return chat.unread > 0 || chat.status === 'unassigned' || chat.lastMessageSender === 'user' || chat.lastSender === 'user';
   };
 
-  const filteredChats = chats.filter(chat => {
+  const filteredChats = combinedChats.filter(chat => {
+    // Tab filter
+    if (chatTabFilter === 'direct' && chat.isGroup) return false;
+    if (chatTabFilter === 'groups' && !chat.isGroup) return false;
+
+    if (chat.isGroup) {
+      if (sidebarSearch.trim()) {
+        const term = sidebarSearch.toLowerCase();
+        const matchName = chat.name?.toLowerCase().includes(term);
+        const matchCreator = chat.createdByName?.toLowerCase().includes(term);
+        if (!matchName && !matchCreator) return false;
+      }
+      return true;
+    }
+
     let matchEmployee = true;
     if (isAdmin) {
       if (selectedEmployee === 'hide') matchEmployee = false;
@@ -1154,6 +1444,15 @@ export default function Inbox() {
           </div>
           
           <div className="flex items-center space-x-1.5 space-x-reverse shrink-0">
+            {canCreateGroup && (
+              <button 
+                onClick={() => setIsCreateGroupModalOpen(true)} 
+                className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white shadow-[0_4px_12px_rgba(168,85,247,0.5)] border border-purple-300/60 hover:from-purple-500 hover:to-pink-400 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                title="إنشاء جروب واتساب للموظفين"
+              >
+                <Users size={16} />
+              </button>
+            )}
             <button 
               onClick={() => setIsAddModalOpen(true)} 
               className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-[0_4px_12px_rgba(16,185,129,0.5)] border border-emerald-300/60 hover:from-emerald-500 hover:to-cyan-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
@@ -1186,6 +1485,31 @@ export default function Inbox() {
               <span className="font-extrabold text-xs tracking-wide">Leads CRM 🎯</span>
             </button>
           </div>
+        </div>
+
+        {/* التبديل بين الكل / العملاء / جروبات الموظفين */}
+        <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs">
+          <button 
+            onClick={() => setChatTabFilter('all')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <span>💬 الكل</span>
+            <span className="text-[10px] opacity-75">({combinedChats.length})</span>
+          </button>
+          <button 
+            onClick={() => setChatTabFilter('direct')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <span>👤 العملاء</span>
+            <span className="text-[10px] opacity-75">({chats.length})</span>
+          </button>
+          <button 
+            onClick={() => setChatTabFilter('groups')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <span>👥 الجروبات</span>
+            <span className="text-[10px] opacity-75">({internalGroups.length})</span>
+          </button>
         </div>
 
         {isAdmin && (
@@ -1232,7 +1556,7 @@ export default function Inbox() {
           <div className="relative">
             <input 
               type="text" 
-              placeholder="ابحث عن اسم أو رقم العميل..." 
+              placeholder="ابحث عن اسم، رقم، أو جروب..." 
               value={sidebarSearch}
               onChange={(e) => setSidebarSearch(e.target.value)}
               className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/10 rounded-full py-2 pr-9 pl-4 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/30 transition-all"
@@ -1241,7 +1565,7 @@ export default function Inbox() {
           </div>
         </div>
 
-        {/* قائمة الشات الجانبية */}
+        {/* قائمة الشات والجروبات الجانبية */}
         <div className="flex-1 overflow-y-auto divide-y divide-white/5 relative z-10">
           {filteredChats.map((chat) => {
             const isUnassignedOrUnread = chat.status === 'unassigned' || chat.unread > 0;
@@ -1251,6 +1575,48 @@ export default function Inbox() {
                 ? 'bg-red-950/50 border-r-4 border-r-red-500 hover:bg-red-900/60 shadow-inner' 
                 : 'hover:bg-white/5 border-r-4 border-r-transparent';
 
+            // Group Card Item
+            if (chat.isGroup) {
+              return (
+                <div 
+                  key={chat.id}
+                  onClick={() => handleChatClick(chat)}
+                  className={`p-4 cursor-pointer transition flex items-center justify-between ${itemBg}`}
+                >
+                  <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
+                    <div className="relative shrink-0">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white border border-purple-400/40">
+                        <Users size={20} />
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-white text-sm flex items-center gap-1.5 truncate">
+                        <span className="text-purple-300">👥</span>
+                        <span className="truncate">{chat.name}</span>
+                        <span className="bg-purple-900/60 text-purple-200 border border-purple-400/40 text-[10px] px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                          {chat.members?.length || 1} عضو
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-purple-300/80 truncate">
+                        أنشئ بواسطة: {chat.createdByName}
+                      </p>
+                      <p className="text-xs truncate mt-1 text-gray-300">
+                        <span className="text-cyan-400 font-bold">{chat.lastMessageSender ? `${chat.lastMessageSender}: ` : ''}</span>
+                        {chat.lastMessage || 'بدء المحادثة في الجروب...'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left flex flex-col items-end shrink-0 ml-2">
+                    <span className="text-[10px] text-gray-400">{formatTime(chat.updatedAt)}</span>
+                    <span className="mt-1 bg-purple-950/60 text-purple-300 border border-purple-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold">
+                      جروب موظفين
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Regular Customer Card Item
             return (
               <div 
                 key={chat.id}
@@ -1309,7 +1675,7 @@ export default function Inbox() {
           })}
           {filteredChats.length === 0 && (
             <div className="p-8 text-center text-gray-400 text-xs">
-              لا توجد محادثات مطابقة للفلتر المختار.
+              لا توجد محادثات أو جروبات مطابقة للفلتر المختار.
             </div>
           )}
         </div>
@@ -1324,113 +1690,155 @@ export default function Inbox() {
           <>
             {/* هيدر الشات */}
             <div onClick={(e) => e.stopPropagation()} className="bg-black/40 backdrop-blur-md p-4 border-b border-white/10 flex justify-between items-center shadow-md">
-              <div className="flex items-center space-x-3 space-x-reverse">
+              <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
                 <button 
                   onClick={() => setActiveChat(null)} 
-                  className="md:hidden text-gray-300 hover:text-white p-1 ml-1 transition"
+                  className="md:hidden text-gray-300 hover:text-white p-1 ml-1 transition shrink-0"
                   title="رجوع للقائمة"
                 >
                   <ChevronRight size={24} />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-md">
-                  {activeChat.name ? activeChat.name.charAt(0) : <User size={20} />}
-                </div>
-                <div>
-                  <h2 className="font-bold text-white text-base">{activeChat.name || 'عميل بدون اسم'}</h2>
-                  <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    {/* شارة مصدر العميل - تظهر للجميع */}
-                    {activeChat.source === 'website' ? (
-                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        🌐 عميل موقع
-                      </span>
-                    ) : activeChat.source === 'excel_import' ? (
-                      <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        📊 حملة إكسيل
-                      </span>
-                    ) : activeChat.source === 'manual' ? (
-                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        ✋ مضاف يدوياً
-                      </span>
-                    ) : (
-                      <span className="bg-gray-500/20 text-gray-300 border border-gray-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        👤 عميل
-                      </span>
-                    )}
-                    {/* شارة رقم الإرسال */}
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                      (activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website'
-                        ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
-                        : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                    }`}>
-                      📞 {(activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website' ? 'رقم الموقع' : 'رقم الحملات'}
-                    </span>
+                
+                {activeChat.isGroup ? (
+                  /* Group Header Avatar & Title */
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center text-white font-bold shadow-md shrink-0 border border-purple-400/40">
+                      <Users size={22} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-bold text-white text-base flex items-center gap-1.5 truncate">
+                        <span className="text-purple-300">👥</span>
+                        <span className="truncate">{activeChat.name}</span>
+                      </h2>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-purple-200/80 flex-wrap">
+                        <span className="bg-purple-900/60 border border-purple-400/40 text-[10px] px-2 py-0.2 rounded-full font-bold">
+                          {activeChat.members?.length || 1} أعضاء
+                        </span>
+                        <span className="text-[11px] text-gray-300">
+                          أنشئ بواسطة: <span className="font-bold text-cyan-300">{activeChat.createdByName}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Customer Header Avatar & Title */
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-md shrink-0">
+                      {activeChat.name ? activeChat.name.charAt(0) : <User size={20} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-bold text-white text-base truncate">{activeChat.name || 'عميل بدون اسم'}</h2>
+                      <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {/* شارة مصدر العميل */}
+                        {activeChat.source === 'website' ? (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            🌐 عميل موقع
+                          </span>
+                        ) : activeChat.source === 'excel_import' ? (
+                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            📊 حملة إكسيل
+                          </span>
+                        ) : activeChat.source === 'manual' ? (
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            ✋ مضاف يدوياً
+                          </span>
+                        ) : (
+                          <span className="bg-gray-500/20 text-gray-300 border border-gray-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            👤 عميل
+                          </span>
+                        )}
+                        {/* شارة رقم الإرسال */}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                          (activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website'
+                            ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                            : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                        }`}>
+                          📞 {(activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website' ? 'رقم الموقع' : 'رقم الحملات'}
+                        </span>
 
-                    {/* CRM Status Dropdown Selector */}
-                    <select
-                      value={activeChat.crmStatus || 'unassigned'}
-                      onChange={async (e) => {
-                        const newCrmStatus = e.target.value;
-                        try {
-                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
-                          setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
-                          toast.success('تم تحديث حالة العميل');
-                        } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
-                      }}
-                      className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
-                    >
-                      <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ في الانتظار</option>
-                      <option value="assigned" className="bg-slate-900 text-blue-300">📋 تم التوجيه</option>
-                      <option value="interested" className="bg-slate-900 text-emerald-300">🌟 مهتم</option>
-                      <option value="not_interested" className="bg-slate-900 text-rose-300">❌ غير مهتم</option>
-                      <option value="no_answer" className="bg-slate-900 text-amber-300">📵 لم يرد</option>
-                      <option value="lost" className="bg-slate-900 text-red-300">🥀 مفقود</option>
-                      <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 تم الاشتراك</option>
-                      <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 بدأ تجربة بالفعل</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5">
-                {/* WhatsApp Direct Web Link */}
-                <button
-                  onClick={() => {
-                    const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
-                    window.open(`https://wa.me/${phoneNum}`, '_blank');
-                  }}
-                  className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                  title="فتح محادثة الواتساب المباشرة"
-                >
-                  <MessageCircle size={14} />
-                  <span className="hidden sm:inline">فتح الواتساب</span>
-                </button>
-
-                {/* تحويل رقم الإرسال - للأدمن فقط */}
-                {isAdmin && (
-                  <select
-                    value={activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')}
-                    onChange={async (e) => {
-                      const newSender = e.target.value;
-                      try {
-                        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { assignedSender: newSender });
-                        setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
-                        toast.success(`تم تحديد رقم الإرسال: ${newSender === 'website' ? 'رقم الموقع' : 'رقم الحملات'}`);
-                      } catch (err) { toast.error('خطأ في تحديث رقم الإرسال'); }
-                    }}
-                    className="bg-black/40 text-white border border-white/20 rounded-lg px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer"
-                    title="تحديد رقم الإرسال (للأدمن فقط)"
-                  >
-                    <option value="website" className="bg-slate-900 text-teal-300">📞 رقم الموقع</option>
-                    <option value="campaigns" className="bg-slate-900 text-purple-300">📣 رقم الحملات</option>
-                  </select>
+                        {/* CRM Status Dropdown Selector */}
+                        <select
+                          value={activeChat.crmStatus || 'unassigned'}
+                          onChange={async (e) => {
+                            const newCrmStatus = e.target.value;
+                            try {
+                              await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
+                              setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
+                              toast.success('تم تحديث حالة العميل');
+                            } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
+                          }}
+                          className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ في الانتظار</option>
+                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 تم التوجيه</option>
+                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 مهتم</option>
+                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ غير مهتم</option>
+                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 لم يرد</option>
+                          <option value="lost" className="bg-slate-900 text-red-300">🥀 مفقود</option>
+                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 تم الاشتراك</option>
+                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 بدأ تجربة بالفعل</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
                 )}
-                <button 
-                  onClick={() => setIsTemplateModalOpen(true)}
-                  className="bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse"
-                >
-                  <Send size={14} />
-                  <span>إرسال قالب</span>
-                </button>
+              </div>
+
+              {/* Right Side Header Controls */}
+              <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
+                {activeChat.isGroup ? (
+                  /* Group Action Buttons */
+                  <button 
+                    onClick={() => setIsGroupInfoModalOpen(true)}
+                    className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white border border-purple-400/50 px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md"
+                    title="عرض وإدارة أعضاء الجروب"
+                  >
+                    <Users size={15} />
+                    <span>إدارة الأعضاء ({activeChat.members?.length || 1})</span>
+                  </button>
+                ) : (
+                  /* Customer Action Buttons */
+                  <>
+                    <button
+                      onClick={() => {
+                        const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
+                        window.open(`https://wa.me/${phoneNum}`, '_blank');
+                      }}
+                      className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                      title="فتح محادثة الواتساب المباشرة"
+                    >
+                      <MessageCircle size={14} />
+                      <span className="hidden sm:inline">فتح الواتساب</span>
+                    </button>
+
+                    {isAdmin && (
+                      <select
+                        value={activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')}
+                        onChange={async (e) => {
+                          const newSender = e.target.value;
+                          try {
+                            await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { assignedSender: newSender });
+                            setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
+                            toast.success(`تم تحديد رقم الإرسال: ${newSender === 'website' ? 'رقم الموقع' : 'رقم الحملات'}`);
+                          } catch (err) { toast.error('خطأ في تحديث رقم الإرسال'); }
+                        }}
+                        className="bg-black/40 text-white border border-white/20 rounded-lg px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer"
+                        title="تحديد رقم الإرسال (للأدمن فقط)"
+                      >
+                        <option value="website" className="bg-slate-900 text-teal-300">📞 رقم الموقع</option>
+                        <option value="campaigns" className="bg-slate-900 text-purple-300">📣 رقم الحملات</option>
+                      </select>
+                    )}
+                    <button 
+                      onClick={() => setIsTemplateModalOpen(true)}
+                      className="bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse"
+                    >
+                      <Send size={14} />
+                      <span>إرسال قالب</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1450,7 +1858,7 @@ export default function Inbox() {
             >
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-                  لا توجد رسائل سابقة. ابدأ المحادثة الآن!
+                  {activeChat.isGroup ? 'لا توجد رسائل في هذا الجروب بعد. ابدأ المحادثة مع فريق العمل!' : 'لا توجد رسائل سابقة. ابدأ المحادثة الآن!'}
                 </div>
               ) : (
                 messages.map((msg, index) => {
@@ -1464,6 +1872,32 @@ export default function Inbox() {
                     showDateSep = true;
                   }
 
+                  // System notices in group or chat
+                  if (msg.sender === 'system') {
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {showDateSep && (
+                          <div className="flex items-center gap-3 my-4 px-2">
+                            <div className="flex-1 h-px bg-white/20"></div>
+                            <span className="text-xs text-gray-400 bg-black/20 px-3 py-1 rounded-full whitespace-nowrap">{dateLabel}</span>
+                            <div className="flex-1 h-px bg-white/20"></div>
+                          </div>
+                        )}
+                        <div className="flex justify-center my-2">
+                          <div className="bg-slate-800/80 text-cyan-300 text-xs px-3.5 py-1 rounded-full border border-cyan-500/30 flex items-center gap-1.5 shadow-md font-medium">
+                            <span>📢</span>
+                            <span>{msg.text}</span>
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  }
+
+                  const isGroupChat = activeChat.isGroup || msg.isGroupMessage;
+                  const isSentByMe = isGroupChat 
+                    ? (msg.senderUid === currentUser?.uid || msg.sender === currentUser?.uid || msg.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase())
+                    : (msg.sender === 'agent');
+
                   return (
                   <React.Fragment key={msg.id}>
                     {showDateSep && (
@@ -1474,24 +1908,47 @@ export default function Inbox() {
                       </div>
                     )}
                     <div 
-                      className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} group mb-2 cursor-default`}
+                      className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'} group mb-2 cursor-default`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                    <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${msg.sender === 'agent' ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
+                    <div className={`max-w-[75%] sm:max-w-[70%] rounded-2xl p-3 shadow-md relative ${isSentByMe ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
                       <div className="flex justify-between items-start">
                         <div className="ml-6 flex-1">
-                          {msg.sender === 'agent' && (
-                            <div className="mb-2 flex items-center gap-1.5">
-                              {adminEmails.includes(msg.senderEmail?.toLowerCase()) ? (
-                                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-yellow-200 flex items-center gap-1">
-                                  👑 أدمن منصة اتجاه التحليل الذكي
+                          {/* Sender Badges */}
+                          {isGroupChat ? (
+                            <div className="mb-1.5 flex items-center gap-1.5">
+                              {adminEmails.includes(msg.senderEmail?.toLowerCase()) || msg.senderRole === 'admin' ? (
+                                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm border border-yellow-300 flex items-center gap-1">
+                                  👑 الإدارة
+                                </span>
+                              ) : msg.senderRole === 'coordinator' || msg.senderRole === 'منسق للإدارة' ? (
+                                <span className="bg-cyan-100 text-cyan-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-cyan-300 flex items-center gap-1">
+                                  📋 {msg.senderName || msg.senderEmail?.split('@')[0]} (منسق)
+                                </span>
+                              ) : msg.senderRole === 'leader' || msg.senderRole === 'ليدر' ? (
+                                <span className="bg-purple-100 text-purple-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-purple-300 flex items-center gap-1">
+                                  👑 {msg.senderName || msg.senderEmail?.split('@')[0]} (Leader)
                                 </span>
                               ) : (
-                                <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
-                                  👤 {getEmployeeDisplayName(msg.senderEmail)}
+                                <span className="bg-blue-100 text-blue-900 font-bold text-[10px] px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                  👤 {msg.senderName || getEmployeeDisplayName(msg.senderEmail)}
                                 </span>
                               )}
                             </div>
+                          ) : (
+                            msg.sender === 'agent' && (
+                              <div className="mb-2 flex items-center gap-1.5">
+                                {adminEmails.includes(msg.senderEmail?.toLowerCase()) ? (
+                                  <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-yellow-200 flex items-center gap-1">
+                                    👑 أدمن منصة اتجاه التحليل الذكي
+                                  </span>
+                                ) : (
+                                  <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                    👤 {getEmployeeDisplayName(msg.senderEmail)}
+                                  </span>
+                                )}
+                              </div>
+                            )
                           )}
                           {msg.mediaUrl && (
                             <div className="mb-2">
@@ -1975,6 +2432,325 @@ export default function Inbox() {
 
             <div className="flex justify-end pt-3 shrink-0 border-t border-white/10 mt-2">
               <button onClick={() => setIsForwardModalOpen(false)} className="px-4 py-1.5 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: إنشاء جروب واتساب جديد للموظفين */}
+      {isCreateGroupModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-purple-500/40 rounded-3xl p-6 w-full max-w-lg shadow-[0_10px_40px_rgba(147,51,234,0.3)] text-right max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10 shrink-0">
+              <h3 className="font-black text-white text-lg flex items-center gap-2">
+                <Users className="text-purple-400" size={22} />
+                <span>👥 إنشاء جروب واتساب جديد للموظفين</span>
+              </h3>
+              <button 
+                onClick={() => setIsCreateGroupModalOpen(false)} 
+                className="text-gray-400 hover:text-white transition p-1 rounded-lg hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGroup} className="space-y-4 flex-1 flex flex-col overflow-hidden">
+              {/* Group Name Input */}
+              <div className="shrink-0">
+                <label className="block text-xs font-bold text-purple-200 mb-1.5">
+                  اسم الجروب: <span className="text-rose-400">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="مثال: جروب فريق المبيعات والتداول، مناقشات التيم..." 
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="w-full bg-slate-950 text-white placeholder-gray-500 border border-purple-500/40 rounded-xl py-2.5 px-3.5 text-xs font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {/* Members Selection List */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-2 shrink-0">
+                  <label className="text-xs font-bold text-purple-200">
+                    أعضاء الجروب المتاحين لك:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      type="button" 
+                      onClick={() => setSelectedGroupMemberUids(getEligibleMembersForGroup().map(m => m.uid))}
+                      className="text-[10px] text-cyan-400 hover:underline font-bold"
+                    >
+                      تحديد الكل
+                    </button>
+                    <span className="text-gray-500 text-xs">|</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setSelectedGroupMemberUids([])}
+                      className="text-[10px] text-rose-400 hover:underline font-bold"
+                    >
+                      إلغاء التحديد
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto bg-slate-950/80 p-3 rounded-2xl border border-purple-500/20 space-y-2">
+                  {/* Mandatory Admin Item */}
+                  <div className="p-2.5 bg-gradient-to-r from-amber-950/40 to-yellow-950/30 rounded-xl border border-amber-500/40 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <input 
+                        type="checkbox" 
+                        checked={true} 
+                        disabled={true} 
+                        className="w-4 h-4 rounded text-amber-500 cursor-not-allowed opacity-80" 
+                      />
+                      <div>
+                        <span className="text-xs font-black text-amber-300 flex items-center gap-1">
+                          <span>👑 إدارة النظام (الإدارة)</span>
+                          <Crown size={12} className="text-amber-400" />
+                        </span>
+                        <span className="text-[10px] text-amber-400/80 block font-semibold">
+                          (عضو إجباري دائم في كل الجروبات 🔒)
+                        </span>
+                      </div>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      محمي
+                    </span>
+                  </div>
+
+                  {/* Eligible Team Members / Staff */}
+                  {getEligibleMembersForGroup().map((emp) => {
+                    const isChecked = selectedGroupMemberUids.includes(emp.uid);
+                    const title = formatJobTitle(emp.jobTitle);
+
+                    return (
+                      <div 
+                        key={emp.uid}
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedGroupMemberUids(prev => prev.filter(u => u !== emp.uid));
+                          } else {
+                            setSelectedGroupMemberUids(prev => [...prev, emp.uid]);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${isChecked ? 'bg-purple-950/50 border-purple-400' : 'bg-slate-900 border-white/5 hover:border-purple-500/30'}`}
+                      >
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked} 
+                            onChange={() => {}} 
+                            className="w-4 h-4 rounded text-purple-600 focus:ring-0 cursor-pointer" 
+                          />
+                          <div className="overflow-hidden">
+                            <span className="text-xs font-bold text-white block truncate">
+                              {emp.name || emp.username}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
+                              {emp.email}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${
+                          title === 'Leader' 
+                            ? 'bg-purple-900/60 text-purple-200 border-purple-400/40' 
+                            : emp.jobTitle === 'Coordinator' || emp.role === 'coordinator'
+                              ? 'bg-cyan-900/60 text-cyan-200 border-cyan-400/40'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                        }`}>
+                          {title === 'Leader' ? '👑 Leader' : (emp.jobTitle === 'Coordinator' ? '📋 منسق' : '👤 Agent')}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {getEligibleMembersForGroup().length === 0 && (
+                    <div className="text-center py-6 text-xs text-gray-400">
+                      {isLeader ? 'لا يوجد أعضاء معينين تحت فريقك حالياً.' : 'لا يوجد موظفين متاحين.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 pt-3 shrink-0 border-t border-white/10">
+                <button 
+                  type="button" 
+                  onClick={() => setIsCreateGroupModalOpen(false)} 
+                  className="px-4 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition"
+                >
+                  إلغاء
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isCreatingGroup || !newGroupName.trim()} 
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-black shadow-lg disabled:opacity-50 flex items-center gap-1.5 transition active:scale-95"
+                >
+                  <Users size={15} />
+                  <span>{isCreatingGroup ? 'جاري إنشاء الجروب...' : '🚀 تأكيد وإنشاء الجروب'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: إدارة وتفاصيل أعضاء الجروب */}
+      {isGroupInfoModalOpen && activeChat?.isGroup && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-purple-500/40 rounded-3xl p-6 w-full max-w-lg shadow-[0_10px_40px_rgba(147,51,234,0.3)] text-right max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center text-white font-bold shadow-md">
+                  <Users size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base truncate max-w-[280px]">
+                    👥 {activeChat.name}
+                  </h3>
+                  <span className="text-[11px] text-purple-300 font-medium block">
+                    أنشئ بواسطة: {activeChat.createdByName} • {activeChat.members?.length || 1} أعضاء
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsGroupInfoModalOpen(false)} 
+                className="text-gray-400 hover:text-white transition p-1 rounded-lg hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col overflow-hidden space-y-4">
+              {/* Add New Member Section (for Admin, Coordinator, Leader) */}
+              {canCreateGroup && (
+                <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-purple-500/20 shrink-0 space-y-2">
+                  <label className="block text-xs font-bold text-purple-200">
+                    ➕ إضافة عضو جديد للجروب:
+                  </label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={newMemberToAddUid}
+                      onChange={(e) => setNewMemberToAddUid(e.target.value)}
+                      className="flex-1 bg-slate-900 text-white border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-cyan-400"
+                    >
+                      <option value="">-- اختر موظفاً لإضافته --</option>
+                      {getEligibleMembersForGroup()
+                        .filter(emp => !activeChat.members?.includes(emp.uid))
+                        .map(emp => (
+                          <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                            {emp.name || emp.username} ({formatJobTitle(emp.jobTitle)})
+                          </option>
+                        ))}
+                    </select>
+                    <button 
+                      type="button" 
+                      onClick={handleAddMemberToGroup}
+                      disabled={!newMemberToAddUid}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-50 shrink-0 shadow-md"
+                    >
+                      إضافة
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Current Members List */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <span className="text-xs font-bold text-purple-200 mb-2 shrink-0">
+                  قائمة الأعضاء الحاليين ({activeChat.members?.length || 1}):
+                </span>
+
+                <div className="flex-1 overflow-y-auto bg-slate-950/60 p-3 rounded-2xl border border-white/10 space-y-2">
+                  {/* Mandatory Admin Display */}
+                  <div className="p-2.5 bg-gradient-to-r from-amber-950/40 to-yellow-950/30 rounded-xl border border-amber-500/40 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
+                        👑
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-amber-300 block">
+                          إدارة النظام (الإدارة)
+                        </span>
+                        <span className="text-[10px] text-amber-400/80 font-mono">
+                          admin@etegah.com
+                        </span>
+                      </div>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      محمي 🔒
+                    </span>
+                  </div>
+
+                  {/* Other Group Members */}
+                  {(activeChat.members || []).map((memberUid) => {
+                    if (memberUid === 'admin') return null;
+                    const emp = employees.find(e => e.uid === memberUid);
+                    if (emp?.role === 'admin' || adminEmails.includes(emp?.email?.toLowerCase())) return null;
+
+                    const title = formatJobTitle(emp?.jobTitle);
+                    const canRemoveThisMember = 
+                      isAdmin || 
+                      isCoordinator || 
+                      (isLeader && myTeamMembers.some(m => m.uid === memberUid));
+
+                    return (
+                      <div 
+                        key={memberUid}
+                        className="p-2.5 bg-slate-900 rounded-xl border border-white/5 flex items-center justify-between hover:border-purple-500/20 transition"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <div className="w-8 h-8 rounded-full bg-purple-900/60 text-purple-200 flex items-center justify-center font-bold text-xs shrink-0">
+                            {emp ? (emp.name ? emp.name.charAt(0) : '👤') : '👤'}
+                          </div>
+                          <div className="overflow-hidden">
+                            <span className="text-xs font-bold text-white block truncate">
+                              {emp?.name || emp?.username || 'موظف'}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
+                              {emp?.email || memberUid}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-800 text-slate-300 border-slate-700">
+                            {title === 'Leader' ? '👑 Leader' : (emp?.jobTitle === 'Coordinator' ? '📋 منسق' : '👤 Agent')}
+                          </span>
+
+                          {canRemoveThisMember && (
+                            <button 
+                              type="button" 
+                              onClick={() => handleRemoveMemberFromGroup(memberUid)}
+                              className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 p-1.5 rounded-lg transition text-[11px] font-bold flex items-center gap-1 border border-rose-500/20"
+                              title="إخراج هذا العضو من الجروب"
+                            >
+                              <UserMinus size={13} />
+                              <span className="hidden sm:inline">إخراج</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end pt-3 shrink-0 border-t border-white/10">
+                <button 
+                  type="button" 
+                  onClick={() => setIsGroupInfoModalOpen(false)} 
+                  className="px-5 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition"
+                >
+                  إغلاق
+                </button>
+              </div>
             </div>
           </div>
         </div>
