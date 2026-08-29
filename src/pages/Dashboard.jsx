@@ -5344,33 +5344,24 @@ const Dashboard = () => {
               {/* Source Pool Selection */}
               <div className="mb-4">
                 <label className="block text-xs font-bold text-gray-700 mb-2">اختر فئة العملاء المراد توزيعهم:</label>
-                <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                <div className={`grid ${selectedLeadsCrm.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-2 text-xs font-bold`}>
                   <button 
                     type="button"
                     onClick={() => setAssignSourcePool('all')}
                     className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${assignSourcePool === 'all' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
                   >
                     <span>🎯 جميع Leads CRM</span>
-                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px]">{leadsCrm.length}</span>
-                  </button>
-
-                  <button 
-                    type="button"
-                    onClick={() => setAssignSourcePool('unassigned')}
-                    className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${assignSourcePool === 'unassigned' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                  >
-                    <span>⏳ غير المعينين (في الانتظار)</span>
-                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px]">{leadsCrm.filter(c => c.status === 'unassigned' || !c.assignedTo).length}</span>
+                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-black">{leadsCrm.length.toLocaleString()}</span>
                   </button>
 
                   {selectedLeadsCrm.length > 0 && (
                     <button 
                       type="button"
                       onClick={() => setAssignSourcePool('selected')}
-                      className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between col-span-2 ${assignSourcePool === 'selected' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
+                      className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${assignSourcePool === 'selected' ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
                     >
                       <span>✅ العملاء المحددين يدويًا بالصح</span>
-                      <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px]">{selectedLeadsCrm.length}</span>
+                      <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-black">{selectedLeadsCrm.length.toLocaleString()}</span>
                     </button>
                   )}
                 </div>
