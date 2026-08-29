@@ -418,9 +418,12 @@ export default function Inbox() {
     }
   };
 
-  // جلب المحادثات الخاصة بالعملاء
+  // جلب المحادثات الخاصة بالعملاء (محجوبة بالكامل عن حساب المنسق)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isCoordinator) {
+      setChats([]);
+      return;
+    }
 
     // Query all customer documents so no composite index is needed and no chats are lost for employees
     const q = query(collection(db, 'بيانات_تسجيل_العملاء'));
@@ -484,7 +487,14 @@ export default function Inbox() {
     });
 
     return () => unsubscribe();
-  }, [currentUser, isAdmin, location.state]);
+  }, [currentUser, isAdmin, isCoordinator, location.state]);
+
+  // حماية إضافية لحساب المنسق: إغلاق أي شات ليس جروب فوراً
+  useEffect(() => {
+    if (isCoordinator && activeChat && !activeChat.isGroup) {
+      setActiveChat(null);
+    }
+  }, [isCoordinator, activeChat]);
 
   // جلب الرسائل الخاصة بالمحادثة النشطة
   useEffect(() => {
@@ -548,6 +558,10 @@ export default function Inbox() {
   };
 
   const handleChatClick = async (chat) => {
+    if (isCoordinator && !chat.isGroup) {
+      toast.error('غير مصرح لحساب المنسق بالدخول لمحادثات العملاء 🔒');
+      return;
+    }
     setActiveChat(chat);
     if (chat.unread > 0) {
       try {
@@ -1284,6 +1298,15 @@ export default function Inbox() {
   };
 
   const combinedChats = React.useMemo(() => {
+    if (isCoordinator) {
+      const all = [...internalGroups];
+      all.sort((a, b) => {
+        const timeA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+        const timeB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        return timeB - timeA;
+      });
+      return all;
+    }
     const all = [...chats, ...internalGroups];
     all.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
@@ -1293,13 +1316,25 @@ export default function Inbox() {
       return timeB - timeA;
     });
     return all;
-  }, [chats, internalGroups]);
+  }, [chats, internalGroups, isCoordinator]);
 
   const isChatUnreplied = (chat) => {
     return chat.unread > 0 || chat.status === 'unassigned' || chat.lastMessageSender === 'user' || chat.lastSender === 'user';
   };
 
   const filteredChats = combinedChats.filter(chat => {
+    // For Coordinator: Strictly allow only groups
+    if (isCoordinator) {
+      if (!chat.isGroup) return false;
+      if (sidebarSearch.trim()) {
+        const term = sidebarSearch.toLowerCase();
+        const matchName = chat.name?.toLowerCase().includes(term);
+        const matchCreator = chat.createdByName?.toLowerCase().includes(term);
+        if (!matchName && !matchCreator) return false;
+      }
+      return true;
+    }
+
     // Tab filter
     if (chatTabFilter === 'direct' && chat.isGroup) return false;
     if (chatTabFilter === 'groups' && !chat.isGroup) return false;
@@ -1453,28 +1488,32 @@ export default function Inbox() {
                 <Users size={16} />
               </button>
             )}
-            <button 
-              onClick={() => setIsAddModalOpen(true)} 
-              className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-[0_4px_12px_rgba(16,185,129,0.5)] border border-emerald-300/60 hover:from-emerald-500 hover:to-cyan-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
-              title="إضافة عميل جديد يدوياً"
-            >
-              <UserPlus size={16} />
-            </button>
-            <button 
-              onClick={() => setIsExcelModalOpen(true)} 
-              className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.5)] border border-blue-300/60 hover:from-blue-500 hover:to-purple-400 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
-              title="استيراد من إكسيل (الحملات)"
-            >
-              <FileText size={16} />
-            </button>
-            {!isAdmin && (
-              <button 
-                onClick={() => setIsAnalyticsModalOpen(true)} 
-                className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-cyan-500 via-teal-500 to-emerald-400 text-white shadow-[0_4px_14px_rgba(6,182,212,0.6)] border border-cyan-200/80 hover:from-cyan-400 hover:to-emerald-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
-                title="إحصائيات حملاتي"
-              >
-                <BarChart3 size={16} />
-              </button>
+            {!isCoordinator && (
+              <>
+                <button 
+                  onClick={() => setIsAddModalOpen(true)} 
+                  className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-[0_4px_12px_rgba(16,185,129,0.5)] border border-emerald-300/60 hover:from-emerald-500 hover:to-cyan-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                  title="إضافة عميل جديد يدوياً"
+                >
+                  <UserPlus size={16} />
+                </button>
+                <button 
+                  onClick={() => setIsExcelModalOpen(true)} 
+                  className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.5)] border border-blue-300/60 hover:from-blue-500 hover:to-purple-400 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                  title="استيراد من إكسيل (الحملات)"
+                >
+                  <FileText size={16} />
+                </button>
+                {!isAdmin && (
+                  <button 
+                    onClick={() => setIsAnalyticsModalOpen(true)} 
+                    className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-cyan-500 via-teal-500 to-emerald-400 text-white shadow-[0_4px_14px_rgba(6,182,212,0.6)] border border-cyan-200/80 hover:from-cyan-400 hover:to-emerald-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                    title="إحصائيات حملاتي"
+                  >
+                    <BarChart3 size={16} />
+                  </button>
+                )}
+              </>
             )}
             <button 
               onClick={() => navigate('/dashboard')} 
@@ -1487,30 +1526,41 @@ export default function Inbox() {
           </div>
         </div>
 
-        {/* التبديل بين الكل / العملاء / جروبات الموظفين */}
-        <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs">
-          <button 
-            onClick={() => setChatTabFilter('all')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-          >
-            <span>💬 الكل</span>
-            <span className="text-[10px] opacity-75">({combinedChats.length})</span>
-          </button>
-          <button 
-            onClick={() => setChatTabFilter('direct')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-          >
-            <span>👤 العملاء</span>
-            <span className="text-[10px] opacity-75">({chats.length})</span>
-          </button>
-          <button 
-            onClick={() => setChatTabFilter('groups')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-          >
-            <span>👥 الجروبات</span>
-            <span className="text-[10px] opacity-75">({internalGroups.length})</span>
-          </button>
-        </div>
+        {/* التبديل بين الكل / العملاء / جروبات الموظفين (مخصص للجروبات فقط عند المنسق) */}
+        {isCoordinator ? (
+          <div className="bg-gradient-to-r from-purple-950/80 via-indigo-950/60 to-slate-900 p-2.5 px-4 border-b border-purple-500/20 flex items-center justify-between relative z-10">
+            <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+              <span>👥 جروبات الموظفين الداخلية</span>
+            </span>
+            <span className="bg-purple-900/60 text-purple-200 border border-purple-400/40 text-[10px] px-2.5 py-0.5 rounded-full font-black shadow-sm">
+              {internalGroups.length} جروب
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs">
+            <button 
+              onClick={() => setChatTabFilter('all')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <span>💬 الكل</span>
+              <span className="text-[10px] opacity-75">({combinedChats.length})</span>
+            </button>
+            <button 
+              onClick={() => setChatTabFilter('direct')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <span>👤 العملاء</span>
+              <span className="text-[10px] opacity-75">({chats.length})</span>
+            </button>
+            <button 
+              onClick={() => setChatTabFilter('groups')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <span>👥 الجروبات</span>
+              <span className="text-[10px] opacity-75">({internalGroups.length})</span>
+            </button>
+          </div>
+        )}
 
         {isAdmin && (
           <div className="bg-black/20 border-b border-white/5 p-2 px-4 relative z-10">
@@ -1537,7 +1587,7 @@ export default function Inbox() {
           </div>
         )}
 
-        {!isAdmin && (
+        {!isAdmin && !isCoordinator && (
           <div className="bg-black/20 border-b border-white/5 p-2 px-4 relative z-10">
             <select 
               value={selectedEmployee === 'all' ? 'my_chats' : selectedEmployee}
@@ -1556,7 +1606,7 @@ export default function Inbox() {
           <div className="relative">
             <input 
               type="text" 
-              placeholder="ابحث عن اسم، رقم، أو جروب..." 
+              placeholder={isCoordinator ? "ابحث عن اسم الجروب..." : "ابحث عن اسم، رقم، أو جروب..."} 
               value={sidebarSearch}
               onChange={(e) => setSidebarSearch(e.target.value)}
               className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/10 rounded-full py-2 pr-9 pl-4 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/30 transition-all"
@@ -1674,8 +1724,8 @@ export default function Inbox() {
             );
           })}
           {filteredChats.length === 0 && (
-            <div className="p-8 text-center text-gray-400 text-xs">
-              لا توجد محادثات أو جروبات مطابقة للفلتر المختار.
+            <div className="p-8 text-center text-gray-400 text-xs leading-relaxed">
+              {isCoordinator ? "لا توجد جروبات موظفين منشأة أو مضافة لك حالياً." : "لا توجد محادثات أو جروبات مطابقة للفلتر المختار."}
             </div>
           )}
         </div>
