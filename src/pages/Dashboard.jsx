@@ -314,6 +314,7 @@ const Dashboard = () => {
   const [manualPhone, setManualPhone] = useState('');
   const [manualNotes, setManualNotes] = useState('');
   const [importLoading, setImportLoading] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   // Lead Auto/Manual Distribution State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -853,6 +854,63 @@ const Dashboard = () => {
     setManualName('');
     setManualPhone('');
     setManualNotes('');
+  };
+
+  const handleQuickSaveDirectLead = async (e, targetTab = activeTab) => {
+    e?.preventDefault();
+    if (!manualPhone.trim() && !manualName.trim()) {
+      toast.error('يرجى إدخال رقم الهاتف أو اسم العميل على الأقل');
+      return;
+    }
+    const cleanName = extractCleanCustomerName(manualName.trim()) || 'عميل جديد';
+    let cleanPhone = manualPhone.replace(/[^0-9+]/g, '');
+    if (cleanPhone && !cleanPhone.startsWith('+')) {
+      cleanPhone = `+${cleanPhone}`;
+    }
+    if (!cleanPhone) {
+      toast.error('يرجى إدخال رقم هاتف صالح');
+      return;
+    }
+
+    const docId = cleanPhone.replace(/[^0-9]/g, '');
+    const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+    const empUser = employees.find(emp => emp.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+    const empName = isCurrentUserAdmin ? 'الإدارة' : (empUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
+    const targetColl = targetTab === 'leads_crm' ? 'leads_crm' : 'employee_leads';
+
+    try {
+      const docPayload = {
+        name: cleanName,
+        phoneNumber: cleanPhone,
+        source: 'إضافة يدوية مباشرة',
+        addedBy: empName,
+        addedByUid: isCurrentUserAdmin ? 'admin' : (currentUser?.uid || ''),
+        assignedTo: isCurrentUserAdmin ? 'الإدارة' : (currentUser?.email || 'الإدارة'),
+        assignedToUid: isCurrentUserAdmin ? 'admin' : (currentUser?.uid || 'admin'),
+        crmStatus: 'unassigned',
+        status: 'assigned',
+        notes: manualNotes.trim() || '',
+        notesHistory: manualNotes.trim() ? [{
+          id: Date.now().toString(),
+          text: manualNotes.trim(),
+          author: empName,
+          createdAt: new Date().toISOString()
+        }] : [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        unread: 0
+      };
+
+      await setDoc(doc(db, targetColl, docId), docPayload, { merge: true });
+      toast.success(`تم حفظ وإضافة العميل (${cleanName}) بنجاح في ${targetColl === 'leads_crm' ? 'Leads CRM' : 'داتا مضافة بواسطة الموظف'} 🎯`);
+      setManualName('');
+      setManualPhone('');
+      setManualNotes('');
+      setIsQuickAddOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء حفظ العميل');
+    }
   };
 
   // Ultra-fast batch clean junk, notes, dates, and usernames from all stored lead names
@@ -1749,8 +1807,9 @@ const Dashboard = () => {
         const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
         const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
 
+        // 1. Update customer in 'بيانات_تسجيل_العملاء'
         await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
-          status: 'unassigned', // يظل في الانتظار حتى يرد عليه الموظف الجديد
+          status: 'assigned',
           assignedTo: emp.email,
           assignedToUid: emp.uid,
           assignedAt: serverTimestamp(),
@@ -1758,10 +1817,32 @@ const Dashboard = () => {
           assignmentHistory: arrayUnion(logObj),
           unread: 1
         });
-        toast.success(`تم تعيين العميل إلى ${emp.name}`);
+
+        // 2. Transfer customer directly to 'leads_crm' collection so it appears on Employee/Leader Leads CRM dashboard table!
+        const cleanPhone = (customer?.phoneNumber || '').replace(/[^0-9+]/g, '');
+        const crmDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : chatId;
+
+        await setDoc(doc(db, 'leads_crm', crmDocId), {
+          name: customer?.name || 'عميل محول من واتساب',
+          phoneNumber: cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`,
+          source: customer?.source || 'واتساب الموقع',
+          assignedTo: emp.email,
+          assignedToUid: emp.uid,
+          crmStatus: 'unassigned', // Initial state in waiting
+          status: 'assigned',
+          assignedAt: serverTimestamp(),
+          createdAt: customer?.createdAt || serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          notes: customer?.notes || '',
+          notesHistory: customer?.notesHistory || [],
+          assignmentHistory: arrayUnion(logObj)
+        }, { merge: true });
+
+        toast.success(`تم تحويل العميل إلى Leads CRM الخاص بـ ${emp.name} على الداش بورد 🎯`);
       }
     } catch (error) {
       console.error("خطأ في إسناد المحادثة:", error);
+      toast.error('حدث خطأ أثناء تحويل العميل');
     }
   };
 
@@ -2880,6 +2961,14 @@ const Dashboard = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                <button 
+                  onClick={() => setIsQuickAddOpen(prev => !prev)}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="إضافة عميل يدوي سريعاً بالاسم ورقم الهاتف"
+                >
+                  <UserPlus size={14} /> ➕ إضافة عميل يدوي
+                </button>
+
                 {isAdmin && (
                   <>
                     <button 
@@ -2921,6 +3010,67 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+
+            {/* Quick Add Direct Form (Rendered Directly Outside) */}
+            {isQuickAddOpen && (
+              <div className="px-6 py-4 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 border-b border-amber-200 shadow-inner">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                    <UserPlus size={15} className="text-amber-600" />
+                    <span>➕ إضافة عميل يدوي سريع:</span>
+                  </span>
+                  <button 
+                    onClick={() => setIsQuickAddOpen(false)}
+                    className="text-gray-400 hover:text-red-500 text-xs font-bold transition"
+                  >
+                    ✕ إغلاق
+                  </button>
+                </div>
+                <form onSubmit={(e) => handleQuickSaveDirectLead(e, 'leads_crm')} className="space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">اسم العميل:</label>
+                      <input 
+                        type="text" 
+                        placeholder="مثال: أحمد محمد"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">رقم الهاتف (مع أو بدون كود الدولة):</label>
+                      <input 
+                        type="tel" 
+                        placeholder="مثال: 01012345678 أو 966501234567"
+                        value={manualPhone}
+                        onChange={(e) => setManualPhone(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-mono outline-none focus:border-amber-500 bg-white"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">ملاحظات العميل (اختياري):</label>
+                      <input 
+                        type="text" 
+                        placeholder="مثال: مهتم بالباقة السنوية / تواصل لاحقاً"
+                        value={manualNotes}
+                        onChange={(e) => setManualNotes(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs outline-none focus:border-amber-500 bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button 
+                      type="submit"
+                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-1.5 px-6 rounded-lg transition flex items-center gap-1.5 shadow-sm text-xs cursor-pointer"
+                    >
+                      <span>+ إضافة وحفظ العميل فوراً ↵</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Filter Bar */}
             {(() => {
@@ -3487,6 +3637,14 @@ const Dashboard = () => {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button 
+                  onClick={() => setIsQuickAddOpen(prev => !prev)}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="إضافة عميل يدوي سريعاً بالاسم ورقم الهاتف"
+                >
+                  <UserPlus size={14} /> ➕ إضافة عميل يدوي
+                </button>
+
+                <button 
                   onClick={() => setIsImportModalOpen(true)}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                 >
@@ -3520,6 +3678,67 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+
+            {/* Quick Add Direct Form (Rendered Directly Outside) */}
+            {isQuickAddOpen && (
+              <div className="px-6 py-4 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 border-b border-amber-200 shadow-inner">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                    <UserPlus size={15} className="text-amber-600" />
+                    <span>➕ إضافة عميل يدوي سريع:</span>
+                  </span>
+                  <button 
+                    onClick={() => setIsQuickAddOpen(false)}
+                    className="text-gray-400 hover:text-red-500 text-xs font-bold transition"
+                  >
+                    ✕ إغلاق
+                  </button>
+                </div>
+                <form onSubmit={(e) => handleQuickSaveDirectLead(e, 'employee_leads')} className="space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">اسم العميل:</label>
+                      <input 
+                        type="text" 
+                        placeholder="مثال: أحمد محمد"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">رقم الهاتف (مع أو بدون كود الدولة):</label>
+                      <input 
+                        type="tel" 
+                        placeholder="مثال: 01012345678 أو 966501234567"
+                        value={manualPhone}
+                        onChange={(e) => setManualPhone(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-mono outline-none focus:border-amber-500 bg-white"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">ملاحظات العميل (اختياري):</label>
+                      <input 
+                        type="text" 
+                        placeholder="مثال: مهتم بالباقة السنوية / تواصل لاحقاً"
+                        value={manualNotes}
+                        onChange={(e) => setManualNotes(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs outline-none focus:border-amber-500 bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button 
+                      type="submit"
+                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-1.5 px-6 rounded-lg transition flex items-center gap-1.5 shadow-sm text-xs cursor-pointer"
+                    >
+                      <span>+ إضافة وحفظ العميل فوراً ↵</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Filter & Status Bar */}
             {(() => {
