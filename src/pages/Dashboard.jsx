@@ -362,19 +362,17 @@ const Dashboard = () => {
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
 
-  // Helper to check if a value refers to Admin
+  // Admin emails definition
+  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
+
+  // Helper to check if a value refers strictly to Admin
   const isAdminIdentifier = (val) => {
     if (!val) return false;
     const lower = String(val).toLowerCase().trim();
-    return (
-      adminEmails.includes(lower) ||
-      lower === 'admin' ||
-      lower === 'الإدارة' ||
-      lower.includes('gmail.com') ||
-      lower.includes('mohamed.gamal') ||
-      lower.includes('etegah') ||
-      lower.includes('الرئيسي')
-    );
+    if (lower === 'admin' || lower === 'الإدارة' || lower === 'ادارة' || lower === '👑 الإدارة' || lower === 'الرئيسي' || lower === 'حساب رئيسي') return true;
+    if (adminEmails.includes(lower)) return true;
+    if (lower === 'etegahanalysis' || lower.startsWith('etegahanalysis@') || lower.startsWith('mohamed.gamal.work0@')) return true;
+    return false;
   };
 
   // Helper to sanitize display names so admin emails are never shown
@@ -388,8 +386,8 @@ const Dashboard = () => {
 
   // Assignment Transfer Audit Log Helper
   const createAssignmentLog = (fromName, toName, customAssignedBy) => {
-    const isFromAdmin = !fromName || fromName.includes('الرئيسي') || fromName.includes('الإدارة') || fromName.includes('admin') || fromName.includes('gmail') || fromName.includes('gamal');
-    const isToAdmin = !toName || toName.includes('الرئيسي') || toName.includes('الإدارة') || toName.includes('admin') || toName.includes('gmail') || toName.includes('gamal');
+    const isFromAdmin = !fromName || isAdminIdentifier(fromName) || String(fromName).includes('الإدارة') || String(fromName).includes('admin');
+    const isToAdmin = !toName || isAdminIdentifier(toName) || String(toName).includes('الإدارة') || String(toName).includes('admin');
     const cleanFrom = isFromAdmin ? '👑 الإدارة' : fromName;
     const cleanTo = isToAdmin ? '👑 الإدارة' : toName;
 
@@ -447,7 +445,6 @@ const Dashboard = () => {
   };
 
   const currentUser = auth.currentUser;
-  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
   const isAdmin = currentUser && adminEmails.includes(currentUser.email?.toLowerCase());
   const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
@@ -3191,10 +3188,10 @@ const Dashboard = () => {
                             <td className="p-4 text-sm text-gray-600 font-medium">
                               {(isAdmin || isCoordinator || isLeader) ? (
                                 <select 
-                                  value={!customer.assignedToUid || customer.assignedToUid === 'admin' || customer.assignedTo === 'الإدارة' || customer.assignedTo?.includes('gmail') ? "admin" : customer.assignedToUid}
+                                  value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
                                   onChange={async (e) => {
                                     const uid = e.target.value;
-                                    const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+                                    const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || '👑 الإدارة';
                                     const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
                                     
                                     if (uid === 'admin') {
@@ -3205,6 +3202,7 @@ const Dashboard = () => {
                                           assignedTo: 'الإدارة',
                                           assignedAt: serverTimestamp(),
                                           status: 'unassigned',
+                                          crmStatus: 'unassigned',
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
@@ -3219,6 +3217,7 @@ const Dashboard = () => {
                                           assignedTo: emp?.email || '',
                                           assignedAt: serverTimestamp(),
                                           status: 'assigned',
+                                          crmStatus: 'unassigned', // Ensure pending state for employee
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
@@ -3597,7 +3596,7 @@ const Dashboard = () => {
                   }
                 } else if (empLeadsEmpFilter && empLeadsEmpFilter !== 'all') {
                   if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
-                    if (c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedToUid !== 'unassigned' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail')) return false;
+                    if (!isLeadWithAdmin(c)) return false;
                   } else {
                     const emp = employees.find(e => e.uid === empLeadsEmpFilter);
                     const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
@@ -3807,7 +3806,7 @@ const Dashboard = () => {
                                 <td className="p-4 text-sm text-gray-600 font-medium">
                                   {(isAdmin || isCoordinator || isLeader) ? (
                                     <select 
-                                      value={!customer.assignedToUid || customer.assignedToUid === 'admin' || customer.assignedTo === 'الإدارة' || customer.assignedTo?.includes('gmail') ? "admin" : customer.assignedToUid}
+                                      value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
                                       onChange={async (e) => {
                                         const uid = e.target.value;
                                         const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
@@ -5866,7 +5865,7 @@ const Dashboard = () => {
                   /* --- 3. ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS + ADMIN LEADERS BREAKDOWN --- */
                   (() => {
                     // Distributed Leads from leads_crm (assigned to active employees)
-                    const distributedCrmLeads = leadsCrm.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail'));
+                    const distributedCrmLeads = leadsCrm.filter(c => isLeadAssignedToEmployee(c));
                     
                     // Total Active Distributed & Employee-Added Leads
                     const totalDistributedLeads = distributedCrmLeads.length;
@@ -6200,11 +6199,11 @@ const Dashboard = () => {
                       <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
                         <div className="flex justify-between py-0.5">
                           <span>👤 موزعة على الموظفين:</span>
-                          <span className="font-bold text-emerald-400">{leadsCrm.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && c.assignedTo !== 'الإدارة' && !c.assignedTo?.includes('gmail')).length.toLocaleString()} عميل</span>
+                          <span className="font-bold text-emerald-400">{leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()} عميل</span>
                         </div>
                         <div className="flex justify-between py-0.5">
                           <span>👑 في انتظار التوزيع بالإدارة:</span>
-                          <span className="font-bold text-amber-400">{leadsCrm.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail')).length.toLocaleString()} عميل</span>
+                          <span className="font-bold text-amber-400">{leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()} عميل</span>
                         </div>
                       </div>
                       <button
