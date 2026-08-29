@@ -273,7 +273,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'leads_crm', 'customers' or 'employees'
   const [analyticsDetail, setAnalyticsDetail] = useState(null); // 'assigned', 'unread', 'zero' or null
   const [customerFilter, setCustomerFilter] = useState('all');
-  const [crmStatusFilter, setCrmStatusFilter] = useState('all');
+  const [crmStatusFilter, setCrmStatusFilter] = useState('unassigned');
   const [dashboardSearch, setDashboardSearch] = useState('');
   const [tableSearch, setTableSearch] = useState(''); // per-table search
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = أحدث أولاً, 'asc' = أقدم أولاً
@@ -299,7 +299,7 @@ const Dashboard = () => {
   // Employee Leads Tab Filters & Pagination State
   const [currentPageEmpLeads, setCurrentPageEmpLeads] = useState(1);
   const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('admin');
-  const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('all');
+  const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('unassigned');
   const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
   const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
   const [empLeadsSortOrder, setEmpLeadsSortOrder] = useState('desc');
@@ -612,7 +612,15 @@ const Dashboard = () => {
 
   const handleCardClick = (e, type, filter) => {
     if (e && e.stopPropagation) e.stopPropagation();
-    setSelectedEmpFilter('all');
+    if (type === 'leads_crm') {
+      setSelectedEmpFilter('admin');
+      setCrmStatusFilter('unassigned');
+    } else if (type === 'employee_leads') {
+      setEmpLeadsEmpFilter('admin');
+      setEmpLeadsStatusFilter('unassigned');
+    } else {
+      setSelectedEmpFilter('admin');
+    }
     if (activeTab === type && customerFilter === filter) {
       setActiveTab('analytics');
     } else {
@@ -2815,31 +2823,16 @@ const Dashboard = () => {
             {(() => {
               const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
                 ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || c.addedByUid === currentUser?.uid)
-                : (selectedEmpFilter === 'all' 
-                    ? leadsCrm 
-                    : (selectedEmpFilter === 'admin' 
-                        ? leadsCrm.filter(c => isLeadWithAdmin(c))
+                : (selectedEmpFilter === 'admin' 
+                    ? leadsCrm.filter(c => isLeadWithAdmin(c))
+                    : (selectedEmpFilter === 'all' 
+                        ? leadsCrm.filter(c => isLeadAssignedToEmployee(c))
                         : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === selectedEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === selectedEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === selectedEmpFilter)?.name))
                       )
                   );
 
               const getCrmStatusCount = (statusKey) => {
-                if (statusKey === 'all') {
-                  if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
-                    return leadsCrm.length;
-                  }
-                  return scopeLeadsForCount.length;
-                }
-                if (statusKey === 'unassigned') {
-                  if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
-                    // Counts ONLY distributed leads sent to employees that are still pending / not converted yet
-                    return leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
-                  }
-                  if (selectedEmpFilter === 'admin') {
-                    return leadsCrm.filter(c => isLeadWithAdmin(c)).length;
-                  }
-                  return scopeLeadsForCount.filter(c => (c.crmStatus || c.status || 'unassigned') === 'unassigned').length;
-                }
+                if (statusKey === 'all') return scopeLeadsForCount.length;
                 return scopeLeadsForCount.filter(c => (c.crmStatus || c.status || 'unassigned') === statusKey).length;
               };
 
@@ -2855,7 +2848,7 @@ const Dashboard = () => {
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
                           <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
-                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
+                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
                             const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
@@ -2878,8 +2871,8 @@ const Dashboard = () => {
                         onChange={(e) => setCrmStatusFilter(e.target.value)}
                         className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                       >
-                        <option value="all" className="bg-purple-950 text-white">🌟 جميع الحالات ({getCrmStatusCount('all')})</option>
                         <option value="unassigned" className="bg-purple-950 text-white">⏳ في الانتظار ({getCrmStatusCount('unassigned')})</option>
+                        <option value="all" className="bg-purple-950 text-white">🌟 جميع الحالات ({getCrmStatusCount('all')})</option>
                         <option value="interested" className="bg-purple-950 text-white">🌟 مهتم ({getCrmStatusCount('interested')})</option>
                         <option value="not_interested" className="bg-purple-950 text-white">❌ غير مهتم ({getCrmStatusCount('not_interested')})</option>
                         <option value="no_answer" className="bg-purple-950 text-white">📵 لم يرد ({getCrmStatusCount('no_answer')})</option>
@@ -2979,30 +2972,20 @@ const Dashboard = () => {
                   if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase() && c.addedByUid !== currentUser?.uid) {
                     return false;
                   }
-                } else if (selectedEmpFilter && selectedEmpFilter !== 'all') {
-                  if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
-                    if (!isLeadWithAdmin(c)) return false;
-                  } else {
-                    const emp = employees.find(e => e.uid === selectedEmpFilter);
-                    const matchesAssigned = c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
-                    const matchesAdded = c.addedByUid === selectedEmpFilter || (emp?.name && c.addedBy === emp.name);
-                    if (!matchesAssigned && !matchesAdded) return false;
-                  }
+                } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
+                  if (!isLeadWithAdmin(c)) return false;
+                } else if (selectedEmpFilter === 'all') {
+                  if (!isLeadAssignedToEmployee(c)) return false;
+                } else if (selectedEmpFilter) {
+                  const emp = employees.find(e => e.uid === selectedEmpFilter);
+                  const matchesAssigned = c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
+                  const matchesAdded = c.addedByUid === selectedEmpFilter || (emp?.name && c.addedBy === emp.name);
+                  if (!matchesAssigned && !matchesAdded) return false;
                 }
 
                 if (crmStatusFilter && crmStatusFilter !== 'all') {
-                  if (crmStatusFilter === 'unassigned') {
-                    if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
-                      // In All Employees view, show only leads sent to employees that are still pending
-                      if (!isLeadPendingWithEmployee(c)) return false;
-                    } else {
-                      const currentStatus = c.crmStatus || c.status || 'unassigned';
-                      if (currentStatus !== 'unassigned') return false;
-                    }
-                  } else {
-                    const currentStatus = c.crmStatus || c.status || 'unassigned';
-                    if (currentStatus !== crmStatusFilter) return false;
-                  }
+                  const currentStatus = c.crmStatus || c.status || 'unassigned';
+                  if (currentStatus !== crmStatusFilter) return false;
                 }
 
                 // Date Range Filter
@@ -3443,10 +3426,10 @@ const Dashboard = () => {
                       )
                     : employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
                   )
-                : (empLeadsEmpFilter === 'all' 
-                    ? employeeLeads 
-                    : (empLeadsEmpFilter === 'admin' 
-                        ? employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.addedByUid === 'admin')
+                : (empLeadsEmpFilter === 'admin' 
+                    ? employeeLeads.filter(c => isLeadWithAdmin(c))
+                    : (empLeadsEmpFilter === 'all' 
+                        ? employeeLeads.filter(c => isLeadAssignedToEmployee(c))
                         : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
                       )
                   );
@@ -3471,7 +3454,7 @@ const Dashboard = () => {
                             <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
                           )}
                           <option value="all" className="bg-slate-950 text-white">
-                            {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.length.toLocaleString()})`}
+                            {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})`}
                           </option>
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
                             const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
@@ -3491,8 +3474,8 @@ const Dashboard = () => {
                     {/* Status Tabs */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[
-                        { key: 'all', label: 'الكل', bg: 'bg-slate-800 text-white' },
                         { key: 'unassigned', label: '⏳ في الانتظار', bg: 'bg-gray-100 text-gray-700' },
+                        { key: 'all', label: 'الكل', bg: 'bg-slate-800 text-white' },
                         { key: 'interested', label: '🌟 مهتم', bg: 'bg-emerald-100 text-emerald-800' },
                         { key: 'not_interested', label: '❌ غير مهتم', bg: 'bg-rose-100 text-rose-800' },
                         { key: 'no_answer', label: '📵 لم يرد', bg: 'bg-amber-100 text-amber-800' },
@@ -3594,15 +3577,15 @@ const Dashboard = () => {
                       return false;
                     }
                   }
-                } else if (empLeadsEmpFilter && empLeadsEmpFilter !== 'all') {
-                  if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
-                    if (!isLeadWithAdmin(c)) return false;
-                  } else {
-                    const emp = employees.find(e => e.uid === empLeadsEmpFilter);
-                    const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
-                    const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
-                    if (!matchesAssigned && !matchesAdded) return false;
-                  }
+                } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
+                  if (!isLeadWithAdmin(c)) return false;
+                } else if (empLeadsEmpFilter === 'all') {
+                  if (!isLeadAssignedToEmployee(c)) return false;
+                } else if (empLeadsEmpFilter) {
+                  const emp = employees.find(e => e.uid === empLeadsEmpFilter);
+                  const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
+                  const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
+                  if (!matchesAssigned && !matchesAdded) return false;
                 }
 
                 if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
