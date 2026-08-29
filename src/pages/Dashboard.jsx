@@ -7970,12 +7970,30 @@ const Dashboard = () => {
           }).length;
           const uniqueCallers = new Set(filteredLogs.map(l => l.employeeUid).filter(Boolean)).size;
 
-          // Per-Employee Analytics Breakdown
+          // Per-Employee Analytics Breakdown (Excluding Admin and Coordinators like Waleed as they don't make calls)
           const eligibleEmployees = (isAdmin || isCoordinator)
-            ? employees.filter(e => e.role !== 'admin' && !adminEmails.includes(e.email?.toLowerCase()))
+            ? employees.filter(e => 
+                e.role !== 'admin' && 
+                !adminEmails.includes(e.email?.toLowerCase()) &&
+                e.jobTitle !== 'Coordinator' &&
+                e.role !== 'coordinator' &&
+                !coordinatorEmails?.includes(e.email?.toLowerCase()) &&
+                !e.name?.toLowerCase().includes('waleed') &&
+                !e.email?.toLowerCase().includes('waleed@')
+              )
             : isLeader
-            ? [currentEmpUser, ...myTeamMembers].filter(Boolean)
-            : [currentEmpUser].filter(Boolean);
+            ? [currentEmpUser, ...myTeamMembers].filter(e => 
+                e && 
+                e.jobTitle !== 'Coordinator' && 
+                e.role !== 'coordinator' &&
+                !e.name?.toLowerCase().includes('waleed')
+              )
+            : [currentEmpUser].filter(e => 
+                e && 
+                e.jobTitle !== 'Coordinator' && 
+                e.role !== 'coordinator' &&
+                !e.name?.toLowerCase().includes('waleed')
+              );
 
           const empBreakdown = eligibleEmployees.map(emp => {
             const empAllLogs = roleLogs.filter(l => l.employeeUid === emp.uid || l.employeeEmail?.toLowerCase() === emp.email?.toLowerCase());
