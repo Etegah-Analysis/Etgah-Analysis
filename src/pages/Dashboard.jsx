@@ -626,9 +626,32 @@ const Dashboard = () => {
     }
   };
 
-  const unassignedWhatsappCount = customers.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.status === 'unassigned').length;
-  const unassignedLeadsCrmCount = leadsCrm.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail') || c.status === 'unassigned' || c.crmStatus === 'unassigned').length;
-  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.crmStatus === 'unassigned' || !c.crmStatus).length;
+  // Helper to check if a lead in leads_crm is still sitting in the unassigned Admin inventory pool (not sent to any employee)
+  const isLeadWithAdmin = (c) => {
+    if (!c) return false;
+    const uid = c.assignedToUid;
+    const email = c.assignedTo;
+    if (!uid || uid === 'admin' || uid === 'unassigned') return true;
+    if (!email || email === 'الإدارة' || isAdminIdentifier(email)) return true;
+    return false;
+  };
+
+  // Helper to check if a lead is distributed / sent to a real employee (Agent or Leader)
+  const isLeadAssignedToEmployee = (c) => {
+    return !isLeadWithAdmin(c);
+  };
+
+  // Helper to check if an assigned lead is still in pending / waiting (لم يتم تحويل حالته بعد)
+  const isLeadPendingWithEmployee = (c) => {
+    if (!isLeadAssignedToEmployee(c)) return false;
+    const st = c.crmStatus || c.status || 'unassigned';
+    return st === 'unassigned';
+  };
+
+  // Accurate pending counters (Only counts data sent/added to employees whose status has not been converted yet)
+  const unassignedWhatsappCount = customers.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo) && (!c.crmStatus || c.crmStatus === 'unassigned' || c.status === 'unassigned')).length || customers.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.status === 'unassigned').length;
+  const unassignedLeadsCrmCount = leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
+  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => (c.crmStatus || c.status || 'unassigned') === 'unassigned').length;
   const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
   const unassignedCount = unassignedWhatsappCount;
   const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'WhatsApp Webhook').length;
@@ -2921,27 +2944,33 @@ const Dashboard = () => {
 
             {/* Filter Bar */}
             {(() => {
-              const isLeadAssignedToAdmin = (c) => {
-                if (!c) return false;
-                if (!c.assignedToUid || c.assignedToUid === 'admin' || c.assignedToUid === 'unassigned') return true;
-                if (!c.assignedTo || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail')) return true;
-                const st = c.crmStatus || c.status || 'unassigned';
-                if (st === 'unassigned') return true;
-                return false;
-              };
-
               const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
                 ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || c.addedByUid === currentUser?.uid)
                 : (selectedEmpFilter === 'all' 
                     ? leadsCrm 
                     : (selectedEmpFilter === 'admin' 
-                        ? leadsCrm.filter(c => isLeadAssignedToAdmin(c))
+                        ? leadsCrm.filter(c => isLeadWithAdmin(c))
                         : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === selectedEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === selectedEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === selectedEmpFilter)?.name))
                       )
                   );
 
               const getCrmStatusCount = (statusKey) => {
-                if (statusKey === 'all') return scopeLeadsForCount.length;
+                if (statusKey === 'all') {
+                  if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
+                    return leadsCrm.length;
+                  }
+                  return scopeLeadsForCount.length;
+                }
+                if (statusKey === 'unassigned') {
+                  if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
+                    // Counts ONLY distributed leads sent to employees that are still pending / not converted yet
+                    return leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
+                  }
+                  if (selectedEmpFilter === 'admin') {
+                    return leadsCrm.filter(c => isLeadWithAdmin(c)).length;
+                  }
+                  return scopeLeadsForCount.filter(c => (c.crmStatus || c.status || 'unassigned') === 'unassigned').length;
+                }
                 return scopeLeadsForCount.filter(c => (c.crmStatus || c.status || 'unassigned') === statusKey).length;
               };
 
@@ -3075,15 +3104,6 @@ const Dashboard = () => {
 
             {/* Table */}
             {(() => {
-              const isLeadAssignedToAdmin = (c) => {
-                if (!c) return false;
-                if (!c.assignedToUid || c.assignedToUid === 'admin' || c.assignedToUid === 'unassigned') return true;
-                if (!c.assignedTo || c.assignedTo === 'الإدارة' || c.assignedTo?.includes('gmail')) return true;
-                const st = c.crmStatus || c.status || 'unassigned';
-                if (st === 'unassigned') return true;
-                return false;
-              };
-
               let filtered = leadsCrm.filter(c => {
                 // Employee view restriction
                 if (!isAdmin && !isCoordinator) {
@@ -3092,7 +3112,7 @@ const Dashboard = () => {
                   }
                 } else if (selectedEmpFilter && selectedEmpFilter !== 'all') {
                   if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
-                    if (!isLeadAssignedToAdmin(c)) return false;
+                    if (!isLeadWithAdmin(c)) return false;
                   } else {
                     const emp = employees.find(e => e.uid === selectedEmpFilter);
                     const matchesAssigned = c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
@@ -3102,8 +3122,18 @@ const Dashboard = () => {
                 }
 
                 if (crmStatusFilter && crmStatusFilter !== 'all') {
-                  const currentStatus = c.crmStatus || c.status || 'unassigned';
-                  if (currentStatus !== crmStatusFilter) return false;
+                  if (crmStatusFilter === 'unassigned') {
+                    if (selectedEmpFilter === 'all' && (isAdmin || isCoordinator)) {
+                      // In All Employees view, show only leads sent to employees that are still pending
+                      if (!isLeadPendingWithEmployee(c)) return false;
+                    } else {
+                      const currentStatus = c.crmStatus || c.status || 'unassigned';
+                      if (currentStatus !== 'unassigned') return false;
+                    }
+                  } else {
+                    const currentStatus = c.crmStatus || c.status || 'unassigned';
+                    if (currentStatus !== crmStatusFilter) return false;
+                  }
                 }
 
                 // Date Range Filter
@@ -6577,7 +6607,7 @@ const Dashboard = () => {
                       <span>خريطة وتوزيع عملاء الانتظار ⏳</span>
                     </h2>
                     <p className="text-xs text-purple-300 font-medium">
-                      تفصيل عملاء الانتظار غير المعينين في (الواتساب + Leads CRM + داتا الموظف) والانتقال المباشر
+                      تفصيل العملاء المرسلة للموظفين ولم يتم تحويل حالتهم بعد في (الواتساب + Leads CRM + داتا الموظف)
                     </p>
                   </div>
                 </div>
@@ -6594,7 +6624,7 @@ const Dashboard = () => {
                 {/* Total Big Badge */}
                 <div className="bg-gradient-to-r from-rose-950 via-purple-950 to-slate-900 p-5 rounded-2xl border border-rose-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
                   <div>
-                    <span className="text-xs text-rose-300 font-bold block mb-1">إجمالي عملاء الانتظار على السيستم بالكامل:</span>
+                    <span className="text-xs text-rose-300 font-bold block mb-1">إجمالي عملاء الانتظار الموزعين على الموظفين (لم يتم تحويل حالتهم بعد):</span>
                     <span className="text-3xl sm:text-4xl font-black text-cyan-300">
                       {totalPendingAll.toLocaleString()} عميل
                     </span>
@@ -6625,14 +6655,14 @@ const Dashboard = () => {
                             <FileSpreadsheet size={20} />
                           </div>
                           <div>
-                            <h4 className="font-extrabold text-sm text-white">🎯 انتظار Leads CRM</h4>
-                            <p className="text-[11px] text-purple-300">داتا مركزية في انتظار التوزيع</p>
+                            <h4 className="font-extrabold text-sm text-white">🎯 انتظار Leads CRM (الموزعة)</h4>
+                            <p className="text-[11px] text-purple-300">عملاء مرسلة للموظف ولم يحول حالتهم</p>
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">{unassignedLeadsCrmCount.toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3">
-                        عملاء مسجلين في الـ CRM المركزي لم يتم توزيعهم أو تعيينهم لأي موظف بعد.
+                        عملاء تم توزيعهم وإرسالهم للموظفين من Leads CRM وما زالوا في الانتظار بدون تحديث حالتهم.
                       </p>
                       <button
                         onClick={() => {
@@ -6656,13 +6686,13 @@ const Dashboard = () => {
                           </div>
                           <div>
                             <h4 className="font-extrabold text-sm text-white">📁 انتظار داتا الموظف</h4>
-                            <p className="text-[11px] text-indigo-300">داتا مضافة في انتظار المتابعة</p>
+                            <p className="text-[11px] text-indigo-300">داتا رفعها الموظف ولم يحول حالتها</p>
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">{unassignedEmployeeLeadsCount.toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-indigo-300/80 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20 mb-3">
-                        عملاء تمت إضافتهم عبر شيتات أو يدوياً ولم يتم تغيير حالتهم بعد عن حالة الانتظار.
+                        عملاء مضافين في داتا الموظفين ولم يقم الموظف بتغيير وتحديث حالتهم عن حالة الانتظار.
                       </p>
                       <button
                         onClick={() => {
@@ -6686,13 +6716,13 @@ const Dashboard = () => {
                           </div>
                           <div>
                             <h4 className="font-extrabold text-sm text-white">💬 انتظار الواتساب</h4>
-                            <p className="text-[11px] text-emerald-300">محادثات في انتظار التعيين</p>
+                            <p className="text-[11px] text-emerald-300">عملاء واتساب في انتظار المتابعة</p>
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">{unassignedWhatsappCount.toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3">
-                        عملاء تواصلوا عبر الواتساب أو تمت إضافتهم يدوياً وهم حالياً في انتظار التعيين.
+                        عملاء ومحادثات واتساب في الانتظار للمتابعة والتحديث.
                       </p>
                       <button
                         onClick={() => {
