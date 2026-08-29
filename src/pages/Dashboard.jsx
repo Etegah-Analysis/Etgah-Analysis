@@ -294,11 +294,11 @@ const Dashboard = () => {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedVisitors, setSelectedVisitors] = useState([]);
   const [selectedRecycleItems, setSelectedRecycleItems] = useState([]);
-  const [selectedEmpFilter, setSelectedEmpFilter] = useState('all');
+  const [selectedEmpFilter, setSelectedEmpFilter] = useState('admin');
 
   // Employee Leads Tab Filters & Pagination State
   const [currentPageEmpLeads, setCurrentPageEmpLeads] = useState(1);
-  const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('all');
+  const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('admin');
   const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('all');
   const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
   const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
@@ -2854,8 +2854,8 @@ const Dashboard = () => {
                           onChange={(e) => setSelectedEmpFilter(e.target.value)}
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
-                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
                           <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
+                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.length.toLocaleString()})</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
                             const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
@@ -3467,12 +3467,12 @@ const Dashboard = () => {
                           onChange={(e) => setEmpLeadsEmpFilter(e.target.value)}
                           className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(147,51,234,0.35)] border border-purple-400/40 hover:border-purple-300 transition-all cursor-pointer appearance-none"
                         >
+                          {(isAdmin || isCoordinator) && (
+                            <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
+                          )}
                           <option value="all" className="bg-slate-950 text-white">
                             {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.length.toLocaleString()})`}
                           </option>
-                          {(isAdmin || isCoordinator) && (
-                            <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => !c.assignedToUid || c.assignedToUid === 'admin' || c.assignedTo === 'الإدارة' || c.addedByUid === 'admin').length.toLocaleString()})</option>
-                          )}
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
                             const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
