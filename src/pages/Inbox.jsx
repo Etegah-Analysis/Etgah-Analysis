@@ -971,6 +971,30 @@ export default function Inbox() {
           unread: 0
         });
         docRefId = docRef.id;
+
+        // Also add to employee_leads so it immediately appears in "داتا مضافة بواسطة الموظف"
+        try {
+          const empCleanId = fullPhone.replace(/[^0-9]/g, '');
+          const empUser = employees?.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+          const empName = empUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف';
+          
+          await setDoc(doc(db, 'employee_leads', empCleanId), {
+            phoneNumber: fullPhone,
+            name: newCustomerName.trim() || 'عميل جديد (يدوي)',
+            source: 'إضافة يدوية (WhatsApp)',
+            addedBy: empName,
+            addedByUid: currentUser.uid,
+            assignedTo: assigneeEmail || currentUser.email,
+            assignedToUid: assigneeUid || currentUser.uid,
+            status: 'assigned',
+            crmStatus: 'unassigned',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            unread: 0
+          }, { merge: true });
+        } catch (e) {
+          console.error("Error syncing to employee_leads:", e);
+        }
       }
       
       setActiveChat({

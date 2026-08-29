@@ -602,6 +602,52 @@ const Dashboard = () => {
     };
   }, []);
 
+  // Auto-sync existing manual WhatsApp customers into employee_leads
+  useEffect(() => {
+    if (!customers || customers.length === 0) return;
+    const manualList = customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+    if (manualList.length === 0) return;
+
+    const syncManualToEmployeeLeads = async () => {
+      for (const c of manualList) {
+        try {
+          const cleanPhone = (c.phoneNumber || '').replace(/[^0-9+]/g, '');
+          if (!cleanPhone) continue;
+          const empCleanId = cleanPhone.replace(/[^0-9]/g, '') || c.id;
+          const empDocRef = doc(db, 'employee_leads', empCleanId);
+          const empDocSnap = await getDoc(empDocRef);
+
+          if (!empDocSnap.exists()) {
+            const empUser = employees.find(e => e.uid === c.addedByUid || e.email?.toLowerCase() === c.addedBy?.toLowerCase() || (e.name && c.addedBy === e.name));
+            const empName = c.addedBy || empUser?.name || 'موظف';
+            const assigneeUser = employees.find(e => e.uid === c.assignedToUid || e.email?.toLowerCase() === c.assignedTo?.toLowerCase());
+
+            await setDoc(empDocRef, {
+              phoneNumber: cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`,
+              name: c.name || 'عميل جديد (يدوي)',
+              source: c.source || 'إضافة يدوية (WhatsApp)',
+              addedBy: empName,
+              addedByUid: c.addedByUid || empUser?.uid || '',
+              assignedTo: c.assignedTo || assigneeUser?.email || empUser?.email || 'الإدارة',
+              assignedToUid: c.assignedToUid || assigneeUser?.uid || empUser?.uid || 'admin',
+              status: c.status || 'assigned',
+              crmStatus: (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned',
+              notes: c.notes || '',
+              notesHistory: c.notesHistory || [],
+              createdAt: c.createdAt || serverTimestamp(),
+              updatedAt: c.updatedAt || serverTimestamp(),
+              unread: 0
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.error("Auto sync manual to employee_leads error:", err);
+        }
+      }
+    };
+
+    syncManualToEmployeeLeads();
+  }, [customers, employees]);
+
   const scrollToTable = () => {
     setTimeout(() => {
       if (tableSectionRef.current) {
