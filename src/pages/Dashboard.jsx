@@ -2928,7 +2928,12 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300/40">—</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {(leadsCrm.length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (إجمالي داتا التقييم)
+                </span>
               </div>
             </div>
 
@@ -3131,7 +3136,12 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300/40">—</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {(leadsCrm.length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (إجمالي داتا التقييم)
+                </span>
               </div>
             </div>
 
@@ -3313,7 +3323,7 @@ const Dashboard = () => {
                 e.stopPropagation();
                 setIsLeadsAnalysisModalOpen(true);
               }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
               title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
@@ -3321,7 +3331,12 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-lg font-black text-cyan-300">تحليل الفريق ➔</h3>
+                <h3 className="text-xl font-black text-cyan-300">
+                  {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (داتا تقييم الفريق)
+                </span>
               </div>
             </div>
 
@@ -3426,7 +3441,7 @@ const Dashboard = () => {
                 e.stopPropagation();
                 setIsLeadsAnalysisModalOpen(true);
               }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 flex items-center cursor-pointer hover:scale-105 transition-all transform"
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
               title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
             >
               <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
@@ -3434,7 +3449,12 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-2xl font-black text-cyan-300/40">—</h3>
+                <h3 className="text-2xl font-black text-cyan-300">
+                  {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (داتا التقييم الخاصة بي)
+                </span>
               </div>
             </div>
 
@@ -7976,8 +7996,8 @@ const Dashboard = () => {
                 e.role !== 'admin' && 
                 !adminEmails.includes(e.email?.toLowerCase()) &&
                 e.jobTitle !== 'Coordinator' &&
+                e.jobTitle !== 'منسق للإدارة' &&
                 e.role !== 'coordinator' &&
-                !coordinatorEmails?.includes(e.email?.toLowerCase()) &&
                 !e.name?.toLowerCase().includes('waleed') &&
                 !e.email?.toLowerCase().includes('waleed@')
               )
@@ -7985,12 +8005,14 @@ const Dashboard = () => {
             ? [currentEmpUser, ...myTeamMembers].filter(e => 
                 e && 
                 e.jobTitle !== 'Coordinator' && 
+                e.jobTitle !== 'منسق للإدارة' && 
                 e.role !== 'coordinator' &&
                 !e.name?.toLowerCase().includes('waleed')
               )
             : [currentEmpUser].filter(e => 
                 e && 
                 e.jobTitle !== 'Coordinator' && 
+                e.jobTitle !== 'منسق للإدارة' && 
                 e.role !== 'coordinator' &&
                 !e.name?.toLowerCase().includes('waleed')
               );
