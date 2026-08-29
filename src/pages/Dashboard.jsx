@@ -649,14 +649,14 @@ const Dashboard = () => {
   // Helper to check if an assigned lead is still in pending / waiting (لم يتم تحويل حالته بعد)
   const isLeadPendingWithEmployee = (c) => {
     if (!isLeadAssignedToEmployee(c)) return false;
-    const st = c.crmStatus || c.status || 'unassigned';
+    const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
     return st === 'unassigned';
   };
 
   // Accurate pending counters (Only counts data sent/added to employees whose status has not been converted yet)
-  const unassignedWhatsappCount = customers.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo) && (!c.crmStatus || c.crmStatus === 'unassigned' || c.status === 'unassigned')).length || customers.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.status === 'unassigned').length;
+  const unassignedWhatsappCount = customers.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo) && (!c.crmStatus || c.crmStatus === 'unassigned')).length || customers.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
   const unassignedLeadsCrmCount = leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
-  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => (c.crmStatus || c.status || 'unassigned') === 'unassigned').length;
+  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => ((c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned') === 'unassigned').length;
   const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
   const unassignedCount = unassignedWhatsappCount;
   const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'WhatsApp Webhook').length;
@@ -2833,7 +2833,10 @@ const Dashboard = () => {
 
               const getCrmStatusCount = (statusKey) => {
                 if (statusKey === 'all') return scopeLeadsForCount.length;
-                return scopeLeadsForCount.filter(c => (c.crmStatus || c.status || 'unassigned') === statusKey).length;
+                return scopeLeadsForCount.filter(c => {
+                  const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                  return st === statusKey;
+                }).length;
               };
 
               return (
@@ -2983,7 +2986,7 @@ const Dashboard = () => {
                 }
 
                 if (crmStatusFilter && crmStatusFilter !== 'all') {
-                  const currentStatus = c.crmStatus || c.status || 'unassigned';
+                  const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
                   if (currentStatus !== crmStatusFilter) return false;
                 }
 
@@ -3435,7 +3438,10 @@ const Dashboard = () => {
 
               const getEmpLeadStatusCount = (statusKey) => {
                 if (statusKey === 'all') return scopeEmpLeads.length;
-                return scopeEmpLeads.filter(c => (c.crmStatus || 'unassigned') === statusKey).length;
+                return scopeEmpLeads.filter(c => {
+                  const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                  return st === statusKey;
+                }).length;
               };
 
               return (
@@ -3587,7 +3593,7 @@ const Dashboard = () => {
                 }
 
                 if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
-                  const currentStatus = c.crmStatus || 'unassigned';
+                  const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
                   if (currentStatus !== empLeadsStatusFilter) return false;
                 }
 
