@@ -384,6 +384,16 @@ const Dashboard = () => {
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
 
+  // Call Performance Analytics States
+  const [callLogs, setCallLogs] = useState([]);
+  const [isCallsAnalysisModalOpen, setIsCallsAnalysisModalOpen] = useState(false);
+  const [callsDateRangeFilter, setCallsDateRangeFilter] = useState('all'); // 'all', 'today', 'yesterday', 'week', 'month', 'custom'
+  const [callsCustomDateFrom, setCallsCustomDateFrom] = useState('');
+  const [callsCustomDateTo, setCallsCustomDateTo] = useState('');
+  const [callsSelectedEmpFilter, setCallsSelectedEmpFilter] = useState('');
+  const [callsSearchTerm, setCallsSearchTerm] = useState('');
+  const [callsCurrentPage, setCallsCurrentPage] = useState(1);
+
   // Internal Mail / Gmail System State
   const [internalEmails, setInternalEmails] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
@@ -535,8 +545,23 @@ const Dashboard = () => {
     }
   };
 
-  // Direct Click-to-Call via MicroSIP Handler
-  const handleCallViaMicroSip = (rawPhone) => {
+  // Real-time listener for Call Logs
+  useEffect(() => {
+    const q = query(collection(db, 'call_logs'), orderBy('calledAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const logs = [];
+      snapshot.forEach((docSnap) => {
+        logs.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setCallLogs(logs);
+    }, (err) => {
+      console.error("Error listening to call_logs:", err);
+    });
+    return () => unsub();
+  }, []);
+
+  // Direct Click-to-Call via MicroSIP Handler with Firestore Logging
+  const handleCallViaMicroSip = async (rawPhone, customer = {}) => {
     if (!rawPhone) {
       toast.error('رقم الهاتف غير متوفر للاتصال');
       return;
@@ -550,6 +575,57 @@ const Dashboard = () => {
     // Trigger MicroSIP / SIP URL
     window.location.href = `sip:${cleanPhone}`;
     toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
+
+    // Save Call Log in Firestore
+    try {
+      if (currentUser) {
+        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentEmpUser?.username || currentUser.email?.split('@')[0] || 'موظف');
+        const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
+        await addDoc(collection(db, 'call_logs'), {
+          phoneNumber: cleanPhone,
+          customerId: customer?.id || '',
+          customerName: customer?.name || customer?.firstName || 'عميل',
+          customerSource: customer?.source || (customer?.isLeadCrm ? 'Leads CRM' : 'CRM'),
+          employeeUid: currentUser.uid,
+          employeeEmail: currentUser.email || '',
+          employeeName: callerName,
+          employeeJobTitle: callerRole,
+          leaderUid: currentEmpUser?.leaderUid || '',
+          leaderName: currentEmpUser?.leaderName || '',
+          calledAt: serverTimestamp(),
+          calledDateStr: new Date().toISOString().split('T')[0],
+          timestampMillis: Date.now(),
+          source: 'MicroSIP'
+        });
+      }
+    } catch (err) {
+      console.error('Error logging call event:', err);
+    }
+  };
+
+  // Export Call Performance Logs to Excel
+  const handleExportCallLogsToExcel = (logsToExport) => {
+    if (!logsToExport || logsToExport.length === 0) {
+      toast.error('لا توجد بيانات مكالمات لتصديرها');
+      return;
+    }
+    const data = logsToExport.map((log, idx) => ({
+      'م': idx + 1,
+      'تاريخ ووقت الاتصال': log.calledAt?.toDate ? log.calledAt.toDate().toLocaleString('ar-EG') : (log.timestampMillis ? new Date(log.timestampMillis).toLocaleString('ar-EG') : '—'),
+      'اسم الموظف': log.employeeName || '—',
+      'وظيفة الموظف': log.employeeJobTitle || 'Agent',
+      'اسم الليدر / الفريق': log.leaderName || '—',
+      'اسم العميل': log.customerName || '—',
+      'رقم هاتف العميل': log.phoneNumber || '—',
+      'مصدر العميل': log.customerSource || '—',
+      'طريقة الاتصال': log.source || 'MicroSIP'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "سجل المكالمات");
+    XLSX.writeFile(wb, `تقرير_أداء_المكالمات_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('تم تصدير تقرير المكالمات إلى Excel بنجاح 📊');
   };
 
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
@@ -2497,6 +2573,26 @@ const Dashboard = () => {
     }
   };
 
+  // --- CALL PERFORMANCE ANALYTICS COMPUTATIONS ---
+  const roleFilteredCallLogs = callLogs.filter(log => {
+    if (isAdmin || isCoordinator) return true;
+    if (isLeader) {
+      return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
+    }
+    return log.employeeUid === currentUser?.uid;
+  });
+
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayCallLogsCount = roleFilteredCallLogs.filter(log => {
+    if (log.calledDateStr === todayDateStr) return true;
+    const time = getTimestampMillis(log.calledAt) || log.timestampMillis;
+    if (time) {
+      const logDate = new Date(time).toISOString().split('T')[0];
+      return logDate === todayDateStr;
+    }
+    return false;
+  }).length;
+
   return (
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
@@ -2724,6 +2820,29 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Card: Call Performance Analytics (تحليل أداء المكالمات) */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCallsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (إجمالي مكالمات السيستم)
+                </span>
+              </div>
+            </div>
+
             {/* Card 4: Total Customers */}
             <div 
               onClick={(e) => {
@@ -2904,6 +3023,29 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Coordinator Card: Call Performance Analytics */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCallsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (تحليل شامل للإدارة والمنسق)
+                </span>
+              </div>
+            </div>
+
             {/* Card 4: Total Customer Database */}
             <div 
               onClick={(e) => {
@@ -3070,6 +3212,29 @@ const Dashboard = () => {
                 <h3 className="text-lg font-black text-cyan-300">تحليل الفريق ➔</h3>
               </div>
             </div>
+
+            {/* Leader Card 7: Call Performance Analytics */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCallsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                <h3 className="text-xl font-black text-cyan-300">
+                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (مكالمات الفريق)
+                </span>
+              </div>
+            </div>
           </div>
         ) : (
           /* Regular Employee (Agent) Cards View (5 Cards) */
@@ -3158,6 +3323,29 @@ const Dashboard = () => {
               <div>
                 <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
                 <h3 className="text-2xl font-black text-cyan-300/40">—</h3>
+              </div>
+            </div>
+
+            {/* Agent Card 6: Call Performance Analytics */}
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCallsAnalysisModalOpen(true);
+              }}
+              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+              title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                <h3 className="text-xl font-black text-cyan-300">
+                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (مكالماتي الخاصة)
+                </span>
               </div>
             </div>
           </div>
@@ -7596,6 +7784,446 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Modal: Call Performance Analytics (تقرير وتحليل أداء المكالمات الشامل اليومي والتراكمي) */}
+        {isCallsAnalysisModalOpen && (() => {
+          // 1. Role Scoped Call Logs
+          const roleLogs = callLogs.filter(log => {
+            if (isAdmin || isCoordinator) return true;
+            if (isLeader) {
+              return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
+            }
+            return log.employeeUid === currentUser?.uid;
+          });
+
+          // 2. Date & Employee Filtered Logs
+          const now = new Date();
+          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
+          const endOfYesterday = startOfToday;
+          const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).getTime();
+          const startOfMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).getTime();
+
+          const filteredLogs = roleLogs.filter(log => {
+            // Employee Filter
+            if (callsSelectedEmpFilter && log.employeeUid !== callsSelectedEmpFilter) {
+              return false;
+            }
+
+            const logTime = getTimestampMillis(log.calledAt) || log.timestampMillis || 0;
+
+            if (callsDateRangeFilter === 'today') {
+              if (logTime < startOfToday) return false;
+            } else if (callsDateRangeFilter === 'yesterday') {
+              if (logTime < startOfYesterday || logTime >= endOfYesterday) return false;
+            } else if (callsDateRangeFilter === 'week') {
+              if (logTime < startOfWeek) return false;
+            } else if (callsDateRangeFilter === 'month') {
+              if (logTime < startOfMonth) return false;
+            } else if (callsDateRangeFilter === 'custom') {
+              if (callsCustomDateFrom) {
+                const fromTime = new Date(callsCustomDateFrom).setHours(0, 0, 0, 0);
+                if (logTime < fromTime) return false;
+              }
+              if (callsCustomDateTo) {
+                const toTime = new Date(callsCustomDateTo).setHours(23, 59, 59, 999);
+                if (logTime > toTime) return false;
+              }
+            }
+
+            // Search Term
+            if (callsSearchTerm.trim()) {
+              const term = callsSearchTerm.toLowerCase().trim();
+              const matchPhone = log.phoneNumber?.toLowerCase().includes(term);
+              const matchCust = log.customerName?.toLowerCase().includes(term);
+              const matchEmp = log.employeeName?.toLowerCase().includes(term);
+              if (!matchPhone && !matchCust && !matchEmp) return false;
+            }
+
+            return true;
+          });
+
+          // Metrics
+          const totalCallsInPeriod = filteredLogs.length;
+          const todayCalls = roleLogs.filter(log => {
+            const logTime = getTimestampMillis(log.calledAt) || log.timestampMillis || 0;
+            return logTime >= startOfToday;
+          }).length;
+          const uniqueCallers = new Set(filteredLogs.map(l => l.employeeUid).filter(Boolean)).size;
+          const avgCallsPerCaller = uniqueCallers > 0 ? (totalCallsInPeriod / uniqueCallers).toFixed(1) : 0;
+
+          // Per-Employee Analytics Breakdown
+          const eligibleEmployees = (isAdmin || isCoordinator)
+            ? employees.filter(e => e.role !== 'admin' && !adminEmails.includes(e.email?.toLowerCase()))
+            : isLeader
+            ? [currentEmpUser, ...myTeamMembers].filter(Boolean)
+            : [currentEmpUser].filter(Boolean);
+
+          const empBreakdown = eligibleEmployees.map(emp => {
+            const empAllLogs = roleLogs.filter(l => l.employeeUid === emp.uid || l.employeeEmail?.toLowerCase() === emp.email?.toLowerCase());
+            const empFilteredLogs = filteredLogs.filter(l => l.employeeUid === emp.uid || l.employeeEmail?.toLowerCase() === emp.email?.toLowerCase());
+            const empTodayLogs = empAllLogs.filter(l => {
+              const t = getTimestampMillis(l.calledAt) || l.timestampMillis || 0;
+              return t >= startOfToday;
+            });
+            const lastCall = empAllLogs.length > 0 ? (getTimestampMillis(empAllLogs[0].calledAt) || empAllLogs[0].timestampMillis) : null;
+
+            return {
+              emp,
+              todayCount: empTodayLogs.length,
+              periodCount: empFilteredLogs.length,
+              totalCount: empAllLogs.length,
+              lastCall,
+              percentage: totalCallsInPeriod > 0 ? Math.round((empFilteredLogs.length / totalCallsInPeriod) * 100) : 0
+            };
+          }).sort((a, b) => b.periodCount - a.periodCount || b.totalCount - a.totalCount);
+
+          const topCaller = empBreakdown.find(e => e.periodCount > 0);
+
+          // Pagination for Call History
+          const CALLS_PER_PAGE = 15;
+          const totalCallsPages = Math.ceil(filteredLogs.length / CALLS_PER_PAGE) || 1;
+          const validCallsPage = Math.min(callsCurrentPage, totalCallsPages);
+          const startIndexCalls = (validCallsPage - 1) * CALLS_PER_PAGE;
+          const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
+
+          return (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setIsCallsAnalysisModalOpen(false)}>
+              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[92vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                
+                {/* Modal Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-purple-500/20 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl shadow-lg border border-cyan-300/40">
+                      <PhoneCall size={24} className="text-white animate-pulse" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                        <span>تقرير وتحليل أداء المكالمات 📞</span>
+                        <span className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-0.5 rounded-full font-bold">
+                          {isAdmin ? 'تحليل المنصة الشامل' : isCoordinator ? 'منسق الإدارة' : isLeader ? 'تحليل فريق العمل' : 'مكالماتي الشخصية'}
+                        </span>
+                      </h2>
+                      <p className="text-xs text-purple-300 font-medium mt-0.5">
+                        {isAdmin || isCoordinator 
+                          ? 'تتبع دقيق لمعدل المكالمات اليومية والتراكمية الصادرة من برنامج MicroSIP لجميع الموظفين' 
+                          : isLeader 
+                          ? `تتبع ومتابعة أداء مكالماتك ومكالمات فريقك (${myTeamMembers.length} موظف)` 
+                          : 'سجل وتحليل مكالماتك اليومية والتراكمية ومعدل اتصالك بالعملاء'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button 
+                      onClick={() => handleExportCallLogsToExcel(filteredLogs)}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
+                      title="تصدير المكالمات المعروضة إلى ملف Excel"
+                    >
+                      <Download size={14} />
+                      <span>تصدير Excel</span>
+                    </button>
+                    <button 
+                      onClick={() => setIsCallsAnalysisModalOpen(false)} 
+                      className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="bg-slate-950/70 p-3 sm:p-4 rounded-2xl border border-purple-500/20 mb-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    {/* Quick Date Filters */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {[
+                        { key: 'all', label: 'الكل (تراكمي)' },
+                        { key: 'today', label: 'اليوم 📅' },
+                        { key: 'yesterday', label: 'أمس' },
+                        { key: 'week', label: 'آخر 7 أيام' },
+                        { key: 'month', label: 'آخر 30 يوم' },
+                        { key: 'custom', label: 'فترة مخصصة 🗓️' }
+                      ].map(f => (
+                        <button
+                          key={f.key}
+                          onClick={() => {
+                            setCallsDateRangeFilter(f.key);
+                            setCallsCurrentPage(1);
+                          }}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            callsDateRangeFilter === f.key
+                              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md border border-purple-400/50'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Employee Selector (for Admin, Coordinator, Leader) */}
+                    {(isAdmin || isCoordinator || isLeader) && (
+                      <div className="flex items-center gap-1.5 min-w-[200px]">
+                        <select
+                          value={callsSelectedEmpFilter}
+                          onChange={(e) => {
+                            setCallsSelectedEmpFilter(e.target.value);
+                            setCallsCurrentPage(1);
+                          }}
+                          className="bg-slate-800 text-cyan-300 border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-cyan-400 cursor-pointer w-full"
+                        >
+                          <option value="">👤 جميع الموظفين (All Staff)</option>
+                          {eligibleEmployees.map(emp => (
+                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                              👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Date Range Picker */}
+                  {callsDateRangeFilter === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 font-bold">من:</span>
+                        <input
+                          type="date"
+                          value={callsCustomDateFrom}
+                          onChange={(e) => { setCallsCustomDateFrom(e.target.value); setCallsCurrentPage(1); }}
+                          className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 font-bold">إلى:</span>
+                        <input
+                          type="date"
+                          value={callsCustomDateTo}
+                          onChange={(e) => { setCallsCustomDateTo(e.target.value); setCallsCurrentPage(1); }}
+                          className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                        />
+                      </div>
+                      {(callsCustomDateFrom || callsCustomDateTo) && (
+                        <button
+                          onClick={() => { setCallsCustomDateFrom(''); setCallsCustomDateTo(''); setCallsCurrentPage(1); }}
+                          className="text-rose-400 hover:text-rose-300 font-bold text-xs"
+                        >
+                          مسح التاريخ ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search size={15} className="absolute right-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="بحث باسم الموظف أو اسم العميل أو رقم الهاتف..."
+                      value={callsSearchTerm}
+                      onChange={(e) => { setCallsSearchTerm(e.target.value); setCallsCurrentPage(1); }}
+                      className="w-full bg-slate-900/90 border border-purple-500/30 rounded-xl pr-9 pl-4 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-5">
+                  {/* KPI Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-purple-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-purple-200 font-bold block mb-1">📞 إجمالي المكالمات (المحددة)</span>
+                      <span className="text-xl sm:text-2xl font-black text-cyan-300">{totalCallsInPeriod.toLocaleString()} مكالمة</span>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-indigo-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-indigo-200 font-bold block mb-1">📅 مكالمات اليوم</span>
+                      <span className="text-xl sm:text-2xl font-black text-emerald-400">{todayCalls.toLocaleString()} مكالمة</span>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-teal-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-teal-200 font-bold block mb-1">👥 الموظفون النشطون</span>
+                      <span className="text-xl sm:text-2xl font-black text-teal-300">{uniqueCallers} موظف</span>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-amber-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-amber-200 font-bold block mb-1">⚡ متوسط المكالمات للموظف</span>
+                      <span className="text-xl sm:text-2xl font-black text-amber-300">{avgCallsPerCaller}</span>
+                    </div>
+                  </div>
+
+                  {/* Leaderboard Table (for Admin, Coordinator, Leader) */}
+                  {(isAdmin || isCoordinator || isLeader) && empBreakdown.length > 0 && (
+                    <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
+                      <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
+                        <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
+                          <span>🏆 ترتيب كفاءة وأداء اتصالات الموظفين</span>
+                          {topCaller && <span className="text-[11px] text-amber-300 font-normal">الأعلى اتصالاً: <strong>{topCaller.emp.name}</strong> ({topCaller.periodCount} مكالمة)</span>}
+                        </h3>
+                        <span className="text-[11px] text-purple-300 font-bold">{empBreakdown.length} موظف</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-right text-xs">
+                          <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
+                            <tr>
+                              <th className="p-3">الموظف</th>
+                              <th className="p-3">الوظيفة / الفريق</th>
+                              <th className="p-3 text-center text-emerald-400 font-black">مكالمات اليوم 📅</th>
+                              <th className="p-3 text-center text-cyan-300 font-black">مكالمات الفترة ⏱️</th>
+                              <th className="p-3 text-center text-purple-300 font-black">الإجمالي التراكمي 📊</th>
+                              <th className="p-3 text-center">نسبة المساهمة</th>
+                              <th className="p-3 text-center">آخر اتصال</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800 text-slate-200">
+                            {empBreakdown.map(({ emp, todayCount, periodCount, totalCount, percentage, lastCall }, i) => (
+                              <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
+                                <td className="p-3 font-bold flex items-center gap-2">
+                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-400 text-black' : i === 1 ? 'bg-slate-300 text-black' : i === 2 ? 'bg-amber-700 text-white' : 'bg-purple-900 text-purple-200'}`}>
+                                    {i + 1}
+                                  </span>
+                                  <span className="text-white font-black">{emp.name}</span>
+                                  {i === 0 && periodCount > 0 && <span className="text-amber-400 text-xs" title="الموظف الأول في الاتصال">👑</span>}
+                                </td>
+                                <td className="p-3">
+                                  <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                                    {emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}
+                                    {emp.leaderName ? ` • فريق ${emp.leaderName}` : ''}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center font-black text-emerald-400 text-sm">{todayCount}</td>
+                                <td className="p-3 text-center font-black text-cyan-300 text-sm">{periodCount}</td>
+                                <td className="p-3 text-center font-black text-purple-300">{totalCount}</td>
+                                <td className="p-3 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
+                                      <div style={{ width: `${percentage}%` }} className="bg-gradient-to-r from-purple-500 to-cyan-400 h-full rounded-full"></div>
+                                    </div>
+                                    <span className="font-bold text-[11px] text-cyan-300">{percentage}%</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center text-[11px] text-slate-400 font-mono" dir="ltr">
+                                  {lastCall ? new Date(lastCall).toLocaleString('ar-EG', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Call Timeline Log */}
+                  <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
+                    <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
+                      <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
+                        <Clock size={16} className="text-cyan-300" />
+                        <span>سجل المكالمات الصادرة المباشرة ({filteredLogs.length} مكالمة)</span>
+                      </h3>
+                      <span className="text-[11px] text-slate-400 font-bold">صفحة {validCallsPage} من {totalCallsPages}</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right text-xs">
+                        <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
+                          <tr>
+                            <th className="p-3">#</th>
+                            <th className="p-3">وقت وتاريخ الاتصال</th>
+                            <th className="p-3">الموظف المتصل</th>
+                            <th className="p-3">اسم العميل</th>
+                            <th className="p-3 text-center">رقم الهاتف</th>
+                            <th className="p-3 text-center">مصدر العميل</th>
+                            <th className="p-3 text-center">إجراء</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800 text-slate-200">
+                          {paginatedLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan="7" className="p-8 text-center text-slate-400 font-bold">
+                                لا توجد مكالمات مسجلة مطابقة للبحث أو التصفية الحالية 📵
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedLogs.map((log, idx) => {
+                              const callTime = log.calledAt?.toDate ? log.calledAt.toDate() : (log.timestampMillis ? new Date(log.timestampMillis) : null);
+                              return (
+                                <tr key={log.id || idx} className="hover:bg-purple-900/20 transition">
+                                  <td className="p-3 text-slate-500 font-bold text-[10px]">
+                                    {startIndexCalls + idx + 1}
+                                  </td>
+                                  <td className="p-3 font-mono text-[11px] text-slate-300" dir="ltr">
+                                    {callTime ? callTime.toLocaleString('ar-EG') : '—'}
+                                  </td>
+                                  <td className="p-3 font-bold text-cyan-300">
+                                    <span>👤 {log.employeeName || 'موظف'}</span>
+                                    {log.employeeJobTitle && (
+                                      <span className="block text-[10px] text-purple-400 font-normal">({log.employeeJobTitle})</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-bold text-white">
+                                    {log.customerName || 'عميل'}
+                                  </td>
+                                  <td className="p-3 text-center font-mono font-bold text-slate-200" dir="ltr">
+                                    {log.phoneNumber}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className="bg-purple-900/40 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                      {log.customerSource || log.source || 'MicroSIP'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {!isCoordinator && log.phoneNumber && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCallViaMicroSip(log.phoneNumber, { name: log.customerName, id: log.customerId });
+                                        }}
+                                        className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white px-2.5 py-1 rounded-lg text-[11px] font-black shadow-sm active:scale-95 transition inline-flex items-center gap-1 cursor-pointer"
+                                        title="إعادة الاتصال بالعميل عبر MicroSIP"
+                                      >
+                                        <PhoneCall size={11} className="animate-pulse" />
+                                        <span>إعادة اتصال</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalCallsPages > 1 && (
+                      <div className="p-3 bg-slate-900/60 border-t border-slate-800 flex justify-between items-center">
+                        <button
+                          disabled={validCallsPage <= 1}
+                          onClick={() => setCallsCurrentPage(p => Math.max(1, p - 1))}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${validCallsPage <= 1 ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
+                        >
+                          السابق
+                        </button>
+                        <span className="text-xs text-purple-300 font-bold">
+                          صفحة {validCallsPage} من {totalCallsPages}
+                        </span>
+                        <button
+                          disabled={validCallsPage >= totalCallsPages}
+                          onClick={() => setCallsCurrentPage(p => Math.min(totalCallsPages, p + 1))}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${validCallsPage >= totalCallsPages ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
+                        >
+                          التالي
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
         {isSystemTotalClientsModalOpen && (

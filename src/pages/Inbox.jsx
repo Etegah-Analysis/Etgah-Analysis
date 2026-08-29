@@ -336,8 +336,8 @@ export default function Inbox() {
     };
   }, [isAdmin]);
 
-  // Direct Click-to-Call via MicroSIP Handler
-  const handleCallViaMicroSip = (rawPhone) => {
+  // Direct Click-to-Call via MicroSIP Handler with Firestore Logging
+  const handleCallViaMicroSip = async (rawPhone, customer = {}) => {
     if (!rawPhone) {
       toast.error('رقم الهاتف غير متوفر للاتصال');
       return;
@@ -351,6 +351,32 @@ export default function Inbox() {
     // Trigger MicroSIP / SIP URL
     window.location.href = `sip:${cleanPhone}`;
     toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
+
+    // Save Call Log in Firestore
+    try {
+      if (currentUser) {
+        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
+        const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
+        await addDoc(collection(db, 'call_logs'), {
+          phoneNumber: cleanPhone,
+          customerId: customer?.id || activeChat?.id || '',
+          customerName: customer?.name || activeChat?.name || 'عميل',
+          customerSource: activeChat?.source || 'WhatsApp CRM',
+          employeeUid: currentUser.uid,
+          employeeEmail: currentUser.email || '',
+          employeeName: callerName,
+          employeeJobTitle: callerRole,
+          leaderUid: currentEmpUser?.leaderUid || '',
+          leaderName: currentEmpUser?.leaderName || '',
+          calledAt: serverTimestamp(),
+          calledDateStr: new Date().toISOString().split('T')[0],
+          timestampMillis: Date.now(),
+          source: 'MicroSIP WhatsApp'
+        });
+      }
+    } catch (err) {
+      console.error('Error logging call event in Inbox:', err);
+    }
   };
 
   const formatJobTitle = (title) => {
