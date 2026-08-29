@@ -2718,16 +2718,26 @@ const Dashboard = () => {
   const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
   const [crmCampaignSending, setCrmCampaignSending] = useState(false);
   const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
+  const [crmCampaignCheckedLeadIds, setCrmCampaignCheckedLeadIds] = useState([]);
   const [campaignSourceFilter, setCampaignSourceFilter] = useState('all'); // 'all', 'crm_sheet', 'excel_import', 'direct'
 
-  const openCrmCampaignModal = (poolType = 'leads_crm') => {
-    if (isCoordinator) {
-      toast.error('صلاحية إرسال الحملات غير مفعلة لحساب المنسق 🔒');
-      return;
-    }
-    setCrmCampaignTargetPool(poolType);
-    setCrmCampaignProgress(0);
-    setIsCrmCampaignModalOpen(true);
+  // 48 hours cooldown helper (2 days / يومين)
+  const isLeadInCampaignCooldown = (lead) => {
+    if (!lead) return false;
+    const lastTime = getTimestampMillis(lead.lastCampaignSentAt) || getTimestampMillis(lead.lastCampaignDate) || (lead.lastCampaignSentMillis || 0);
+    if (!lastTime) return false;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    return (Date.now() - lastTime) < TWO_DAYS_MS;
+  };
+
+  const getRemainingCooldownHours = (lead) => {
+    if (!lead) return 0;
+    const lastTime = getTimestampMillis(lead.lastCampaignSentAt) || getTimestampMillis(lead.lastCampaignDate) || (lead.lastCampaignSentMillis || 0);
+    if (!lastTime) return 0;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    const diff = (lastTime + TWO_DAYS_MS) - Date.now();
+    if (diff <= 0) return 0;
+    return Math.ceil(diff / (1000 * 60 * 60));
   };
 
   const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize) => {
@@ -2749,14 +2759,80 @@ const Dashboard = () => {
     }
 
     const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
+    const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
+    const cooldownLeads = validLeads.filter(c => isLeadInCampaignCooldown(c));
+    const combined = [...availableLeads, ...cooldownLeads];
     const count = Math.min(10, Math.max(1, batchCount));
-    return validLeads.slice(0, count);
+    return combined.slice(0, count);
+  };
+
+  const openCrmCampaignModal = (poolType = 'leads_crm') => {
+    if (isCoordinator) {
+      toast.error('صلاحية إرسال الحملات غير مفعلة لحساب المنسق 🔒');
+      return;
+    }
+    setCrmCampaignTargetPool(poolType);
+    setCrmCampaignProgress(0);
+    const isEmpLeadsPool = poolType === 'employee_leads';
+    const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
+    const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
+    let candidateLeads = [];
+    if (selectedIds.length > 0) {
+      candidateLeads = sourceList.filter(c => selectedIds.includes(c.id));
+    } else {
+      candidateLeads = sourceList.filter(c => {
+        if (isAdmin) return true;
+        if (isLeader) return c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
+        return c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase();
+      });
+    }
+    const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
+    const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
+    const cooldownLeads = validLeads.filter(c => isLeadInCampaignCooldown(c));
+    const targets = [...availableLeads, ...cooldownLeads].slice(0, crmCampaignBatchSize);
+    const eligibleIds = targets.filter(c => !isLeadInCampaignCooldown(c)).map(c => c.id);
+    setCrmCampaignCheckedLeadIds(eligibleIds);
+    setIsCrmCampaignModalOpen(true);
+  };
+
+  const handleBatchSizeChange = (size) => {
+    setCrmCampaignBatchSize(size);
+    const targets = getCrmCampaignTargetLeads(size);
+    const eligibleIds = targets.filter(c => !isLeadInCampaignCooldown(c)).map(c => c.id);
+    setCrmCampaignCheckedLeadIds(eligibleIds);
+  };
+
+  const toggleCampaignLeadCheck = (leadId, inCooldown) => {
+    if (inCooldown) {
+      toast.error('هذا الرقم تم إرسال حملة له مؤخراً ولا يمكن إرسال حملة له إلا بعد مرور يومين (48 ساعة) ⏳');
+      return;
+    }
+    setCrmCampaignCheckedLeadIds(prev => 
+      prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]
+    );
+  };
+
+  const toggleAllCampaignLeads = (targets) => {
+    const eligibleTargets = targets.filter(c => !isLeadInCampaignCooldown(c));
+    if (crmCampaignCheckedLeadIds.length === eligibleTargets.length && eligibleTargets.length > 0) {
+      setCrmCampaignCheckedLeadIds([]);
+    } else {
+      setCrmCampaignCheckedLeadIds(eligibleTargets.map(c => c.id));
+    }
   };
 
   const handleSendCrmCampaign = async () => {
     const targets = getCrmCampaignTargetLeads(crmCampaignBatchSize);
-    if (!targets || targets.length === 0) {
-      toast.error('لا يوجد عملاء متاحين لإرسال الحملة الإعلانية');
+    const selectedTargets = targets.filter(c => crmCampaignCheckedLeadIds.includes(c.id));
+
+    if (!selectedTargets || selectedTargets.length === 0) {
+      toast.error('يرجى تحديد عميل واحد على الأقل بعلامة (✓) لإرسال الحملة');
+      return;
+    }
+
+    const cooldownFiltered = selectedTargets.filter(c => isLeadInCampaignCooldown(c));
+    if (cooldownFiltered.length > 0) {
+      toast.error(`تعذر الإرسال لـ ${cooldownFiltered.length} عميل لأنهم استلموا حملة خلال آخر 48 ساعة.`);
       return;
     }
 
@@ -2775,8 +2851,8 @@ const Dashboard = () => {
     let failCount = 0;
     const senderName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
 
-    for (let i = 0; i < targets.length; i++) {
-      const lead = targets[i];
+    for (let i = 0; i < selectedTargets.length; i++) {
+      const lead = selectedTargets[i];
       let cleanPhone = String(lead.phoneNumber || '').replace(/[^0-9+]/g, '');
       if (!cleanPhone.startsWith('+')) {
         if (cleanPhone.startsWith('0')) cleanPhone = '+20' + cleanPhone.substring(1);
@@ -2835,6 +2911,9 @@ const Dashboard = () => {
           lastMessage: msgText,
           updatedAt: serverTimestamp(),
           createdAt: lead.createdAt || serverTimestamp(),
+          lastCampaignSentAt: serverTimestamp(),
+          lastCampaignSentMillis: Date.now(),
+          lastCampaignDate: new Date().toISOString(),
           unread: 0
         }, { merge: true });
 
@@ -2856,7 +2935,7 @@ const Dashboard = () => {
           metaMessageId: metaMsgId
         });
 
-        // Add history note to lead in CRM collection
+        // Add history note and 2-day cooldown timestamps to lead
         const noteLog = {
           id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
           author: senderName,
@@ -2868,6 +2947,9 @@ const Dashboard = () => {
         await updateDoc(doc(db, targetCol, lead.id), {
           notesHistory: arrayUnion(noteLog),
           lastContactedAt: serverTimestamp(),
+          lastCampaignSentAt: serverTimestamp(),
+          lastCampaignSentMillis: Date.now(),
+          lastCampaignDate: new Date().toISOString(),
           updatedAt: serverTimestamp()
         });
 
@@ -2884,7 +2966,7 @@ const Dashboard = () => {
     setIsCrmCampaignModalOpen(false);
 
     if (successCount > 0) {
-      toast.success(`تم إرسال الحملة الإعلانية لـ (${successCount}) عميل بنجاح 🚀 ستجد المحادثات في صفحة الواتساب!`, { duration: 6000 });
+      toast.success(`تم إرسال الحملة الإعلانية بنجاح لـ (${successCount}) عميل 🚀 (محمية من التكرار لمدة يومين)`, { duration: 6000 });
     }
     if (failCount > 0) {
       toast.error(`تعذر إرسال (${failCount}) أرقام.`);
@@ -3285,7 +3367,7 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isCoordinator ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5 mb-6 md:mb-8">
             {/* Card 1: Dedicated Leads CRM */}
             <div 
               onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
@@ -3356,7 +3438,27 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Coordinator Card: Call Performance Analytics */}
+            {/* Coordinator Card 5: Campaign Performance (أداء الحملات) - Same analysis as Admin */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <BarChart3 className="text-amber-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                </h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                </span>
+              </div>
+            </div>
+
+            {/* Coordinator Card 6: Call Performance Analytics */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -3379,7 +3481,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 4: Total Customer Database */}
+            {/* Coordinator Card 7: Total Customer Database */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -3397,7 +3499,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Card 5: Pending Customers (All Sources) */}
+            {/* Coordinator Card 8: Pending Customers (All Sources) */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -3418,7 +3520,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 6: Website WhatsApp Leads */}
+            {/* Coordinator Card 9: Website WhatsApp Leads */}
             <div 
               onClick={(e) => handleCardClick(e, 'customers', 'website')}
               className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
@@ -3437,272 +3539,335 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View (6 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-            {/* Leader Card 1: Leads CRM (Personal Leads) */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض جدول Leads CRM الخاص بك"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <FileSpreadsheet className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                </h3>
-              </div>
-            </div>
+          /* Leader Dashboard Cards View (8 Cards) */
+          (() => {
+            const leaderTeamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(m => m.email?.toLowerCase())].filter(Boolean);
+            const leaderTeamTemplateMsgs = templateMessages.filter(m => leaderTeamEmails.includes(m.senderEmail?.toLowerCase()) || m.senderUid === currentUser?.uid || myTeamMembers.some(tm => tm.uid === m.senderUid));
+            
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Leader Card 1: Leads CRM (Personal Leads) */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض جدول Leads CRM الخاص بك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <FileSpreadsheet className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Leader Card 2: Employee Added Data */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Upload className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
-                </h3>
-              </div>
-            </div>
+                {/* Leader Card 2: Employee Added Data */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Upload className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Leader Card 3: Subscribed Clients */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Award className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (مشتركي الفريق)
-                </span>
-              </div>
-            </div>
+                {/* Leader Card 3: Subscribed Clients */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Award className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                    <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (مشتركي الفريق)
+                    </span>
+                  </div>
+                </div>
 
-            {/* Leader Card 4: Website WhatsApp Leads */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'website')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Globe className="text-emerald-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
-                </h3>
-              </div>
-            </div>
+                {/* Leader Card 4: Website WhatsApp Leads */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Globe className="text-emerald-400" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Leader Card 5: Team Members & Total Team Leads */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
-              className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لمتابعة عملاء فريقك وسحب الداتا"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Users className="text-amber-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-amber-200 font-extrabold mb-1">👥 أعضاء فريقي</p>
-                <h3 className="text-2xl font-black text-amber-300">
-                  {myTeamMembers.length} موظف
-                </h3>
-                <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
-                  ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
-                </span>
-              </div>
-            </div>
+                {/* Leader Card 5: Team Members & Total Team Leads */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
+                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لمتابعة عملاء فريقك وسحب الداتا"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Users className="text-amber-400" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-amber-200 font-extrabold mb-1">👥 أعضاء فريقي</p>
+                    <h3 className="text-2xl font-black text-amber-300">
+                      {myTeamMembers.length} موظف
+                    </h3>
+                    <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
+                      ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
+                    </span>
+                  </div>
+                </div>
 
-            {/* Leader Card 6: Leads CRM Analysis */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLeadsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <BarChart3 className="text-cyan-300" size={28} />
-              </div>
-              <div>
-                <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-xl font-black text-cyan-300">
-                  {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (داتا تقييم الفريق)
-                </span>
-              </div>
-            </div>
+                {/* Leader Card 6: Leads CRM Analysis */}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLeadsAnalysisModalOpen(true);
+                  }}
+                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                  title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <BarChart3 className="text-cyan-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                    <h3 className="text-xl font-black text-cyan-300">
+                      {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                    </h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (داتا تقييم الفريق)
+                    </span>
+                  </div>
+                </div>
 
-            {/* Leader Card 7: Call Performance Analytics */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCallsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                {/* Leader Card 7: Campaign Performance (أداء الحملات) */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <BarChart3 className="text-amber-400" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-amber-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                    <h3 className="text-2xl font-black text-amber-300">
+                      {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                    </h3>
+                    <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                      ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Leader Card 8: Call Performance Analytics */}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCallsAnalysisModalOpen(true);
+                  }}
+                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                  title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                    <h3 className="text-xl font-black text-cyan-300">
+                      {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                    </h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (مكالمات الفريق)
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                <h3 className="text-xl font-black text-cyan-300">
-                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (مكالمات الفريق)
-                </span>
-              </div>
-            </div>
-          </div>
+            );
+          })()
         ) : (
-          /* Regular Employee (Agent) Cards View (5 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            {/* Agent Card 1: Leads CRM */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <FileSpreadsheet className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                </h3>
-              </div>
-            </div>
+          /* Regular Employee (Agent) Cards View (7 Cards) */
+          (() => {
+            const agentTemplateMsgs = templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
 
-            {/* Agent Card 2: Employee Added Data */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Upload className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                </h3>
-              </div>
-            </div>
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Agent Card 1: Leads CRM */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <FileSpreadsheet className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Agent Card 3: Subscribed Clients */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Award className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (مشتركي الخاصين)
-                </span>
-              </div>
-            </div>
+                {/* Agent Card 2: Employee Added Data */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Upload className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Agent Card 4: Website WhatsApp Leads */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'website')}
-              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <Globe className="text-emerald-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
-                </h3>
-              </div>
-            </div>
+                {/* Agent Card 3: Subscribed Clients */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Award className="text-purple-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                    <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (مشتركي الخاصين)
+                    </span>
+                  </div>
+                </div>
 
-            {/* Agent Card 5: Leads CRM Analysis */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLeadsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <BarChart3 className="text-cyan-300" size={28} />
-              </div>
-              <div>
-                <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-2xl font-black text-cyan-300">
-                  {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (داتا التقييم الخاصة بي)
-                </span>
-              </div>
-            </div>
+                {/* Agent Card 4: Website WhatsApp Leads */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <Globe className="text-emerald-400" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
+                    </h3>
+                  </div>
+                </div>
 
-            {/* Agent Card 6: Call Performance Analytics */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCallsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                {/* Agent Card 5: Leads CRM Analysis */}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLeadsAnalysisModalOpen(true);
+                  }}
+                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                  title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <BarChart3 className="text-cyan-300" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                    </h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (داتا التقييم الخاصة بي)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Agent Card 6: Campaign Performance (أداء الحملات) */}
+                <div 
+                  onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <BarChart3 className="text-amber-400" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                    <h3 className="text-2xl font-black text-cyan-300">
+                      {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                    </h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Agent Card 7: Call Performance Analytics */}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCallsAnalysisModalOpen(true);
+                  }}
+                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                  title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                    <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                    <h3 className="text-xl font-black text-cyan-300">
+                      {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                    </h3>
+                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      (مكالماتي الخاصة)
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                <h3 className="text-xl font-black text-cyan-300">
-                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (مكالماتي الخاصة)
-                </span>
-              </div>
-            </div>
-          </div>
+            );
+          })()
         )}
 
-        {/* Campaigns Analytics Tab */}
+        {/* Campaigns Analytics Tab (Role-scoped) */}
         {activeTab === 'campaigns' && (() => {
+          // Scope template messages by user role
+          const roleScopedMessages = (() => {
+            if (isAdmin || isCoordinator) return templateMessages;
+            if (isLeader) {
+              const leaderTeamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(m => m.email?.toLowerCase())].filter(Boolean);
+              return templateMessages.filter(m => leaderTeamEmails.includes(m.senderEmail?.toLowerCase()) || m.senderUid === currentUser?.uid || myTeamMembers.some(tm => tm.uid === m.senderUid));
+            }
+            return templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
+          })();
+
           // Calculate source metrics
-          const crmSheetMsgs = templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet');
-          const excelMsgs = templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import');
-          const directMsgs = templateMessages.filter(m => !m.campaignSource && !m.source && (m.isTemplate || m.text?.includes('[قالب')));
+          const crmSheetMsgs = roleScopedMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet');
+          const excelMsgs = roleScopedMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import');
+          const directMsgs = roleScopedMessages.filter(m => !m.campaignSource && !m.source && (m.isTemplate || m.text?.includes('[قالب')));
 
           // Filter by active source tab
-          const filteredMessages = templateMessages.filter(msg => {
+          const filteredMessages = roleScopedMessages.filter(msg => {
             const src = msg.campaignSource || msg.source || 'direct';
             if (campaignSourceFilter === 'all') return true;
             if (campaignSourceFilter === 'crm_sheet') return src === 'crm_sheet';
@@ -8786,6 +8951,8 @@ const Dashboard = () => {
         {/* Modal: Send CRM Sheet WhatsApp Campaign (1 to 10 leads) */}
         {isCrmCampaignModalOpen && (() => {
           const currentTargets = getCrmCampaignTargetLeads(crmCampaignBatchSize);
+          const eligibleTargets = currentTargets.filter(c => !isLeadInCampaignCooldown(c));
+          const selectedTargets = currentTargets.filter(c => crmCampaignCheckedLeadIds.includes(c.id));
           const templateObj = CRM_CAMPAIGN_TEMPLATES.find(t => t.id === crmCampaignTemplateId);
           const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
 
@@ -8804,7 +8971,7 @@ const Dashboard = () => {
                         <span>📢 إرسال حملة واتساب لشيت العملاء (CRM Campaign)</span>
                       </h2>
                       <p className="text-xs text-emerald-300 font-semibold mt-0.5">
-                        إرسال رسائل ترويجية مباشرة لأرقام العملاء (من 1 إلى 10 عملاء) وترحيلهم فوراً لشات الواتساب
+                        إرسال رسائل ترويجية مباشرة لأرقام العملاء (من 1 إلى 10 عملاء) وترحيلهم فوراً لشات الواتساب (محمية من التكرار لمدة يومين)
                       </p>
                     </div>
                   </div>
@@ -8827,7 +8994,7 @@ const Dashboard = () => {
                         <span>1️⃣ اختر عدد العملاء لإرسال الحملة (من 1 إلى 10 أرقام):</span>
                       </span>
                       <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-black border border-emerald-400/40">
-                        تم تحديد: {currentTargets.length} عميل
+                        المحدد للإرسال: {selectedTargets.length} من {currentTargets.length} عميل
                       </span>
                     </div>
 
@@ -8837,7 +9004,7 @@ const Dashboard = () => {
                           key={num}
                           type="button"
                           disabled={crmCampaignSending}
-                          onClick={() => setCrmCampaignBatchSize(num)}
+                          onClick={() => handleBatchSizeChange(num)}
                           className={`py-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
                             crmCampaignBatchSize === num
                               ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-slate-950 shadow-lg scale-105 ring-2 ring-emerald-300'
@@ -8851,12 +9018,24 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* Step 2: Selected Leads Preview List */}
+                  {/* Step 2: Selected Leads Preview List with Checkboxes and Cooldown Badges */}
                   <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 shadow-inner">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-xs font-black text-slate-300">
-                        2️⃣ قائمة العملاء المستهدفين في هذه الدفعة ({currentTargets.length}):
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-300">
+                          2️⃣ تحديد العملاء المستهدفين ({currentTargets.length}):
+                        </span>
+                        {eligibleTargets.length > 0 && (
+                          <button
+                            type="button"
+                            disabled={crmCampaignSending}
+                            onClick={() => toggleAllCampaignLeads(currentTargets)}
+                            className="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold px-2.5 py-0.5 rounded-lg border border-slate-700 transition cursor-pointer"
+                          >
+                            {crmCampaignCheckedLeadIds.length === eligibleTargets.length ? 'إلغاء تحديد الكل' : 'تحديد الكل (✓)'}
+                          </button>
+                        )}
+                      </div>
                       <span className="text-[11px] text-purple-300 font-bold">
                         {crmCampaignTargetPool === 'employee_leads' ? '📂 داتا الموظف' : '🎯 Leads CRM'}
                       </span>
@@ -8867,23 +9046,53 @@ const Dashboard = () => {
                         ⚠️ لا توجد أرقام هواتف صالحة متاحة في الشيت حالياً.
                       </div>
                     ) : (
-                      <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                        {currentTargets.map((lead, idx) => (
-                          <div key={lead.id || idx} className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800/80 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px] font-black">
-                                {idx + 1}
-                              </span>
-                              <span className="font-black text-white">{lead.name || 'عميل'}</span>
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                        {currentTargets.map((lead, idx) => {
+                          const inCooldown = isLeadInCampaignCooldown(lead);
+                          const remHours = inCooldown ? getRemainingCooldownHours(lead) : 0;
+                          const isChecked = crmCampaignCheckedLeadIds.includes(lead.id) && !inCooldown;
+
+                          return (
+                            <div 
+                              key={lead.id || idx} 
+                              onClick={() => !crmCampaignSending && toggleCampaignLeadCheck(lead.id, inCooldown)}
+                              className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs transition cursor-pointer ${
+                                inCooldown 
+                                  ? 'bg-slate-900/40 border-slate-800 opacity-60 cursor-not-allowed' 
+                                  : isChecked
+                                  ? 'bg-emerald-950/60 border-emerald-500/60 shadow-sm ring-1 ring-emerald-500/30'
+                                  : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  disabled={inCooldown || crmCampaignSending}
+                                  checked={isChecked}
+                                  onChange={() => {}} // Handled by parent div onClick
+                                  className="w-4 h-4 rounded accent-emerald-500 cursor-pointer pointer-events-none"
+                                />
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isChecked ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                                  {idx + 1}
+                                </span>
+                                <span className="font-black text-white">{lead.name || 'عميل'}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 flex-wrap justify-end">
+                                <span className="font-mono text-emerald-400 font-bold" dir="ltr">{lead.phoneNumber}</span>
+                                {inCooldown ? (
+                                  <span className="bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] font-bold">
+                                    ⏳ مرسل مؤخراً (متاح بعد {remHours} ساعة)
+                                  </span>
+                                ) : (
+                                  <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">
+                                    {lead.crmStatus === 'interested' ? '🌟 مهتم' : lead.crmStatus === 'no_answer' ? '📵 لم يرد' : '⏳ في الانتظار'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-emerald-400 font-bold" dir="ltr">{lead.phoneNumber}</span>
-                              <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">
-                                {lead.crmStatus === 'interested' ? '🌟 مهتم' : lead.crmStatus === 'no_answer' ? '📵 لم يرد' : '⏳ في الانتظار'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -8950,13 +9159,13 @@ const Dashboard = () => {
                           🚀 جاري إرسال الحملة الإعلانية وتوثيق المحادثات...
                         </span>
                         <span className="text-xs font-mono font-black text-emerald-300">
-                          {crmCampaignProgress} / {currentTargets.length}
+                          {crmCampaignProgress} / {selectedTargets.length}
                         </span>
                       </div>
                       <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
                         <div 
                           className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${(crmCampaignProgress / Math.max(1, currentTargets.length)) * 100}%` }}
+                          style={{ width: `${(crmCampaignProgress / Math.max(1, selectedTargets.length)) * 100}%` }}
                         ></div>
                       </div>
                     </div>
@@ -8982,12 +9191,12 @@ const Dashboard = () => {
 
                     <button
                       type="button"
-                      disabled={crmCampaignSending || currentTargets.length === 0 || !currentMsgPreview?.trim()}
+                      disabled={crmCampaignSending || selectedTargets.length === 0 || !currentMsgPreview?.trim()}
                       onClick={handleSendCrmCampaign}
                       className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Send size={15} />
-                      <span>{crmCampaignSending ? 'جاري الإرسال...' : `🚀 إرسال الحملة لـ (${currentTargets.length}) عميل`}</span>
+                      <span>{crmCampaignSending ? 'جاري الإرسال...' : `🚀 إرسال الحملة لـ (${selectedTargets.length}) عميل`}</span>
                     </button>
                   </div>
                 </div>
