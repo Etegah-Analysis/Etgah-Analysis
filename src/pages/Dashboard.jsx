@@ -393,6 +393,8 @@ const Dashboard = () => {
   const [callsSelectedEmpFilter, setCallsSelectedEmpFilter] = useState('');
   const [callsSearchTerm, setCallsSearchTerm] = useState('');
   const [callsCurrentPage, setCallsCurrentPage] = useState(1);
+  const [activeCallSession, setActiveCallSession] = useState(null); // { callDocId, phoneNumber, customerName, startedAt }
+  const [activeCallTimer, setActiveCallTimer] = useState(0);
 
   // Internal Mail / Gmail System State
   const [internalEmails, setInternalEmails] = useState([]);
@@ -560,7 +562,31 @@ const Dashboard = () => {
     return () => unsub();
   }, []);
 
-  // Direct Click-to-Call via MicroSIP Handler with Firestore Logging
+  // Helper: Format Call Duration
+  const formatCallDuration = (sec) => {
+    if (!sec || sec <= 0) return '00:00';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m === 0) return `${s} ثانية`;
+    return `${m}:${s < 10 ? '0' : ''}${s} دقيقة`;
+  };
+
+  // Active Call Session Live Timer Effect
+  useEffect(() => {
+    let interval = null;
+    if (activeCallSession) {
+      interval = setInterval(() => {
+        setActiveCallTimer(prev => prev + 1);
+      }, 1000);
+    } else {
+      setActiveCallTimer(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeCallSession]);
+
+  // Direct Click-to-Call via MicroSIP Handler with Firestore Logging & Session Start
   const handleCallViaMicroSip = async (rawPhone, customer = {}) => {
     if (!rawPhone) {
       toast.error('رقم الهاتف غير متوفر للاتصال');
@@ -581,7 +607,7 @@ const Dashboard = () => {
       if (currentUser) {
         const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentEmpUser?.username || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
-        await addDoc(collection(db, 'call_logs'), {
+        const docRef = await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
           customerId: customer?.id || '',
           customerName: customer?.name || customer?.firstName || 'عميل',
@@ -595,11 +621,79 @@ const Dashboard = () => {
           calledAt: serverTimestamp(),
           calledDateStr: new Date().toISOString().split('T')[0],
           timestampMillis: Date.now(),
-          source: 'MicroSIP'
+          source: 'MicroSIP',
+          status: 'answered', // 'answered', 'no_answer', 'busy'
+          durationSeconds: 0,
+          durationFormatted: '00:00'
         });
+
+        // Launch Active Call Session Timer & Outcome Widget
+        setActiveCallSession({
+          callDocId: docRef.id,
+          phoneNumber: cleanPhone,
+          customerName: customer?.name || customer?.firstName || 'عميل',
+          customerId: customer?.id || '',
+          startedAt: Date.now()
+        });
+        setActiveCallTimer(0);
       }
     } catch (err) {
       console.error('Error logging call event:', err);
+    }
+  };
+
+  // Finish Active Call Session & Save Outcome
+  const handleFinishCallSession = async (outcomeStatus) => {
+    if (!activeCallSession) return;
+    const { callDocId } = activeCallSession;
+    const finalSeconds = outcomeStatus === 'answered' ? Math.max(1, activeCallTimer) : 0;
+    const durationFormatted = outcomeStatus === 'answered' 
+      ? formatCallDuration(finalSeconds) 
+      : outcomeStatus === 'no_answer' ? 'لم يرد 📵' : 'مشغول 🔴';
+
+    try {
+      if (callDocId) {
+        await updateDoc(doc(db, 'call_logs', callDocId), {
+          status: outcomeStatus,
+          durationSeconds: finalSeconds,
+          durationFormatted: durationFormatted,
+          endedAt: serverTimestamp()
+        });
+      }
+      if (outcomeStatus === 'answered') {
+        toast.success(`تم إنهاء وتوثيق المكالمة بنجاح 🟢 (المدة: ${durationFormatted})`);
+      } else if (outcomeStatus === 'no_answer') {
+        toast.error(`تم تسجيل نتيجة المكالمة: لم يرد العميل 📵`);
+      } else {
+        toast(`تم تسجيل نتيجة المكالمة: مشغول 🔴`);
+      }
+    } catch (err) {
+      console.error('Error updating call log outcome:', err);
+    } finally {
+      setActiveCallSession(null);
+      setActiveCallTimer(0);
+    }
+  };
+
+  // Quick Update Call Log Status / Duration from Table
+  const handleUpdateCallLogStatus = async (logId, newStatus) => {
+    try {
+      const updateData = { status: newStatus };
+      if (newStatus === 'no_answer') {
+        updateData.durationSeconds = 0;
+        updateData.durationFormatted = 'لم يرد 📵';
+      } else if (newStatus === 'busy') {
+        updateData.durationSeconds = 0;
+        updateData.durationFormatted = 'مشغول 🔴';
+      } else if (newStatus === 'answered') {
+        updateData.durationSeconds = 60;
+        updateData.durationFormatted = '1:00 دقيقة';
+      }
+      await updateDoc(doc(db, 'call_logs', logId), updateData);
+      toast.success('تم تحديث حالة ونتيجة المكالمة بنجاح ✨');
+    } catch (err) {
+      console.error('Error updating call log:', err);
+      toast.error('حدث خطأ أثناء تحديث حالة المكالمة');
     }
   };
 
@@ -613,17 +707,23 @@ const Dashboard = () => {
       toast.error('لا توجد بيانات مكالمات لتصديرها');
       return;
     }
-    const data = logsToExport.map((log, idx) => ({
-      'م': idx + 1,
-      'تاريخ ووقت الاتصال': log.calledAt?.toDate ? log.calledAt.toDate().toLocaleString('ar-EG') : (log.timestampMillis ? new Date(log.timestampMillis).toLocaleString('ar-EG') : '—'),
-      'اسم الموظف': log.employeeName || '—',
-      'وظيفة الموظف': log.employeeJobTitle || 'Agent',
-      'اسم الليدر / الفريق': log.leaderName || '—',
-      'اسم العميل': log.customerName || '—',
-      'رقم هاتف العميل': log.phoneNumber || '—',
-      'مصدر العميل': log.customerSource || '—',
-      'طريقة الاتصال': log.source || 'MicroSIP'
-    }));
+    const data = logsToExport.map((log, idx) => {
+      const statusLabel = log.status === 'answered' ? 'تم الرد 🟢' : log.status === 'no_answer' ? 'لم يرد 📵' : log.status === 'busy' ? 'مشغول 🔴' : 'تم الرد 🟢';
+      const durationLabel = log.durationFormatted || (log.durationSeconds ? formatCallDuration(log.durationSeconds) : (log.status === 'no_answer' ? 'لم يرد' : '—'));
+      return {
+        'م': idx + 1,
+        'تاريخ ووقت الاتصال': log.calledAt?.toDate ? log.calledAt.toDate().toLocaleString('ar-EG') : (log.timestampMillis ? new Date(log.timestampMillis).toLocaleString('ar-EG') : '—'),
+        'اسم الموظف': log.employeeName || '—',
+        'وظيفة الموظف': log.employeeJobTitle || 'Agent',
+        'اسم الليدر / الفريق': log.leaderName || '—',
+        'اسم العميل': log.customerName || '—',
+        'رقم هاتف العميل': log.phoneNumber || '—',
+        'مصدر العميل': log.customerSource || '—',
+        'حالة الرد': statusLabel,
+        'مدة المكالمة': durationLabel,
+        'طريقة الاتصال': log.source || 'MicroSIP'
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -7817,7 +7917,6 @@ const Dashboard = () => {
           const startOfMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).getTime();
 
           const filteredLogs = roleLogs.filter(log => {
-            // Employee Filter
             if (callsSelectedEmpFilter && log.employeeUid !== callsSelectedEmpFilter) {
               return false;
             }
@@ -7843,7 +7942,6 @@ const Dashboard = () => {
               }
             }
 
-            // Search Term
             if (callsSearchTerm.trim()) {
               const term = callsSearchTerm.toLowerCase().trim();
               const matchPhone = log.phoneNumber?.toLowerCase().includes(term);
@@ -7855,14 +7953,22 @@ const Dashboard = () => {
             return true;
           });
 
-          // Metrics
+          // Metrics & Outcomes Calculation
           const totalCallsInPeriod = filteredLogs.length;
+          const answeredCallsCount = filteredLogs.filter(l => l.status === 'answered' || (!l.status && (l.durationSeconds > 0 || l.durationFormatted?.includes('دقيقة') || l.durationFormatted?.includes('ثانية')))).length;
+          const noAnswerCallsCount = filteredLogs.filter(l => l.status === 'no_answer').length;
+          const busyCallsCount = filteredLogs.filter(l => l.status === 'busy').length;
+          
+          const totalDurationSeconds = filteredLogs.reduce((sum, l) => sum + (l.durationSeconds || 0), 0);
+          const totalMinutes = (totalDurationSeconds / 60).toFixed(1);
+          const avgDurationSeconds = answeredCallsCount > 0 ? Math.round(totalDurationSeconds / answeredCallsCount) : 0;
+          const answerRate = totalCallsInPeriod > 0 ? Math.round((answeredCallsCount / totalCallsInPeriod) * 100) : 0;
+
           const todayCalls = roleLogs.filter(log => {
             const logTime = getTimestampMillis(log.calledAt) || log.timestampMillis || 0;
             return logTime >= startOfToday;
           }).length;
           const uniqueCallers = new Set(filteredLogs.map(l => l.employeeUid).filter(Boolean)).size;
-          const avgCallsPerCaller = uniqueCallers > 0 ? (totalCallsInPeriod / uniqueCallers).toFixed(1) : 0;
 
           // Per-Employee Analytics Breakdown
           const eligibleEmployees = (isAdmin || isCoordinator)
@@ -7878,6 +7984,10 @@ const Dashboard = () => {
               const t = getTimestampMillis(l.calledAt) || l.timestampMillis || 0;
               return t >= startOfToday;
             });
+            const empAnswered = empFilteredLogs.filter(l => l.status === 'answered' || (!l.status && l.durationSeconds > 0)).length;
+            const empNoAnswer = empFilteredLogs.filter(l => l.status === 'no_answer').length;
+            const empDurationSec = empFilteredLogs.reduce((sum, l) => sum + (l.durationSeconds || 0), 0);
+            const empAnswerRate = empFilteredLogs.length > 0 ? Math.round((empAnswered / empFilteredLogs.length) * 100) : 0;
             const lastCall = empAllLogs.length > 0 ? (getTimestampMillis(empAllLogs[0].calledAt) || empAllLogs[0].timestampMillis) : null;
 
             return {
@@ -7885,6 +7995,11 @@ const Dashboard = () => {
               todayCount: empTodayLogs.length,
               periodCount: empFilteredLogs.length,
               totalCount: empAllLogs.length,
+              answeredCount: empAnswered,
+              noAnswerCount: empNoAnswer,
+              durationSec: empDurationSec,
+              durationFormatted: formatCallDuration(empDurationSec),
+              answerRate: empAnswerRate,
               lastCall,
               percentage: totalCallsInPeriod > 0 ? Math.round((empFilteredLogs.length / totalCallsInPeriod) * 100) : 0
             };
@@ -7918,10 +8033,10 @@ const Dashboard = () => {
                       </h2>
                       <p className="text-xs text-purple-300 font-medium mt-0.5">
                         {isAdmin || isCoordinator 
-                          ? 'تتبع دقيق لمعدل المكالمات اليومية والتراكمية الصادرة من برنامج MicroSIP لجميع الموظفين' 
+                          ? 'تتبع دقيق ومفصل لمعدل المكالمات (تم الرد / لم يرد)، زمن المكالمات بالدقائق والثواني الصادرة من برنامج MicroSIP' 
                           : isLeader 
                           ? `تتبع ومتابعة أداء مكالماتك ومكالمات فريقك (${myTeamMembers.length} موظف)` 
-                          : 'سجل وتحليل مكالماتك اليومية والتراكمية ومعدل اتصالك بالعملاء'}
+                          : 'سجل وتحليل مكالماتك ومعدل الرد وزمن المكالمات الصادرة'}
                       </p>
                     </div>
                   </div>
@@ -7998,26 +8113,34 @@ const Dashboard = () => {
                     )}
                   </div>
 
-                  {/* Custom Date Range Picker */}
+                  {/* Custom Date Range Picker (Fixed Arabic format cleanly) */}
                   {callsDateRangeFilter === 'custom' && (
                     <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800 text-xs">
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400 font-bold">من:</span>
-                        <input
-                          type="date"
-                          value={callsCustomDateFrom}
-                          onChange={(e) => { setCallsCustomDateFrom(e.target.value); setCallsCurrentPage(1); }}
-                          className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
-                        />
+                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[120px] justify-between cursor-pointer">
+                          {!callsCustomDateFrom && <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>}
+                          <input
+                            type="date"
+                            value={callsCustomDateFrom}
+                            onChange={(e) => { setCallsCustomDateFrom(e.target.value); setCallsCurrentPage(1); }}
+                            className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!callsCustomDateFrom ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[100px]'}`}
+                            dir="ltr"
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400 font-bold">إلى:</span>
-                        <input
-                          type="date"
-                          value={callsCustomDateTo}
-                          onChange={(e) => { setCallsCustomDateTo(e.target.value); setCallsCurrentPage(1); }}
-                          className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
-                        />
+                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[120px] justify-between cursor-pointer">
+                          {!callsCustomDateTo && <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>}
+                          <input
+                            type="date"
+                            value={callsCustomDateTo}
+                            onChange={(e) => { setCallsCustomDateTo(e.target.value); setCallsCurrentPage(1); }}
+                            className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!callsCustomDateTo ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[100px]'}`}
+                            dir="ltr"
+                          />
+                        </div>
                       </div>
                       {(callsCustomDateFrom || callsCustomDateTo) && (
                         <button
@@ -8045,26 +8168,38 @@ const Dashboard = () => {
 
                 {/* Modal Body */}
                 <div className="flex-1 overflow-y-auto pr-1 space-y-5">
-                  {/* KPI Summary Cards */}
+                  {/* KPI Summary Cards with Answered, No-Answer & Duration Metrics */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-purple-500/40 shadow-lg">
-                      <span className="text-[11px] sm:text-xs text-purple-200 font-bold block mb-1">📞 إجمالي المكالمات (المحددة)</span>
-                      <span className="text-xl sm:text-2xl font-black text-cyan-300">{totalCallsInPeriod.toLocaleString()} مكالمة</span>
+                      <span className="text-[11px] sm:text-xs text-purple-200 font-bold block mb-1">📞 إجمالي المكالمات</span>
+                      <span className="text-xl sm:text-2xl font-black text-cyan-300">{totalCallsInPeriod.toLocaleString()}</span>
+                      <span className="text-[10px] text-purple-300/90 font-bold block mt-0.5" dir="rtl">
+                        (نسبة الرد: <strong className="text-emerald-400">{answerRate}%</strong>)
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-indigo-500/40 shadow-lg">
-                      <span className="text-[11px] sm:text-xs text-indigo-200 font-bold block mb-1">📅 مكالمات اليوم</span>
-                      <span className="text-xl sm:text-2xl font-black text-emerald-400">{todayCalls.toLocaleString()} مكالمة</span>
+                    <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 p-3.5 sm:p-4 rounded-2xl border border-emerald-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-emerald-200 font-bold block mb-1">🟢 تم الرد (Answered)</span>
+                      <span className="text-xl sm:text-2xl font-black text-emerald-400">{answeredCallsCount.toLocaleString()}</span>
+                      <span className="text-[10px] text-emerald-300/90 font-bold block mt-0.5" dir="rtl">
+                        (متوسط المدة: {formatCallDuration(avgDurationSeconds)})
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-teal-500/40 shadow-lg">
-                      <span className="text-[11px] sm:text-xs text-teal-200 font-bold block mb-1">👥 الموظفون النشطون</span>
-                      <span className="text-xl sm:text-2xl font-black text-teal-300">{uniqueCallers} موظف</span>
+                    <div className="bg-gradient-to-br from-amber-950 via-slate-900 to-slate-950 p-3.5 sm:p-4 rounded-2xl border border-amber-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-amber-200 font-bold block mb-1">📵 لم يرد (No Answer)</span>
+                      <span className="text-xl sm:text-2xl font-black text-amber-400">{noAnswerCallsCount.toLocaleString()}</span>
+                      <span className="text-[10px] text-amber-300/90 font-bold block mt-0.5" dir="rtl">
+                        (مشغول/إلغاء: {busyCallsCount})
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-amber-500/40 shadow-lg">
-                      <span className="text-[11px] sm:text-xs text-amber-200 font-bold block mb-1">⚡ متوسط المكالمات للموظف</span>
-                      <span className="text-xl sm:text-2xl font-black text-amber-300">{avgCallsPerCaller}</span>
+                    <div className="bg-gradient-to-br from-indigo-950 via-blue-950 to-slate-900 p-3.5 sm:p-4 rounded-2xl border border-blue-500/40 shadow-lg">
+                      <span className="text-[11px] sm:text-xs text-blue-200 font-bold block mb-1">⏱️ إجمالي زمن المكالمات</span>
+                      <span className="text-xl sm:text-2xl font-black text-blue-300">{totalMinutes} دقيقة</span>
+                      <span className="text-[10px] text-blue-300/90 font-bold block mt-0.5" dir="rtl">
+                        ({totalDurationSeconds.toLocaleString()} ثانية مكالمات حية)
+                      </span>
                     </div>
                   </div>
 
@@ -8073,7 +8208,7 @@ const Dashboard = () => {
                     <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
                       <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
                         <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
-                          <span>🏆 ترتيب كفاءة وأداء اتصالات الموظفين</span>
+                          <span>🏆 تحليل ومقارنة أداء اتصالات الموظفين</span>
                           {topCaller && <span className="text-[11px] text-amber-300 font-normal">الأعلى اتصالاً: <strong>{topCaller.emp.name}</strong> ({topCaller.periodCount} مكالمة)</span>}
                         </h3>
                         <span className="text-[11px] text-purple-300 font-bold">{empBreakdown.length} موظف</span>
@@ -8086,13 +8221,15 @@ const Dashboard = () => {
                               <th className="p-3">الوظيفة / الفريق</th>
                               <th className="p-3 text-center text-emerald-400 font-black">مكالمات اليوم 📅</th>
                               <th className="p-3 text-center text-cyan-300 font-black">مكالمات الفترة ⏱️</th>
-                              <th className="p-3 text-center text-purple-300 font-black">الإجمالي التراكمي 📊</th>
-                              <th className="p-3 text-center">نسبة المساهمة</th>
+                              <th className="p-3 text-center text-emerald-400 font-black">🟢 تم الرد</th>
+                              <th className="p-3 text-center text-amber-400 font-black">📵 لم يرد</th>
+                              <th className="p-3 text-center text-blue-300 font-black">⏱️ إجمالي الدقائق</th>
+                              <th className="p-3 text-center text-teal-300 font-black">نسبة الرد %</th>
                               <th className="p-3 text-center">آخر اتصال</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800 text-slate-200">
-                            {empBreakdown.map(({ emp, todayCount, periodCount, totalCount, percentage, lastCall }, i) => (
+                            {empBreakdown.map(({ emp, todayCount, periodCount, totalCount, answeredCount, noAnswerCount, durationSec, durationFormatted, answerRate, lastCall }, i) => (
                               <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                 <td className="p-3 font-bold flex items-center gap-2">
                                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-400 text-black' : i === 1 ? 'bg-slate-300 text-black' : i === 2 ? 'bg-amber-700 text-white' : 'bg-purple-900 text-purple-200'}`}>
@@ -8109,14 +8246,15 @@ const Dashboard = () => {
                                 </td>
                                 <td className="p-3 text-center font-black text-emerald-400 text-sm">{todayCount}</td>
                                 <td className="p-3 text-center font-black text-cyan-300 text-sm">{periodCount}</td>
-                                <td className="p-3 text-center font-black text-purple-300">{totalCount}</td>
+                                <td className="p-3 text-center font-black text-emerald-400">{answeredCount}</td>
+                                <td className="p-3 text-center font-black text-amber-400">{noAnswerCount}</td>
+                                <td className="p-3 text-center font-mono font-bold text-blue-300">
+                                  {durationFormatted}
+                                </td>
                                 <td className="p-3 text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
-                                      <div style={{ width: `${percentage}%` }} className="bg-gradient-to-r from-purple-500 to-cyan-400 h-full rounded-full"></div>
-                                    </div>
-                                    <span className="font-bold text-[11px] text-cyan-300">{percentage}%</span>
-                                  </div>
+                                  <span className={`font-black text-xs ${answerRate >= 50 ? 'text-emerald-400' : answerRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                    {answerRate}%
+                                  </span>
                                 </td>
                                 <td className="p-3 text-center text-[11px] text-slate-400 font-mono" dir="ltr">
                                   {lastCall ? new Date(lastCall).toLocaleString('ar-EG', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
@@ -8134,7 +8272,7 @@ const Dashboard = () => {
                     <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
                       <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
                         <Clock size={16} className="text-cyan-300" />
-                        <span>سجل المكالمات الصادرة المباشرة ({filteredLogs.length} مكالمة)</span>
+                        <span>سجل المكالمات الصادرة وتوثيق الرد والمدة ({filteredLogs.length} مكالمة)</span>
                       </h3>
                       <span className="text-[11px] text-slate-400 font-bold">صفحة {validCallsPage} من {totalCallsPages}</span>
                     </div>
@@ -8148,20 +8286,26 @@ const Dashboard = () => {
                             <th className="p-3">الموظف المتصل</th>
                             <th className="p-3">اسم العميل</th>
                             <th className="p-3 text-center">رقم الهاتف</th>
-                            <th className="p-3 text-center">مصدر العميل</th>
+                            <th className="p-3 text-center">نتيجة المكالمة</th>
+                            <th className="p-3 text-center">مدة المكالمة</th>
+                            <th className="p-3 text-center">المصدر</th>
                             <th className="p-3 text-center">إجراء</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-slate-200">
                           {paginatedLogs.length === 0 ? (
                             <tr>
-                              <td colSpan="7" className="p-8 text-center text-slate-400 font-bold">
+                              <td colSpan="9" className="p-8 text-center text-slate-400 font-bold">
                                 لا توجد مكالمات مسجلة مطابقة للبحث أو التصفية الحالية 📵
                               </td>
                             </tr>
                           ) : (
                             paginatedLogs.map((log, idx) => {
                               const callTime = log.calledAt?.toDate ? log.calledAt.toDate() : (log.timestampMillis ? new Date(log.timestampMillis) : null);
+                              const isAnswered = log.status === 'answered' || (!log.status && (log.durationSeconds > 0 || log.durationFormatted?.includes('دقيقة') || log.durationFormatted?.includes('ثانية')));
+                              const isNoAnswer = log.status === 'no_answer';
+                              const isBusy = log.status === 'busy';
+
                               return (
                                 <tr key={log.id || idx} className="hover:bg-purple-900/20 transition">
                                   <td className="p-3 text-slate-500 font-bold text-[10px]">
@@ -8181,6 +8325,34 @@ const Dashboard = () => {
                                   </td>
                                   <td className="p-3 text-center font-mono font-bold text-slate-200" dir="ltr">
                                     {log.phoneNumber}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="inline-flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleUpdateCallLogStatus(log.id, 'answered')}
+                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isAnswered ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                                        title="تحديد: تم الرد"
+                                      >
+                                        🟢 رد
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateCallLogStatus(log.id, 'no_answer')}
+                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isNoAnswer ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                                        title="تحديد: لم يرد"
+                                      >
+                                        📵 لم يرد
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateCallLogStatus(log.id, 'busy')}
+                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isBusy ? 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                                        title="تحديد: مشغول"
+                                      >
+                                        🔴 مشغول
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center font-mono font-bold text-cyan-300">
+                                    {log.durationFormatted || (log.durationSeconds ? formatCallDuration(log.durationSeconds) : isNoAnswer ? 'لم يرد 📵' : '—')}
                                   </td>
                                   <td className="p-3 text-center">
                                     <span className="bg-purple-900/40 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -9392,8 +9564,56 @@ const Dashboard = () => {
                   </button>
                 </div>
               </div>
-
             </form>
+          </div>
+        )}
+
+        {/* Floating Active Live Call Session Widget with Running Timer & Outcome Selector */}
+        {activeCallSession && (
+          <div className="fixed bottom-6 left-6 z-50 bg-slate-900/95 text-white p-4 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.7)] border-2 border-cyan-400 backdrop-blur-xl max-w-sm w-full animate-pulse-short">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center animate-pulse">
+                  <PhoneCall size={18} className="text-cyan-300" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">{activeCallSession.customerName}</h4>
+                  <span className="text-[11px] font-mono text-cyan-300 font-bold" dir="ltr">{activeCallSession.phoneNumber}</span>
+                </div>
+              </div>
+              <div className="bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded-xl font-mono font-black text-sm shadow-inner">
+                ⏱️ {Math.floor(activeCallTimer / 60).toString().padStart(2, '0')}:{(activeCallTimer % 60).toString().padStart(2, '0')}
+              </div>
+            </div>
+            
+            <p className="text-[10px] text-purple-200 mb-2.5 font-bold text-center">حدد نتيجة المكالمة لتوثيقها وحساب مدتها في الداشبورد فوراً:</p>
+            
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleFinishCallSession('answered')}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                title="تم الرد وحساب مدة المكالمة الحالية"
+              >
+                <span>🟢 تم الرد</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFinishCallSession('no_answer')}
+                className="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                title="لم يرد العميل على المكالمة"
+              >
+                <span>📵 لم يرد</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFinishCallSession('busy')}
+                className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                title="الرقم مشغول أو تعذر الاتصال"
+              >
+                <span>🔴 مشغول</span>
+              </button>
+            </div>
           </div>
         )}
 

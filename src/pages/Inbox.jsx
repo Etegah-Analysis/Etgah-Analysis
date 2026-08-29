@@ -371,7 +371,10 @@ export default function Inbox() {
           calledAt: serverTimestamp(),
           calledDateStr: new Date().toISOString().split('T')[0],
           timestampMillis: Date.now(),
-          source: 'MicroSIP WhatsApp'
+          source: 'MicroSIP WhatsApp',
+          status: 'answered',
+          durationSeconds: 0,
+          durationFormatted: '00:00'
         });
       }
     } catch (err) {
