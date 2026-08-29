@@ -958,6 +958,7 @@ export default function Inbox() {
           phoneNumber: fullPhone,
           name: newCustomerName.trim() || 'عميل جديد (يدوي)',
           addedBy: currentUser.email,
+          addedByUid: currentUser.uid,
           source: 'manual',
           assignedSender: 'campaigns',
           status: 'unassigned',

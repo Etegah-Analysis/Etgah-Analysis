@@ -2238,8 +2238,8 @@ const Dashboard = () => {
             </div>
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View (4 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          /* Leader Dashboard Cards View (5 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {/* Leader Card 1: Leads CRM (Personal Leads) */}
             <div 
               onClick={(e) => {
@@ -2282,7 +2282,24 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 3: Team Members & Total Team Leads */}
+            {/* Leader Card 3: Manual WhatsApp Data */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض الداتا المضافة يدوياً في الواتساب"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <UserPlus className="text-purple-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
+                <h3 className="text-2xl font-black text-cyan-300">
+                  {customers.filter(c => (c.addedBy && c.addedBy !== 'WhatsApp Webhook') && (c.addedByUid === currentUser?.uid || c.addedBy === currentUser?.email || c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.addedByUid || m.uid === c.assignedToUid))).length.toLocaleString()}
+                </h3>
+              </div>
+            </div>
+
+            {/* Leader Card 4: Team Members & Total Team Leads */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2306,7 +2323,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Leader Card 4: Leads CRM Analysis */}
+            {/* Leader Card 5: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2325,8 +2342,8 @@ const Dashboard = () => {
             </div>
           </div>
         ) : (
-          /* Regular Employee (Agent) Cards View (3 Cards) */
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          /* Regular Employee (Agent) Cards View (4 Cards) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Agent Card 1: Leads CRM */}
             <div 
               onClick={(e) => {
@@ -2369,7 +2386,24 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Agent Card 3: Leads CRM Analysis */}
+            {/* Agent Card 3: Manual WhatsApp Data */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'customers', 'manual')}
+              className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'manual' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض الداتا المضافة يدوياً في الواتساب"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                <UserPlus className="text-purple-300" size={28} />
+              </div>
+              <div>
+                <p className="text-xs text-purple-200 font-extrabold mb-1">داتا مضافة يدوياً WhatsApp</p>
+                <h3 className="text-3xl font-black text-cyan-300">
+                  {customers.filter(c => (c.addedBy && c.addedBy !== 'WhatsApp Webhook') && (c.addedByUid === currentUser?.uid || c.addedBy === currentUser?.email || c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
+                </h3>
+              </div>
+            </div>
+
+            {/* Agent Card 4: Leads CRM Analysis */}
             <div 
               onClick={(e) => {
                 e.stopPropagation();
@@ -2691,14 +2725,24 @@ const Dashboard = () => {
                               })()}
                             </td>
                             <td className="p-3.5 text-center">
-                              <button 
-                                onClick={() => openNotesModal(customer)}
-                                className="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 mx-auto cursor-pointer shadow-sm"
-                                title="عرض ملحوظات الموظف وتقرير العميل"
-                              >
-                                <FileText size={13} />
-                                <span>Comment {customer.notes ? '📝' : ''}</span>
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button 
+                                  onClick={() => openNotesModal(customer)}
+                                  className="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                                  title="Comment"
+                                >
+                                  <FileText size={13} />
+                                  <span>Comment {customer.notes ? '📝' : ''}</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleTransferToWhatsapp(customer)}
+                                  className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                  title="مراسلة عبر واتساب"
+                                >
+                                  <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                                  <span className="text-[11px] font-black">WhatsApp</span>
+                                </button>
+                              </div>
                             </td>
                             <td className="p-3.5 text-center">
                               <button 
@@ -3069,18 +3113,7 @@ const Dashboard = () => {
                               </td>
                             )}
                             <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                              <div className="flex items-center gap-2">
-                                <span>{customer.phoneNumber}</span>
-                                {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) && (
-                                  <button
-                                    onClick={() => handleTransferToWhatsapp(customer)}
-                                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm"
-                                    title="تحويل وفتح محادثة الواتساب المباشرة"
-                                  >
-                                    <MessageCircle size={14} />
-                                  </button>
-                                )}
-                              </div>
+                              <span>{customer.phoneNumber}</span>
                             </td>
                             <td className="p-4 text-sm font-semibold text-gray-700">
                               {editingLeadId === customer.id ? (
@@ -3243,14 +3276,25 @@ const Dashboard = () => {
                             <td className="p-4 flex items-center gap-1.5 justify-center">
                               <button 
                                 onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
-                                className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm"
+                                className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm cursor-pointer"
+                                title="Comment"
                               >
                                 <FileText size={14} className="ml-1" /> Comment
                               </button>
+                              {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
+                                <button 
+                                  onClick={() => handleTransferToWhatsapp(customer)}
+                                  className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                  title="مراسلة عبر واتساب"
+                                >
+                                  <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                                  <span className="text-[11px] font-black">WhatsApp</span>
+                                </button>
+                              )}
                               {isAdmin && (
                                 <button
                                   onClick={() => handleDeleteSingleLeadCrm(customer)}
-                                  className="bg-red-50 text-red-600 hover:bg-red-100 p-2 rounded-lg transition shadow-sm"
+                                  className="bg-red-50 text-red-600 hover:bg-red-100 p-2 rounded-lg transition shadow-sm cursor-pointer"
                                   title="حذف العميل من Leads CRM"
                                 >
                                   <Trash2 size={14} />
@@ -3689,18 +3733,7 @@ const Dashboard = () => {
                                   </td>
                                 )}
                                 <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                                  <div className="flex items-center gap-2">
-                                    <span>{customer.phoneNumber}</span>
-                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
-                                      <button
-                                        onClick={() => handleTransferToWhatsapp(customer)}
-                                        className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-full transition shadow-sm cursor-pointer"
-                                        title="تحويل وفتح محادثة الواتساب المباشرة"
-                                      >
-                                        <MessageCircle size={14} />
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span>{customer.phoneNumber}</span>
                                 </td>
                                 <td className="p-4 text-sm font-semibold text-gray-700">
                                   {editingLeadId === customer.id ? (
@@ -3863,11 +3896,21 @@ const Dashboard = () => {
                                     <button 
                                       onClick={() => handleOpenNotesModal(customer, false)}
                                       className="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                                      title="عرض وإضافة ملاحظات ومتابعة العميل"
+                                      title="Comment"
                                     >
                                       <FileText size={13} />
                                       <span>Comment {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : ''}</span>
                                     </button>
+                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.addedByUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid || m.uid === customer.addedByUid))) && (
+                                      <button 
+                                        onClick={() => handleTransferToWhatsapp(customer)}
+                                        className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                        title="مراسلة عبر واتساب"
+                                      >
+                                        <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                                        <span className="text-[11px] font-black">WhatsApp</span>
+                                      </button>
+                                    )}
                                     {isAdmin && (
                                       <button 
                                         onClick={async () => {
