@@ -3170,28 +3170,7 @@ const Dashboard = () => {
       </header>
 
       <main className="p-3 sm:p-6 max-w-7xl mx-auto w-full relative z-10">
-        {/* Anti-Screenshot & Window Blur Frosted Shield for Employees */}
-        {isWindowBlurred && !isAdmin && (
-          <div 
-            onClick={() => setIsWindowBlurred(false)}
-            className="fixed inset-0 z-50 bg-gray-950/85 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 select-none transition-all cursor-pointer"
-          >
-            <div className="bg-gray-900/95 border border-purple-500/40 rounded-3xl p-8 max-w-md text-center shadow-2xl">
-              <div className="w-16 h-16 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
-                🛡️
-              </div>
-              <h3 className="text-xl font-black text-white mb-2">شاشة بيانات محمية</h3>
-              <p className="text-sm text-purple-200/80 mb-6 font-medium leading-relaxed">
-                تم تعتيم وحجب الشاشة تلقائياً لحماية خصوصية بيانات العملاء أثناء استخدام أدوات التقاط الشاشة أو مغادرة النافذة.
-              </p>
-              <div className="inline-flex items-center gap-2 bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs px-4 py-2 rounded-xl font-bold">
-                <span>يرجى النقر داخل النافذة للمتابعة ↵</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Security Watermark for Employees */}
+        {/* Anti-Screenshot & Window Blur Frosted Shield + Security Watermark on Blur / Screenshot */}
         {!isAdmin && currentUser && (() => {
           const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
           const empName = currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee';
@@ -3199,17 +3178,49 @@ const Dashboard = () => {
           const empEmail = currentUser?.email || '';
           const empCode = currentEmp?.empCode ? `#${currentEmp.empCode}` : '';
           
-          const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='440' height='260' opacity='0.22'>
+          const svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='440' height='260' opacity='0.35'>
             <g transform='rotate(-22 220 130)' text-anchor='middle' font-family='Cairo, sans-serif' font-weight='900'>
               <text x='220' y='105' font-size='16' fill='%236366f1'>👤 ${empName} (${empJob}) ${empCode}</text>
               <text x='220' y='130' font-size='13' fill='%239333ea'>✉️ ${empEmail}</text>
-              <text x='220' y='155' font-size='11' fill='%230f172a'>🔒 سرّي ومحمي • منصة اتجاه CRM</text>
+              <text x='220' y='155' font-size='11' fill='%23ffffff'>🔒 سرّي ومحمي • منصة اتجاه CRM</text>
             </g>
           </svg>`;
           const bgUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svgContent.replace(/\n\s+/g, ''))}")`;
+
+          if (isWindowBlurred) {
+            return (
+              <div 
+                onClick={() => setIsWindowBlurred(false)}
+                className="fixed inset-0 z-50 bg-gray-950/90 backdrop-blur-3xl flex flex-col items-center justify-center text-white p-6 select-none transition-all cursor-pointer overflow-hidden"
+                style={{
+                  backgroundImage: bgUrl,
+                  backgroundRepeat: 'repeat',
+                }}
+              >
+                <div className="bg-gray-900/95 border-2 border-purple-500/60 rounded-3xl p-8 max-w-md text-center shadow-[0_15px_40px_rgba(0,0,0,0.8)] relative z-10">
+                  <div className="w-16 h-16 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+                    🛡️
+                  </div>
+                  <h3 className="text-xl font-black text-white mb-2">شاشة بيانات محمية</h3>
+                  <p className="text-xs text-purple-200/90 mb-4 font-bold leading-relaxed">
+                    تم تعتيم وحجب الشاشة وتوثيق هويتك تلقائياً لحماية خصوصية بيانات العملاء أثناء استخدام أدوات التقاط الشاشة.
+                  </p>
+                  <div className="bg-slate-950/80 border border-purple-400/40 rounded-xl p-3 mb-5 text-right space-y-1">
+                    <div className="text-xs text-cyan-300 font-bold">👤 الموظف: <span className="text-white font-extrabold">{empName} ({empJob})</span></div>
+                    <div className="text-xs text-purple-300 font-mono" dir="ltr">✉️ {empEmail}</div>
+                  </div>
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs px-5 py-2.5 rounded-xl font-black shadow-lg">
+                    <span>انقر للمتابعة والرجوع للعمل ↵</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Return hidden printable watermark for print / PDF export
           return (
             <div 
-              className="fixed inset-0 pointer-events-none z-40 select-none overflow-hidden"
+              className="hidden print:block fixed inset-0 pointer-events-none z-50 select-none overflow-hidden"
               style={{
                 backgroundImage: bgUrl,
                 backgroundRepeat: 'repeat',
