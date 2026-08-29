@@ -488,6 +488,53 @@ const Dashboard = () => {
   const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
   const isAllowedToManageLeads = isAdmin || isCoordinator || isLeader;
 
+  // Master Emergency System Lock State (Controlled by Admin)
+  const [isSystemLocked, setIsSystemLocked] = useState(false);
+  const [isTogglingLock, setIsTogglingLock] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system_settings', 'global_access'), (docSnap) => {
+      if (docSnap.exists()) {
+        setIsSystemLocked(docSnap.data().isSystemLocked === true);
+      } else {
+        setIsSystemLocked(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleToggleGlobalLock = async () => {
+    if (!isAdmin) return;
+    const willLock = !isSystemLocked;
+
+    const confirmMsg = willLock
+      ? '⚠️ تحذير: هل أنت متأكد من إغلاق الداشبورد والواتساب عن جميع الموظفين فوراً وطردهم من حساباتهم؟'
+      : 'هل أنت متأكد من إعادة فتح النظام والسماح لجميع الموظفين بتسجيل الدخول مجدداً؟';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsTogglingLock(true);
+    try {
+      await setDoc(doc(db, 'system_settings', 'global_access'), {
+        isSystemLocked: willLock,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.email || 'admin',
+        ...(willLock ? { lockedAt: serverTimestamp() } : { unlockedAt: serverTimestamp() })
+      }, { merge: true });
+
+      if (willLock) {
+        toast.error('تم إغلاق الداشبورد والواتساب عن جميع الموظفين وطردهم بنجاح 🔴', { duration: 5000 });
+      } else {
+        toast.success('تم فتح النظام بنجاح، يستطيع الموظفون تسجيل الدخول والعمل الآن 🟢', { duration: 5000 });
+      }
+    } catch (err) {
+      console.error('Error toggling system lock:', err);
+      toast.error('حدث خطأ أثناء تعديل حالة قفل النظام: ' + err.message);
+    } finally {
+      setIsTogglingLock(false);
+    }
+  };
+
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
 
@@ -5632,7 +5679,33 @@ const Dashboard = () => {
         {activeTab === 'employees' && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex flex-wrap justify-between items-center gap-3">
-              <h2 className="text-lg font-bold text-gray-800">قائمة الموظفين وإدارة الصلاحيات</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-lg font-bold text-gray-800">قائمة الموظفين وإدارة الصلاحيات</h2>
+
+                {/* Admin Master Emergency System Lock Button */}
+                {isAdmin && (
+                  <button
+                    onClick={handleToggleGlobalLock}
+                    disabled={isTogglingLock}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer border ${
+                      isSystemLocked
+                        ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse'
+                        : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white border-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]'
+                    }`}
+                    title={isSystemLocked ? "النظام مغلق حالياً على الموظفين - انقر لإعادة الفتح" : "النظام مفتوح حالياً - انقر لإغلاقه وطردهم فوراً"}
+                  >
+                    <span className="text-sm">
+                      {isSystemLocked ? '🔒' : '🔓'}
+                    </span>
+                    <span>
+                      {isSystemLocked
+                        ? '🔴 النظام مغلق على الموظفين (انقر للفتح)'
+                        : '🟢 إغلاق النظام عن جميع الموظفين'}
+                    </span>
+                  </button>
+                )}
+              </div>
+
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <input type="text" placeholder="ابحث باسم الموظف..." value={tableSearch}

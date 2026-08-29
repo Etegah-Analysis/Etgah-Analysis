@@ -96,6 +96,24 @@ export default function Login() {
         throw new Error('INVALID_CREDENTIALS');
       }
 
+      // Check Global System Lock & account active status
+      const adminEmailsList = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'];
+      const isLoggingInAsAdmin = loginType === 'admin' || adminEmailsList.includes(userCred.user.email?.toLowerCase());
+
+      if (!isLoggingInAsAdmin) {
+        try {
+          const lockSnap = await getDoc(doc(db, 'system_settings', 'global_access'));
+          if (lockSnap.exists() && lockSnap.data().isSystemLocked === true) {
+            await signOut(auth);
+            setError('عذراً، تم إغلاق الداشبورد والواتساب مؤقتاً لجميع الموظفين بواسطة الإدارة 🔒');
+            setLoading(false);
+            return;
+          }
+        } catch (lockErr) {
+          console.warn('System lock check error in login:', lockErr);
+        }
+      }
+
       // Check account active status & update lastLoginAt
       try {
         const userRef = doc(db, 'users', userCred.user.uid);

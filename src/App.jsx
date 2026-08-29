@@ -15,7 +15,21 @@ function App() {
 
   useEffect(() => {
     let docUnsub = null;
+    let systemLockUnsub = null;
     
+    // Real-time listener for Global System Lock
+    systemLockUnsub = onSnapshot(doc(db, 'system_settings', 'global_access'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.isSystemLocked === true) {
+          const authUser = auth.currentUser;
+          if (authUser && authUser.email && !adminEmails.includes(authUser.email.toLowerCase())) {
+            signOut(auth);
+          }
+        }
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         if (!currentUser.email) {
@@ -50,6 +64,7 @@ function App() {
     return () => {
       unsubscribe();
       if (docUnsub) docUnsub();
+      if (systemLockUnsub) systemLockUnsub();
     };
   }, []);
 
