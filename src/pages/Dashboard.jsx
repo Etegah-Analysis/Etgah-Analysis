@@ -3409,8 +3409,8 @@ const Dashboard = () => {
               <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-[2px] opacity-70"></div>
               <img src="/logo.jpg" alt="Logo" className="relative w-4 h-4 rounded-full object-cover border border-amber-300" />
             </div>
-            <span className="text-[11px] sm:text-xs font-bold text-gray-700 truncate max-w-[85px] sm:max-w-[120px]" dir="ltr">
-              {employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || currentUser?.email?.split('@')[0]}
+            <span className="text-[11px] sm:text-xs font-black text-gray-800 truncate max-w-[90px] sm:max-w-[130px]">
+              {isAdmin ? 'الإدارة' : (employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || 'موظف')}
             </span>
             <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
               {isAdmin ? '👑 أدمن' : (() => {
@@ -10646,13 +10646,20 @@ const Dashboard = () => {
                         </h1>
 
                         <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-cyan-300">من: {selectedEmail.senderName}</span>
-                            <span className="text-purple-300/70 font-mono text-[11px]">({selectedEmail.senderEmail})</span>
-                            <span className="bg-purple-900 text-purple-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                              {selectedEmail.senderRole}
-                            </span>
-                          </div>
+                          {(() => {
+                            const isSenderAdmin = isAdminIdentifier(selectedEmail.senderEmail) || isAdminIdentifier(selectedEmail.senderName) || selectedEmail.senderRole === 'admin' || selectedEmail.senderUid === 'admin';
+                            const senderDisplay = isSenderAdmin ? '👑 الإدارة' : (selectedEmail.senderName || 'موظف');
+                            const roleDisplay = isSenderAdmin ? 'Admin' : (selectedEmail.senderRole || 'Agent');
+
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-cyan-300 text-sm">من: {senderDisplay}</span>
+                                <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] px-2.5 py-0.5 rounded-full font-black shadow-sm">
+                                  {roleDisplay === 'Admin' ? '👑 الإدارة' : roleDisplay}
+                                </span>
+                              </div>
+                            );
+                          })()}
 
                           <span className="text-gray-400 text-[11px] font-mono" dir="ltr">
                             {formatDate(selectedEmail.createdAt)}
@@ -10779,11 +10786,14 @@ const Dashboard = () => {
 
                                     <div>
                                       <span className={`text-xs block truncate ${isUnread ? 'text-white font-black' : 'text-slate-300'}`}>
-                                        {mailActiveFolder === 'sent' ? `إلى: ${mail.recipientName}` : mail.senderName}
+                                        {mailActiveFolder === 'sent' 
+                                          ? `إلى: ${mail.recipientName}` 
+                                          : (isAdminIdentifier(mail.senderEmail) || isAdminIdentifier(mail.senderName) || mail.senderRole === 'admin' || mail.senderUid === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف'))
+                                        }
                                       </span>
                                       {isAdmin && mailActiveFolder === 'all_system' && (
                                         <span className="text-[10px] text-amber-400 font-normal block truncate">
-                                          من: {mail.senderName} ➔ إلى: {mail.recipientName}
+                                          من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ➔ إلى: {mail.recipientName}
                                         </span>
                                       )}
                                     </div>
@@ -11094,8 +11104,8 @@ const Dashboard = () => {
                 )}
               </div>
 
-              {/* Automated End & Manual Override Buttons */}
-              <div className="space-y-1.5">
+              {/* Automated End Button */}
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={() => handleFinishCallSession()}
@@ -11105,33 +11115,6 @@ const Dashboard = () => {
                   <PhoneCall size={14} className="rotate-[135deg]" />
                   <span>إنهاء وتوثيق المكالمة تلقائياً 🛑</span>
                 </button>
-
-                <div className="grid grid-cols-3 gap-1 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleFinishCallSession('answered')}
-                    className="bg-emerald-900/60 hover:bg-emerald-700 text-emerald-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-emerald-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                    title="توثيق تم الرد"
-                  >
-                    <span>🟢 تم الرد</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFinishCallSession('no_answer')}
-                    className="bg-amber-900/60 hover:bg-amber-700 text-amber-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-amber-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                    title="توثيق لم يرد"
-                  >
-                    <span>📵 لم يرد</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFinishCallSession('busy')}
-                    className="bg-rose-900/60 hover:bg-rose-700 text-rose-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-rose-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                    title="توثيق مشغول"
-                  >
-                    <span>🔴 مشغول</span>
-                  </button>
-                </div>
               </div>
             </div>
           );
