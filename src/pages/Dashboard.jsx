@@ -547,11 +547,14 @@ const Dashboard = () => {
     }
   };
 
-  // WhatsApp Real-Time Notification Bell State for Dashboard
+  // Unified Real-Time Notification Center State for Dashboard (WhatsApp + Internal Mail)
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
   const notifDropdownRef = useRef(null);
   const prevUnreadMapRef = useRef({});
   const isFirstLoadRef = useRef(true);
+  const prevUnreadEmailsMapRef = useRef({});
+  const isFirstEmailLoadRef = useRef(true);
 
   // Click outside to close notification dropdown
   useEffect(() => {
@@ -594,6 +597,20 @@ const Dashboard = () => {
   const totalUnreadWhatsAppCount = useMemo(() => {
     return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);
   }, [unreadWhatsAppChats]);
+
+  // Filter unread Internal Emails based on user role and permissions
+  const unreadEmails = useMemo(() => {
+    if (!currentUser || !internalEmails) return [];
+    return internalEmails
+      .filter(m => isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid))
+      .sort((a, b) => {
+        const timeA = getTimestampMillis(a.createdAt);
+        const timeB = getTimestampMillis(b.createdAt);
+        return timeB - timeA;
+      });
+  }, [internalEmails, currentUser, myUid, isCoordinator, isLeader, myTeamMembers, currentEmpUser]);
+
+  const totalAllNotificationsCount = (unreadWhatsAppChats.length > 0 ? unreadWhatsAppChats.length : 0) + (unreadEmails.length > 0 ? unreadEmails.length : 0);
 
   // Real-time live toast alert when new WhatsApp message arrives on Dashboard
   useEffect(() => {
@@ -667,6 +684,78 @@ const Dashboard = () => {
     });
     prevUnreadMapRef.current = newMap;
   }, [customers, unreadWhatsAppChats, navigate]);
+
+  // Real-time live toast alert when new Internal Email arrives on Dashboard
+  useEffect(() => {
+    if (!internalEmails || internalEmails.length === 0) return;
+
+    if (isFirstEmailLoadRef.current) {
+      const initialMap = {};
+      internalEmails.forEach(m => {
+        initialMap[m.id] = m.readBy?.includes(myUid) ? 1 : 0;
+      });
+      prevUnreadEmailsMapRef.current = initialMap;
+      isFirstEmailLoadRef.current = false;
+      return;
+    }
+
+    unreadEmails.forEach(mail => {
+      const wasKnown = prevUnreadEmailsMapRef.current[mail.id] !== undefined;
+      if (!wasKnown) {
+        // Brand new unread email received!
+        toast(
+          (t) => (
+            <div 
+              onClick={() => {
+                toast.dismiss(t.id);
+                setIsMailModalOpen(true);
+                setMailActiveFolder('inbox');
+                handleOpenEmailDetails(mail);
+              }}
+              className="cursor-pointer flex items-start gap-2.5 text-right w-full"
+              dir="rtl"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce">
+                ✉️
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-xs font-black text-gray-900 truncate">
+                  ✉️ بريد جديد من: {mail.senderName || mail.senderEmail}
+                </p>
+                <p className="text-[11px] text-purple-700 font-bold truncate mt-0.5">
+                  📌 {mail.subject || 'بدون موضوع'}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                  {mail.body ? mail.body.slice(0, 55) : 'وصلك بريد داخلي جديد'}
+                </p>
+                <span className="text-[10px] text-purple-600 font-extrabold block mt-1 hover:underline">
+                  انقر لفتح وقراءة الإيميل ➔
+                </span>
+              </div>
+            </div>
+          ),
+          {
+            id: `email-toast-${mail.id}`,
+            duration: 7000,
+            style: {
+              borderRadius: '16px',
+              background: '#ffffff',
+              border: '2px solid #8b5cf6',
+              boxShadow: '0 10px 30px rgba(139,92,246,0.25)',
+              padding: '12px 14px',
+              maxWidth: '380px'
+            }
+          }
+        );
+      }
+    });
+
+    const newMap = {};
+    internalEmails.forEach(m => {
+      newMap[m.id] = m.readBy?.includes(myUid) ? 1 : 0;
+    });
+    prevUnreadEmailsMapRef.current = newMap;
+  }, [internalEmails, unreadEmails, myUid]);
 
   // Real-time listener for Call Logs
   useEffect(() => {
@@ -3248,22 +3337,22 @@ const Dashboard = () => {
 
         {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
-          {/* جرس إشعارات رسائل الواتساب الواردة */}
+          {/* مركز الإشعارات والتنبيهات الموحد (واتساب + بريد اتجاه) */}
           <div className="relative shrink-0" ref={notifDropdownRef}>
             <button 
               onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
               className={`relative flex items-center justify-center p-2 rounded-xl transition text-xs font-bold gap-1.5 shadow-sm cursor-pointer active:scale-95 border ${
-                totalUnreadWhatsAppCount > 0 
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-emerald-300 shadow-[0_3px_12px_rgba(16,185,129,0.4)]' 
+                totalAllNotificationsCount > 0 
+                  ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white border-purple-300 shadow-[0_3px_12px_rgba(147,51,234,0.4)]' 
                   : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
               }`}
-              title="إشعارات رسائل الواتساب الواردة 🔔"
+              title="مركز الإشعارات والتنبيهات 🔔 (واتساب وبريد اتجاه)"
             >
-              <Bell size={16} className={totalUnreadWhatsAppCount > 0 ? 'animate-bounce' : ''} />
-              <span className="hidden sm:inline text-xs font-black">إشعارات الواتساب</span>
-              {totalUnreadWhatsAppCount > 0 && (
+              <Bell size={16} className={totalAllNotificationsCount > 0 ? 'animate-bounce' : ''} />
+              <span className="hidden sm:inline text-xs font-black">الإشعارات</span>
+              {totalAllNotificationsCount > 0 && (
                 <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
-                  {totalUnreadWhatsAppCount}
+                  {totalAllNotificationsCount}
                 </span>
               )}
             </button>
@@ -3271,47 +3360,77 @@ const Dashboard = () => {
             {/* Dropdown Menu */}
             {isNotifDropdownOpen && (
               <div 
-                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 sm:w-96 bg-slate-900 text-white rounded-2xl shadow-2xl border border-emerald-500/40 z-50 overflow-hidden flex flex-col max-h-[460px]"
+                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 sm:w-96 bg-slate-900 text-white rounded-2xl shadow-2xl border border-purple-500/40 z-50 overflow-hidden flex flex-col max-h-[480px]"
                 dir="rtl"
               >
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-3.5 border-b border-emerald-500/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
-                      <Bell size={14} />
+                {/* Header & Tabs */}
+                <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 p-3 border-b border-purple-500/20">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center">
+                        <Bell size={14} />
+                      </div>
+                      <span className="text-xs font-black text-white">مركز الإشعارات والتنبيهات</span>
                     </div>
-                    <span className="text-xs font-black text-white">إشعارات رسائل الواتساب</span>
+                    <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                      {totalAllNotificationsCount} إشعار جديد
+                    </span>
                   </div>
-                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {unreadWhatsAppChats.length} محادثة معلقة
-                  </span>
+
+                  {/* Filter Tabs */}
+                  <div className="flex items-center bg-slate-950/80 p-1 rounded-xl gap-1 border border-white/5 text-[11px] font-bold">
+                    <button 
+                      onClick={() => setNotifActiveTab('all')}
+                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'all' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      🔔 الكل ({totalAllNotificationsCount})
+                    </button>
+                    <button 
+                      onClick={() => setNotifActiveTab('whatsapp')}
+                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'whatsapp' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      💬 واتساب ({unreadWhatsAppChats.length})
+                    </button>
+                    <button 
+                      onClick={() => setNotifActiveTab('email')}
+                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'email' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      ✉️ بريد ({unreadEmails.length})
+                    </button>
+                  </div>
                 </div>
 
                 {/* List */}
-                <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1 space-y-1">
-                  {unreadWhatsAppChats.length === 0 ? (
+                <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1.5 space-y-1">
+                  {/* Empty state */}
+                  {((notifActiveTab === 'all' && totalAllNotificationsCount === 0) ||
+                    (notifActiveTab === 'whatsapp' && unreadWhatsAppChats.length === 0) ||
+                    (notifActiveTab === 'email' && unreadEmails.length === 0)) && (
                     <div className="p-8 text-center text-gray-400 text-xs">
                       <CheckCircle2 size={32} className="text-emerald-400 mx-auto mb-2 opacity-80" />
-                      <p className="font-bold text-white mb-0.5">رائع! لا توجد رسائل واتساب معلقة</p>
-                      <p className="text-[11px] text-gray-400">تم الرد على جميع المحادثات المسندة إليك</p>
+                      <p className="font-bold text-white mb-0.5">رائع! لا توجد إشعارات جديدة</p>
+                      <p className="text-[11px] text-gray-400">تم الاطلاع على جميع الرسائل والإيميلات الواردة</p>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* WhatsApp Notifications */}
+                  {(notifActiveTab === 'all' || notifActiveTab === 'whatsapp') && (
                     unreadWhatsAppChats.map((c) => (
                       <div 
-                        key={c.id}
+                        key={`wa-${c.id}`}
                         onClick={() => {
                           setIsNotifDropdownOpen(false);
                           navigate('/inbox', { state: { selectedCustomerId: c.id } });
                         }}
-                        className="p-3 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2.5 group"
+                        className="p-2.5 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2 group border border-transparent hover:border-emerald-500/30"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className="relative shrink-0">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                              {c.name ? c.name.charAt(0) : <User size={16} />}
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                              💬
                             </div>
                             {c.unread > 0 && (
-                              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
+                              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow">
                                 {c.unread}
                               </span>
                             )}
@@ -3321,8 +3440,8 @@ const Dashboard = () => {
                               <span className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition">
                                 {c.name || c.phoneNumber}
                               </span>
-                              <span className="text-[10px] text-gray-400 font-mono shrink-0" dir="ltr">
-                                {c.phoneNumber}
+                              <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                                واتساب 💬
                               </span>
                             </div>
                             <p className="text-[11px] text-emerald-200/90 font-medium truncate">
@@ -3330,23 +3449,73 @@ const Dashboard = () => {
                             </p>
                           </div>
                         </div>
-                        <ChevronRight size={14} className="text-gray-500 group-hover:text-white transition shrink-0 transform rotate-180" />
+                        <ChevronRight size={13} className="text-gray-500 group-hover:text-white transition shrink-0 transform rotate-180" />
+                      </div>
+                    ))
+                  )}
+
+                  {/* Internal Mail Notifications */}
+                  {(notifActiveTab === 'all' || notifActiveTab === 'email') && (
+                    unreadEmails.map((mail) => (
+                      <div 
+                        key={`mail-${mail.id}`}
+                        onClick={() => {
+                          setIsNotifDropdownOpen(false);
+                          setIsMailModalOpen(true);
+                          setMailActiveFolder('inbox');
+                          handleOpenEmailDetails(mail);
+                        }}
+                        className="p-2.5 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2 group border border-transparent hover:border-purple-500/30"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="relative shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                              ✉️
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <span className="text-xs font-bold text-white truncate group-hover:text-purple-300 transition">
+                                {mail.senderName || mail.senderEmail}
+                              </span>
+                              <span className="bg-purple-950/80 text-purple-300 border border-purple-500/30 text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                                بريد داخلي ✉️
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-purple-200/90 font-bold truncate">
+                              📌 {mail.subject || 'بدون موضوع'}
+                            </p>
+                            <p className="text-[10px] text-gray-400 truncate">
+                              {mail.body ? mail.body.slice(0, 50) : 'رسالة جديدة'}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight size={13} className="text-gray-500 group-hover:text-white transition shrink-0 transform rotate-180" />
                       </div>
                     ))
                   )}
                 </div>
 
                 {/* Footer */}
-                <div className="p-2.5 bg-slate-950/90 border-t border-white/10 text-center">
+                <div className="p-2 bg-slate-950/90 border-t border-white/10 flex gap-1.5">
                   <button 
                     onClick={() => {
                       setIsNotifDropdownOpen(false);
                       navigate('/inbox');
                     }}
-                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white py-1.5 px-3 rounded-xl text-xs font-black transition shadow-md flex items-center justify-center gap-1.5"
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-1.5 px-2 rounded-xl text-[11px] font-black transition shadow-sm flex items-center justify-center gap-1"
                   >
-                    <span>الانتقال إلى محادثات الواتساب بالكامل</span>
-                    <ArrowRight size={13} className="transform rotate-180" />
+                    <span>💬 شات الواتساب</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsNotifDropdownOpen(false);
+                      setIsMailModalOpen(true);
+                      setMailActiveFolder('inbox');
+                    }}
+                    className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white py-1.5 px-2 rounded-xl text-[11px] font-black transition shadow-sm flex items-center justify-center gap-1"
+                  >
+                    <span>✉️ بريد اتجاه</span>
                   </button>
                 </div>
               </div>
