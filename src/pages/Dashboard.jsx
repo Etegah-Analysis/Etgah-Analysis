@@ -1368,7 +1368,16 @@ const Dashboard = () => {
   // Auto-sync manual WhatsApp customers into employee_leads and keep customers for Website WhatsApp
   useEffect(() => {
     if (!customers || customers.length === 0) return;
-    const manualList = customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+    const manualList = customers.filter(c => 
+      c.addedBy && 
+      c.addedBy !== 'WhatsApp Webhook' && 
+      c.addedBy !== 'website_otp' && 
+      c.addedBy !== 'website' && 
+      c.addedBy !== 'Website' && 
+      c.addedBy !== 'موقع الويب' && 
+      c.source !== 'website' && 
+      c.source !== 'website_otp'
+    );
     if (manualList.length === 0) return;
 
     const syncAndClean = async () => {
