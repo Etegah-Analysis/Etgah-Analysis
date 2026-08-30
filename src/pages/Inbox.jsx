@@ -627,6 +627,25 @@ export default function Inbox() {
   useEffect(() => {
     if (!activeChat) return;
 
+    // Immediately mark active chat/group as read on open
+    const markAsRead = async () => {
+      try {
+        if (activeChat.isGroup) {
+          await updateDoc(doc(db, 'internal_groups', activeChat.id), {
+            readBy: arrayUnion(currentUser.uid, 'admin'),
+            unread: 0
+          });
+        } else {
+          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), {
+            unread: 0
+          });
+        }
+      } catch (e) {
+        // silent catch
+      }
+    };
+    markAsRead();
+
     const q = query(
       collection(db, 'رسائل_الموظفين_للعملاء'),
       where('conversationId', '==', activeChat.id)
@@ -693,18 +712,19 @@ export default function Inbox() {
       return;
     }
     setActiveChat(chat);
-    if (chat.unread > 0) {
-      try {
-        if (chat.isGroup) {
-          const groupRef = doc(db, 'internal_groups', chat.id);
-          await updateDoc(groupRef, { unread: 0 });
-        } else {
-          const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chat.id);
-          await updateDoc(chatRef, { unread: 0 });
-        }
-      } catch (err) {
-        console.error("خطأ في تصفير العداد", err);
+    try {
+      if (chat.isGroup) {
+        const groupRef = doc(db, 'internal_groups', chat.id);
+        await updateDoc(groupRef, { 
+          readBy: arrayUnion(currentUser.uid, 'admin'),
+          unread: 0 
+        });
+      } else {
+        const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chat.id);
+        await updateDoc(chatRef, { unread: 0 });
       }
+    } catch (err) {
+      console.error("خطأ في تصفير العداد", err);
     }
   };
 
@@ -937,6 +957,9 @@ export default function Inbox() {
         await updateDoc(doc(db, 'internal_groups', activeChat.id), {
           lastMessage: msgText || (fileName ? `📎 ${fileName}` : 'مرفق'),
           lastMessageSender: senderDisplayName,
+          lastMessageSenderUid: currentUser.uid,
+          readBy: [currentUser.uid, ...(isAdmin ? ['admin'] : [])],
+          unread: 0,
           updatedAt: serverTimestamp()
         });
 

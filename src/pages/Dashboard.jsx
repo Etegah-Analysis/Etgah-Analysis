@@ -3681,11 +3681,22 @@ const Dashboard = () => {
                     unreadWhatsAppChats.map((c) => (
                       <div 
                         key={`notif-conv-${c.id}`}
-                        onClick={() => {
+                        onClick={async () => {
                           setIsNotifDropdownOpen(false);
                           if (c.isGroup) {
+                            try {
+                              await updateDoc(doc(db, 'internal_groups', c.id), {
+                                readBy: arrayUnion(myUid, currentUser.uid, 'admin'),
+                                unread: 0
+                              });
+                            } catch(e) {}
                             navigate('/inbox', { state: { selectedGroupId: c.id } });
                           } else {
+                            try {
+                              await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                                unread: 0
+                              });
+                            } catch(e) {}
                             navigate('/inbox', { state: { selectedCustomerId: c.id } });
                           }
                         }}
@@ -3726,10 +3737,15 @@ const Dashboard = () => {
                     unreadEmails.map((mail) => (
                       <div 
                         key={`mail-${mail.id}`}
-                        onClick={() => {
+                        onClick={async () => {
                           setIsNotifDropdownOpen(false);
                           setIsMailModalOpen(true);
                           setMailActiveFolder('inbox');
+                          try {
+                            await updateDoc(doc(db, 'internal_emails', mail.id), {
+                              readBy: arrayUnion(myUid, currentUser.uid, 'admin')
+                            });
+                          } catch(e) {}
                           handleOpenEmailDetails(mail);
                         }}
                         className="p-2.5 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2 group border border-transparent hover:border-purple-500/30"
