@@ -592,7 +592,17 @@ const Dashboard = () => {
       toast.error('رقم الهاتف غير متوفر للاتصال');
       return;
     }
-    const cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
+    // Format strictly for MicroSIP: Local Saudi starting with 05 (remove + and 966 / 00966)
+    let cleanPhone = String(rawPhone).replace(/\D/g, '');
+    if (cleanPhone.startsWith('00966')) {
+      cleanPhone = cleanPhone.slice(5);
+    } else if (cleanPhone.startsWith('966')) {
+      cleanPhone = cleanPhone.slice(3);
+    }
+    if (cleanPhone.startsWith('5')) {
+      cleanPhone = '0' + cleanPhone;
+    }
+
     if (!cleanPhone) {
       toast.error('رقم الهاتف غير صالح');
       return;
