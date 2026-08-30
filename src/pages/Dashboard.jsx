@@ -3586,7 +3586,7 @@ const Dashboard = () => {
       
       {/* Header - Fixed & Floating on scroll smoothly across all devices */}
       <header 
-        className="sticky top-0 z-[999] bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200/90 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
+        className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200/90 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar on mobile / Brand + User info */}
@@ -8309,7 +8309,7 @@ const Dashboard = () => {
 
         {/* Modal: Add Employee */}
         {isAddEmployeeOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setIsAddEmployeeOpen(false)}>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsAddEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsAddEmployeeOpen(false)} 
@@ -8424,7 +8424,7 @@ const Dashboard = () => {
 
         {/* Modal: Edit Employee Details */}
         {isEditEmployeeOpen && editEmp && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setIsEditEmployeeOpen(false)}>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsEditEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsEditEmployeeOpen(false)} 
@@ -8533,7 +8533,7 @@ const Dashboard = () => {
 
         {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
         {isImportModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsImportModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsImportModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsImportModalOpen(false)} 
@@ -8734,7 +8734,7 @@ const Dashboard = () => {
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
         {isAssignModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsAssignModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsAssignModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsAssignModalOpen(false)} 
@@ -8813,7 +8813,7 @@ const Dashboard = () => {
 
         {/* Modal 3: Customer Report, Timeline Notes & Trial Date */}
         {isNotesModalOpen && selectedCustomerForNotes && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsNotesModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsNotesModalOpen(false)} 
@@ -9015,7 +9015,7 @@ const Dashboard = () => {
 
         {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
         {isLeadsAnalysisModalOpen && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsLeadsAnalysisModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsLeadsAnalysisModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -9767,7 +9767,7 @@ const Dashboard = () => {
           const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
 
           return (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setIsCallsAnalysisModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsCallsAnalysisModalOpen(false)}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[92vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
@@ -10172,7 +10172,7 @@ const Dashboard = () => {
           const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
 
           return (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative max-h-[90vh] flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
@@ -10423,7 +10423,7 @@ const Dashboard = () => {
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
         {isSystemTotalClientsModalOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsSystemTotalClientsModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsSystemTotalClientsModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -10686,7 +10686,7 @@ const Dashboard = () => {
 
         {/* Modal 6: Pending Clients Breakdown & Distribution */}
         {isPendingClientsModalOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsPendingClientsModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsPendingClientsModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -10838,7 +10838,7 @@ const Dashboard = () => {
 
         {/* Modal: Client Subscription Details (بيانات اشتراك العميل) */}
         {isSubscriptionModalOpen && selectedSubCustomer && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setIsSubscriptionModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-3 sm:p-4 overflow-y-auto" onClick={() => setIsSubscriptionModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative max-h-[90vh] flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -11054,7 +11054,7 @@ const Dashboard = () => {
 
         {/* Internal Mail System Modal (بريد اتجاه الداخلي - Gmail System) */}
         {isMailModalOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4" onClick={() => setIsMailModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[99999] p-2 sm:p-4 overflow-y-auto" onClick={() => setIsMailModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col border border-purple-500/30 overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
               
               {/* Mail Header */}
@@ -11464,7 +11464,7 @@ const Dashboard = () => {
 
         {/* Compose Email Modal Drawer (Gmail-style Compose) */}
         {isComposeOpen && (
-          <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:bottom-6 sm:left-6 z-50 bg-slate-900 text-white rounded-3xl border border-purple-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.6)] w-full sm:w-[540px] flex flex-col overflow-hidden max-h-[85vh]">
+          <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:bottom-6 sm:left-6 z-[100000] bg-slate-900 text-white rounded-3xl border border-purple-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.6)] w-full sm:w-[540px] flex flex-col overflow-hidden max-h-[85vh]">
             {/* Header */}
             <div className="px-5 py-3 bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 flex justify-between items-center">
               <span className="text-xs font-black text-white flex items-center gap-2">
