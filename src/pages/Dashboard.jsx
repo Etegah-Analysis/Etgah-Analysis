@@ -3287,7 +3287,7 @@ const Dashboard = () => {
       
       {/* Header */}
       <header 
-        className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-10 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col md:flex-row justify-between items-center gap-2.5 sm:gap-3"
+        className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-[999] px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col md:flex-row justify-between items-center gap-2.5 sm:gap-3"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar on mobile / Brand + User info */}
@@ -3337,7 +3337,7 @@ const Dashboard = () => {
         {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
           {/* مركز الإشعارات والتنبيهات الموحد 3D (واتساب + بريد اتجاه) */}
-          <div className="relative shrink-0" ref={notifDropdownRef}>
+          <div className="relative shrink-0 z-[1000]" ref={notifDropdownRef}>
             <button 
               onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
               className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
@@ -3362,10 +3362,10 @@ const Dashboard = () => {
               )}
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu - Perfectly Responsive on Mobile & Laptop and on top of all 3D cards */}
             {isNotifDropdownOpen && (
               <div 
-                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 sm:w-96 bg-slate-900 text-white rounded-2xl shadow-2xl border border-purple-500/40 z-50 overflow-hidden flex flex-col max-h-[480px]"
+                className="fixed inset-x-3 top-20 sm:fixed sm:inset-x-auto sm:top-16 sm:left-6 md:absolute md:top-full md:left-0 md:mt-2 w-auto sm:w-96 bg-slate-900/98 backdrop-blur-2xl text-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.8)] border-2 border-purple-500/50 z-[1001] overflow-hidden flex flex-col max-h-[75vh] md:max-h-[500px] animate-in fade-in zoom-in-95 duration-200"
                 dir="rtl"
               >
                 {/* Header & Tabs */}
