@@ -1303,7 +1303,22 @@ const Dashboard = () => {
     });
 
     const empLeadsUnsub = onSnapshot(collection(db, 'employee_leads'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      const data = [];
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        const addedBy = (d.addedBy || '').toLowerCase();
+        const source = (d.source || '').toLowerCase();
+        const assignedBy = (d.assignedBy || '').toLowerCase();
+        const isWeb = addedBy.includes('website') || addedBy.includes('otp') || addedBy.includes('موقع') || addedBy.includes('webhook') ||
+                      source.includes('website') || source.includes('otp') || source.includes('موقع') || source.includes('webhook') ||
+                      assignedBy.includes('website') || assignedBy.includes('otp');
+        if (isWeb) {
+          // Permanently delete from employee_leads collection so it never appears in employee card
+          deleteDoc(doc(db, 'employee_leads', docSnap.id)).catch(() => {});
+        } else {
+          data.push({ ...d, id: docSnap.id });
+        }
+      });
       data.sort((a, b) => {
         const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
         const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
@@ -7681,17 +7696,17 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* WhatsApp Visitors Tab - الزوار عبر الواتساب */}
+        {/* WhatsApp Visitors Tab - الزوار وعملاء الموقع OTP */}
         {activeTab === 'whatsapp_visitors' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-indigo-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/50 flex flex-wrap justify-between items-center gap-3">
               <div>
                 <h2 className="text-lg font-bold text-indigo-800 flex items-center gap-2">
-                  <Globe size={20} className="text-indigo-600" /> عملاء الزوار (واتساب)
+                  <Globe size={20} className="text-indigo-600" /> كارت عملاء الزوار والموقع (OTP & WhatsApp)
                 </h2>
-                <p className="text-xs text-indigo-600 mt-0.5">عملاء الموقع + من راسلنا مباشرة عبر الواتساب • مرتبطة بقائمة الانتظار</p>
+                <p className="text-xs text-indigo-600 mt-0.5">مسجلو الموقع عبر OTP ومحادثات الواتساب المباشرة • التعيين يوجه العميل فوراً لكارت Leads CRM للموظف</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
                   <input type="text" placeholder="بحث بالاسم أو الرقم..." value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
@@ -7699,6 +7714,107 @@ const Dashboard = () => {
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-indigo-400" size={14} />
                 </div>
+
+                {/* Bulk Assign Visitors to Employee Dropdown */}
+                {(isAdmin || isCoordinator || isLeader) && selectedVisitors.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-indigo-100 border border-indigo-300 px-3 py-1 rounded-xl shadow-xs">
+                    <span className="text-xs font-bold text-indigo-900">إسناد ({selectedVisitors.length}) إلى:</span>
+                    <select
+                      defaultValue=""
+                      onChange={async (e) => {
+                        const targetUid = e.target.value;
+                        if (!targetUid) return;
+                        const targetEmp = employees.find(x => x.uid === targetUid);
+                        const targetName = targetUid === 'admin' ? '👑 الإدارة' : (targetEmp?.name || targetEmp?.email || 'موظف');
+                        if (!window.confirm(`هل أنت متأكد من إسناد ${selectedVisitors.length} عميل محدد إلى (${targetName}) ونقلهم إلى كارت CRM الخاص به؟`)) {
+                          e.target.value = "";
+                          return;
+                        }
+                        const assignerDisplay = getAssignerDisplay();
+                        const assignerRole = getAssignerRole();
+                        const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+
+                        for (const vId of selectedVisitors) {
+                          const vObj = visitors.find(x => x.id === vId) || customers.find(x => x.id === vId);
+                          const isVisDoc = visitors.some(x => x.id === vId);
+                          const coll = isVisDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
+                          const prevEmp = employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.name || '👑 الإدارة';
+                          const logObj = createAssignmentLog(prevEmp, targetName, assignerDisplay);
+
+                          // 1. Update in Visitor collection
+                          await updateDoc(doc(db, coll, vId), {
+                            assignedToUid: targetUid,
+                            assignedTo: targetUid === 'admin' ? 'admin' : (targetEmp?.email || ''),
+                            assignedBy: assignerDisplay,
+                            assignedByRole: assignerRole,
+                            assignedByUid: assignerUid,
+                            assignedAt: serverTimestamp(),
+                            assignmentHistory: arrayUnion(logObj),
+                            status: targetUid === 'admin' ? 'unassigned' : 'assigned'
+                          }).catch(console.error);
+
+                          // 2. Sync to leads_crm
+                          const crmDocId = (vObj?.phone || vObj?.phoneNumber || vId).replace(/[^0-9]/g, '') || vId;
+                          if (targetUid === 'admin') {
+                            await updateDoc(doc(db, 'leads_crm', crmDocId), {
+                              assignedToUid: 'admin',
+                              assignedTo: 'الإدارة',
+                              assignedBy: assignerDisplay,
+                              assignedByRole: assignerRole,
+                              assignedByUid: assignerUid,
+                              assignedAt: serverTimestamp(),
+                              assignmentHistory: arrayUnion(logObj),
+                              status: 'unassigned'
+                            }).catch(() => {});
+                          } else {
+                            const rawPhone = vObj?.phone || vObj?.phoneNumber || '';
+                            await setDoc(doc(db, 'leads_crm', crmDocId), {
+                              phoneNumber: rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`) : '',
+                              name: vObj?.name || `${vObj?.firstName || ''} ${vObj?.lastName || ''}`.trim() || 'عميل مسجل عبر الموقع',
+                              email: vObj?.email || '',
+                              source: 'موقع الويب (OTP)',
+                              assignedTo: targetEmp?.email || '',
+                              assignedToUid: targetUid,
+                              assignedBy: assignerDisplay,
+                              assignedByRole: assignerRole,
+                              assignedByUid: assignerUid,
+                              assignedAt: serverTimestamp(),
+                              assignmentHistory: arrayUnion(logObj),
+                              status: 'assigned',
+                              crmStatus: 'unassigned',
+                              notes: vObj?.notes || '',
+                              notesHistory: vObj?.notesHistory || [],
+                              createdAt: vObj?.createdAt || serverTimestamp(),
+                              updatedAt: serverTimestamp()
+                            }, { merge: true }).catch(console.error);
+                          }
+                        }
+                        toast.success(`تم إسناد ${selectedVisitors.length} عميل إلى (${targetName}) وظهورهم في كارت CRM الخاص به بنجاح ✓`);
+                        setSelectedVisitors([]);
+                        e.target.value = "";
+                      }}
+                      className="text-xs font-bold bg-white text-gray-800 border border-indigo-300 rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
+                    >
+                      <option value="">-- اختر موظفاً --</option>
+                      {isLeader ? (
+                        <>
+                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
+                          {myTeamMembers.map(empItem => (
+                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <option value="admin">👑 الإدارة</option>
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )}
+
                 {isAdmin && selectedVisitors.length > 0 && (
                   <button 
                     onClick={deleteSelectedVisitors}
@@ -7713,7 +7829,7 @@ const Dashboard = () => {
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="bg-indigo-50/50 border-b border-indigo-100">
-                    {isAdmin && (
+                    {(isAdmin || isCoordinator || isLeader) && (
                       <th className="p-4 w-12 text-center">
                         <input 
                           type="checkbox" 
@@ -7721,18 +7837,19 @@ const Dashboard = () => {
                           onChange={() => {
                             const combinedIds = [
                               ...visitors.map(v => v.id),
-                              ...customers.filter(c => c.addedBy === 'WhatsApp Webhook').map(c => c.id)
+                              ...customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.addedBy === 'website_otp' || c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website' || !c.addedBy).map(c => c.id)
                             ];
                             if (selectedVisitors.length > 0) setSelectedVisitors([]);
                             else setSelectedVisitors(combinedIds);
                           }} 
-                          className="w-4 h-4 text-primary rounded" 
+                          className="w-4 h-4 text-primary rounded cursor-pointer" 
                         />
                       </th>
                     )}
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم / رقم الهاتف</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">الحالة في قائمة الانتظار</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">الموظف المسؤول والموزع</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -7745,27 +7862,66 @@ const Dashboard = () => {
                         </span>
                       </div>
                     </th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">إجراء</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
                     const sortMultiplier = sortOrder === 'desc' ? 1 : -1;
                     const combined = [
-                      ...visitors.map(v => ({ id: v.id, name: `${v.firstName || ''} ${v.lastName || ''}`.trim(), phone: v.phone, source: 'موقع الويب', createdAt: v.createdAt, status: 'website_visitor', _raw: v })),
-                      ...customers.filter(c => c.addedBy === 'WhatsApp Webhook').map(c => ({ id: c.id, name: c.name || c.phoneNumber, phone: c.phoneNumber, source: 'واتساب مباشر', createdAt: c.createdAt, status: c.status, _raw: c }))
+                      ...visitors.map(v => ({ 
+                        id: v.id, 
+                        name: `${v.firstName || ''} ${v.lastName || ''}`.trim() || 'زائر موقع', 
+                        phone: v.phone || v.phoneNumber, 
+                        email: v.email,
+                        source: 'موقع الويب (OTP)', 
+                        createdAt: v.createdAt, 
+                        status: v.status || 'website_visitor', 
+                        crmStatus: v.crmStatus || 'unassigned',
+                        assignedTo: v.assignedTo || 'الإدارة',
+                        assignedToUid: v.assignedToUid || 'admin',
+                        assignedBy: v.assignedBy,
+                        assignedByRole: v.assignedByRole,
+                        assignedByUid: v.assignedByUid,
+                        isVisitorDoc: true,
+                        _raw: v 
+                      })),
+                      ...customers.filter(c => 
+                        c.addedBy === 'WhatsApp Webhook' || 
+                        c.addedBy === 'website_otp' || 
+                        c.addedBy === 'website' || 
+                        c.source === 'website' || 
+                        c.source === 'website_otp' || 
+                        !c.addedBy
+                      ).map(c => ({ 
+                        id: c.id, 
+                        name: c.name || c.phoneNumber || 'عميل موقع', 
+                        phone: c.phoneNumber || c.phone, 
+                        email: c.email,
+                        source: (c.addedBy === 'website_otp' || c.source === 'website_otp' || c.source === 'website' || c.addedBy === 'website') ? 'موقع الويب (OTP)' : 'واتساب مباشر', 
+                        createdAt: c.createdAt, 
+                        status: c.status || 'unassigned', 
+                        crmStatus: c.crmStatus || 'unassigned',
+                        assignedTo: c.assignedTo || 'الإدارة',
+                        assignedToUid: c.assignedToUid || 'admin',
+                        assignedBy: c.assignedBy,
+                        assignedByRole: c.assignedByRole,
+                        assignedByUid: c.assignedByUid,
+                        isVisitorDoc: false,
+                        _raw: c 
+                      }))
                     ].filter(v => {
                       const search = tableSearch.trim() || dashboardSearch.trim();
                       if (!search) return true;
                       const term = search.toLowerCase();
-                      return v.name?.toLowerCase().includes(term) || v.phone?.includes(term);
+                      return v.name?.toLowerCase().includes(term) || v.phone?.includes(term) || v.email?.toLowerCase().includes(term);
                     }).sort((a, b) => {
                       const timeA = (a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)) || 0;
                       const timeB = (b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)) || 0;
                       return (timeB - timeA) * sortMultiplier;
                     });
                     if (combined.length === 0) return (
-                      <tr><td colSpan="6" className="p-8 text-center text-gray-500">لا يوجد عملاء زوار حتى الآن.</td></tr>
+                      <tr><td colSpan="7" className="p-8 text-center text-gray-500">لا يوجد عملاء زوار حتى الآن.</td></tr>
                     );
                     const rows = [];
                     let lastDateStr = null;
@@ -7777,7 +7933,7 @@ const Dashboard = () => {
                         lastDateStr = dateStr;
                         rows.push(
                           <tr key={`sep-${dateStr}-${idx}`}>
-                            <td colSpan="6" className="py-2 px-4">
+                            <td colSpan="7" className="py-2 px-4">
                               <div className="flex items-center gap-3">
                                 <div className="flex-1 h-px bg-indigo-100"></div>
                                 <span className="text-xs text-indigo-400 bg-indigo-50 px-3 py-1 rounded-full whitespace-nowrap font-medium">{dateLabel || dateStr}</span>
@@ -7789,13 +7945,13 @@ const Dashboard = () => {
                       }
                       rows.push(
                         <tr key={visitor.id} className="hover:bg-indigo-50/30 transition border-b border-indigo-50">
-                          {isAdmin && (
+                          {(isAdmin || isCoordinator || isLeader) && (
                             <td className="p-4 text-center">
                               <input 
                                 type="checkbox" 
                                 checked={selectedVisitors.includes(visitor.id)} 
                                 onChange={() => toggleVisitorSelection(visitor.id)} 
-                                className="w-4 h-4 text-primary rounded" 
+                                className="w-4 h-4 text-primary rounded cursor-pointer" 
                               />
                             </td>
                           )}
@@ -7803,68 +7959,186 @@ const Dashboard = () => {
                             <p className="text-sm font-bold text-gray-800">{visitor.name || 'غير معروف'}</p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <p className="text-xs text-gray-500 font-mono" dir="ltr">{visitor.phone}</p>
-                              {!isCoordinator && visitor.phone && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(visitor.phone); }}
-                                  className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
-                                  title="اتصال مباشر عبر MicroSIP 📞"
-                                >
-                                  <PhoneCall size={12} className="animate-pulse" />
-                                  <span>Call</span>
-                                </button>
-                              )}
                             </div>
+                            {visitor.email && (
+                              <p className="text-[11px] text-gray-400 font-mono mt-0.5" dir="ltr">{visitor.email}</p>
+                            )}
                           </td>
                           <td className="p-4">
                             <div className="flex flex-col gap-1">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold w-max ${visitor.source === 'واتساب مباشر' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold w-max ${visitor.source.includes('OTP') ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}`}>
                                 {visitor.source}
                               </span>
                               {visitor._raw?.contactReason === 'support' || visitor._raw?.lastMessage?.includes('دعم') ? (
-                                <span className="bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full text-[11px] font-extrabold w-max">
-                                  🎧 خدمة دعم العملاء
+                                <span className="bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-extrabold w-max">
+                                  🎧 دعم عملاء
                                 </span>
                               ) : visitor._raw?.contactReason === 'details' || visitor._raw?.lastMessage?.includes('تفاصيل') ? (
-                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[11px] font-extrabold w-max">
+                                <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-extrabold w-max">
                                   🎯 مهتم بالتفاصيل
                                 </span>
                               ) : (
-                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[11px] font-bold w-max">
-                                  💬 تواصل عام
+                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold w-max">
+                                  💬 تواصل
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="p-4">
-                            {visitor.status === 'unassigned' ? (
-                              <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold">• في الانتظار</span>
+                            {visitor.status === 'unassigned' || visitor.crmStatus === 'unassigned' ? (
+                              <span className="bg-red-100 text-red-700 border border-red-200 px-2.5 py-1 rounded-full text-xs font-bold">• في الانتظار</span>
                             ) : visitor.status === 'website_visitor' ? (
-                              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-bold">مسجل فقط</span>
+                              <span className="bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-bold">🌐 مسجل OTP</span>
                             ) : (
-                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">مستلمة</span>
+                              <span className="bg-green-100 text-green-700 border border-green-200 px-2.5 py-1 rounded-full text-xs font-bold">✓ مستلمة</span>
                             )}
                           </td>
+
+                          {/* الموظف المسؤول والموزع Dropdown */}
+                          <td className="p-4 text-center">
+                            {(isAdmin || isCoordinator || isLeader) ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <select 
+                                  value={isLeadWithAdmin(visitor) ? "admin" : visitor.assignedToUid}
+                                  onChange={async (e) => {
+                                    const uid = e.target.value;
+                                    const prevEmpName = employees.find(x => x.uid === visitor.assignedToUid || x.email === visitor.assignedTo)?.name || '👑 الإدارة';
+                                    const assignerDisplay = getAssignerDisplay();
+                                    const assignerRole = getAssignerRole();
+                                    const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+                                    const coll = visitor.isVisitorDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
+                                    const crmDocId = (visitor.phone || visitor.id).replace(/[^0-9]/g, '') || visitor.id;
+                                    
+                                    if (uid === 'admin') {
+                                      const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+                                      // 1. Update in Visitor doc
+                                      await updateDoc(doc(db, coll, visitor.id), {
+                                        assignedToUid: 'admin',
+                                        assignedTo: 'admin',
+                                        assignedBy: assignerDisplay,
+                                        assignedByRole: assignerRole,
+                                        assignedByUid: assignerUid,
+                                        assignedAt: serverTimestamp(),
+                                        assignmentHistory: arrayUnion(logObj),
+                                        status: 'unassigned'
+                                      }).catch(console.error);
+                                      // 2. Update in leads_crm
+                                      await updateDoc(doc(db, 'leads_crm', crmDocId), {
+                                        assignedToUid: 'admin',
+                                        assignedTo: 'الإدارة',
+                                        assignedBy: assignerDisplay,
+                                        assignedByRole: assignerRole,
+                                        assignedByUid: assignerUid,
+                                        assignedAt: serverTimestamp(),
+                                        assignmentHistory: arrayUnion(logObj),
+                                        status: 'unassigned'
+                                      }).catch(() => {});
+                                      toast.success('تم تعيين العميل إلى الإدارة 👑');
+                                    } else {
+                                      const targetEmp = employees.find(x => x.uid === uid);
+                                      const logObj = createAssignmentLog(prevEmpName, `👤 ${targetEmp?.name || 'موظف'}`, assignerDisplay);
+                                      // 1. Update in Visitor doc
+                                      await updateDoc(doc(db, coll, visitor.id), {
+                                        assignedToUid: uid,
+                                        assignedTo: targetEmp?.email || '',
+                                        assignedBy: assignerDisplay,
+                                        assignedByRole: assignerRole,
+                                        assignedByUid: assignerUid,
+                                        assignedAt: serverTimestamp(),
+                                        assignmentHistory: arrayUnion(logObj),
+                                        status: 'assigned'
+                                      }).catch(console.error);
+                                      // 2. Sync into leads_crm so it immediately appears in the employee's CRM list
+                                      const rawPhone = visitor.phone || '';
+                                      await setDoc(doc(db, 'leads_crm', crmDocId), {
+                                        phoneNumber: rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`) : '',
+                                        name: visitor.name || 'عميل مسجل عبر الموقع',
+                                        email: visitor.email || '',
+                                        source: 'موقع الويب (OTP)',
+                                        assignedTo: targetEmp?.email || '',
+                                        assignedToUid: uid,
+                                        assignedBy: assignerDisplay,
+                                        assignedByRole: assignerRole,
+                                        assignedByUid: assignerUid,
+                                        assignedAt: serverTimestamp(),
+                                        assignmentHistory: arrayUnion(logObj),
+                                        status: 'assigned',
+                                        crmStatus: 'unassigned',
+                                        notes: visitor._raw?.notes || '',
+                                        notesHistory: visitor._raw?.notesHistory || [],
+                                        createdAt: visitor.createdAt || serverTimestamp(),
+                                        updatedAt: serverTimestamp()
+                                      }, { merge: true }).catch(console.error);
+                                      toast.success(`تم إسناد العميل إلى (${targetEmp?.name || 'الموظف'}) وظهوره في كارت CRM الخاص به بنجاح ✓`);
+                                    }
+                                  }}
+                                  className="border border-indigo-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
+                                >
+                                  {isLeader ? (
+                                    <>
+                                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
+                                      {myTeamMembers.map(empItem => (
+                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <option value="admin">👑 الإدارة (غير مخصص)</option>
+                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
+                                      ))}
+                                    </>
+                                  )}
+                                </select>
+
+                                {/* شارة جهة التوزيع */}
+                                {visitor.assignedBy ? (
+                                  <div className="inline-flex items-center gap-1 bg-amber-100/90 text-amber-900 border border-amber-300/80 px-2 py-0.5 rounded-md text-[10px] font-black shadow-xs whitespace-nowrap">
+                                    <span>الموزع:</span>
+                                    <span className="font-extrabold">{visitor.assignedBy}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-gray-400 font-medium">لم يتم التوزيع</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs font-bold text-gray-700">
+                                {employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo)?.name || '👑 الإدارة'}
+                              </span>
+                            )}
+                          </td>
+
                           <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
-                          <td className="p-4 flex items-center gap-2">
-                            {visitor.status !== 'website_visitor' && (
+                          <td className="p-4">
+                            <div className="flex items-center gap-1.5">
+                              {visitor.status !== 'website_visitor' && (
+                                <button 
+                                  onClick={() => navigate('/inbox', { state: { selectedCustomerId: visitor.id } })}
+                                  className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                  title="مراسلة عبر واتساب"
+                                >
+                                  <MessageCircle size={14} className="drop-shadow-sm fill-white/20" />
+                                  <span className="text-[11px] font-black">WhatsApp</span>
+                                </button>
+                              )}
                               <button 
-                                onClick={() => navigate('/inbox', { state: { selectedCustomerId: visitor.id } })}
-                                className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
-                                title="مراسلة عبر واتساب"
+                                onClick={() => handleOpenNotesModal(visitor._raw || visitor)}
+                                className="bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold px-2 py-1.5 rounded-xl text-xs transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                title="عرض وإضافة ملاحظات وتقارير العميل"
                               >
-                                <MessageCircle size={14} className="drop-shadow-sm fill-white/20" />
-                                <span className="text-[11px] font-black">WhatsApp</span>
+                                <FileText size={12} className="text-amber-700" />
+                                <span>Comment</span>
                               </button>
-                            )}
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleDeleteSingleVisitor(visitor)}
-                                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
-                                title="حذف ونقل إلى سلة المهملات"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteSingleVisitor(visitor)}
+                                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm cursor-pointer"
+                                  title="حذف ونقل إلى سلة المهملات"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
