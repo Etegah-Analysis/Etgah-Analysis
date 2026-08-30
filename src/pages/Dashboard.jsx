@@ -569,8 +569,31 @@ const Dashboard = () => {
     }
   };
 
+  // Web Audio Notification Chime (Crystal Clear Synthesized Chime)
+  const playNotificationSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {
+      // Audio playback policy silent catch
+    }
+  };
+
   // Unified Real-Time Notification Center State for Dashboard (WhatsApp + Internal Mail)
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
   const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
   const notifDropdownRef = useRef(null);
   const prevUnreadMapRef = useRef({});
@@ -655,6 +678,8 @@ const Dashboard = () => {
 
       if (currentCount > prevCount) {
         // New incoming message!
+        playNotificationSound();
+        setHasViewedNotifications(false);
         toast(
           (t) => (
             <div 
@@ -725,6 +750,8 @@ const Dashboard = () => {
       const wasKnown = prevUnreadEmailsMapRef.current[mail.id] !== undefined;
       if (!wasKnown) {
         // Brand new unread email received!
+        playNotificationSound();
+        setHasViewedNotifications(false);
         toast(
           (t) => (
             <div 
@@ -3285,9 +3312,9 @@ const Dashboard = () => {
         style={{ backgroundImage: "url('/logo.jpg')", backgroundSize: "600px", backgroundAttachment: "fixed" }}
       ></div>
       
-      {/* Header */}
+      {/* Header - Fixed & Floating on scroll smoothly across all devices */}
       <header 
-        className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 relative z-[999] px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col md:flex-row justify-between items-center gap-2.5 sm:gap-3"
+        className="sticky top-0 z-[999] bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200/90 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar on mobile / Brand + User info */}
@@ -3336,31 +3363,44 @@ const Dashboard = () => {
 
         {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
-          {/* مركز الإشعارات والتنبيهات الموحد 3D (واتساب + بريد اتجاه) */}
-          <div className="relative shrink-0 z-[1000]" ref={notifDropdownRef}>
-            <button 
-              onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
-              className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
-                totalAllNotificationsCount > 0 
-                  ? 'bg-gradient-to-b from-indigo-700 via-purple-700 to-slate-900 text-white border-purple-300/80 shadow-[0_4px_16px_rgba(147,51,234,0.55),inset_0_1px_2px_rgba(255,255,255,0.4)] hover:shadow-[0_6px_22px_rgba(147,51,234,0.8)] hover:-translate-y-0.5' 
-                  : 'bg-gradient-to-b from-white via-slate-50 to-slate-200 text-gray-800 border-slate-300 shadow-[0_3px_8px_rgba(0,0,0,0.1),inset_0_1px_2px_rgba(255,255,255,0.9)] hover:from-white hover:to-slate-100 hover:shadow-[0_5px_12px_rgba(0,0,0,0.15)] hover:-translate-y-0.5'
-              }`}
-              title="مركز الإشعارات والتنبيهات 🔔 (واتساب وبريد اتجاه)"
-            >
-              {/* 3D Bell Icon with Glow */}
-              <div className="relative flex items-center justify-center">
-                <div className={`absolute -inset-1 rounded-full blur-[3px] transition opacity-80 ${totalAllNotificationsCount > 0 ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-purple-500 animate-pulse' : 'bg-transparent'}`}></div>
-                <span className="relative text-base transform group-hover/bell:scale-125 group-hover/bell:rotate-12 transition-transform duration-300 select-none">
-                  🔔
-                </span>
-              </div>
-              <span className="hidden sm:inline text-xs font-black drop-shadow-sm">الإشعارات</span>
-              {totalAllNotificationsCount > 0 && (
-                <span className="bg-gradient-to-b from-rose-500 via-red-600 to-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/90 shadow-[0_2px_8px_rgba(225,29,72,0.8),inset_0_1px_2px_rgba(255,255,255,0.7)] animate-bounce">
-                  {totalAllNotificationsCount}
-                </span>
-              )}
-            </button>
+          {/* مركز الإشعارات والتنبيهات الموحد 3D (أحمر عند وصول إشعار / أبيض عند الفتح والقراءة) */}
+          {(() => {
+            const isBellRed = totalAllNotificationsCount > 0 && !hasViewedNotifications;
+            
+            return (
+              <div className="relative shrink-0 z-[1000]" ref={notifDropdownRef}>
+                <button 
+                  onClick={() => {
+                    setIsNotifDropdownOpen(!isNotifDropdownOpen);
+                    setHasViewedNotifications(true);
+                  }}
+                  className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
+                    isBellRed 
+                      ? 'bg-gradient-to-b from-red-600 via-rose-600 to-red-700 text-white border-red-300 shadow-[0_4px_16px_rgba(225,29,72,0.65),inset_0_1px_2px_rgba(255,255,255,0.6)] animate-pulse hover:shadow-[0_6px_22px_rgba(225,29,72,0.9)] hover:-translate-y-0.5' 
+                      : 'bg-gradient-to-b from-white via-slate-50 to-slate-100 text-gray-800 border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.9)] hover:from-white hover:to-slate-200 hover:-translate-y-0.5'
+                  }`}
+                  title="مركز الإشعارات والتنبيهات 🔔 (واتساب وبريد اتجاه)"
+                >
+                  {/* 3D Bell Icon with Glow */}
+                  <div className="relative flex items-center justify-center">
+                    <div className={`absolute -inset-1 rounded-full blur-[3px] transition opacity-90 ${isBellRed ? 'bg-amber-300 animate-ping' : 'bg-transparent'}`}></div>
+                    <span className="relative text-base transform group-hover/bell:scale-125 group-hover/bell:rotate-12 transition-transform duration-300 select-none">
+                      🔔
+                    </span>
+                  </div>
+                  <span className={`hidden sm:inline text-xs font-black drop-shadow-sm ${isBellRed ? 'text-white' : 'text-gray-800'}`}>
+                    الإشعارات
+                  </span>
+                  {totalAllNotificationsCount > 0 && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shadow-md animate-bounce ${
+                      isBellRed 
+                        ? 'bg-white text-red-700 border-red-200 shadow-[0_2px_8px_rgba(225,29,72,0.8)]' 
+                        : 'bg-gradient-to-b from-gray-700 to-gray-900 text-white border-white/80'
+                    }`}>
+                      {totalAllNotificationsCount}
+                    </span>
+                  )}
+                </button>
 
             {/* Dropdown Menu - Perfectly Responsive on Mobile & Laptop and on top of all 3D cards */}
             {isNotifDropdownOpen && (
@@ -3526,6 +3566,8 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+            );
+          })()}
 
           {/* بريد اتجاه الداخلي */}
           <button 
