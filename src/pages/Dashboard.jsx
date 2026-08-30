@@ -8153,7 +8153,7 @@ const Dashboard = () => {
                           <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-1.5">
-                              {visitor.status !== 'website_visitor' && (
+                              {!isCoordinator && visitor.status !== 'website_visitor' && (
                                 <button 
                                   onClick={() => navigate('/inbox', { state: { selectedCustomerId: visitor.id } })}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
