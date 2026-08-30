@@ -499,6 +499,28 @@ const Dashboard = () => {
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
   const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
   const isAllowedToManageLeads = isAdmin || isCoordinator || isLeader;
+  const myUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+  const myEmail = currentUser?.email?.toLowerCase() || '';
+
+  // Helper to determine if an email is meant for the current user's inbox
+  const isEmailForMe = (mail) => {
+    if (!mail) return false;
+    if (isAdmin) {
+      return mail.recipientType === 'all' || mail.recipientType === 'admin' || mail.recipientUid === 'admin' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+    }
+    if (isCoordinator) {
+      return mail.recipientType === 'all' || mail.recipientType === 'coordinator' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+    }
+    if (isLeader) {
+      if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+      if (mail.recipientType === 'leader' && myTeamMembers.some(m => m.uid === mail.senderUid || m.email?.toLowerCase() === mail.senderEmail?.toLowerCase())) return true;
+      return false;
+    }
+    // Agent
+    if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+    if (mail.recipientType === 'team' && (mail.teamMemberUids?.includes(currentUser?.uid) || mail.teamLeaderUid === currentEmpUser?.leaderUid)) return true;
+    return false;
+  };
 
   // Master Emergency System Lock State (Controlled by Admin)
   const [isSystemLocked, setIsSystemLocked] = useState(false);
@@ -1253,9 +1275,6 @@ const Dashboard = () => {
   };
 
   // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
-  const myUid = isAdmin ? 'admin' : (currentUser?.uid || '');
-  const myEmail = currentUser?.email?.toLowerCase() || '';
-
   // Calculate allowed recipients based on user role
   const getAllowedRecipients = () => {
     const list = [];
@@ -1298,26 +1317,6 @@ const Dashboard = () => {
       }
     }
     return list;
-  };
-
-  // Helper to determine if an email is meant for the current user's inbox
-  const isEmailForMe = (mail) => {
-    if (!mail) return false;
-    if (isAdmin) {
-      return mail.recipientType === 'all' || mail.recipientType === 'admin' || mail.recipientUid === 'admin' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
-    }
-    if (isCoordinator) {
-      return mail.recipientType === 'all' || mail.recipientType === 'coordinator' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
-    }
-    if (isLeader) {
-      if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
-      if (mail.recipientType === 'leader' && myTeamMembers.some(m => m.uid === mail.senderUid || m.email?.toLowerCase() === mail.senderEmail?.toLowerCase())) return true;
-      return false;
-    }
-    // Agent
-    if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
-    if (mail.recipientType === 'team' && (mail.teamMemberUids?.includes(currentUser?.uid) || mail.teamLeaderUid === currentEmpUser?.leaderUid)) return true;
-    return false;
   };
 
   // Unread emails count
@@ -3337,21 +3336,27 @@ const Dashboard = () => {
 
         {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
-          {/* مركز الإشعارات والتنبيهات الموحد (واتساب + بريد اتجاه) */}
+          {/* مركز الإشعارات والتنبيهات الموحد 3D (واتساب + بريد اتجاه) */}
           <div className="relative shrink-0" ref={notifDropdownRef}>
             <button 
               onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
-              className={`relative flex items-center justify-center p-2 rounded-xl transition text-xs font-bold gap-1.5 shadow-sm cursor-pointer active:scale-95 border ${
+              className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
                 totalAllNotificationsCount > 0 
-                  ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white border-purple-300 shadow-[0_3px_12px_rgba(147,51,234,0.4)]' 
-                  : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
+                  ? 'bg-gradient-to-b from-indigo-700 via-purple-700 to-slate-900 text-white border-purple-300/80 shadow-[0_4px_16px_rgba(147,51,234,0.55),inset_0_1px_2px_rgba(255,255,255,0.4)] hover:shadow-[0_6px_22px_rgba(147,51,234,0.8)] hover:-translate-y-0.5' 
+                  : 'bg-gradient-to-b from-white via-slate-50 to-slate-200 text-gray-800 border-slate-300 shadow-[0_3px_8px_rgba(0,0,0,0.1),inset_0_1px_2px_rgba(255,255,255,0.9)] hover:from-white hover:to-slate-100 hover:shadow-[0_5px_12px_rgba(0,0,0,0.15)] hover:-translate-y-0.5'
               }`}
               title="مركز الإشعارات والتنبيهات 🔔 (واتساب وبريد اتجاه)"
             >
-              <Bell size={16} className={totalAllNotificationsCount > 0 ? 'animate-bounce' : ''} />
-              <span className="hidden sm:inline text-xs font-black">الإشعارات</span>
+              {/* 3D Bell Icon with Glow */}
+              <div className="relative flex items-center justify-center">
+                <div className={`absolute -inset-1 rounded-full blur-[3px] transition opacity-80 ${totalAllNotificationsCount > 0 ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-purple-500 animate-pulse' : 'bg-transparent'}`}></div>
+                <span className="relative text-base transform group-hover/bell:scale-125 group-hover/bell:rotate-12 transition-transform duration-300 select-none">
+                  🔔
+                </span>
+              </div>
+              <span className="hidden sm:inline text-xs font-black drop-shadow-sm">الإشعارات</span>
               {totalAllNotificationsCount > 0 && (
-                <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
+                <span className="bg-gradient-to-b from-rose-500 via-red-600 to-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/90 shadow-[0_2px_8px_rgba(225,29,72,0.8),inset_0_1px_2px_rgba(255,255,255,0.7)] animate-bounce">
                   {totalAllNotificationsCount}
                 </span>
               )}
