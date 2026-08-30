@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone } from 'lucide-react';
+import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -546,6 +546,127 @@ const Dashboard = () => {
       setIsTogglingLock(false);
     }
   };
+
+  // WhatsApp Real-Time Notification Bell State for Dashboard
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const notifDropdownRef = useRef(null);
+  const prevUnreadMapRef = useRef({});
+  const isFirstLoadRef = useRef(true);
+
+  // Click outside to close notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
+        setIsNotifDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter unread WhatsApp chats based on user role
+  const unreadWhatsAppChats = useMemo(() => {
+    if (!currentUser) return [];
+
+    return customers.filter(c => {
+      const hasUnread = (c.unread && Number(c.unread) > 0) || c.status === 'unassigned';
+      if (!hasUnread) return false;
+
+      if (isAdmin || isCoordinator) return true;
+
+      if (isLeader) {
+        return c.assignedToUid === currentUser.uid ||
+               c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase() ||
+               myTeamMembers.some(m => m.uid === c.assignedToUid) ||
+               c.status === 'unassigned';
+      }
+
+      // Regular Agent
+      return c.assignedToUid === currentUser.uid ||
+             c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase();
+    }).sort((a, b) => {
+      const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
+      const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
+      return timeB - timeA;
+    });
+  }, [customers, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers]);
+
+  const totalUnreadWhatsAppCount = useMemo(() => {
+    return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);
+  }, [unreadWhatsAppChats]);
+
+  // Real-time live toast alert when new WhatsApp message arrives on Dashboard
+  useEffect(() => {
+    if (!customers || customers.length === 0) return;
+
+    if (isFirstLoadRef.current) {
+      // Store initial counts on first load without firing toasts
+      const initialMap = {};
+      customers.forEach(c => {
+        initialMap[c.id] = Number(c.unread) || 0;
+      });
+      prevUnreadMapRef.current = initialMap;
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    unreadWhatsAppChats.forEach(c => {
+      const prevCount = prevUnreadMapRef.current[c.id] || 0;
+      const currentCount = Number(c.unread) || (c.status === 'unassigned' ? 1 : 0);
+
+      if (currentCount > prevCount) {
+        // New incoming message!
+        toast(
+          (t) => (
+            <div 
+              onClick={() => {
+                toast.dismiss(t.id);
+                navigate('/inbox', { state: { selectedCustomerId: c.id } });
+              }}
+              className="cursor-pointer flex items-start gap-2.5 text-right w-full"
+              dir="rtl"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-green-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce">
+                💬
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-xs font-black text-gray-900 truncate">
+                    📩 رسالة جديدة من: {c.name || c.phoneNumber}
+                  </p>
+                </div>
+                <p className="text-[11px] text-gray-600 truncate mt-0.5 font-medium">
+                  {c.lastMessage || 'وصلت رسالة استفسار جديدة عبر الواتساب'}
+                </p>
+                <span className="text-[10px] text-emerald-600 font-extrabold block mt-1 hover:underline">
+                  انقر هنا لفتح المحادثة والرد ➔
+                </span>
+              </div>
+            </div>
+          ),
+          {
+            id: `wa-toast-${c.id}`,
+            duration: 7000,
+            style: {
+              borderRadius: '16px',
+              background: '#ffffff',
+              border: '2px solid #10b981',
+              boxShadow: '0 10px 30px rgba(16,185,129,0.25)',
+              padding: '12px 14px',
+              maxWidth: '380px'
+            }
+          }
+        );
+      }
+    });
+
+    // Update map
+    const newMap = {};
+    customers.forEach(c => {
+      newMap[c.id] = Number(c.unread) || 0;
+    });
+    prevUnreadMapRef.current = newMap;
+  }, [customers, unreadWhatsAppChats, navigate]);
 
   // Real-time listener for Call Logs
   useEffect(() => {
@@ -3127,6 +3248,111 @@ const Dashboard = () => {
 
         {/* Action Buttons Row - Flex wraps gracefully on all mobile screens */}
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
+          {/* جرس إشعارات رسائل الواتساب الواردة */}
+          <div className="relative shrink-0" ref={notifDropdownRef}>
+            <button 
+              onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+              className={`relative flex items-center justify-center p-2 rounded-xl transition text-xs font-bold gap-1.5 shadow-sm cursor-pointer active:scale-95 border ${
+                totalUnreadWhatsAppCount > 0 
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-emerald-300 shadow-[0_3px_12px_rgba(16,185,129,0.4)]' 
+                  : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
+              }`}
+              title="إشعارات رسائل الواتساب الواردة 🔔"
+            >
+              <Bell size={16} className={totalUnreadWhatsAppCount > 0 ? 'animate-bounce' : ''} />
+              <span className="hidden sm:inline text-xs font-black">إشعارات الواتساب</span>
+              {totalUnreadWhatsAppCount > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
+                  {totalUnreadWhatsAppCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown Menu */}
+            {isNotifDropdownOpen && (
+              <div 
+                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 sm:w-96 bg-slate-900 text-white rounded-2xl shadow-2xl border border-emerald-500/40 z-50 overflow-hidden flex flex-col max-h-[460px]"
+                dir="rtl"
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-3.5 border-b border-emerald-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+                      <Bell size={14} />
+                    </div>
+                    <span className="text-xs font-black text-white">إشعارات رسائل الواتساب</span>
+                  </div>
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    {unreadWhatsAppChats.length} محادثة معلقة
+                  </span>
+                </div>
+
+                {/* List */}
+                <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1 space-y-1">
+                  {unreadWhatsAppChats.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 text-xs">
+                      <CheckCircle2 size={32} className="text-emerald-400 mx-auto mb-2 opacity-80" />
+                      <p className="font-bold text-white mb-0.5">رائع! لا توجد رسائل واتساب معلقة</p>
+                      <p className="text-[11px] text-gray-400">تم الرد على جميع المحادثات المسندة إليك</p>
+                    </div>
+                  ) : (
+                    unreadWhatsAppChats.map((c) => (
+                      <div 
+                        key={c.id}
+                        onClick={() => {
+                          setIsNotifDropdownOpen(false);
+                          navigate('/inbox', { state: { selectedCustomerId: c.id } });
+                        }}
+                        className="p-3 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2.5 group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="relative shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                              {c.name ? c.name.charAt(0) : <User size={16} />}
+                            </div>
+                            {c.unread > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
+                                {c.unread}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <span className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition">
+                                {c.name || c.phoneNumber}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono shrink-0" dir="ltr">
+                                {c.phoneNumber}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-emerald-200/90 font-medium truncate">
+                              {c.lastMessage || 'وصلت رسالة واتساب جديدة...'}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight size={14} className="text-gray-500 group-hover:text-white transition shrink-0 transform rotate-180" />
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-2.5 bg-slate-950/90 border-t border-white/10 text-center">
+                  <button 
+                    onClick={() => {
+                      setIsNotifDropdownOpen(false);
+                      navigate('/inbox');
+                    }}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white py-1.5 px-3 rounded-xl text-xs font-black transition shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <span>الانتقال إلى محادثات الواتساب بالكامل</span>
+                    <ArrowRight size={13} className="transform rotate-180" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* بريد اتجاه الداخلي */}
           <button 
             onClick={() => {
@@ -4824,7 +5050,7 @@ const Dashboard = () => {
                                     title="اتصال مباشر عبر MicroSIP 📞"
                                   >
                                     <PhoneCall size={12} className="animate-pulse" />
-                                    <span>اتصال</span>
+                                    <span>Call</span>
                                   </button>
                                 )}
                               </div>
@@ -5536,7 +5762,7 @@ const Dashboard = () => {
                                         title="اتصال مباشر عبر MicroSIP 📞"
                                       >
                                         <PhoneCall size={12} className="animate-pulse" />
-                                        <span>اتصال</span>
+                                        <span>Call</span>
                                       </button>
                                     )}
                                   </div>
@@ -6066,7 +6292,7 @@ const Dashboard = () => {
                                         title="اتصال مباشر عبر MicroSIP 📞"
                                       >
                                         <PhoneCall size={12} className="animate-pulse" />
-                                        <span>اتصال</span>
+                                        <span>Call</span>
                                       </button>
                                     )}
                                   </div>
@@ -6396,7 +6622,7 @@ const Dashboard = () => {
                             title="اتصال مباشر عبر MicroSIP 📞"
                           >
                             <PhoneCall size={12} className="animate-pulse" />
-                            <span>اتصال</span>
+                            <span>Call</span>
                           </button>
                         )}
                       </div>
@@ -7030,7 +7256,7 @@ const Dashboard = () => {
                                   title="اتصال مباشر عبر MicroSIP 📞"
                                 >
                                   <PhoneCall size={12} className="animate-pulse" />
-                                  <span>اتصال</span>
+                                  <span>Call</span>
                                 </button>
                               )}
                             </div>
@@ -9002,7 +9228,7 @@ const Dashboard = () => {
                                         title="إعادة الاتصال بالعميل عبر MicroSIP"
                                       >
                                         <PhoneCall size={11} className="animate-pulse" />
-                                        <span>إعادة اتصال</span>
+                                        <span>Call</span>
                                       </button>
                                     )}
                                   </td>

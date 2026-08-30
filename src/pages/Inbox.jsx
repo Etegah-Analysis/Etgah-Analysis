@@ -1907,7 +1907,7 @@ export default function Inbox() {
                             title="اتصال مباشر عبر MicroSIP 📞"
                           >
                             <PhoneCall size={12} className="animate-pulse" />
-                            <span>اتصال MicroSIP</span>
+                            <span>Call</span>
                           </button>
                         )}
                       </div>
