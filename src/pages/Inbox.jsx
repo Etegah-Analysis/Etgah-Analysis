@@ -336,6 +336,25 @@ export default function Inbox() {
     };
   }, [isAdmin]);
 
+  // Bulletproof Saudi Phone Formatter for MicroSIP (Strictly 05XXXXXXXX)
+  const formatPhoneNumberForMicroSip = (rawPhone) => {
+    if (!rawPhone) return '';
+    let digits = String(rawPhone).replace(/\D/g, '');
+    if (digits.startsWith('00966')) {
+      digits = digits.slice(5);
+    } else if (digits.startsWith('966')) {
+      digits = digits.slice(3);
+    }
+    if (digits.startsWith('05')) {
+      // already starts with 05
+    } else if (digits.startsWith('5')) {
+      digits = '0' + digits;
+    } else if (!digits.startsWith('0') && digits.length >= 8) {
+      digits = '0' + digits;
+    }
+    return digits;
+  };
+
   // Direct Click-to-Call via MicroSIP Handler with Firestore Logging
   const handleCallViaMicroSip = async (rawPhone, customer = {}) => {
     if (!rawPhone) {
@@ -343,15 +362,7 @@ export default function Inbox() {
       return;
     }
     // Format strictly for MicroSIP: Local Saudi starting with 05 (remove + and 966 / 00966)
-    let cleanPhone = String(rawPhone).replace(/\D/g, '');
-    if (cleanPhone.startsWith('00966')) {
-      cleanPhone = cleanPhone.slice(5);
-    } else if (cleanPhone.startsWith('966')) {
-      cleanPhone = cleanPhone.slice(3);
-    }
-    if (cleanPhone.startsWith('5')) {
-      cleanPhone = '0' + cleanPhone;
-    }
+    const cleanPhone = formatPhoneNumberForMicroSip(rawPhone);
 
     if (!cleanPhone) {
       toast.error('رقم الهاتف غير صالح');

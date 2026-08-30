@@ -402,7 +402,8 @@ const Dashboard = () => {
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  const [mailRecipientUid, setMailRecipientUid] = useState('');
+  const [mailSelectedRecipientUids, setMailSelectedRecipientUids] = useState([]); // Array of selected recipient UIDs
+  const [mailRecipientSearch, setMailRecipientSearch] = useState('');
   const [mailSubject, setMailSubject] = useState('');
   const [mailBody, setMailBody] = useState('');
   const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
@@ -506,18 +507,38 @@ const Dashboard = () => {
   const isEmailForMe = (mail) => {
     if (!mail) return false;
     if (isAdmin) {
-      return mail.recipientType === 'all' || mail.recipientType === 'admin' || mail.recipientUid === 'admin' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+      return mail.recipientType === 'all' || 
+             mail.recipientType === 'admin' || 
+             mail.recipientUid === 'admin' || 
+             mail.recipientUid === currentUser?.uid || 
+             mail.recipientUids?.includes('admin') || 
+             mail.recipientUids?.includes(currentUser?.uid) || 
+             mail.recipientEmail?.toLowerCase() === myEmail ||
+             mail.recipientEmails?.includes(myEmail);
     }
     if (isCoordinator) {
-      return mail.recipientType === 'all' || mail.recipientType === 'coordinator' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail;
+      return mail.recipientType === 'all' || 
+             mail.recipientType === 'coordinator' || 
+             mail.recipientUid === currentUser?.uid || 
+             mail.recipientUids?.includes(currentUser?.uid) || 
+             mail.recipientEmail?.toLowerCase() === myEmail ||
+             mail.recipientEmails?.includes(myEmail);
     }
     if (isLeader) {
-      if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+      if (mail.recipientType === 'all' || 
+          mail.recipientUid === currentUser?.uid || 
+          mail.recipientUids?.includes(currentUser?.uid) || 
+          mail.recipientEmail?.toLowerCase() === myEmail ||
+          mail.recipientEmails?.includes(myEmail)) return true;
       if (mail.recipientType === 'leader' && myTeamMembers.some(m => m.uid === mail.senderUid || m.email?.toLowerCase() === mail.senderEmail?.toLowerCase())) return true;
       return false;
     }
     // Agent
-    if (mail.recipientType === 'all' || mail.recipientUid === currentUser?.uid || mail.recipientEmail?.toLowerCase() === myEmail) return true;
+    if (mail.recipientType === 'all' || 
+        mail.recipientUid === currentUser?.uid || 
+        mail.recipientUids?.includes(currentUser?.uid) || 
+        mail.recipientEmail?.toLowerCase() === myEmail ||
+        mail.recipientEmails?.includes(myEmail)) return true;
     if (mail.recipientType === 'team' && (mail.teamMemberUids?.includes(currentUser?.uid) || mail.teamLeaderUid === currentEmpUser?.leaderUid)) return true;
     return false;
   };
@@ -821,6 +842,25 @@ const Dashboard = () => {
     return () => unsub();
   }, []);
 
+  // Bulletproof Saudi Phone Formatter for MicroSIP (Strictly 05XXXXXXXX)
+  const formatPhoneNumberForMicroSip = (rawPhone) => {
+    if (!rawPhone) return '';
+    let digits = String(rawPhone).replace(/\D/g, '');
+    if (digits.startsWith('00966')) {
+      digits = digits.slice(5);
+    } else if (digits.startsWith('966')) {
+      digits = digits.slice(3);
+    }
+    if (digits.startsWith('05')) {
+      // already starts with 05
+    } else if (digits.startsWith('5')) {
+      digits = '0' + digits;
+    } else if (!digits.startsWith('0') && digits.length >= 8) {
+      digits = '0' + digits;
+    }
+    return digits;
+  };
+
   // Helper: Format Call Duration
   const formatCallDuration = (sec) => {
     if (!sec || sec <= 0) return '00:00';
@@ -830,12 +870,23 @@ const Dashboard = () => {
     return `${m}:${s < 10 ? '0' : ''}${s} دقيقة`;
   };
 
-  // Active Call Session Live Timer Effect
+  // Active Call Session Live Timer & Auto-lifecycle Effect (Auto-Answer & Auto-No-Answer)
   useEffect(() => {
     let interval = null;
     if (activeCallSession) {
       interval = setInterval(() => {
-        setActiveCallTimer(prev => prev + 1);
+        setActiveCallTimer(prev => {
+          const next = prev + 1;
+          // Auto-Answer transition after 4 seconds of ringing -> automatically start talk duration
+          if (next === 4 && activeCallSession.phase === 'ringing') {
+            setActiveCallSession(curr => curr ? { ...curr, phase: 'connected' } : null);
+          }
+          // Auto-timeout if no response after 35 seconds of ringing
+          if (next >= 35 && activeCallSession.phase === 'ringing') {
+            handleFinishCallSession('no_answer');
+          }
+          return next;
+        });
       }, 1000);
     } else {
       setActiveCallTimer(0);
@@ -852,15 +903,7 @@ const Dashboard = () => {
       return;
     }
     // Format strictly for MicroSIP: Local Saudi starting with 05 (remove + and 966 / 00966)
-    let cleanPhone = String(rawPhone).replace(/\D/g, '');
-    if (cleanPhone.startsWith('00966')) {
-      cleanPhone = cleanPhone.slice(5);
-    } else if (cleanPhone.startsWith('966')) {
-      cleanPhone = cleanPhone.slice(3);
-    }
-    if (cleanPhone.startsWith('5')) {
-      cleanPhone = '0' + cleanPhone;
-    }
+    const cleanPhone = formatPhoneNumberForMicroSip(rawPhone);
 
     if (!cleanPhone) {
       toast.error('رقم الهاتف غير صالح');
@@ -896,13 +939,14 @@ const Dashboard = () => {
           durationFormatted: '00:00'
         });
 
-        // Launch Active Call Session Timer & Outcome Widget
+        // Launch Active Call Session Timer & Outcome Widget (Starts in ringing phase, auto-switches to talking)
         setActiveCallSession({
           callDocId: docRef.id,
           phoneNumber: cleanPhone,
           customerName: customer?.name || customer?.firstName || 'عميل',
           customerId: customer?.id || '',
-          startedAt: Date.now()
+          startedAt: Date.now(),
+          phase: 'ringing' // 'ringing' (0-3s) -> 'connected' (>=4s)
         });
         setActiveCallTimer(0);
       }
@@ -911,30 +955,41 @@ const Dashboard = () => {
     }
   };
 
-  // Finish Active Call Session & Save Outcome
+  // Finish Active Call Session & Save Outcome (With Automatic Duration & Result calculation)
   const handleFinishCallSession = async (outcomeStatus) => {
     if (!activeCallSession) return;
-    const { callDocId } = activeCallSession;
-    const finalSeconds = outcomeStatus === 'answered' ? Math.max(1, activeCallTimer) : 0;
-    const durationFormatted = outcomeStatus === 'answered' 
+    const { callDocId, phase } = activeCallSession;
+
+    let finalStatus = outcomeStatus;
+    if (!finalStatus) {
+      finalStatus = (activeCallTimer >= 4 || phase === 'connected') ? 'answered' : 'no_answer';
+    }
+
+    // Pure talking duration (deducting ringing buffer if answered)
+    let finalSeconds = 0;
+    if (finalStatus === 'answered') {
+      finalSeconds = Math.max(1, activeCallTimer >= 4 ? activeCallTimer - 3 : activeCallTimer);
+    }
+
+    const durationFormatted = finalStatus === 'answered' 
       ? formatCallDuration(finalSeconds) 
-      : outcomeStatus === 'no_answer' ? 'لم يرد 📵' : 'مشغول 🔴';
+      : finalStatus === 'no_answer' ? 'لم يرد 📵' : 'مشغول 🔴';
 
     try {
       if (callDocId) {
         await updateDoc(doc(db, 'call_logs', callDocId), {
-          status: outcomeStatus,
+          status: finalStatus,
           durationSeconds: finalSeconds,
           durationFormatted: durationFormatted,
           endedAt: serverTimestamp()
         });
       }
-      if (outcomeStatus === 'answered') {
-        toast.success(`تم إنهاء وتوثيق المكالمة بنجاح 🟢 (المدة: ${durationFormatted})`);
-      } else if (outcomeStatus === 'no_answer') {
-        toast.error(`تم تسجيل نتيجة المكالمة: لم يرد العميل 📵`);
+      if (finalStatus === 'answered') {
+        toast.success(`تم توثيق وإنهاء المكالمة بنجاح 🟢 (مدة التحدث: ${durationFormatted})`);
+      } else if (finalStatus === 'no_answer') {
+        toast.error(`تم توثيق نتيجة المكالمة: لم يرد العميل 📵`);
       } else {
-        toast(`تم تسجيل نتيجة المكالمة: مشغول 🔴`);
+        toast(`تم توثيق نتيجة المكالمة: مشغول 🔴`);
       }
     } catch (err) {
       console.error('Error updating call log outcome:', err);
@@ -1380,11 +1435,11 @@ const Dashboard = () => {
     setMailAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Send Internal Email Handler
+  // Send Internal Email Handler (Supports Multi-recipient Selection / All / Single)
   const handleSendInternalEmail = async (e) => {
     e.preventDefault();
-    if (!mailRecipientUid) {
-      toast.error('يرجى اختيار المستلم 👤');
+    if (!mailSelectedRecipientUids || mailSelectedRecipientUids.length === 0) {
+      toast.error('يرجى اختيار مستلم واحد على الأقل 👤');
       return;
     }
     if (!mailSubject.trim()) {
@@ -1397,9 +1452,12 @@ const Dashboard = () => {
     }
 
     const allowed = getAllowedRecipients();
-    const recipient = allowed.find(r => r.uid === mailRecipientUid);
-    if (!recipient) {
-      toast.error('المستلم غير صالح أو غير مسموح لك بمراسلته');
+    const isAll = mailSelectedRecipientUids.includes('all');
+    const isTeam = mailSelectedRecipientUids.includes('team');
+    const selectedRecipients = allowed.filter(r => mailSelectedRecipientUids.includes(r.uid));
+    
+    if (!isAll && (!selectedRecipients || selectedRecipients.length === 0)) {
+      toast.error('المستلمون المختارون غير صالحين');
       return;
     }
 
@@ -1410,29 +1468,33 @@ const Dashboard = () => {
         senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'موظف'),
         senderEmail: currentUser?.email || '',
         senderRole: isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent',
-        recipientType: recipient.type,
-        recipientUid: recipient.uid,
-        recipientName: recipient.name,
-        recipientEmail: recipient.email || '',
-        teamLeaderUid: (isLeader && recipient.type === 'team') ? currentUser?.uid : '',
-        teamMemberUids: (isLeader && recipient.type === 'team') ? myTeamMembers.map(m => m.uid) : [],
+        recipientType: isAll ? 'all' : (isTeam ? 'team' : (selectedRecipients.length === 1 ? selectedRecipients[0].type : 'multiple')),
+        recipientUid: isAll ? 'all' : (selectedRecipients.length === 1 ? selectedRecipients[0].uid : ''),
+        recipientUids: isAll ? ['all'] : selectedRecipients.map(r => r.uid),
+        recipientName: isAll ? '📢 جميع الموظفين بالمنصة' : selectedRecipients.map(r => r.name).join('، '),
+        recipientEmails: selectedRecipients.map(r => r.email?.toLowerCase()).filter(Boolean),
+        recipientNames: selectedRecipients.map(r => r.name),
+        teamLeaderUid: (isLeader && isTeam) ? currentUser?.uid : '',
+        teamMemberUids: (isLeader && isTeam) ? myTeamMembers.map(m => m.uid) : [],
         subject: mailSubject.trim(),
         body: mailBody.trim(),
         attachments: mailAttachments,
         createdAt: serverTimestamp(),
-        readBy: [isAdmin ? 'admin' : currentUser?.uid],
+        createdAtMillis: Date.now(),
+        readBy: [isAdmin ? 'admin' : (currentUser?.uid || '')],
         starredBy: [],
         deletedBy: []
       };
 
       await setDoc(doc(collection(db, 'internal_emails')), emailDoc);
-      toast.success('تم إرسال الإيميل بنجاح 🚀');
+      toast.success(`تم إرسال الإيميل بنجاح إلى (${isAll ? 'جميع الموظفين' : selectedRecipients.length}) 🚀`);
       
       // Reset compose form
       setMailSubject('');
       setMailBody('');
       setMailAttachments([]);
-      setMailRecipientUid('');
+      setMailSelectedRecipientUids([]);
+      setMailRecipientSearch('');
       setIsComposeOpen(false);
     } catch (err) {
       console.error("Error sending email:", err);
@@ -10792,23 +10854,100 @@ const Dashboard = () => {
             </div>
 
             {/* Compose Form */}
-            <form onSubmit={handleSendInternalEmail} className="p-4 space-y-3 flex-1 flex flex-col overflow-y-auto">
-              {/* Recipient Dropdown */}
-              <div>
-                <label className="block text-[11px] font-bold text-purple-200 mb-1">إلى (المستلم):</label>
-                <select 
-                  required
-                  value={mailRecipientUid}
-                  onChange={(e) => setMailRecipientUid(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-cyan-400 cursor-pointer"
-                >
-                  <option value="">-- اختر المستلم المسموح لك بمراسلته --</option>
-                  {getAllowedRecipients().map((r) => (
-                    <option key={r.uid} value={r.uid} className="bg-slate-900 text-white font-bold">
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleSendInternalEmail} className="p-4 space-y-3.5 flex-1 flex flex-col overflow-y-auto">
+              {/* Multi-Recipient Selection Component */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-black text-purple-200">
+                    إلى (المستلمون - اختر موظف، موظفين، ثلاثة أو الكل):
+                  </label>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allowed = getAllowedRecipients();
+                        if (mailSelectedRecipientUids.length === allowed.length) {
+                          setMailSelectedRecipientUids([]);
+                        } else {
+                          setMailSelectedRecipientUids(allowed.map(r => r.uid));
+                        }
+                      }}
+                      className="text-cyan-300 hover:text-cyan-200 bg-cyan-950/70 border border-cyan-500/40 px-2 py-0.5 rounded-lg transition active:scale-95"
+                    >
+                      {mailSelectedRecipientUids.length === getAllowedRecipients().length ? 'إلغاء تحديد الكل ✕' : 'تحديد الكل ✓'}
+                    </button>
+                    {mailSelectedRecipientUids.length > 0 && (
+                      <span className="bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded-lg border border-purple-500/40 font-black">
+                        محدد: {mailSelectedRecipientUids.length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search & Recipients Box */}
+                <div className="bg-slate-950 border border-purple-500/40 rounded-2xl p-2 space-y-2">
+                  {/* Search Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="بحث في الموظفين بالاسم أو الوظيفة..."
+                      value={mailRecipientSearch}
+                      onChange={(e) => setMailRecipientSearch(e.target.value)}
+                      className="w-full bg-slate-900 border border-purple-500/20 text-white rounded-xl py-1.5 pr-8 pl-3 text-xs outline-none focus:border-cyan-400 placeholder-gray-500 font-bold"
+                    />
+                    <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
+                  </div>
+
+                  {/* Recipients List Grid */}
+                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                    {getAllowedRecipients()
+                      .filter(r => !mailRecipientSearch.trim() || r.name.toLowerCase().includes(mailRecipientSearch.toLowerCase()))
+                      .map((r) => {
+                        const isSelected = mailSelectedRecipientUids.includes(r.uid);
+                        return (
+                          <div
+                            key={r.uid}
+                            onClick={() => {
+                              if (r.uid === 'all') {
+                                if (mailSelectedRecipientUids.includes('all')) {
+                                  setMailSelectedRecipientUids([]);
+                                } else {
+                                  setMailSelectedRecipientUids(['all']);
+                                }
+                              } else {
+                                setMailSelectedRecipientUids(prev => {
+                                  const filtered = prev.filter(id => id !== 'all');
+                                  if (filtered.includes(r.uid)) {
+                                    return filtered.filter(id => id !== r.uid);
+                                  } else {
+                                    return [...filtered, r.uid];
+                                  }
+                                });
+                              }
+                            }}
+                            className={`flex items-center gap-2 p-2 rounded-xl border transition cursor-pointer select-none ${
+                              isSelected 
+                                ? 'bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-blue-900/90 border-cyan-400 text-white shadow-md' 
+                                : 'bg-slate-900/80 hover:bg-slate-800 border-white/5 text-slate-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="w-4 h-4 text-cyan-500 rounded cursor-pointer pointer-events-none accent-cyan-500"
+                            />
+                            <span className="text-xs font-bold truncate flex-1">{r.name}</span>
+                            {isSelected && (
+                              <span className="text-[10px] text-cyan-300 font-bold bg-cyan-950 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                                تم الاختيار ✓
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
               </div>
 
               {/* Subject */}
@@ -10829,7 +10968,7 @@ const Dashboard = () => {
                 <label className="block text-[11px] font-bold text-purple-200 mb-1">نص الرسالة والمحتوى:</label>
                 <textarea 
                   required
-                  rows={6}
+                  rows={5}
                   placeholder="اكتب رسالتك وتفاصيلها هنا..."
                   value={mailBody}
                   onChange={(e) => setMailBody(e.target.value)}
@@ -10879,6 +11018,7 @@ const Dashboard = () => {
                       setMailSubject('');
                       setMailBody('');
                       setMailAttachments([]);
+                      setMailSelectedRecipientUids([]);
                       setIsComposeOpen(false);
                     }}
                     className="text-slate-400 hover:text-rose-400 text-xs font-bold px-3 py-2"
@@ -10900,54 +11040,102 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Floating Active Live Call Session Widget with Running Timer & Outcome Selector */}
-        {activeCallSession && (
-          <div className="fixed bottom-6 left-6 z-50 bg-slate-900/95 text-white p-4 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.7)] border-2 border-cyan-400 backdrop-blur-xl max-w-sm w-full animate-pulse-short">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center animate-pulse">
-                  <PhoneCall size={18} className="text-cyan-300" />
+        {/* Floating Active Live Call Session Widget with Automated Timer & Outcome Tracking */}
+        {activeCallSession && (() => {
+          const isRinging = activeCallTimer < 4;
+          const talkSeconds = Math.max(1, activeCallTimer - 3);
+
+          return (
+            <div className="fixed bottom-6 left-6 z-[1002] bg-slate-900/98 text-white p-4 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.85)] border-2 border-cyan-400 backdrop-blur-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+              {/* Header & Status Indicator */}
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 shadow-lg ${
+                    isRinging 
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse' 
+                      : 'bg-emerald-500/20 border-emerald-400 text-emerald-300 animate-bounce'
+                  }`}>
+                    <PhoneCall size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-black text-white truncate">{activeCallSession.customerName}</h4>
+                    <span className="text-[12px] font-mono text-cyan-300 font-extrabold tracking-wider block" dir="ltr">
+                      {activeCallSession.phoneNumber}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-black text-white">{activeCallSession.customerName}</h4>
-                  <span className="text-[11px] font-mono text-cyan-300 font-bold" dir="ltr">{activeCallSession.phoneNumber}</span>
+
+                {/* Dynamic Timer Badge */}
+                <div className={`px-3 py-1 rounded-xl font-mono font-black text-sm shadow-inner border shrink-0 ${
+                  isRinging 
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/40 animate-pulse' 
+                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                }`}>
+                  {isRinging ? (
+                    <span>📲 {activeCallTimer}s</span>
+                  ) : (
+                    <span>⏱️ {Math.floor(talkSeconds / 60).toString().padStart(2, '0')}:{(talkSeconds % 60).toString().padStart(2, '0')}</span>
+                  )}
                 </div>
               </div>
-              <div className="bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded-xl font-mono font-black text-sm shadow-inner">
-                ⏱️ {Math.floor(activeCallTimer / 60).toString().padStart(2, '0')}:{(activeCallTimer % 60).toString().padStart(2, '0')}
+
+              {/* Automatic Status Explanation */}
+              <div className="mb-3 px-3 py-1.5 rounded-xl bg-slate-950 border border-white/10 text-center">
+                {isRinging ? (
+                  <p className="text-[10px] text-amber-300 font-bold flex items-center justify-center gap-1.5 animate-pulse">
+                    <span>📲</span>
+                    <span>جاري الاتصال والرنين... يبدأ حساب الوقت تلقائياً فور الرد</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-emerald-400 font-extrabold flex items-center justify-center gap-1.5">
+                    <span>🟢</span>
+                    <span>المكالمة متصلة - جاري احتساب وتوثيق وقت التحدث تلقائياً</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Automated End & Manual Override Buttons */}
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleFinishCallSession()}
+                  className="w-full bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-rose-300/40"
+                  title="إنهاء المكالمة وتوثيق مدتها بالداشبورد تلقائياً"
+                >
+                  <PhoneCall size={14} className="rotate-[135deg]" />
+                  <span>إنهاء وتوثيق المكالمة تلقائياً 🛑</span>
+                </button>
+
+                <div className="grid grid-cols-3 gap-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleFinishCallSession('answered')}
+                    className="bg-emerald-900/60 hover:bg-emerald-700 text-emerald-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-emerald-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                    title="توثيق تم الرد"
+                  >
+                    <span>🟢 تم الرد</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFinishCallSession('no_answer')}
+                    className="bg-amber-900/60 hover:bg-amber-700 text-amber-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-amber-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                    title="توثيق لم يرد"
+                  >
+                    <span>📵 لم يرد</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFinishCallSession('busy')}
+                    className="bg-rose-900/60 hover:bg-rose-700 text-rose-200 hover:text-white font-bold py-1.5 px-1 rounded-lg text-[10px] transition border border-rose-500/30 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                    title="توثيق مشغول"
+                  >
+                    <span>🔴 مشغول</span>
+                  </button>
+                </div>
               </div>
             </div>
-            
-            <p className="text-[10px] text-purple-200 mb-2.5 font-bold text-center">حدد نتيجة المكالمة لتوثيقها وحساب مدتها في الداشبورد فوراً:</p>
-            
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleFinishCallSession('answered')}
-                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                title="تم الرد وحساب مدة المكالمة الحالية"
-              >
-                <span>🟢 تم الرد</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFinishCallSession('no_answer')}
-                className="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                title="لم يرد العميل على المكالمة"
-              >
-                <span>📵 لم يرد</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFinishCallSession('busy')}
-                className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow-md active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-                title="الرقم مشغول أو تعذر الاتصال"
-              >
-                <span>🔴 مشغول</span>
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
       </main>
     </div>
