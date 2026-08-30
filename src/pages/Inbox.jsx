@@ -665,6 +665,9 @@ export default function Inbox() {
       await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', chatId), {
         assignedTo: newAssignee.email,
         assignedToUid: newAssignee.uid,
+        assignedBy: '👑 الإدارة',
+        assignedByRole: 'admin',
+        assignedByUid: 'admin',
         status: 'unassigned',
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

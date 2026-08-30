@@ -432,6 +432,36 @@ const Dashboard = () => {
     return nameOrEmail;
   };
 
+  // Assignment Assigner Display & Role Helper
+  const getAssignerDisplay = () => {
+    if (isAdmin) return '👑 الإدارة';
+    if (isCoordinator) return `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})`;
+    if (isLeader) return `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+    return `👤 ${currentEmpUser?.name || 'موظف'}`;
+  };
+
+  const getAssignerRole = () => {
+    if (isAdmin) return 'admin';
+    if (isCoordinator) return 'coordinator';
+    if (isLeader) return 'leader';
+    return 'agent';
+  };
+
+  // Helper to extract the assigner/distributor for any lead
+  const getLeadAssignerDisplay = (customer) => {
+    if (!customer) return null;
+    if (customer.assignedBy) return customer.assignedBy;
+    if (customer.assignmentHistory && customer.assignmentHistory.length > 0) {
+      const last = customer.assignmentHistory[customer.assignmentHistory.length - 1];
+      if (last?.assignedBy) return last.assignedBy;
+    }
+    if (customer.addedBy) {
+      if (isAdminIdentifier(customer.addedBy)) return '👑 الإدارة';
+      return customer.addedBy;
+    }
+    return null;
+  };
+
   // Assignment Transfer Audit Log Helper
   const createAssignmentLog = (fromName, toName, customAssignedBy) => {
     const isFromAdmin = !fromName || isAdminIdentifier(fromName) || String(fromName).includes('الإدارة') || String(fromName).includes('admin');
@@ -443,7 +473,7 @@ const Dashboard = () => {
       id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
       from: cleanFrom,
       to: cleanTo,
-      assignedBy: customAssignedBy || '👑 الإدارة',
+      assignedBy: customAssignedBy || getAssignerDisplay(),
       assignedAt: new Date().toISOString()
     };
   };
@@ -1997,7 +2027,9 @@ const Dashboard = () => {
 
     setAssignLoading(true);
     try {
-      const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+      const assignerDisplay = getAssignerDisplay();
+      const assignerRole = getAssignerRole();
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
 
       for (const lead of targetLeads) {
         const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
@@ -2007,6 +2039,9 @@ const Dashboard = () => {
           await updateDoc(doc(db, 'leads_crm', lead.id), {
             assignedTo: 'الإدارة',
             assignedToUid: 'admin',
+            assignedBy: assignerDisplay,
+            assignedByRole: assignerRole,
+            assignedByUid: assignerUid,
             assignedAt: serverTimestamp(),
             status: 'unassigned',
             crmStatus: 'unassigned',
@@ -2020,6 +2055,9 @@ const Dashboard = () => {
           await updateDoc(doc(db, 'leads_crm', lead.id), {
             assignedTo: emp.email,
             assignedToUid: emp.uid,
+            assignedBy: assignerDisplay,
+            assignedByRole: assignerRole,
+            assignedByUid: assignerUid,
             assignedAt: serverTimestamp(),
             status: 'assigned',
             crmStatus: 'unassigned', // Initial state is pending/unassigned so it appears in employee pending tab and Card 5!
@@ -2760,7 +2798,9 @@ const Dashboard = () => {
     try {
       const customer = customers.find(c => c.id === chatId);
       const prevEmpName = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo)?.name || (customer?.assignedTo === 'admin' || customer?.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
-      const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+      const assignerDisplay = getAssignerDisplay();
+      const assignerRole = getAssignerRole();
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
 
       if (empUid === 'admin') {
         const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
@@ -2768,6 +2808,9 @@ const Dashboard = () => {
           status: 'unassigned',
           assignedTo: 'admin',
           assignedToUid: 'admin',
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
           assignedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           assignmentHistory: arrayUnion(logObj),
@@ -2785,6 +2828,9 @@ const Dashboard = () => {
           status: 'assigned',
           assignedTo: emp.email,
           assignedToUid: emp.uid,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
           assignedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           assignmentHistory: arrayUnion(logObj),
@@ -2801,6 +2847,9 @@ const Dashboard = () => {
           source: customer?.source || 'واتساب الموقع',
           assignedTo: emp.email,
           assignedToUid: emp.uid,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
           crmStatus: 'unassigned', // Initial state in waiting
           status: 'assigned',
           assignedAt: serverTimestamp(),
@@ -5430,7 +5479,9 @@ const Dashboard = () => {
                                   onChange={async (e) => {
                                     const uid = e.target.value;
                                     const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || '👑 الإدارة';
-                                    const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+                                    const assignerDisplay = getAssignerDisplay();
+                                    const assignerRole = getAssignerRole();
+                                    const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
                                     
                                     if (uid === 'admin') {
                                       const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
@@ -5438,6 +5489,9 @@ const Dashboard = () => {
                                         await updateDoc(doc(db, 'leads_crm', customer.id), {
                                           assignedToUid: 'admin',
                                           assignedTo: 'الإدارة',
+                                          assignedBy: assignerDisplay,
+                                          assignedByRole: assignerRole,
+                                          assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'unassigned',
                                           crmStatus: 'unassigned',
@@ -5453,6 +5507,9 @@ const Dashboard = () => {
                                         await updateDoc(doc(db, 'leads_crm', customer.id), {
                                           assignedToUid: uid,
                                           assignedTo: emp?.email || '',
+                                          assignedBy: assignerDisplay,
+                                          assignedByRole: assignerRole,
+                                          assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'assigned',
                                           crmStatus: 'unassigned', // Ensure pending state for employee
@@ -5490,6 +5547,18 @@ const Dashboard = () => {
                                   👤 مخصص لك
                                 </span>
                               )}
+
+                              {/* Distributor / Assigner Badge */}
+                              {(() => {
+                                const assigner = getLeadAssignerDisplay(customer);
+                                if (!assigner || (customer.crmStatus === 'unassigned' && isLeadWithAdmin(customer))) return null;
+                                return (
+                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
+                                    <span className="text-amber-600 font-black">الموزع:</span>
+                                    <span className="text-gray-900 font-black">{assigner}</span>
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="p-4 flex items-center gap-1.5 justify-center">
                               <button 
@@ -5961,7 +6030,7 @@ const Dashboard = () => {
 
               // Sorting
               filtered.sort((a, b) => {
-                const timeA = getTimestampMillis(a.createdAt) || getTimestampMillis(a.updatedAt);
+                const timeA = getTimestampMillis(a.createdAt) || getTimestampMillis(b.updatedAt);
                 const timeB = getTimestampMillis(b.createdAt) || getTimestampMillis(b.updatedAt);
                 return empLeadsSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
               });
@@ -6142,7 +6211,9 @@ const Dashboard = () => {
                                       onChange={async (e) => {
                                         const uid = e.target.value;
                                         const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
-                                        const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+                                        const assignerDisplay = getAssignerDisplay();
+                                        const assignerRole = getAssignerRole();
+                                        const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
                                         
                                         if (uid === 'admin') {
                                           const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
@@ -6150,6 +6221,9 @@ const Dashboard = () => {
                                             await updateDoc(doc(db, 'employee_leads', customer.id), {
                                               assignedToUid: 'admin',
                                               assignedTo: 'الإدارة',
+                                              assignedBy: assignerDisplay,
+                                              assignedByRole: assignerRole,
+                                              assignedByUid: assignerUid,
                                               assignedAt: serverTimestamp(),
                                               status: 'unassigned',
                                               updatedAt: serverTimestamp(),
@@ -6164,6 +6238,9 @@ const Dashboard = () => {
                                             await updateDoc(doc(db, 'employee_leads', customer.id), {
                                               assignedToUid: uid,
                                               assignedTo: emp?.email || '',
+                                              assignedBy: assignerDisplay,
+                                              assignedByRole: assignerRole,
+                                              assignedByUid: assignerUid,
                                               assignedAt: serverTimestamp(),
                                               status: 'assigned',
                                               updatedAt: serverTimestamp(),
@@ -6200,6 +6277,18 @@ const Dashboard = () => {
                                       👤 {customer.assignedTo === currentUser?.email ? (currentEmpUser?.name || 'أنا') : (customer.assignedTo || 'حسابي')}
                                     </div>
                                   )}
+
+                                  {/* Distributor / Assigner Badge */}
+                                  {(() => {
+                                    const assigner = getLeadAssignerDisplay(customer);
+                                    if (!assigner) return null;
+                                    return (
+                                      <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
+                                        <span className="text-amber-600 font-black">الموزع:</span>
+                                        <span className="text-gray-900 font-black">{assigner}</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="p-4 text-sm text-center">
                                   <div className="flex items-center justify-center gap-1.5">
@@ -6590,22 +6679,24 @@ const Dashboard = () => {
                                       onChange={async (e) => {
                                         const uid = e.target.value;
                                         const prevEmpName = employees.find(x => x.uid === customer.assignedToUid || x.email === customer.assignedTo)?.name || '👑 الإدارة';
-                                        const assignerDisplay = isAdmin ? '👑 الإدارة' : isLeader ? `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})` : `📋 منسق للإدارة (${currentEmpUser?.name || 'منسق'})`;
+                                        const assignerDisplay = getAssignerDisplay();
+                                        const assignerRole = getAssignerRole();
+                                        const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
                                         
                                         if (uid === 'admin') {
                                           const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
-                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
-                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           toast.success('تم تعيين العميل إلى الإدارة 👑');
                                         } else {
                                           const targetEmp = employees.find(x => x.uid === uid);
                                           const logObj = createAssignmentLog(prevEmpName, `👤 ${targetEmp?.name}`, assignerDisplay);
-                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
-                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
-                                      className="border border-emerald-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer"
+                                      className="border border-emerald-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -6626,6 +6717,18 @@ const Dashboard = () => {
                                   ) : (
                                     <span>👤 {empName}</span>
                                   )}
+
+                                  {/* Distributor / Assigner Badge */}
+                                  {(() => {
+                                    const assigner = getLeadAssignerDisplay(customer);
+                                    if (!assigner) return null;
+                                    return (
+                                      <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm mx-auto w-fit" title="من قام بتوزيع وتعيين العميل">
+                                        <span className="text-amber-600 font-black">الموزع:</span>
+                                        <span className="text-gray-900 font-black">{assigner}</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="p-3.5 text-center">
                                   <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-full text-[11px]">
@@ -6955,6 +7058,17 @@ const Dashboard = () => {
                         </span>
                       )}
                       {customer.assignedAt && <span className="block text-xs text-gray-400" dir="ltr">{formatDate(customer.assignedAt)}</span>}
+                      {/* Distributor / Assigner Badge */}
+                      {(() => {
+                        const assigner = getLeadAssignerDisplay(customer);
+                        if (!assigner) return null;
+                        return (
+                          <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
+                            <span className="text-amber-600 font-black">الموزع:</span>
+                            <span className="text-gray-900 font-black">{assigner}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4 flex items-center gap-1.5 justify-center">
                       <button 
@@ -8337,41 +8451,50 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Assignment & Transfer Audit Log (Admin Only) */}
-                {isAdmin && (
-                  <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-200/80">
-                    <label className="block text-xs font-black text-purple-900 mb-2 flex items-center gap-1.5">
+                {/* Assignment & Distributor Information */}
+                <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-200/80 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1.5 border-b border-purple-200/60">
+                    <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
                       <UserCheck size={15} className="text-purple-600" />
-                      <span>🔄 سجل تحويلات العميل بين الموظفين (خاص بالإدارة):</span>
+                      <span>🔄 جهة التوزيع والتعيين:</span>
                     </label>
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                      {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
-                        selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
-                          <div key={log.id || idx} className="bg-white p-2 rounded-lg border border-purple-100 shadow-sm text-[11px] flex flex-col gap-0.5">
-                            <div className="flex items-center justify-between font-bold text-gray-800">
-                              <span className="text-purple-800">{log.from} ➔ {log.to}</span>
-                              <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
-                                {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 font-semibold flex justify-between items-center">
-                              <span>بواسطة: {log.assignedBy}</span>
-                              <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-[11px] text-gray-500 font-medium py-1.5 text-center bg-white/60 rounded-lg">
-                          {selectedCustomerForNotes.assignedAt ? (
-                            <span>تاريخ التنسيب الأول: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
-                          ) : (
-                            <span>لم يتم تسجيل تحويلات سابقة لهذا العميل بعد.</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {(() => {
+                      const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
+                      return (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                          {assigner ? `تم التوزيع بواسطة: ${assigner}` : '👑 الإدارة'}
+                        </span>
+                      );
+                    })()}
                   </div>
-                )}
+
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                    {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
+                      selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
+                        <div key={log.id || idx} className="bg-white p-2 rounded-lg border border-purple-100 shadow-sm text-[11px] flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between font-bold text-gray-800">
+                            <span className="text-purple-800">{log.from} ➔ {log.to}</span>
+                            <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
+                              {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 font-semibold flex justify-between items-center">
+                            <span>بواسطة: {log.assignedBy}</span>
+                            <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[11px] text-gray-500 font-medium py-1.5 text-center bg-white/60 rounded-lg">
+                        {selectedCustomerForNotes.assignedAt ? (
+                          <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
+                        ) : (
+                          <span>تم التعيين مباشرة عبر النظام.</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Add New Note (Hidden for Coordinator) */}
                 {!isCoordinator && (
