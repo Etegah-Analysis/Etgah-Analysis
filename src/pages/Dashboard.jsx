@@ -4358,6 +4358,24 @@ const Dashboard = () => {
                 </span>
               </div>
             </div>
+
+            {/* Coordinator Card 10: Visitors (عملاء الزوار والموقع) */}
+            <div 
+              onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
+              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
+            >
+              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <Globe className="text-indigo-400" size={28} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  (تحويل وتوزيع للموظفين)
+                </span>
+              </div>
+            </div>
           </div>
         ) : isLeader ? (
           /* Leader Dashboard Cards View (8 Cards) */
