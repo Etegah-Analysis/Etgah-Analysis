@@ -614,7 +614,50 @@ const Dashboard = () => {
     }
   };
 
-  // Web Audio Notification Chime (Crystal Clear Synthesized Ch  // Filter unread WhatsApp chats and Internal Employee Groups based on exact role rules:
+  // Web Audio Notification Chime (Crystal Clear Synthesized Chime)
+  const playNotificationSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {
+      // Audio playback policy silent catch
+    }
+  };
+
+  // Unified Real-Time Notification Center State for Dashboard (WhatsApp + Internal Mail)
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
+  const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
+  const notifDropdownRef = useRef(null);
+  const prevUnreadMapRef = useRef({});
+  const isFirstLoadRef = useRef(true);
+  const prevUnreadEmailsMapRef = useRef({});
+  const isFirstEmailLoadRef = useRef(true);
+
+  // Click outside to close notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
+        setIsNotifDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter unread WhatsApp chats and Internal Employee Groups based on exact role rules:
   // 1. Admin: All Employee Groups (created by Admin/Coordinator/Leader) + All Customer WhatsApp chats
   // 2. Coordinator: All Employee Groups they are member of (no customer chats)
   // 3. Leader: Their Team's Employee Groups + Their Own and Their Team's Customer WhatsApp chats
@@ -6818,19 +6861,15 @@ const Dashboard = () => {
                                       )}
                                     </button>
 
-                                    {/* WhatsApp 3D Action Button */}
-                                    {hasWhatsappPermission && customer.phoneNumber && (
+                                    {/* WhatsApp Action Button */}
+                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                       <button 
-                                        onClick={() => handleOpenWhatsAppChat(customer)}
-                                        className="relative group overflow-hidden bg-gradient-to-r from-[#25D366] via-[#1EBE5D] to-[#128C7E] text-white px-3 py-1.5 rounded-xl font-black text-xs shadow-[0_4px_12px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_18px_rgba(37,211,102,0.5)] border border-emerald-300/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-                                        title="فتح المحادثة الفورية عبر واتساب"
+                                        onClick={() => handleTransferToWhatsapp(customer)}
+                                        className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                        title="مراسلة عبر واتساب"
                                       >
-                                        <img 
-                                          src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
-                                          alt="WhatsApp" 
-                                          className="w-4 h-4 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
-                                        />
-                                        <span>WhatsApp</span>
+                                        <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                                        <span className="text-[11px] font-black">WhatsApp</span>
                                       </button>
                                     )}
                                   </div>
@@ -8808,8 +8847,13 @@ const Dashboard = () => {
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
                             <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
-                            <span className="text-lg font-black text-amber-300 truncate block">
-                              {topTeamMember ? `${topTeamMember.emp.name} (${topTeamMember.successRate}%)` : 'لا يوجد'}
+                            <span className="text-sm sm:text-base font-black text-amber-300 block break-words leading-tight">
+                              {topTeamMember ? (
+                                <>
+                                  <span className="text-white">{topTeamMember.emp.name}</span>{' '}
+                                  <span className="text-amber-400 font-extrabold">({topTeamMember.successRate}%)</span>
+                                </>
+                              ) : 'لا يوجد'}
                             </span>
                           </div>
                         </div>
@@ -9019,8 +9063,13 @@ const Dashboard = () => {
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
                             <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
-                            <span className="text-lg font-black text-amber-300 truncate block">
-                              {topEmp ? `${topEmp.emp.name} (${topEmp.successRate}%)` : 'لا يوجد'}
+                            <span className="text-sm sm:text-base font-black text-amber-300 block break-words leading-tight">
+                              {topEmp ? (
+                                <>
+                                  <span className="text-white">{topEmp.emp.name}</span>{' '}
+                                  <span className="text-amber-400 font-extrabold">({topEmp.successRate}%)</span>
+                                </>
+                              ) : 'لا يوجد'}
                             </span>
                             {topEmp && (
                               <span className="text-[10px] text-amber-200 font-medium block mt-0.5" dir="rtl">
