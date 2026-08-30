@@ -7669,7 +7669,21 @@ const Dashboard = () => {
                         <input type="checkbox" checked={selectedVisitors.includes(visitor.id)} onChange={() => toggleVisitorSelection(visitor.id)} className="w-4 h-4 text-primary rounded" />
                       </td>
                       <td className="p-4 text-sm font-bold text-gray-800">{visitor.firstName} {visitor.lastName}</td>
-                      <td className="p-4 text-sm font-mono text-gray-600" dir="ltr">{visitor.phone}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          {!isCoordinator && visitor.phone && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(visitor.phone); }}
+                              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2.5 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                              title="اتصال مباشر عبر MicroSIP 📞"
+                            >
+                              <PhoneCall size={12} className="animate-pulse" />
+                              <span>Call</span>
+                            </button>
+                          )}
+                          <span className="text-sm font-mono font-bold text-gray-700" dir="ltr">{visitor.phone}</span>
+                        </div>
+                      </td>
                       <td className="p-4 text-sm text-gray-600">{visitor.email || 'غير متوفر'}</td>
                       <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
                       <td className="p-4">
@@ -7957,8 +7971,18 @@ const Dashboard = () => {
                           )}
                           <td className="p-4">
                             <p className="text-sm font-bold text-gray-800">{visitor.name || 'غير معروف'}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-xs text-gray-500 font-mono" dir="ltr">{visitor.phone}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {!isCoordinator && visitor.phone && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(visitor.phone); }}
+                                  className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2.5 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                                  title="اتصال مباشر عبر MicroSIP 📞"
+                                >
+                                  <PhoneCall size={12} className="animate-pulse" />
+                                  <span>Call</span>
+                                </button>
+                              )}
+                              <p className="text-xs text-gray-700 font-bold font-mono" dir="ltr">{visitor.phone}</p>
                             </div>
                             {visitor.email && (
                               <p className="text-[11px] text-gray-400 font-mono mt-0.5" dir="ltr">{visitor.email}</p>
