@@ -780,6 +780,17 @@ const Dashboard = () => {
         // New incoming message!
         playNotificationSound();
         setHasViewedNotifications(false);
+        const isWebsiteLead = !c.isGroup && (
+          c.source === 'website' || 
+          c.source === 'website_otp' || 
+          c.addedBy === 'website_otp' || 
+          c.addedBy === 'website' || 
+          c.addedBy === 'Website' || 
+          c.lastMessage?.includes('سجّل عبر') || 
+          c.lastMessage?.includes('الموقع') ||
+          c.status === 'website_visitor'
+        );
+
         toast(
           (t) => (
             <div 
@@ -787,6 +798,9 @@ const Dashboard = () => {
                 toast.dismiss(t.id);
                 if (c.isGroup) {
                   navigate('/inbox', { state: { selectedGroupId: c.id } });
+                } else if (isWebsiteLead) {
+                  setActiveTab('whatsapp_visitors');
+                  scrollToTable();
                 } else {
                   navigate('/inbox', { state: { selectedCustomerId: c.id } });
                 }
@@ -794,21 +808,37 @@ const Dashboard = () => {
               className="cursor-pointer flex items-start gap-2.5 text-right w-full"
               dir="rtl"
             >
-              <div className={`w-9 h-9 rounded-full ${c.isGroup ? 'bg-gradient-to-tr from-indigo-500 to-purple-600' : 'bg-gradient-to-tr from-emerald-500 to-green-500'} text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce`}>
-                {c.isGroup ? '👥' : '💬'}
+              <div className={`w-9 h-9 rounded-full ${
+                c.isGroup 
+                  ? 'bg-gradient-to-tr from-indigo-500 to-purple-600' 
+                  : isWebsiteLead 
+                    ? 'bg-gradient-to-tr from-blue-500 to-indigo-600'
+                    : 'bg-gradient-to-tr from-emerald-500 to-green-500'
+              } text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce`}>
+                {c.isGroup ? '👥' : isWebsiteLead ? '🌐' : '💬'}
               </div>
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs font-black text-gray-900 truncate">
-                    {c.isGroup ? `👥 رسالة جديدة في جروب (${c.name})` : `📩 رسالة جديدة من: ${c.name || c.phoneNumber}`}
+                    {c.isGroup 
+                      ? `👥 رسالة جديدة في جروب (${c.name})` 
+                      : isWebsiteLead 
+                        ? `🌐 تسجيل دخول جديد بالموقع: ${c.name || c.phoneNumber}`
+                        : `📩 رسالة جديدة من: ${c.name || c.phoneNumber}`
+                    }
                   </p>
                 </div>
                 <p className="text-[11px] text-gray-600 truncate mt-0.5 font-medium">
-                  {c.isGroup ? `${c.lastMessageSender ? c.lastMessageSender + ': ' : ''}${c.lastMessage}` : (c.lastMessage || 'وصلت رسالة استفسار جديدة عبر الواتساب')}
+                  {c.isGroup 
+                    ? `${c.lastMessageSender ? c.lastMessageSender + ': ' : ''}${c.lastMessage}` 
+                    : (c.lastMessage || (isWebsiteLead ? 'سجّل عبر موقع اتجاه التحليل الذكي' : 'وصلت رسالة استفسار جديدة عبر الواتساب'))
+                  }
                 </p>
-                <span className={`text-[10px] ${c.isGroup ? 'text-indigo-600' : 'text-emerald-600'} font-extrabold block mt-1 hover:underline`}>
-                  انقر هنا لفتح المحادثة والرد ➔
-                </span>
+                {!isWebsiteLead && (
+                  <span className={`text-[10px] ${c.isGroup ? 'text-indigo-600' : 'text-emerald-600'} font-extrabold block mt-1 hover:underline`}>
+                    انقر هنا لفتح المحادثة والرد ➔
+                  </span>
+                )}
               </div>
             </div>
           ),
