@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
@@ -8308,7 +8309,7 @@ const Dashboard = () => {
         )}
 
         {/* Modal: Add Employee */}
-        {isAddEmployeeOpen && (
+        {isAddEmployeeOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAddEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
@@ -8419,7 +8420,7 @@ const Dashboard = () => {
                 </button>
               </form>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal: Edit Employee Details */}
@@ -8528,11 +8529,11 @@ const Dashboard = () => {
                 </button>
               </form>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
-        {isImportModalOpen && (
+        {isImportModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsImportModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
@@ -8729,11 +8730,11 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
-        {isAssignModalOpen && (
+        {isAssignModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAssignModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
@@ -8808,11 +8809,11 @@ const Dashboard = () => {
                 {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${selectedLeadsCrm.length} عميل)`}
               </button>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal 3: Customer Report, Timeline Notes & Trial Date */}
-        {isNotesModalOpen && selectedCustomerForNotes && (
+        {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative max-h-[84vh] my-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
               <button 
@@ -9010,11 +9011,11 @@ const Dashboard = () => {
                 </button>
               )}
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
-        {isLeadsAnalysisModalOpen && (
+        {isLeadsAnalysisModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsLeadsAnalysisModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
@@ -9626,7 +9627,7 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal: Call Performance Analytics (تقرير وتحليل أداء المكالمات الشامل اليومي والتراكمي) */}
@@ -9766,7 +9767,7 @@ const Dashboard = () => {
           const startIndexCalls = (validCallsPage - 1) * CALLS_PER_PAGE;
           const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
 
-          return (
+          return typeof document !== 'undefined' ? createPortal(
             <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsCallsAnalysisModalOpen(false)}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
@@ -10159,8 +10160,8 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          );
+            </div>, document.body
+          ) : null;
         })()}
 
         {/* Modal: Send CRM Sheet WhatsApp Campaign (1 to 10 leads) */}
@@ -10171,7 +10172,7 @@ const Dashboard = () => {
           const templateObj = CRM_CAMPAIGN_TEMPLATES.find(t => t.id === crmCampaignTemplateId);
           const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
 
-          return (
+          return typeof document !== 'undefined' ? createPortal(
             <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
@@ -10417,12 +10418,12 @@ const Dashboard = () => {
                 </div>
 
               </div>
-            </div>
-          );
+            </div>, document.body
+          ) : null;
         })()}
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
-        {isSystemTotalClientsModalOpen && (
+        {isSystemTotalClientsModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSystemTotalClientsModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
@@ -10681,11 +10682,11 @@ const Dashboard = () => {
 
               </div>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal 6: Pending Clients Breakdown & Distribution */}
-        {isPendingClientsModalOpen && (
+        {isPendingClientsModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsPendingClientsModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
@@ -10833,11 +10834,11 @@ const Dashboard = () => {
 
               </div>
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Modal: Client Subscription Details (بيانات اشتراك العميل) */}
-        {isSubscriptionModalOpen && selectedSubCustomer && (
+        {isSubscriptionModalOpen && selectedSubCustomer && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSubscriptionModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
@@ -11049,7 +11050,7 @@ const Dashboard = () => {
               </form>
 
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Internal Mail System Modal (بريد اتجاه الداخلي - Gmail System) */}
@@ -11459,11 +11460,11 @@ const Dashboard = () => {
               </div>
 
             </div>
-          </div>
+          </div>, document.body
         )}
 
         {/* Compose Email Modal Drawer (Gmail-style Compose) */}
-        {isComposeOpen && (
+        {isComposeOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:bottom-6 sm:left-6 z-[1000000] bg-slate-900 text-white rounded-3xl border border-purple-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.6)] w-full sm:w-[540px] flex flex-col overflow-hidden max-h-[85vh]">
             {/* Header */}
             <div className="px-5 py-3 bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 flex justify-between items-center">
