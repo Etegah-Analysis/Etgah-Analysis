@@ -1632,11 +1632,17 @@ const Dashboard = () => {
       toast.error('عذراً، حذف الإيميلات مقتصر على الإدارة فقط 🔒');
       return;
     }
-    if (!window.confirm('هل أنت متأكد من حذف هذا الإيميل نهائياً من السيستم؟')) return;
+    if (!window.confirm(`هل أنت متأكد من نقل الإيميل (${mail.subject || 'بدون موضوع'}) إلى سلة المهملات؟`)) return;
     try {
-      const emailRef = doc(db, 'internal_emails', mail.id);
-      await deleteDoc(emailRef);
-      toast.success('تم حذف الإيميل بنجاح 🗑️');
+      await setDoc(doc(db, 'recycle_bin', mail.id), {
+        ...mail,
+        originalCollection: 'internal_emails',
+        type: 'email',
+        deletedAt: serverTimestamp(),
+        deletedBy: '👑 الإدارة'
+      });
+      await deleteDoc(doc(db, 'internal_emails', mail.id));
+      toast.success('تم نقل الإيميل إلى سلة المهملات بنجاح 🗑️');
       if (selectedEmail?.id === mail.id) {
         setSelectedEmail(null);
       }
@@ -2242,10 +2248,17 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من حذف العميل "${lead.name}" من قسم Leads CRM؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من نقل العميل "${lead.name || lead.phoneNumber}" إلى سلة المهملات؟`)) return;
     try {
+      await setDoc(doc(db, 'recycle_bin', lead.id), {
+        ...lead,
+        originalCollection: 'leads_crm',
+        type: 'customer',
+        deletedAt: serverTimestamp(),
+        deletedBy: '👑 الإدارة'
+      });
       await deleteDoc(doc(db, 'leads_crm', lead.id));
-      toast.success('تم حذف العميل بنجاح');
+      toast.success('تم نقل العميل إلى سلة المهملات بنجاح 🗑️');
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء الحذف');
@@ -2257,12 +2270,22 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedLeadsCrm.length} عميل محدد من قسم Leads CRM؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedLeadsCrm.length} عميل محدد إلى سلة المهملات؟`)) return;
     try {
       for (const id of selectedLeadsCrm) {
+        const lead = leadsCrm.find(l => l.id === id);
+        if (lead) {
+          await setDoc(doc(db, 'recycle_bin', id), {
+            ...lead,
+            originalCollection: 'leads_crm',
+            type: 'customer',
+            deletedAt: serverTimestamp(),
+            deletedBy: '👑 الإدارة'
+          });
+        }
         await deleteDoc(doc(db, 'leads_crm', id));
       }
-      toast.success('تم حذف العملاء المحددين بنجاح');
+      toast.success(`تم نقل ${selectedLeadsCrm.length} عميل إلى سلة المهملات بنجاح 🗑️`);
       setSelectedLeadsCrm([]);
     } catch (err) {
       console.error(err);
@@ -2481,17 +2504,25 @@ const Dashboard = () => {
       return;
     }
     if (selectedEmployeeLeads.length === 0) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedEmployeeLeads.length} عميل من (داتا مضافة بواسطة الموظف)؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedEmployeeLeads.length} عميل من (داتا مضافة بواسطة الموظف) إلى سلة المهملات؟`)) return;
     
     try {
-      const batch = writeBatch(db);
-      selectedEmployeeLeads.forEach(id => {
-        batch.delete(doc(db, 'employee_leads', id));
-      });
-      await batch.commit();
+      for (const id of selectedEmployeeLeads) {
+        const item = employeeLeads.find(l => l.id === id);
+        if (item) {
+          await setDoc(doc(db, 'recycle_bin', id), {
+            ...item,
+            originalCollection: 'employee_leads',
+            type: 'customer',
+            deletedAt: serverTimestamp(),
+            deletedBy: '👑 الإدارة'
+          });
+        }
+        await deleteDoc(doc(db, 'employee_leads', id));
+      }
       const count = selectedEmployeeLeads.length;
       setSelectedEmployeeLeads([]);
-      toast.success(`تم حذف ${count} عميل بنجاح`);
+      toast.success(`تم نقل ${count} عميل إلى سلة المهملات بنجاح 🗑️`);
     } catch (err) {
       console.error(err);
       toast.error('خطأ أثناء حذف العملاء');
@@ -2802,10 +2833,15 @@ const Dashboard = () => {
       return;
     }
     try {
-      const { originalCollection, type, deletedAt, id, ...restData } = item;
-      await setDoc(doc(db, originalCollection, item.id), restData);
+      const { originalCollection, type, deletedAt, deletedBy, id, ...restData } = item;
+      const targetCol = originalCollection || (type === 'employee' ? 'users' : type === 'visitor' ? 'visitor_customers' : type === 'email' ? 'internal_emails' : 'بيانات_تسجيل_العملاء');
+      await setDoc(doc(db, targetCol, item.id), restData);
       await deleteDoc(doc(db, 'recycle_bin', item.id));
-    } catch (e) { console.error(e); }
+      toast.success(`تم استرجاع (${item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح 🔄`);
+    } catch (e) {
+      console.error(e);
+      toast.error('حدث خطأ أثناء استرجاع العنصر');
+    }
   };
 
   const handleDeleteForever = async (id) => {
@@ -7798,6 +7834,7 @@ const Dashboard = () => {
                 <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'employee' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>موظفين</button>
                 <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'customer' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>عملاء</button>
                 <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'visitor' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>زوار</button>
+                <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'email' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>✉️ إيميلات</button>
                 <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'message' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>رسائل</button>
               </div>
             </div>
@@ -7854,15 +7891,19 @@ const Dashboard = () => {
                         />
                       </td>
                       <td className="p-4 text-sm font-bold text-gray-700">
-                        {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">موظف</span>}
-                        {item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">عميل</span>}
-                        {item.type === 'visitor' && <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">زائر</span>}
-                        {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs">رسالة محذوفة</span>}
+                        {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">👤 موظف</span>}
+                        {item.type === 'customer' && item.originalCollection === 'leads_crm' && <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs">🎯 Leads CRM</span>}
+                        {item.type === 'customer' && item.originalCollection === 'employee_leads' && <span className="bg-cyan-100 text-cyan-800 px-2 py-1 rounded text-xs">📋 داتا موظف</span>}
+                        {item.type === 'customer' && item.originalCollection !== 'leads_crm' && item.originalCollection !== 'employee_leads' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">💬 عميل واتساب</span>}
+                        {item.type === 'visitor' && <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">🌐 زائر موقع</span>}
+                        {item.type === 'email' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">✉️ بريد داخلي</span>}
+                        {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs">💬 رسالة شات</span>}
                       </td>
                       <td className="p-4 text-sm text-gray-800">
                         {item.type === 'employee' && (<span>{item.name} ({item.email})</span>)}
-                        {item.type === 'customer' && (<span>{item.name} <span dir="ltr">({item.phoneNumber})</span></span>)}
-                        {item.type === 'visitor' && (<span>{item.firstName} {item.lastName} <span dir="ltr">({item.phone})</span></span>)}
+                        {item.type === 'customer' && (<span>{item.name || 'عميل'} <span dir="ltr">({item.phoneNumber})</span> {item.addedBy ? <span className="text-xs text-gray-500 font-normal">| أضافه: {item.addedBy}</span> : ''}</span>)}
+                        {item.type === 'visitor' && (<span>{item.firstName || ''} {item.lastName || ''} <span dir="ltr">({item.phone})</span></span>)}
+                        {item.type === 'email' && (<span>📌 {item.subject || 'بدون موضوع'} <span className="text-xs text-purple-700 font-bold">(من: {item.senderName || item.senderEmail} ➔ إلى: {item.recipientName})</span></span>)}
                         {item.type === 'message' && (<span className="text-gray-500 italic">"{item.text?.substring(0, 50)}..."</span>)}
                       </td>
                       <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(item.deletedAt)}</td>
