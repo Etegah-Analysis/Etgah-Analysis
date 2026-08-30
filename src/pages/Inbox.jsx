@@ -229,11 +229,19 @@ export default function Inbox() {
         }
       });
       setInternalGroups(groupsData);
+
+      if (location.state?.selectedGroupId) {
+        const foundGroup = groupsData.find(g => g.id === location.state.selectedGroupId);
+        if (foundGroup) {
+          setActiveChat(foundGroup);
+          setSelectedChatType('groups');
+        }
+      }
     }, (err) => {
       console.error("Error fetching internal groups:", err);
     });
     return () => unsubscribe();
-  }, [currentUser, isAdmin]);
+  }, [currentUser, isAdmin, location.state]);
 
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);

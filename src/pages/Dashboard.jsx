@@ -398,6 +398,7 @@ const Dashboard = () => {
 
   // Internal Mail / Gmail System State
   const [internalEmails, setInternalEmails] = useState([]);
+  const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -537,14 +538,7 @@ const Dashboard = () => {
   const isEmailForMe = (mail) => {
     if (!mail) return false;
     if (isAdmin) {
-      return mail.recipientType === 'all' || 
-             mail.recipientType === 'admin' || 
-             mail.recipientUid === 'admin' || 
-             mail.recipientUid === currentUser?.uid || 
-             mail.recipientUids?.includes('admin') || 
-             mail.recipientUids?.includes(currentUser?.uid) || 
-             mail.recipientEmail?.toLowerCase() === myEmail ||
-             mail.recipientEmails?.includes(myEmail);
+      return true; // Admin receives and sees ALL platform emails from all employees, leaders, and coordinators!
     }
     if (isCoordinator) {
       return mail.recipientType === 'all' || 
@@ -620,75 +614,74 @@ const Dashboard = () => {
     }
   };
 
-  // Web Audio Notification Chime (Crystal Clear Synthesized Chime)
-  const playNotificationSound = () => {
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.35);
-    } catch (e) {
-      // Audio playback policy silent catch
-    }
-  };
-
-  // Unified Real-Time Notification Center State for Dashboard (WhatsApp + Internal Mail)
-  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
-  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
-  const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
-  const notifDropdownRef = useRef(null);
-  const prevUnreadMapRef = useRef({});
-  const isFirstLoadRef = useRef(true);
-  const prevUnreadEmailsMapRef = useRef({});
-  const isFirstEmailLoadRef = useRef(true);
-
-  // Click outside to close notification dropdown
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
-        setIsNotifDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Filter unread WhatsApp chats based on user role
+  // Web Audio Notification Chime (Crystal Clear Synthesized Ch  // Filter unread WhatsApp chats and Internal Employee Groups based on exact role rules:
+  // 1. Admin: All Employee Groups (created by Admin/Coordinator/Leader) + All Customer WhatsApp chats
+  // 2. Coordinator: All Employee Groups they are member of (no customer chats)
+  // 3. Leader: Their Team's Employee Groups + Their Own and Their Team's Customer WhatsApp chats
+  // 4. Agent: Their Team's Employee Group + Their Own Assigned Customer WhatsApp chats
   const unreadWhatsAppChats = useMemo(() => {
     if (!currentUser) return [];
 
-    return customers.filter(c => {
-      const hasUnread = (c.unread && Number(c.unread) > 0) || c.status === 'unassigned';
-      if (!hasUnread) return false;
+    // A. Filter Customer Chats
+    let filteredCustomerChats = [];
+    if (!isCoordinator) {
+      filteredCustomerChats = customers.filter(c => {
+        const hasUnread = (c.unread && Number(c.unread) > 0) || c.status === 'unassigned';
+        if (!hasUnread) return false;
 
-      if (isAdmin || isCoordinator) return true;
+        if (isAdmin) return true; // Admin gets notifications for all customer chats
 
-      if (isLeader) {
+        if (isLeader) {
+          return c.assignedToUid === currentUser.uid ||
+                 c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase() ||
+                 myTeamMembers.some(m => m.uid === c.assignedToUid) ||
+                 c.status === 'unassigned';
+        }
+
+        // Regular Agent
         return c.assignedToUid === currentUser.uid ||
-               c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase() ||
-               myTeamMembers.some(m => m.uid === c.assignedToUid) ||
-               c.status === 'unassigned';
+               c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase();
+      });
+    }
+
+    // B. Filter Employee Groups
+    const filteredGroups = (internalGroups || []).filter(g => {
+      if (!g.lastMessage) return false;
+      const isLastSenderMe = g.lastMessageSenderUid === currentUser.uid || (isAdmin && (g.lastMessageSenderUid === 'admin' || g.lastMessageSenderUid === currentUser.uid));
+      if (isLastSenderMe) return false; // Don't notify self for own group messages
+
+      const isReadByMe = g.readBy?.includes(currentUser.uid) || (isAdmin && g.readBy?.includes('admin'));
+      if (isReadByMe) return false;
+
+      if (isAdmin) {
+        // Admin gets notifications for ALL employee groups regardless of who created them!
+        return true;
       }
 
-      // Regular Agent
-      return c.assignedToUid === currentUser.uid ||
-             c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase();
-    }).sort((a, b) => {
-      const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
-      const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
+      if (isCoordinator) {
+        // Coordinator gets notifications for all groups they are member of or created
+        return g.members?.includes(currentUser.uid) || 
+               g.members?.includes(currentUser.email?.toLowerCase()) || 
+               g.createdByUid === currentUser.uid;
+      }
+
+      if (isLeader) {
+        // Leader gets notifications for their team's groups
+        return g.members?.includes(currentUser.uid) || 
+               g.createdByUid === currentUser.uid || 
+               myTeamMembers.some(m => g.members?.includes(m.uid));
+      }
+
+      // Agent: only groups the agent is in
+      return g.members?.includes(currentUser.uid) || g.members?.includes(currentUser.email?.toLowerCase());
+    });
+
+    return [...filteredCustomerChats, ...filteredGroups].sort((a, b) => {
+      const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt) || 0;
+      const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt) || 0;
       return timeB - timeA;
     });
-  }, [customers, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers]);
+  }, [customers, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers]);
 
   const totalUnreadWhatsAppCount = useMemo(() => {
     return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);
@@ -698,25 +691,36 @@ const Dashboard = () => {
   const unreadEmails = useMemo(() => {
     if (!currentUser || !internalEmails) return [];
     return internalEmails
-      .filter(m => isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid))
+      .filter(m => {
+        if (isAdmin) {
+          // Admin receives ALL emails in the system sent by anyone
+          const isSenderAdmin = m.senderUid === 'admin' || m.senderUid === currentUser?.uid || m.senderEmail?.toLowerCase() === myEmail;
+          if (isSenderAdmin) return false; // Don't notify admin of their own sent emails
+          return !m.readBy?.includes('admin') && !m.readBy?.includes(currentUser?.uid) && !m.deletedBy?.includes('admin');
+        }
+        return isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid);
+      })
       .sort((a, b) => {
         const timeA = getTimestampMillis(a.createdAt);
         const timeB = getTimestampMillis(b.createdAt);
         return timeB - timeA;
       });
-  }, [internalEmails, currentUser, myUid, isCoordinator, isLeader, myTeamMembers, currentEmpUser]);
+  }, [internalEmails, currentUser, myUid, isAdmin, isCoordinator, isLeader, myTeamMembers, currentEmpUser, myEmail]);
 
   const totalAllNotificationsCount = (unreadWhatsAppChats.length > 0 ? unreadWhatsAppChats.length : 0) + (unreadEmails.length > 0 ? unreadEmails.length : 0);
 
-  // Real-time live toast alert when new WhatsApp message arrives on Dashboard
+  // Real-time live toast alert when new WhatsApp or Group message arrives on Dashboard
   useEffect(() => {
-    if (!customers || customers.length === 0) return;
+    if (!customers && !internalGroups) return;
 
     if (isFirstLoadRef.current) {
       // Store initial counts on first load without firing toasts
       const initialMap = {};
-      customers.forEach(c => {
+      (customers || []).forEach(c => {
         initialMap[c.id] = Number(c.unread) || 0;
+      });
+      (internalGroups || []).forEach(g => {
+        initialMap[g.id] = getTimestampMillis(g.updatedAt) || Date.now();
       });
       prevUnreadMapRef.current = initialMap;
       isFirstLoadRef.current = false;
@@ -725,7 +729,9 @@ const Dashboard = () => {
 
     unreadWhatsAppChats.forEach(c => {
       const prevCount = prevUnreadMapRef.current[c.id] || 0;
-      const currentCount = Number(c.unread) || (c.status === 'unassigned' ? 1 : 0);
+      const currentCount = c.isGroup 
+        ? (getTimestampMillis(c.updatedAt) || Date.now()) 
+        : (Number(c.unread) || (c.status === 'unassigned' ? 1 : 0));
 
       if (currentCount > prevCount) {
         // New incoming message!
@@ -736,24 +742,28 @@ const Dashboard = () => {
             <div 
               onClick={() => {
                 toast.dismiss(t.id);
-                navigate('/inbox', { state: { selectedCustomerId: c.id } });
+                if (c.isGroup) {
+                  navigate('/inbox', { state: { selectedGroupId: c.id } });
+                } else {
+                  navigate('/inbox', { state: { selectedCustomerId: c.id } });
+                }
               }}
               className="cursor-pointer flex items-start gap-2.5 text-right w-full"
               dir="rtl"
             >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-green-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce">
-                💬
+              <div className={`w-9 h-9 rounded-full ${c.isGroup ? 'bg-gradient-to-tr from-indigo-500 to-purple-600' : 'bg-gradient-to-tr from-emerald-500 to-green-500'} text-white flex items-center justify-center font-bold text-base shrink-0 shadow-lg animate-bounce`}>
+                {c.isGroup ? '👥' : '💬'}
               </div>
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs font-black text-gray-900 truncate">
-                    📩 رسالة جديدة من: {c.name || c.phoneNumber}
+                    {c.isGroup ? `👥 رسالة جديدة في جروب (${c.name})` : `📩 رسالة جديدة من: ${c.name || c.phoneNumber}`}
                   </p>
                 </div>
                 <p className="text-[11px] text-gray-600 truncate mt-0.5 font-medium">
-                  {c.lastMessage || 'وصلت رسالة استفسار جديدة عبر الواتساب'}
+                  {c.isGroup ? `${c.lastMessageSender ? c.lastMessageSender + ': ' : ''}${c.lastMessage}` : (c.lastMessage || 'وصلت رسالة استفسار جديدة عبر الواتساب')}
                 </p>
-                <span className="text-[10px] text-emerald-600 font-extrabold block mt-1 hover:underline">
+                <span className={`text-[10px] ${c.isGroup ? 'text-indigo-600' : 'text-emerald-600'} font-extrabold block mt-1 hover:underline`}>
                   انقر هنا لفتح المحادثة والرد ➔
                 </span>
               </div>
@@ -765,8 +775,8 @@ const Dashboard = () => {
             style: {
               borderRadius: '16px',
               background: '#ffffff',
-              border: '2px solid #10b981',
-              boxShadow: '0 10px 30px rgba(16,185,129,0.25)',
+              border: c.isGroup ? '2px solid #8b5cf6' : '2px solid #10b981',
+              boxShadow: c.isGroup ? '0 10px 30px rgba(139,92,246,0.25)' : '0 10px 30px rgba(16,185,129,0.25)',
               padding: '12px 14px',
               maxWidth: '380px'
             }
@@ -777,11 +787,14 @@ const Dashboard = () => {
 
     // Update map
     const newMap = {};
-    customers.forEach(c => {
+    (customers || []).forEach(c => {
       newMap[c.id] = Number(c.unread) || 0;
     });
+    (internalGroups || []).forEach(g => {
+      newMap[g.id] = getTimestampMillis(g.updatedAt) || Date.now();
+    });
     prevUnreadMapRef.current = newMap;
-  }, [customers, unreadWhatsAppChats, navigate]);
+  }, [customers, internalGroups, unreadWhatsAppChats, navigate]);
 
   // Real-time live toast alert when new Internal Email arrives on Dashboard
   useEffect(() => {
@@ -790,7 +803,7 @@ const Dashboard = () => {
     if (isFirstEmailLoadRef.current) {
       const initialMap = {};
       internalEmails.forEach(m => {
-        initialMap[m.id] = m.readBy?.includes(myUid) ? 1 : 0;
+        initialMap[m.id] = (m.readBy?.includes(myUid) || (isAdmin && m.readBy?.includes('admin'))) ? 1 : 0;
       });
       prevUnreadEmailsMapRef.current = initialMap;
       isFirstEmailLoadRef.current = false;
@@ -835,7 +848,7 @@ const Dashboard = () => {
             </div>
           ),
           {
-            id: `email-toast-${mail.id}`,
+            id: `mail-toast-${mail.id}`,
             duration: 7000,
             style: {
               borderRadius: '16px',
@@ -852,10 +865,10 @@ const Dashboard = () => {
 
     const newMap = {};
     internalEmails.forEach(m => {
-      newMap[m.id] = m.readBy?.includes(myUid) ? 1 : 0;
+      newMap[m.id] = (m.readBy?.includes(myUid) || (isAdmin && m.readBy?.includes('admin'))) ? 1 : 0;
     });
     prevUnreadEmailsMapRef.current = newMap;
-  }, [internalEmails, unreadEmails, myUid]);
+  }, [internalEmails, unreadEmails, myUid, isAdmin]);
 
   // Real-time listener for Call Logs
   useEffect(() => {
@@ -1288,6 +1301,14 @@ const Dashboard = () => {
       console.error('Error fetching internal_emails:', error);
     });
 
+    // Fetch Internal Employee Groups
+    const groupsUnsub = onSnapshot(collection(db, 'internal_groups'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, isGroup: true, ...doc.data() }));
+      setInternalGroups(data);
+    }, (error) => {
+      console.error('Error fetching internal_groups:', error);
+    });
+
     return () => {
       custUnsub();
       leadsCrmUnsub();
@@ -1297,6 +1318,7 @@ const Dashboard = () => {
       rbUnsub();
       templatesUnsub();
       emailsUnsub();
+      groupsUnsub();
     };
   }, []);
 
@@ -1493,6 +1515,12 @@ const Dashboard = () => {
 
     setMailSending(true);
     try {
+      // Ensure Admin is always automatically included in recipient lists of all platform emails
+      const baseUids = isAll ? ['all'] : selectedRecipients.map(r => r.uid);
+      const recipientUidsList = Array.from(new Set([...baseUids, 'admin']));
+      const baseEmails = selectedRecipients.map(r => r.email?.toLowerCase()).filter(Boolean);
+      const recipientEmailsList = Array.from(new Set([...baseEmails, 'admin']));
+
       const emailDoc = {
         senderUid: isAdmin ? 'admin' : (currentUser?.uid || ''),
         senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'موظف'),
@@ -1500,9 +1528,9 @@ const Dashboard = () => {
         senderRole: isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent',
         recipientType: isAll ? 'all' : (isTeam ? 'team' : (selectedRecipients.length === 1 ? selectedRecipients[0].type : 'multiple')),
         recipientUid: isAll ? 'all' : (selectedRecipients.length === 1 ? selectedRecipients[0].uid : ''),
-        recipientUids: isAll ? ['all'] : selectedRecipients.map(r => r.uid),
+        recipientUids: recipientUidsList,
         recipientName: isAll ? '📢 جميع الموظفين بالمنصة' : selectedRecipients.map(r => r.name).join('، '),
-        recipientEmails: selectedRecipients.map(r => r.email?.toLowerCase()).filter(Boolean),
+        recipientEmails: recipientEmailsList,
         recipientNames: selectedRecipients.map(r => r.name),
         teamLeaderUid: (isLeader && isTeam) ? currentUser?.uid : '',
         teamMemberUids: (isLeader && isTeam) ? myTeamMembers.map(m => m.uid) : [],
@@ -3569,23 +3597,27 @@ const Dashboard = () => {
                     </div>
                   )}
 
-                  {/* WhatsApp Notifications */}
+                  {/* WhatsApp & Employee Groups Notifications */}
                   {(notifActiveTab === 'all' || notifActiveTab === 'whatsapp') && (
                     unreadWhatsAppChats.map((c) => (
                       <div 
-                        key={`wa-${c.id}`}
+                        key={`notif-conv-${c.id}`}
                         onClick={() => {
                           setIsNotifDropdownOpen(false);
-                          navigate('/inbox', { state: { selectedCustomerId: c.id } });
+                          if (c.isGroup) {
+                            navigate('/inbox', { state: { selectedGroupId: c.id } });
+                          } else {
+                            navigate('/inbox', { state: { selectedCustomerId: c.id } });
+                          }
                         }}
-                        className="p-2.5 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2 group border border-transparent hover:border-emerald-500/30"
+                        className={`p-2.5 hover:bg-white/10 rounded-xl transition cursor-pointer flex items-center justify-between gap-2 group border border-transparent ${c.isGroup ? 'hover:border-indigo-500/40 bg-indigo-950/20' : 'hover:border-emerald-500/30'}`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className="relative shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-md">
-                              💬
+                            <div className={`w-8 h-8 rounded-full ${c.isGroup ? 'bg-gradient-to-tr from-indigo-600 to-purple-600' : 'bg-gradient-to-tr from-emerald-600 to-teal-500'} text-white flex items-center justify-center font-bold text-xs shadow-md`}>
+                              {c.isGroup ? '👥' : '💬'}
                             </div>
-                            {c.unread > 0 && (
+                            {c.unread > 0 && !c.isGroup && (
                               <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow">
                                 {c.unread}
                               </span>
@@ -3593,15 +3625,15 @@ const Dashboard = () => {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="text-xs font-bold text-white truncate group-hover:text-emerald-300 transition">
-                                {c.name || c.phoneNumber}
+                              <span className={`text-xs font-bold text-white truncate ${c.isGroup ? 'group-hover:text-indigo-300' : 'group-hover:text-emerald-300'} transition`}>
+                                {c.isGroup ? `👥 ${c.name}` : (c.name || c.phoneNumber)}
                               </span>
-                              <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0">
-                                واتساب 💬
+                              <span className={`${c.isGroup ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-500/40' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'} text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0`}>
+                                {c.isGroup ? 'جروب موظفين 👥' : 'واتساب 💬'}
                               </span>
                             </div>
-                            <p className="text-[11px] text-emerald-200/90 font-medium truncate">
-                              {c.lastMessage || 'وصلت رسالة واتساب جديدة...'}
+                            <p className={`text-[11px] ${c.isGroup ? 'text-indigo-200/90 font-bold' : 'text-emerald-200/90 font-medium'} truncate`}>
+                              {c.isGroup ? `${c.lastMessageSender ? c.lastMessageSender + ': ' : ''}${c.lastMessage}` : (c.lastMessage || 'وصلت رسالة واتساب جديدة...')}
                             </p>
                           </div>
                         </div>
@@ -11018,7 +11050,12 @@ const Dashboard = () => {
                 </div>
 
                 {/* Search & Recipients Box */}
-                <div className="bg-slate-950 border border-purple-500/40 rounded-2xl p-2 space-y-2">
+                <div className="bg-slate-950 border border-purple-500/40 rounded-2xl p-2.5 space-y-2.5">
+                  {/* Admin Auto-Included Notice */}
+                  <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-3 py-1.5 rounded-xl text-[11px] font-black shadow-inner">
+                    <span>👑 الإدارة مضمنة تلقائياً في كافة المراسلات والتعاميم بالمنصة ✓</span>
+                  </div>
+
                   {/* Search Input */}
                   <div className="relative">
                     <input
