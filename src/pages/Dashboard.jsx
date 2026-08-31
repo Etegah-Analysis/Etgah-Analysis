@@ -6599,7 +6599,7 @@ const Dashboard = () => {
                       <tbody>
                         {paginatedEmpLeads.length === 0 ? (
                           <tr>
-                            <td colSpan="7" className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={(isAdmin || isCoordinator) ? 7 : 6} className="p-10 text-center text-gray-500 font-bold">
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
@@ -7056,7 +7056,7 @@ const Dashboard = () => {
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
                     <div>
                       <span className="text-xs text-emerald-300 font-extrabold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
-                      <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال / $</span></h4>
+                      <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال</span></h4>
                     </div>
                     <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30 shadow-md">
                       <CreditCard size={24} />
@@ -7313,7 +7313,7 @@ const Dashboard = () => {
                           <th className="p-3.5 text-center">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
-                          <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>
+                          {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
                           <th className="p-3.5 text-center">الإجراءات وتفاصيل الاشتراك</th>
                         </tr>
                       </thead>
@@ -11561,7 +11561,7 @@ const Dashboard = () => {
                     <label className="block text-xs font-bold text-slate-200 mb-1.5">المبلغ المدفوع</label>
                     <input 
                       type="text"
-                      placeholder="مثال: 500$ أو 2000 ريال"
+                      placeholder="مثال: 3662 ريال"
                       value={subPaidAmount}
                       onChange={(e) => setSubPaidAmount(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
@@ -11586,8 +11586,8 @@ const Dashboard = () => {
                 <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>📁 أو رفع صورة إشعار التحويل:</span>
-                      {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم إرفاق صورة</span>}
+                      <span>📁 رفع صورة إشعار التحويل / الإيصال:</span>
+                      {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم اختيار صورة الإشعار</span>}
                     </label>
                     <input 
                       type="file"
@@ -11595,37 +11595,6 @@ const Dashboard = () => {
                       onChange={handleReceiptFileUpload}
                       className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
                     />
-                    {subReceiptFileUrl && (
-                      <div className="mt-2.5 p-3 bg-slate-900 rounded-2xl border border-emerald-500/40 flex items-center justify-between gap-3 shadow-inner">
-                        <div className="flex items-center gap-3">
-                          {subReceiptFileUrl.startsWith('data:image') || subReceiptFileUrl.startsWith('http') || subReceiptFileUrl.startsWith('blob:') ? (
-                            <img 
-                              src={subReceiptFileUrl} 
-                              alt="Receipt Thumbnail" 
-                              className="w-14 h-14 object-cover rounded-xl border border-emerald-400/50 cursor-pointer hover:scale-105 transition shadow-md bg-slate-950"
-                              onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
-                              title="انقر لتكبير الإشعار"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                          ) : (
-                            <div className="w-14 h-14 rounded-xl bg-slate-800 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold text-xs">
-                              📄 إشعار
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-xs text-emerald-300 font-extrabold block">✓ تم إرفاق صورة الإشعار</span>
-                            <span className="text-[10px] text-gray-400 block mt-0.5">انقر على الصورة لمعاينتها بالحجم الكامل</span>
-                          </div>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-emerald-400/40 cursor-pointer active:scale-95 shadow-md"
-                        >
-                          <span>🔍 تكبير الإشعار</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
