@@ -1740,72 +1740,72 @@ export default function Inbox() {
 
       {/* القائمة الجانبية */}
       <div className={`w-full md:w-1/3 md:max-w-sm bg-black/20 backdrop-blur-xl border-l border-white/10 flex-col relative z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-        <div className="bg-black/40 backdrop-blur-md px-3 py-3 border-b border-white/10 flex justify-between items-center shadow-sm gap-2">
-          <div className="flex items-center space-x-2 space-x-reverse min-w-0 flex-1">
+        <div className="bg-black/40 backdrop-blur-md px-2.5 py-2 border-b border-white/10 flex justify-between items-center shadow-sm gap-1.5">
+          <div className="flex items-center space-x-1.5 space-x-reverse min-w-0 flex-1">
             <div className="relative group shrink-0">
-              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-teal-400 to-purple-500 rounded-full blur-[4px] opacity-85 group-hover:opacity-100 transition duration-300 animate-pulse"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-teal-400 to-purple-500 rounded-full blur-[3px] opacity-85 group-hover:opacity-100 transition duration-300"></div>
               <img 
                 src="/logo.jpg" 
-                alt="Etegah Logo 3D" 
-                className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-cyan-300 shadow-[0_4px_16px_rgba(6,182,212,0.6)] transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 cursor-pointer" 
+                alt="Etegah Logo" 
+                className="relative w-8 h-8 rounded-full object-cover border border-cyan-300 shadow-[0_2px_8px_rgba(6,182,212,0.5)] shrink-0" 
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold text-white text-xs truncate max-w-[140px]" dir="ltr">
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="font-black text-white text-[11px] truncate max-w-[100px] sm:max-w-[130px]" dir="ltr">
                   {impersonatedEmp ? (impersonatedEmp.name || impersonatedEmp.username) : (userProfile?.name || userProfile?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
                 </span>
                 {impersonatedEmp ? (
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-600/30 text-blue-300 border border-blue-400/40">
-                    {impersonatedEmp.jobTitle === 'Leader' || impersonatedEmp.jobTitle === 'ليدر' ? '👑 Leader' : (impersonatedEmp.jobTitle || impersonatedEmp.role || '👤 Agent')}
+                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
+                    {impersonatedEmp.jobTitle === 'Leader' || impersonatedEmp.jobTitle === 'ليدر' ? '👑 Leader' : (impersonatedEmp.jobTitle === 'Coordinator' ? '📋 Coordinator' : (impersonatedEmp.jobTitle || impersonatedEmp.role || '👤 Agent'))}
                   </span>
                 ) : isAdmin ? (
-                  <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm shrink-0 flex items-center gap-0.5">
+                  <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 flex items-center gap-0.5">
                     👑 أدمن
                   </span>
                 ) : (
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-600/30 text-blue-300 border border-blue-400/40">
-                    {userProfile?.jobTitle === 'Leader' || userProfile?.jobTitle === 'ليدر' ? 'Leader' : (userProfile?.jobTitle || userProfile?.role || 'Agent')}
+                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
+                    {userProfile?.jobTitle === 'Leader' || userProfile?.jobTitle === 'ليدر' ? '👑 Leader' : (userProfile?.jobTitle === 'Coordinator' ? '📋 Coordinator' : (userProfile?.jobTitle || userProfile?.role || 'Agent'))}
                   </span>
                 )}
-                {/* Logout Button right next to Admin / Employee badge */}
+                {/* Logout Button */}
                 <button 
                   onClick={handleLogout} 
-                  className="flex items-center space-x-1 space-x-reverse text-gray-300 hover:text-red-400 transition text-[11px] font-semibold bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-full border border-white/10 shrink-0" 
+                  className="flex items-center gap-0.5 text-gray-300 hover:text-red-400 transition text-[10px] font-bold bg-white/10 hover:bg-white/20 px-1.5 py-0.2 rounded-md border border-white/10 shrink-0 cursor-pointer" 
                   title="تسجيل الخروج"
                 >
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_4px_#22c55e]"></div>
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_3px_#22c55e]"></div>
                   <span>خروج</span>
                 </button>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-1.5 space-x-reverse shrink-0">
+          <div className="flex items-center space-x-1 space-x-reverse shrink-0">
             {canCreateGroup && (
               <button 
                 onClick={() => setIsCreateGroupModalOpen(true)} 
-                className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white shadow-[0_4px_12px_rgba(168,85,247,0.5)] border border-purple-300/60 hover:from-purple-500 hover:to-pink-400 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                className="flex items-center justify-center p-1.5 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white shadow-[0_2px_8px_rgba(168,85,247,0.4)] border border-purple-300/50 hover:from-purple-500 hover:to-pink-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer" 
                 title="إنشاء جروب واتساب للموظفين"
               >
-                <Users size={16} />
+                <Users size={13} />
               </button>
             )}
             {!isCoordinator && (
               <>
                 <button 
                   onClick={() => setIsAddModalOpen(true)} 
-                  className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-[0_4px_12px_rgba(16,185,129,0.5)] border border-emerald-300/60 hover:from-emerald-500 hover:to-cyan-300 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                  className="flex items-center justify-center p-1.5 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-[0_2px_8px_rgba(16,185,129,0.4)] border border-emerald-300/50 hover:from-emerald-500 hover:to-cyan-300 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer" 
                   title="إضافة عميل جديد يدوياً"
                 >
-                  <UserPlus size={16} />
+                  <UserPlus size={13} />
                 </button>
                 <button 
                   onClick={() => setIsExcelModalOpen(true)} 
-                  className="flex items-center justify-center p-2 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.5)] border border-blue-300/60 hover:from-blue-500 hover:to-purple-400 transition-all transform hover:scale-110 active:scale-95 shrink-0" 
+                  className="flex items-center justify-center p-1.5 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.4)] border border-blue-300/50 hover:from-blue-500 hover:to-purple-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer" 
                   title="استيراد من إكسيل (الحملات)"
                 >
-                  <FileText size={16} />
+                  <FileText size={13} />
                 </button>
               </>
             )}
@@ -1816,16 +1816,14 @@ export default function Inbox() {
                 e.stopPropagation();
                 if (impersonatedEmp) {
                   sessionStorage.setItem('impersonatedEmp', JSON.stringify(impersonatedEmp));
-                  navigate('/dashboard', { state: { impersonatedEmp, targetTab: 'leads_crm' } });
-                } else {
-                  navigate('/dashboard');
                 }
+                navigate('/dashboard', { state: { impersonatedEmp, targetTab: 'leads_crm' } });
               }} 
-              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(245,158,11,0.6)] border-2 border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer relative z-30" 
+              className="flex items-center gap-1 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-full shadow-[0_2px_10px_rgba(245,158,11,0.5)] border border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer relative z-30" 
               title="الانتقال إلى لوحة التحكم Leads CRM"
             >
-              <BarChart3 size={15} className="text-slate-950" />
-              <span className="font-extrabold text-xs tracking-wide">Leads CRM 🎯</span>
+              <BarChart3 size={13} className="text-slate-950" />
+              <span className="font-black text-[11px]">Leads CRM 🎯</span>
             </button>
           </div>
         </div>
