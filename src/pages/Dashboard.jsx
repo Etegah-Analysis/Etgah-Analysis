@@ -478,6 +478,7 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [impersonatedEmp, setImpersonatedEmp] = useState(null);
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
