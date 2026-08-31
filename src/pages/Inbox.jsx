@@ -22,6 +22,7 @@ export default function Inbox() {
   // Internal Employee Groups States
   const [internalGroups, setInternalGroups] = useState([]);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -470,7 +471,7 @@ export default function Inbox() {
     return senderEmail.split('@')[0];
   };
 
-  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+  
   const [employeeAnalytics, setEmployeeAnalytics] = useState([]);
   const [showOnlyUnreplied, setShowOnlyUnreplied] = useState(false);
 
