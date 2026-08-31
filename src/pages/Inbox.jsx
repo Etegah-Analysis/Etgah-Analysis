@@ -252,12 +252,22 @@ export default function Inbox() {
       const groupsData = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const myUid = currentUser?.uid;
+        const myEmail = currentUser?.email?.toLowerCase();
+        const myEmpUid = currentEmpUser?.uid;
+        const myEmpEmail = currentEmpUser?.email?.toLowerCase();
+
         const isMember = 
           isAdmin || 
-          data.members?.includes(currentUser.uid) || 
-          data.members?.includes(currentUser.email?.toLowerCase()) ||
-          
-          data.createdByUid === currentUser.uid;
+          isCoordinator ||
+          (myUid && data.members?.includes(myUid)) || 
+          (myEmail && data.members?.includes(myEmail)) ||
+          (myEmpUid && data.members?.includes(myEmpUid)) ||
+          (myEmpEmail && data.members?.includes(myEmpEmail)) ||
+          data.members?.includes('coordinator') ||
+          data.members?.includes('all') ||
+          data.createdByUid === myUid ||
+          data.createdByUid === myEmpUid;
 
         if (isMember) {
           groupsData.push({
