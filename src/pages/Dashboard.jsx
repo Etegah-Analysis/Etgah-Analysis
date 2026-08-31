@@ -391,6 +391,7 @@ const Dashboard = () => {
   const [subReceiptFileUrl, setSubReceiptFileUrl] = useState('');
   const [subNotes, setSubNotes] = useState('');
   const [subSaving, setSubSaving] = useState(false);
+  const [isAddingNewReceipt, setIsAddingNewReceipt] = useState(false);
   const [editingReceiptId, setEditingReceiptId] = useState(null);
   const [editReceiptPaidAmount, setEditReceiptPaidAmount] = useState('');
   const [editReceiptFileUrl, setEditReceiptFileUrl] = useState('');
@@ -3316,17 +3317,21 @@ const Dashboard = () => {
   const openSubscriptionModal = (customer) => {
     setSelectedSubCustomer(customer);
     const details = customer.subscriptionDetails || {};
+    const history = customer.subscriptionHistory || [];
     setSubStartDate(details.startDate || new Date().toISOString().slice(0, 10));
     setSubEndDate(details.endDate || '');
     setSubServiceType(details.serviceType || 'باقة سنوية');
     setSubServiceCategory(details.serviceCategory || 'توصيات سعودي');
     setSubPaymentType(details.paymentType || 'full');
-    setSubPaidAmount(details.paidAmount || '');
+    setSubAgreedPercentage(details.agreedPercentage || '');
+    setSubPaidAmount(history.length > 0 ? '' : (details.paidAmount || ''));
     setSubRemainingAmount(details.remainingAmount || '');
-    setSubReceiptProof(details.receiptProof || '');
-    setSubReceiptFileUrl(details.receiptUrl || '');
+    setSubReceiptProof(history.length > 0 ? '' : (details.receiptProof || ''));
+    setSubReceiptFileUrl(history.length > 0 ? '' : (details.receiptUrl || ''));
     setSubNotes(details.notes || '');
-    setSubPaymentHistory(customer.subscriptionHistory || []);
+    setSubPaymentHistory(history);
+    setIsAddingNewReceipt(false);
+    setEditingReceiptId(null);
     setIsSubscriptionModalOpen(true);
   };
 
@@ -3595,6 +3600,7 @@ const Dashboard = () => {
       setSubReceiptProof('');
       setSubReceiptFileUrl('');
       setSubNotes('');
+      setIsAddingNewReceipt(false);
       setSubPaymentHistory(updatedHistory);
       setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory }));
 
@@ -7417,14 +7423,16 @@ const Dashboard = () => {
 
               if (dateFromFilter) {
                 filtered = filtered.filter(c => {
-                  const d = c.subscriptionDetails?.startDate || (c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 10) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 10) : '');
-                  return d >= dateFromFilter;
+                  const s = c.subscriptionDetails?.startDate || '';
+                  const e = c.subscriptionDetails?.endDate || '';
+                  return (s && s >= dateFromFilter) || (e && e >= dateFromFilter);
                 });
               }
               if (dateToFilter) {
                 filtered = filtered.filter(c => {
-                  const d = c.subscriptionDetails?.startDate || (c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 10) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 10) : '');
-                  return d <= dateToFilter;
+                  const s = c.subscriptionDetails?.startDate || '';
+                  const e = c.subscriptionDetails?.endDate || '';
+                  return (s && s <= dateToFilter) || (e && e <= dateToFilter);
                 });
               }
 
@@ -11692,7 +11700,7 @@ const Dashboard = () => {
                     <label className="block text-xs font-bold text-slate-200 mb-1.5">المبلغ المدفوع</label>
                     <input 
                       type="text"
-                      placeholder="مثال: 3662 ريال"
+                      placeholder="ريال"
                       value={subPaidAmount}
                       onChange={(e) => setSubPaidAmount(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
@@ -11704,7 +11712,7 @@ const Dashboard = () => {
                       <label className="block text-xs font-bold text-amber-300 mb-1.5">المبلغ المتبقي</label>
                       <input 
                         type="text"
-                        placeholder="مثال: 300$ أو 1000 ريال"
+                        placeholder="ريال"
                         value={subRemainingAmount}
                         onChange={(e) => setSubRemainingAmount(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-950 border border-amber-500/50 rounded-xl text-xs font-bold text-amber-200 outline-none focus:border-amber-400"
@@ -11714,20 +11722,22 @@ const Dashboard = () => {
                 </div>
 
                 {/* 4. Transfer Receipt / Proof - Required */}
-                <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>📁 رفع صورة إشعار التحويل / الإيصال:</span>
-                      {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم اختيار صورة الإشعار</span>}
-                    </label>
-                    <input 
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handleReceiptFileUpload}
-                      className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
-                    />
+                {((!subPaymentHistory || subPaymentHistory.length === 0) || isAddingNewReceipt) && (
+                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3 animate-fadeIn">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                        <span>📁 رفع صورة إشعار التحويل / الإيصال:</span>
+                        {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم اختيار صورة الإشعار</span>}
+                      </label>
+                      <input 
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleReceiptFileUpload}
+                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Previous Payments & Receipts History with Exact Timestamp & Edit/Delete Capabilities */}
                 {subPaymentHistory && subPaymentHistory.length > 0 && (() => {
@@ -11755,6 +11765,7 @@ const Dashboard = () => {
                         <button
                           type="button"
                           onClick={() => {
+                            setIsAddingNewReceipt(true);
                             setSubReceiptProof('');
                             setSubReceiptFileUrl('');
                             setSubPaidAmount('');
@@ -11907,14 +11918,16 @@ const Dashboard = () => {
                               >
                                 ✏️ تعديل
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePaymentRecord(item.id)}
-                                className="text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-600 border border-rose-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
-                                title="حذف هذا الإشعار من السجل"
-                              >
-                                🗑️ حذف
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePaymentRecord(item.id)}
+                                  className="text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-600 border border-rose-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                  title="حذف هذا الإشعار من السجل (صلاحية الإدارة)"
+                                >
+                                  🗑️ حذف
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
