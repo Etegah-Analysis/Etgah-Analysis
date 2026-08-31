@@ -7150,37 +7150,35 @@ const Dashboard = () => {
               if (subMonthFilter !== 'all') {
                 bannerClients = bannerClients.filter(c => {
                   const history = c.subscriptionHistory || [];
-                  const hasReceiptInMonth = history.some(h => {
-                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
-                    return m === subMonthFilter;
-                  });
-                  const inCurrentSub = (
-                    c.subscriptionDetails?.month === subMonthFilter ||
-                    c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) ||
-                    c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter)
-                  );
+                  const hasReceiptInMonth = history.some(h => h.month === subMonthFilter);
+                  const inCurrentSub = (c.subscriptionDetails?.month === subMonthFilter);
                   return hasReceiptInMonth || (history.length === 0 && inCurrentSub);
                 });
               }
 
               let totalMonthRevenue = 0;
               let totalRemainingDue = 0;
+
+              // Calculate active remaining amounts due across subscribed clients (cleared automatically if paid in full)
+              allSubscribedClients.forEach(c => {
+                const sub = c.subscriptionDetails;
+                if (sub?.paymentType === 'partial' && sub?.remainingAmount) {
+                  const rem = parseFloat(String(sub.remainingAmount).replace(/[^0-9.]/g, '')) || 0;
+                  totalRemainingDue += rem;
+                }
+              });
+
+              // Calculate collected sales revenue strictly by the selected financial month of the receipts
               bannerClients.forEach(c => {
                 const history = c.subscriptionHistory || [];
                 if (subMonthFilter !== 'all') {
-                  const matchHistory = history.filter(h => {
-                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
-                    return m === subMonthFilter;
-                  });
+                  const matchHistory = history.filter(h => h.month === subMonthFilter);
                   if (matchHistory.length > 0) {
                     matchHistory.forEach(h => {
                       totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
                     });
-                  } else if (c.subscriptionDetails?.paidAmount) {
-                    const subM = c.subscriptionDetails?.month || (c.subscriptionDetails?.uploadedAt ? c.subscriptionDetails.uploadedAt.slice(0, 7) : (c.subscriptionDetails?.savedAt ? c.subscriptionDetails.savedAt.slice(0, 7) : ''));
-                    if (subM === subMonthFilter) {
-                      totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                    }
+                  } else if (c.subscriptionDetails?.paidAmount && c.subscriptionDetails?.month === subMonthFilter) {
+                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
                   }
                 } else {
                   if (history.length > 0) {
@@ -7191,12 +7189,11 @@ const Dashboard = () => {
                     totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
                   }
                 }
-                const rem = parseFloat((c.subscriptionDetails?.remainingAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                totalRemainingDue += rem;
               });
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
+                  {/* Card 1: Total Collected Sales */}
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
                     <div>
                       <span className="text-xs text-emerald-300 font-extrabold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
@@ -7207,6 +7204,18 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  {/* Card 2: Total Remaining Due */}
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-xs text-amber-300 font-extrabold block">⏳ إجمالي المبالغ المتبقية</span>
+                      <h4 className="text-2xl font-black text-amber-300 font-mono mt-1">{totalRemainingDue.toLocaleString()} <span className="text-xs text-amber-400 font-normal">ريال</span></h4>
+                    </div>
+                    <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30 shadow-md">
+                      <Clock size={24} />
+                    </div>
+                  </div>
+
+                  {/* Card 3: Registered Clients / Payments Count */}
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
                     <div>
                       <span className="text-xs text-cyan-300 font-extrabold block">👥 عدد المشتركين والدفعات المسجلة</span>
@@ -7418,15 +7427,8 @@ const Dashboard = () => {
               if (subMonthFilter !== 'all') {
                 filtered = filtered.filter(c => {
                   const history = c.subscriptionHistory || [];
-                  const hasReceiptInMonth = history.some(h => {
-                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
-                    return m === subMonthFilter;
-                  });
-                  const inCurrentSub = (
-                    c.subscriptionDetails?.month === subMonthFilter ||
-                    c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) ||
-                    c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter)
-                  );
+                  const hasReceiptInMonth = history.some(h => h.month === subMonthFilter);
+                  const inCurrentSub = (c.subscriptionDetails?.month === subMonthFilter);
                   return hasReceiptInMonth || (history.length === 0 && inCurrentSub);
                 });
               }
