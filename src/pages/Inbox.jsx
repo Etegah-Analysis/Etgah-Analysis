@@ -156,7 +156,21 @@ export default function Inbox() {
 
   const realCurrentUser = auth.currentUser;
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
-  const realIsAdmin = realCurrentUser && adminEmails.includes(realCurrentUser.email?.toLowerCase());
+
+  const isAdminIdentifier = (val) => {
+    if (!val) return false;
+    const lower = String(val).toLowerCase().trim();
+    if (lower === 'admin' || lower === 'الإدارة' || lower === 'ادارة' || lower === '👑 الإدارة' || lower === 'الرئيسي' || lower === 'حساب رئيسي') return true;
+    if (adminEmails.includes(lower)) return true;
+    if (lower === 'etegahanalysis' || lower.startsWith('etegahanalysis@') || lower.startsWith('mohamed.gamal.work0@')) return true;
+    return false;
+  };
+
+  const realIsAdmin = realCurrentUser && (
+    adminEmails.includes(realCurrentUser.email?.toLowerCase()) || 
+    isAdminIdentifier(realCurrentUser.email) || 
+    isAdminIdentifier(realCurrentUser.displayName)
+  );
 
   // If Admin is impersonating an employee, evaluate identity & permissions strictly as that employee
   const currentUser = (realIsAdmin && impersonatedEmp)
@@ -167,7 +181,10 @@ export default function Inbox() {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState('hide');
 
-  const currentEmpUser = impersonatedEmp || employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+  const currentEmpUser = (realIsAdmin && impersonatedEmp)
+    ? impersonatedEmp
+    : employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
@@ -1590,13 +1607,26 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!currentUser) return;
-    const unsub = onSnapshot(doc(db, 'users', currentUser.uid), (snap) => {
+    if (isAdmin) {
+      setUserProfile({
+        name: 'etegah-analysis',
+        username: 'الإدارة',
+        email: realCurrentUser?.email || 'etegahanalysis@gmail.com',
+        role: 'admin',
+        jobTitle: 'Admin'
+      });
+      return;
+    }
+    const targetUid = impersonatedEmp?.uid || currentUser.uid;
+    const unsub = onSnapshot(doc(db, 'users', targetUid), (snap) => {
       if (snap.exists()) {
         setUserProfile(snap.data());
+      } else {
+        setUserProfile(impersonatedEmp || null);
       }
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, isAdmin, impersonatedEmp, realCurrentUser]);
 
   let lastDateMsg = null;
 
@@ -1623,6 +1653,13 @@ export default function Inbox() {
               setImpersonatedEmp(null);
               setSelectedEmployee('hide');
               setActiveChat(null);
+              setUserProfile({
+                name: 'etegah-analysis',
+                username: 'الإدارة',
+                email: realCurrentUser?.email || 'etegahanalysis@gmail.com',
+                role: 'admin',
+                jobTitle: 'Admin'
+              });
               try {
                 window.history.replaceState({}, document.title, window.location.pathname);
               } catch(e) {}
