@@ -391,6 +391,11 @@ const Dashboard = () => {
   const [subReceiptFileUrl, setSubReceiptFileUrl] = useState('');
   const [subNotes, setSubNotes] = useState('');
   const [subSaving, setSubSaving] = useState(false);
+  const [editingReceiptId, setEditingReceiptId] = useState(null);
+  const [editReceiptPaidAmount, setEditReceiptPaidAmount] = useState('');
+  const [editReceiptFileUrl, setEditReceiptFileUrl] = useState('');
+  const [editReceiptProof, setEditReceiptProof] = useState('');
+  const [editReceiptSaving, setEditReceiptSaving] = useState(false);
 
   useEffect(() => {
     setCurrentPageSubscribed(1);
