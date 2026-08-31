@@ -20,7 +20,7 @@ export default function Inbox() {
   const [messages, setMessages] = useState([]);
 
   // Internal Employee Groups States
-  const [internalGroups, setInternalGroups] = useState([]);
+  const [rawInternalGroups, setRawInternalGroups] = useState([]);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -251,46 +251,58 @@ export default function Inbox() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const groupsData = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const myUid = currentUser?.uid;
-        const myEmail = currentUser?.email?.toLowerCase();
-        const myEmpUid = currentEmpUser?.uid;
-        const myEmpEmail = currentEmpUser?.email?.toLowerCase();
-
-        const isMember = 
-          isAdmin || 
-          isCoordinator ||
-          (myUid && data.members?.includes(myUid)) || 
-          (myEmail && data.members?.includes(myEmail)) ||
-          (myEmpUid && data.members?.includes(myEmpUid)) ||
-          (myEmpEmail && data.members?.includes(myEmpEmail)) ||
-          data.members?.includes('coordinator') ||
-          data.members?.includes('all') ||
-          data.createdByUid === myUid ||
-          data.createdByUid === myEmpUid;
-
-        if (isMember) {
-          groupsData.push({
-            id: docSnap.id,
-            isGroup: true,
-            ...data
-          });
-        }
+        groupsData.push({
+          id: docSnap.id,
+          isGroup: true,
+          ...docSnap.data()
+        });
       });
-      setInternalGroups(groupsData);
-
-      if (location.state?.selectedGroupId) {
-        const foundGroup = groupsData.find(g => g.id === location.state.selectedGroupId);
-        if (foundGroup) {
-          setActiveChat(foundGroup);
-          setSelectedChatType('groups');
-        }
-      }
+      setRawInternalGroups(groupsData);
     }, (err) => {
       console.error("Error fetching internal groups:", err);
     });
     return () => unsubscribe();
-  }, [currentUser, currentEmpUser, isAdmin, isCoordinator, location.state]);
+  }, [currentUser]);
+
+  // Reactively filter internalGroups based on role, members, and impersonation
+  const internalGroups = React.useMemo(() => {
+    const myUid = currentUser?.uid;
+    const myEmail = currentUser?.email?.toLowerCase();
+    const myEmpUid = currentEmpUser?.uid;
+    const myEmpEmail = currentEmpUser?.email?.toLowerCase();
+    const impersonatedUid = impersonatedEmp?.uid;
+    const impersonatedEmail = impersonatedEmp?.email?.toLowerCase();
+
+    return rawInternalGroups.filter(data => {
+      if (isAdmin || isCoordinator) return true;
+
+      const membersList = Array.isArray(data.members) ? data.members : [];
+      const isMember = 
+        (myUid && membersList.includes(myUid)) || 
+        (myEmail && membersList.includes(myEmail)) ||
+        (myEmpUid && membersList.includes(myEmpUid)) ||
+        (myEmpEmail && membersList.includes(myEmpEmail)) ||
+        (impersonatedUid && membersList.includes(impersonatedUid)) ||
+        (impersonatedEmail && membersList.includes(impersonatedEmail)) ||
+        membersList.includes('coordinator') ||
+        membersList.includes('all') ||
+        data.createdByUid === myUid ||
+        data.createdByUid === myEmpUid ||
+        data.createdByUid === impersonatedUid;
+
+      return Boolean(isMember);
+    });
+  }, [rawInternalGroups, currentUser, currentEmpUser, impersonatedEmp, isAdmin, isCoordinator]);
+
+  useEffect(() => {
+    if (location.state?.selectedGroupId && internalGroups.length > 0) {
+      const foundGroup = internalGroups.find(g => g.id === location.state.selectedGroupId);
+      if (foundGroup) {
+        setActiveChat(foundGroup);
+        setSelectedChatType('groups');
+      }
+    }
+  }, [location.state, internalGroups]);
 
   // Global ESC Key Handler to close modals, image previews, emoji pickers, or active chats
   useEffect(() => {
