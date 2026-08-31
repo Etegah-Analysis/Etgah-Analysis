@@ -447,14 +447,7 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('impersonatedEmp');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [impersonatedEmp, setImpersonatedEmp] = useState(null);
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -4222,7 +4215,7 @@ const Dashboard = () => {
 
           {/* WhatsApp Chat Button */}
           <button 
-            onClick={() => navigate('/inbox')}
+            onClick={() => navigate('/inbox', { state: { impersonatedEmp } })}
             className="flex items-center bg-slate-900 hover:bg-black text-white px-2.5 sm:px-3.5 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-gray-700 shrink-0"
             title="الانتقال إلى محادثات واتساب"
           >
@@ -8133,7 +8126,8 @@ const Dashboard = () => {
                             {isAdmin && (
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
+                                  // In-memory impersonation only (resets to Admin on refresh)
+                                sessionStorage.removeItem('impersonatedEmp');
                                   setImpersonatedEmp(emp);
                                   setActiveTab('assigned_clients');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);

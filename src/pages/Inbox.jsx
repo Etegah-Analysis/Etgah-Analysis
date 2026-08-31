@@ -141,12 +141,7 @@ export default function Inbox() {
   };
 
   const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('impersonatedEmp');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+    return location.state?.impersonatedEmp || null;
   });
 
   const realCurrentUser = auth.currentUser;
