@@ -316,7 +316,7 @@ const Dashboard = () => {
 
   // Employee Leads Tab Filters & Pagination State
   const [currentPageEmpLeads, setCurrentPageEmpLeads] = useState(1);
-  const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('admin');
+  const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('all');
   const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('unassigned');
   const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
   const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
@@ -365,6 +365,7 @@ const Dashboard = () => {
   const [subEndDate, setSubEndDate] = useState('');
   const [subServiceType, setSubServiceType] = useState('باقة سنوية');
   const [subServiceCategory, setSubServiceCategory] = useState('توصيات سعودي');
+  const [subAgreedPercentage, setSubAgreedPercentage] = useState('20%');
   const [subMonthFilter, setSubMonthFilter] = useState('all');
   const [subPaymentHistory, setSubPaymentHistory] = useState([]);
   const [lightboxImage, setLightboxImage] = useState(null);
@@ -435,7 +436,14 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [impersonatedEmp, setImpersonatedEmp] = useState(null);
+  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('impersonatedEmp');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -662,7 +670,8 @@ const Dashboard = () => {
         } else if (isPendingClientsModalOpen) {
           setIsPendingClientsModalOpen(false);
         } else if (impersonatedEmp) {
-          setImpersonatedEmp(null);
+          sessionStorage.removeItem('impersonatedEmp');
+              setImpersonatedEmp(null);
         }
       }
     };
@@ -841,7 +850,7 @@ const Dashboard = () => {
       });
   }, [internalEmails, currentUser, myUid, isAdmin, isCoordinator, isLeader, myTeamMembers, currentEmpUser, myEmail]);
 
-  const totalAllNotificationsCount = (unreadWhatsAppChats.length > 0 ? unreadWhatsAppChats.length : 0) + (unreadEmails.length > 0 ? unreadEmails.length : 0);
+  const totalAllNotificationsCount = (unreadWhatsAppChats.length > 0 ? unreadWhatsAppChats.length : 0) + (unreadEmails.length > 0 ? unreadEmails.length : 0) + (expiringSubscriptions.length > 0 ? expiringSubscriptions.length : 0);
 
   // Real-time live toast alert when new WhatsApp or Group message arrives on Dashboard
   useEffect(() => {
@@ -1895,6 +1904,29 @@ const Dashboard = () => {
   );
 
   // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
+  // Expiring Subscriptions Computation (for Admin and Coordinator Notifications)
+  const expiringSubscriptions = useMemo(() => {
+    if (!isAdmin && !isCoordinator) return [];
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    return (allSubscribedClients || []).filter(c => {
+      const sub = c.subscriptionDetails;
+      if (!sub?.endDate) return false;
+      if (sub.serviceType === 'اتفاق نسبة' || sub.serviceType === 'نسبة' || sub.paymentType === 'percentage') return false;
+      return sub.endDate <= in7Days;
+    }).map(c => {
+      const sub = c.subscriptionDetails;
+      const daysDiff = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...c,
+        daysDiff,
+        isExpired: daysDiff < 0
+      };
+    });
+  }, [allSubscribedClients, isAdmin, isCoordinator]);
+
   const availableSubMonths = useMemo(() => {
     const monthSet = new Set();
     const now = new Date();
@@ -8033,6 +8065,7 @@ const Dashboard = () => {
                             {isAdmin && (
                               <button
                                 onClick={() => {
+                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
                                   setImpersonatedEmp(emp);
                                   setActiveTab('assigned_clients');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);

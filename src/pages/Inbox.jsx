@@ -23,6 +23,14 @@ export default function Inbox() {
   const [internalGroups, setInternalGroups] = useState([]);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('impersonatedEmp');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
