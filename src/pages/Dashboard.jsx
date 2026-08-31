@@ -8522,7 +8522,7 @@ const Dashboard = () => {
         )}
 
         {/* Modal: Edit Employee Details */}
-        {isEditEmployeeOpen && editEmp && (
+        {isEditEmployeeOpen && editEmp && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsEditEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
