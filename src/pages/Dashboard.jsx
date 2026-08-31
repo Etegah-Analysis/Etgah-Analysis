@@ -7145,8 +7145,8 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Financial Sales Summary Banner (For Admin and Coordinator ONLY inside Subscribed Clients) */}
-            {(isAdmin || isCoordinator) && (() => {
+            {/* Financial Sales Summary Banner (For Admin ONLY inside Subscribed Clients) */}
+            {isAdmin && (() => {
               let bannerClients = allSubscribedClients;
               if (subMonthFilter !== 'all') {
                 bannerClients = bannerClients.filter(c => {
