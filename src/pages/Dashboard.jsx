@@ -365,6 +365,8 @@ const Dashboard = () => {
   const [subEndDate, setSubEndDate] = useState('');
   const [subServiceType, setSubServiceType] = useState('باقة سنوية');
   const [subServiceCategory, setSubServiceCategory] = useState('توصيات سعودي');
+  const [subMonthFilter, setSubMonthFilter] = useState('all');
+  const [subPaymentHistory, setSubPaymentHistory] = useState([]);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
@@ -707,36 +709,23 @@ const Dashboard = () => {
       });
     }
 
-    // B. Filter Employee Groups
+    // B. Filter Employee Groups strictly for members only
     const filteredGroups = (internalGroups || []).filter(g => {
       if (!g.lastMessage) return false;
       const isLastSenderMe = g.lastMessageSenderUid === currentUser.uid || (isAdmin && (g.lastMessageSenderUid === 'admin' || g.lastMessageSenderUid === currentUser.uid));
-      if (isLastSenderMe) return false; // Don't notify self for own group messages
+      if (isLastSenderMe) return false;
 
       const isReadByMe = g.readBy?.includes(currentUser.uid) || (isAdmin && g.readBy?.includes('admin'));
       if (isReadByMe) return false;
 
       if (isAdmin) {
-        // Admin gets notifications for ALL employee groups regardless of who created them!
         return true;
       }
 
-      if (isCoordinator) {
-        // Coordinator gets notifications for all groups they are member of or created
-        return g.members?.includes(currentUser.uid) || 
-               g.members?.includes(currentUser.email?.toLowerCase()) || 
-               g.createdByUid === currentUser.uid;
-      }
-
-      if (isLeader) {
-        // Leader gets notifications for their team's groups
-        return g.members?.includes(currentUser.uid) || 
-               g.createdByUid === currentUser.uid || 
-               myTeamMembers.some(m => g.members?.includes(m.uid));
-      }
-
-      // Agent: only groups the agent is in
-      return g.members?.includes(currentUser.uid) || g.members?.includes(currentUser.email?.toLowerCase());
+      // Strictly only groups the employee was explicitly added to or created
+      return g.members?.includes(currentUser.uid) || 
+             g.members?.includes(currentUser.email?.toLowerCase()) || 
+             g.createdByUid === currentUser.uid;
     });
 
     return [...filteredCustomerChats, ...filteredGroups].sort((a, b) => {
@@ -1790,6 +1779,34 @@ const Dashboard = () => {
   };
 
   // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers
+    // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
+  const availableSubMonths = useMemo(() => {
+    const monthSet = new Set();
+    // Default add current and previous few months
+    const now = new Date();
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthSet.add(d.toISOString().slice(0, 7));
+    }
+    allSubscribedClients.forEach(c => {
+      if (c.subscriptionDetails?.startDate) {
+        monthSet.add(c.subscriptionDetails.startDate.slice(0, 7));
+      }
+      if (c.subscriptionHistory && Array.isArray(c.subscriptionHistory)) {
+        c.subscriptionHistory.forEach(h => {
+          if (h.month) monthSet.add(h.month);
+          else if (h.startDate) monthSet.add(h.startDate.slice(0, 7));
+          else if (h.date) monthSet.add(h.date.slice(0, 7));
+        });
+      }
+      if (c.createdAt) {
+        const d = c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 7) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 7) : '';
+        if (d) monthSet.add(d);
+      }
+    });
+    return Array.from(monthSet).filter(Boolean).sort().reverse();
+  }, [allSubscribedClients]);
+
   const allSubscribedClients = Array.from(
     new Map(
       [...leadsCrm, ...employeeLeads, ...customers]
@@ -3173,16 +3190,55 @@ const Dashboard = () => {
     setSubReceiptProof(details.receiptProof || '');
     setSubReceiptFileUrl(details.receiptUrl || '');
     setSubNotes(details.notes || '');
+    setSubPaymentHistory(customer.subscriptionHistory || []);
     setIsSubscriptionModalOpen(true);
   };
 
   const handleReceiptFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setSubReceiptFileUrl(ev.target.result);
+        toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄');
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // High quality canvas compressor (max 1400px, 88% quality) for crystal clear clarity
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
-      setSubReceiptFileUrl(uploadEvent.target.result);
-      toast.success('تم رفع صورة إشعار التحويل بنجاح 📄');
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1400;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.88);
+        setSubReceiptFileUrl(compressedBase64);
+        toast.success('تم رفع ومعالجة صورة الإشعار بدقة عالية واضحة 📄');
+      };
+      img.onerror = () => {
+        setSubReceiptFileUrl(uploadEvent.target.result);
+        toast.success('تم رفع صورة الإشعار بنجاح 📄');
+      };
+      img.src = uploadEvent.target.result;
     };
     reader.readAsDataURL(file);
   };
@@ -3201,6 +3257,29 @@ const Dashboard = () => {
 
     setSubSaving(true);
     try {
+      const currentMonthKey = (subStartDate || new Date().toISOString().slice(0, 10)).slice(0, 7);
+      const newPaymentRecord = {
+        id: 'rec_' + Date.now(),
+        date: subStartDate || new Date().toISOString().slice(0, 10),
+        month: currentMonthKey,
+        startDate: subStartDate,
+        endDate: subEndDate,
+        serviceType: subServiceType || 'باقة سنوية',
+        serviceCategory: subServiceCategory || 'توصيات سعودي',
+        paymentType: subPaymentType,
+        paidAmount: subPaidAmount || '0',
+        remainingAmount: subPaymentType === 'partial' ? subRemainingAmount : '',
+        receiptProof: subReceiptProof.trim(),
+        receiptUrl: subReceiptFileUrl || '',
+        notes: subNotes.trim(),
+        savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
+        savedByUid: currentUser?.uid || 'admin',
+        savedAt: new Date().toISOString()
+      };
+
+      const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+      const updatedHistory = [newPaymentRecord, ...existingHistory.filter(h => h.id !== newPaymentRecord.id)];
+
       const subData = {
         startDate: subStartDate,
         endDate: subEndDate,
@@ -3222,11 +3301,11 @@ const Dashboard = () => {
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
       const promises = [
-        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'leads_crm', phoneDocId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'employee_leads', phoneDocId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'بيانات_تسجيل_العملاء', targetId), { subscriptionDetails: subData, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {})
+        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'leads_crm', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'employee_leads', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
+        updateDoc(doc(db, 'بيانات_تسجيل_العملاء', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {})
       ];
 
       await Promise.all(promises);
@@ -6206,6 +6285,95 @@ const Dashboard = () => {
               );
             })()}
 
+            {/* Financial & Sales Analytics Banner for Subscribed Tab */}
+            {(() => {
+              const scopeForBanner = (!isAdmin && !isCoordinator)
+                ? (isLeader
+                    ? (subscribedEmpFilter === 'all'
+                        ? leaderSubscribedClients
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                    : agentSubscribedClients)
+                : (subscribedEmpFilter === 'all'
+                    ? allSubscribedClients
+                    : (subscribedEmpFilter === 'admin'
+                        ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+
+              let bannerClients = scopeForBanner;
+              if (subMonthFilter !== 'all') {
+                bannerClients = bannerClients.filter(c => {
+                  const inCurrentSub = c.subscriptionDetails?.startDate?.startsWith(subMonthFilter);
+                  const inHistory = (c.subscriptionHistory || []).some(h => (h.month === subMonthFilter) || (h.startDate?.startsWith(subMonthFilter)) || (h.date?.startsWith(subMonthFilter)));
+                  return inCurrentSub || inHistory;
+                });
+              }
+
+              const totalMonthRevenue = bannerClients.reduce((acc, c) => {
+                if (subMonthFilter === 'all') {
+                  const paid = parseFloat((c.subscriptionDetails?.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                  return acc + paid;
+                }
+                let monthPaid = 0;
+                if (c.subscriptionHistory && c.subscriptionHistory.length > 0) {
+                  const matchHistory = c.subscriptionHistory.filter(h => (h.month === subMonthFilter) || (h.startDate?.startsWith(subMonthFilter)) || (h.date?.startsWith(subMonthFilter)));
+                  if (matchHistory.length > 0) {
+                    matchHistory.forEach(h => {
+                      monthPaid += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    });
+                  } else if (c.subscriptionDetails?.startDate?.startsWith(subMonthFilter)) {
+                    monthPaid += parseFloat((c.subscriptionDetails?.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                  }
+                } else if (c.subscriptionDetails?.startDate?.startsWith(subMonthFilter)) {
+                  monthPaid += parseFloat((c.subscriptionDetails?.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                }
+                return acc + monthPaid;
+              }, 0);
+
+              const totalRemainingDue = bannerClients.reduce((acc, c) => {
+                const rem = parseFloat((c.subscriptionDetails?.remainingAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                return acc + rem;
+              }, 0);
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white">
+                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-emerald-300 font-bold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
+                      <h4 className="text-xl font-black text-cyan-300 font-mono mt-0.5">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال / $</span></h4>
+                    </div>
+                    <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30">
+                      <CreditCard size={22} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-cyan-300 font-bold block">👥 عدد المشتركين والدفعات المسجلة</span>
+                      <h4 className="text-xl font-black text-white font-mono mt-0.5">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
+                    </div>
+                    <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-400/30">
+                      <Users size={22} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-amber-300 font-bold block">👑 الصلاحية ونطاق المبيعات</span>
+                      <h4 className="text-xs sm:text-sm font-black text-amber-200 mt-0.5">
+                        {isAdmin ? 'تحليل المنصة الشامل' : isCoordinator ? 'منسق عام الإدارة' : isLeader ? `فريق الليدر (${currentEmpUser?.name || 'الليدر'})` : `مبيعاتي الشخصية (${currentEmpUser?.name || 'الموظف'})`}
+                      </h4>
+                      {totalRemainingDue > 0 && (
+                        <span className="text-[10px] text-amber-300 block font-mono">متبقي آجل: {totalRemainingDue.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30">
+                      <Award size={22} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Table Content */}
             {(() => {
               let filtered = employeeLeads.filter(c => {
@@ -6799,6 +6967,39 @@ const Dashboard = () => {
                       </div>
                     )}
 
+                    {/* Month Filter for Sales & Subscriptions */}
+                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full px-3 py-1 text-xs font-black shadow-md border border-emerald-400/40">
+                      <span className="flex items-center gap-1 text-emerald-200 font-black text-[11px] shrink-0">
+                        🗓️ الشهر المالي:
+                      </span>
+                      <select
+                        value={subMonthFilter}
+                        onChange={(e) => setSubMonthFilter(e.target.value)}
+                        className="bg-transparent text-cyan-300 font-mono font-bold text-xs outline-none cursor-pointer border-none"
+                      >
+                        <option value="all" className="bg-slate-900 text-white">جميع الأشهر (الكل)</option>
+                        {availableSubMonths.map(m => {
+                          const [y, mo] = m.split('-');
+                          const monthNames = ['', 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+                          const name = monthNames[parseInt(mo, 10)] || mo;
+                          return (
+                            <option key={m} value={m} className="bg-slate-900 text-white">
+                              {name} {y} ({m})
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {subMonthFilter !== 'all' && (
+                        <button
+                          onClick={() => setSubMonthFilter('all')}
+                          className="text-emerald-300 hover:text-white text-xs px-1"
+                          title="إلغاء فلتر الشهر"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
                     {/* Modern Date Filter */}
                     <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full px-3 py-1 text-xs font-black shadow-md border border-emerald-400/40">
                       <span className="flex items-center gap-1 text-emerald-200 font-black text-[11px] shrink-0">
@@ -6872,9 +7073,17 @@ const Dashboard = () => {
                         ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
                         : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
 
+              if (subMonthFilter !== 'all') {
+                filtered = filtered.filter(c => {
+                  const inCurrentSub = c.subscriptionDetails?.startDate?.startsWith(subMonthFilter);
+                  const inHistory = (c.subscriptionHistory || []).some(h => (h.month === subMonthFilter) || (h.startDate?.startsWith(subMonthFilter)) || (h.date?.startsWith(subMonthFilter)));
+                  return inCurrentSub || inHistory;
+                });
+              }
+
               if (tableSearch.trim()) {
                 const q = tableSearch.trim().toLowerCase();
-                filtered = filtered.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.phoneNumber && c.phoneNumber.includes(q)) || (c.notes && c.notes.toLowerCase().includes(q)) || (c.subscriptionDetails?.serviceType && c.subscriptionDetails.serviceType.toLowerCase().includes(q)));
+                filtered = filtered.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.phoneNumber && c.phoneNumber.includes(q)) || (c.notes && c.notes.toLowerCase().includes(q)) || (c.subscriptionDetails?.serviceType && c.subscriptionDetails.serviceType.toLowerCase().includes(q)) || (c.subscriptionDetails?.serviceCategory && c.subscriptionDetails.serviceCategory.toLowerCase().includes(q)));
               }
 
               if (dateFromFilter) {
@@ -7043,6 +7252,13 @@ const Dashboard = () => {
                                 <td className="p-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     {/* Glassmorphic Subscription Details Button */}
+                                    {/* Multiple Receipts History Badge */}
+                                    {customer.subscriptionHistory?.length > 1 && (
+                                      <span className="bg-cyan-100 text-cyan-800 border border-cyan-300 font-mono font-bold px-2 py-1 rounded-xl text-[10px]" title="عدد الدفعات والإشعارات المسجلة للعميل">
+                                        🧾 {customer.subscriptionHistory.length} دفعات
+                                      </span>
+                                    )}
+
                                     <button 
                                       onClick={() => openSubscriptionModal(customer)}
                                       className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 ${
@@ -11137,6 +11353,72 @@ const Dashboard = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Previous Payments & Receipts History */}
+                {subPaymentHistory && subPaymentHistory.length > 0 && (
+                  <div className="bg-slate-950/90 p-3.5 rounded-2xl border border-cyan-500/30 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                        <span>🧾 سجل الدفعات والإشعارات السابقة</span>
+                        <span className="bg-cyan-500/20 text-cyan-200 px-2 py-0.5 rounded-full text-[10px] font-mono">({subPaymentHistory.length})</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubReceiptProof('');
+                          setSubReceiptFileUrl('');
+                          setSubPaidAmount('');
+                          setSubRemainingAmount('');
+                          setSubStartDate(new Date().toISOString().slice(0, 10));
+                          setSubEndDate('');
+                          setSubNotes('');
+                          toast.success('جاهز لإدخال دفعة وإشعار تحويل جديد لشهر آخر 📝');
+                        }}
+                        className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-2.5 py-1 rounded-xl text-[11px] font-bold transition flex items-center gap-1 border border-emerald-500/40 cursor-pointer"
+                      >
+                        <span>➕ دفعة جديدة لشهر آخر</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {subPaymentHistory.map((item, idx) => (
+                        <div key={item.id || idx} className="p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2.5">
+                            {item.receiptUrl && (
+                              <img 
+                                src={item.receiptUrl} 
+                                alt="Receipt" 
+                                className="w-10 h-10 object-cover rounded-lg border border-emerald-500/40 cursor-pointer hover:scale-105 transition bg-slate-800"
+                                onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} - شهر ${item.month || item.date || ''}` })}
+                                title="انقر لتكبير الإشعار"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            )}
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-extrabold text-white">{item.packageType || item.serviceType || 'اشتراك'}</span>
+                                <span className="text-[10px] bg-cyan-900/60 text-cyan-300 px-1.5 py-0.2 rounded font-mono font-bold">شهر: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                                <span>كود: {item.receiptProof || 'مسجل'}</span> • <span className="text-emerald-400 font-bold">المبلغ: {item.paidAmount || '0'}</span>
+                                {item.savedBy && <span className="text-gray-400"> (بواسطة: {item.savedBy})</span>}
+                              </div>
+                            </div>
+                          </div>
+                          {item.receiptUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} - شهر ${item.month || item.date || ''}` })}
+                              className="text-cyan-300 hover:text-cyan-100 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 cursor-pointer"
+                            >
+                              🔍 معاينة
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 5. Notes (Optional) */}
                 <div>
