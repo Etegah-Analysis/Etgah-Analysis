@@ -1588,18 +1588,18 @@ export default function Inbox() {
   let lastDateMsg = null;
 
   return (
-    <div className="flex fixed inset-0 w-full font-sans overflow-hidden bg-slate-900" dir="rtl" onClick={() => setShowOnlyUnreplied(false)}>
+    <div className="flex flex-col fixed inset-0 w-full font-sans overflow-hidden bg-slate-900" dir="rtl" onClick={() => setShowOnlyUnreplied(false)}>
       {/* Floating Impersonation Banner for WhatsApp */}
       {impersonatedEmp && (
-        <div className="fixed top-0 inset-x-0 z-[9999] bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-amber-300 animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <span className="text-xl animate-bounce">👁️</span>
-            <div className="text-xs sm:text-sm font-black">
-              <span>أنت تتصفح الواتساب حالياً كـ: </span>
-              <span className="bg-amber-950/60 px-2.5 py-0.5 rounded-lg border border-amber-300 text-amber-200 font-mono">
+        <div className="shrink-0 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-amber-300 z-50">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">👁️</span>
+            <div className="text-xs sm:text-sm font-black flex items-center gap-1.5 flex-wrap">
+              <span>أنت تتصفح الواتساب حالياً كـ:</span>
+              <span className="bg-amber-950/80 px-3 py-0.5 rounded-lg border border-amber-300 text-amber-200 font-bold">
                 {impersonatedEmp.name || impersonatedEmp.username}
               </span>
-              <span className="text-amber-200 text-xs mr-2 font-normal">
+              <span className="text-amber-200 text-xs font-semibold">
                 ({impersonatedEmp.jobTitle || impersonatedEmp.role || 'موظف'})
               </span>
             </div>
@@ -1610,12 +1610,13 @@ export default function Inbox() {
               setImpersonatedEmp(null);
               toast.success('تم إنهاء المعاينة والرجوع لواتساب الأدمن بنجاح 👑');
             }}
-            className="bg-white text-rose-700 hover:bg-rose-50 px-3.5 py-1 rounded-xl font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 border border-rose-300"
+            className="bg-white text-rose-700 hover:bg-rose-50 px-3.5 py-1.5 rounded-xl font-black text-xs transition shadow-md flex items-center gap-1 cursor-pointer active:scale-95 border border-rose-300"
           >
             <span>🔴 إنهاء المعاينة والرجوع لواتساب الأدمن</span>
           </button>
         </div>
       )}
+      <div className="flex flex-1 w-full overflow-hidden relative">
       {/* Anti-Screenshot & Window Blur Frosted Shield + Security Watermark on Blur / Screenshot */}
       {!isAdmin && currentUser && (() => {
         const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
@@ -2422,6 +2423,7 @@ export default function Inbox() {
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {/* Modal: إضافة عميل جديد */}

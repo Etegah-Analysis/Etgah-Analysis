@@ -1601,7 +1601,7 @@ const Dashboard = () => {
       setSelectedEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
       setCrmStatusFilter('unassigned');
     } else if (type === 'employee_leads') {
-      setEmpLeadsEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
+      setEmpLeadsEmpFilter('all');
       setEmpLeadsStatusFilter('unassigned');
     } else if (type === 'subscribed_clients') {
       setSubscribedEmpFilter('all');
