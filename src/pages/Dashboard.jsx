@@ -6724,80 +6724,57 @@ const Dashboard = () => {
                               👑 الإدارة ({allSubscribedClients.filter(c => isLeadWithAdmin(c)).length} مشترك)
                             </option>
                           )}
-                          {isLeader ? (
-                            <>
-                              {(() => {
-                                const leaderOwnCount = leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length;
-                                return (
-                                  <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
-                                    👑 خاص بي كـ ليدر ({leaderOwnCount} مشترك)
-                                  </option>
-                                );
-                              })()}
-                              <optgroup label="👥 أعضاء فريقي" className="bg-slate-900 text-emerald-300 font-bold">
-                                {myTeamMembers.map(emp => {
-                                  const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                          {isLeader && (
+                            <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
+                              👑 خاص بي كـ ليدر ({leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} مشترك)
+                            </option>
+                          )}
+                          {isLeader && myTeamMembers.map(emp => {
+                            const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            return (
+                              <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                👤 {emp.name || emp.username} ({count} مشترك)
+                              </option>
+                            );
+                          })}
+                          {!isLeader && employees.filter(e => e.jobTitle === 'Leader').map(leader => {
+                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                            const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.addedByUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
+                            const teamTotalCount = allSubscribedClients.filter(c => 
+                              c.assignedToUid === leader.uid || 
+                              c.addedByUid === leader.uid || 
+                              c.assignedTo?.toLowerCase() === leader.email?.toLowerCase() ||
+                              teamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
+                            ).length;
+
+                            return (
+                              <optgroup 
+                                key={leader.uid} 
+                                label={`👑 فريق الليدر: ${leader.name || leader.username || 'ليدر'} (إجمالي: ${teamTotalCount} مشترك)`}
+                                className="bg-slate-900 text-amber-300 font-bold"
+                              >
+                                <option value={leader.uid} className="bg-slate-900 text-white">
+                                  👑 الليدر: {leader.name || leader.username} (خاص به: {leaderOwnCount} مشترك)
+                                </option>
+                                {teamMembers.map(member => {
+                                  const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.addedByUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
                                   return (
-                                    <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                      👤 {emp.name} ({count} مشترك)
+                                    <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
+                                      👤 {member.name || member.username} ({memberCount} مشترك)
                                     </option>
                                   );
                                 })}
                               </optgroup>
-                            </>
-                          ) : (
-                            <>
-                              {/* Leaders and their teams grouped with breakdown */}
-                              {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
-                                const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
-                                const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.addedByUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
-                                const teamTotalCount = allSubscribedClients.filter(c => 
-                                  c.assignedToUid === leader.uid || 
-                                  c.addedByUid === leader.uid || 
-                                  c.assignedTo?.toLowerCase() === leader.email?.toLowerCase() ||
-                                  teamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
-                                ).length;
-
-                                return (
-                                  <optgroup 
-                                    key={leader.uid} 
-                                    label={`👑 فريق الليدر: ${leader.name} (إجمالي: ${teamTotalCount} مشترك)`}
-                                    className="bg-slate-900 text-amber-300 font-bold"
-                                  >
-                                    <option value={leader.uid} className="bg-slate-900 text-white">
-                                      👑 الليدر: ${leader.name} (خاص به: ${leaderOwnCount} مشترك)
-                                    </option>
-                                    {teamMembers.map(member => {
-                                      const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.addedByUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
-                                      return (
-                                        <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
-                                          　👤 ${member.name} (${memberCount} مشترك)
-                                        </option>
-                                      );
-                                    })}
-                                  </optgroup>
-                                );
-                              })}
-
-                              {/* Direct Employees */}
-                              {(() => {
-                                const directAgents = employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid);
-                                if (directAgents.length === 0) return null;
-                                return (
-                                  <optgroup label="🏢 موظفون مباشر للإدارة" className="bg-slate-900 text-cyan-300 font-bold">
-                                    {directAgents.map(emp => {
-                                      const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
-                                      return (
-                                        <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                          👤 ${emp.name || emp.username} (${count} مشترك)
-                                        </option>
-                                      );
-                                    })}
-                                  </optgroup>
-                                );
-                              })()}
-                            </>
-                          )}
+                            );
+                          })}
+                          {!isLeader && employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
+                            const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            return (
+                              <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                🏢 {emp.name || emp.username} (مباشر للإدارة - {count} مشترك)
+                              </option>
+                            );
+                          })}
                         </select>
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-300 text-[10px] font-bold">
                           ▼
