@@ -559,9 +559,20 @@ const Dashboard = () => {
     }
   };
 
-  const currentUser = auth.currentUser;
-  const isAdmin = currentUser && adminEmails.includes(currentUser.email?.toLowerCase());
-  const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+  const realCurrentUser = auth.currentUser;
+  const realIsAdmin = realCurrentUser && adminEmails.includes(realCurrentUser.email?.toLowerCase());
+
+  // Impersonation: When Admin enters an employee account, UI behaves 100% as that employee
+  const effectiveUser = (realIsAdmin && impersonatedEmp)
+    ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name }
+    : realCurrentUser;
+  const effectiveEmpUser = (realIsAdmin && impersonatedEmp)
+    ? impersonatedEmp
+    : employees.find(e => e.uid === realCurrentUser?.uid || e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase());
+
+  const currentUser = effectiveUser;
+  const isAdmin = realIsAdmin && !impersonatedEmp;
+  const currentEmpUser = effectiveEmpUser;
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
