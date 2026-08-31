@@ -368,6 +368,7 @@ const Dashboard = () => {
   const [subMonthFilter, setSubMonthFilter] = useState('all');
   const [subPaymentHistory, setSubPaymentHistory] = useState([]);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [lightboxZoom, setLightboxZoom] = useState(1);
   const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
@@ -3207,12 +3208,20 @@ const Dashboard = () => {
       return;
     }
 
-    // High quality canvas compressor (max 1400px, 88% quality) for crystal clear clarity
+    // Direct High-Resolution Lossless File Reader (Maintains 100% Crisp Sharpness for Bank Receipts)
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
+      const resultData = uploadEvent.target.result;
+      if (file.size <= 950000) {
+        setSubReceiptFileUrl(resultData);
+        toast.success('تم رفع صورة الإشعار بدقتها الأصلية فائقة الوضوح 📄');
+        return;
+      }
+
+      // For extra large images (> 1MB), scale with high-quality smoothing
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1400;
+        const maxDim = 2400; // Ultra HD boundary
         let width = img.width;
         let height = img.height;
         if (width > maxDim || height > maxDim) {
@@ -3228,16 +3237,18 @@ const Dashboard = () => {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.88);
-        setSubReceiptFileUrl(compressedBase64);
-        toast.success('تم رفع ومعالجة صورة الإشعار بدقة عالية واضحة 📄');
+        const ultraResJpeg = canvas.toDataURL('image/jpeg', 0.95);
+        setSubReceiptFileUrl(ultraResJpeg);
+        toast.success('تم معالجة ورفع صورة الإشعار بدقة فائقة وواضحة جداً 📄');
       };
       img.onerror = () => {
-        setSubReceiptFileUrl(uploadEvent.target.result);
+        setSubReceiptFileUrl(resultData);
         toast.success('تم رفع صورة الإشعار بنجاح 📄');
       };
-      img.src = uploadEvent.target.result;
+      img.src = resultData;
     };
     reader.readAsDataURL(file);
   };
@@ -12145,37 +12156,116 @@ const Dashboard = () => {
           );
         })()}
 
-              {/* Lightbox Modal for Receipt Image Preview */}
+        {/* Enhanced Crystal-Clear Lightbox Modal with Zoom & Download Controls */}
         {lightboxImage && typeof document !== 'undefined' && createPortal(
           <div 
-            className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-[999999999] p-4 overflow-y-auto"
-            onClick={() => setLightboxImage(null)}
+            className="fixed inset-0 bg-black/95 backdrop-blur-xl flex items-center justify-center z-[999999999] p-2 sm:p-4 overflow-y-auto"
+            onClick={() => {
+              setLightboxImage(null);
+              setLightboxZoom(1);
+            }}
             dir="rtl"
           >
-            <div className="relative max-w-4xl w-full bg-slate-900 rounded-3xl p-4 sm:p-6 border border-emerald-500/50 shadow-2xl flex flex-col items-center my-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="w-full flex justify-between items-center pb-3 mb-3 border-b border-white/10">
+            <div className="relative max-w-5xl w-full bg-slate-900 rounded-3xl p-4 sm:p-6 border border-emerald-500/50 shadow-[0_20px_70px_rgba(0,0,0,0.9)] flex flex-col items-center my-auto" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Header & Zoom Toolbar */}
+              <div className="w-full flex flex-wrap justify-between items-center pb-3 mb-3 border-b border-white/10 gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm sm:text-base font-black text-emerald-300">🧾 معاينة إشعار التحويل المرفق</span>
-                  {lightboxImage.title && <span className="text-xs text-slate-300 font-bold">({lightboxImage.title})</span>}
+                  <div className="p-2 bg-emerald-600/30 text-emerald-300 rounded-xl border border-emerald-500/40">
+                    <CreditCard size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-emerald-300">🧾 معاينة إشعار التحويل المرفق</h3>
+                    {lightboxImage.title && <span className="text-xs text-slate-300 font-bold block">{lightboxImage.title}</span>}
+                  </div>
                 </div>
-                <button 
-                  onClick={() => setLightboxImage(null)}
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
+
+                {/* Interactive Zoom & Action Controls */}
+                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-emerald-500/30">
+                  <button
+                    type="button"
+                    onClick={() => setLightboxZoom(prev => Math.min(prev + 0.3, 3))}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                    title="تكبير الصورة (+)"
+                  >
+                    🔍+ تكبير
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxZoom(prev => Math.max(prev - 0.3, 0.6))}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                    title="تصغير الصورة (-)"
+                  >
+                    🔍- تصغير
+                  </button>
+                  {lightboxZoom !== 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setLightboxZoom(1)}
+                      className="px-2 py-1.5 bg-slate-800 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded-xl text-[11px] font-mono font-bold transition cursor-pointer"
+                      title="إعادة ضبط الحجم الأصلي (100%)"
+                    >
+                      100%
+                    </button>
+                  )}
+                  <a
+                    href={lightboxImage.url || lightboxImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                    title="فتح في نافذة مستقلة بدقة فائقة"
+                  >
+                    ↗️ نافذة خارجية
+                  </a>
+                  <a
+                    href={lightboxImage.url || lightboxImage}
+                    download="اشعار_تحويل_عميل.jpg"
+                    className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                    title="تحميل الإشعار على جهازك"
+                  >
+                    ⬇️ تحميل
+                  </a>
+                  <button 
+                    onClick={() => {
+                      setLightboxImage(null);
+                      setLightboxZoom(1);
+                    }}
+                    className="bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white p-1.5 rounded-xl transition cursor-pointer"
+                    title="إغلاق"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
-              <div className="overflow-auto max-h-[75vh] rounded-2xl flex items-center justify-center bg-black/60 p-2 w-full border border-white/5">
-                <img 
-                  src={lightboxImage.url || lightboxImage} 
-                  alt="إشعار التحويل الكامل" 
-                  className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl" 
-                />
+
+              {/* High-Resolution Scrollable & Zoomable Image Box */}
+              <div className="overflow-auto max-h-[75vh] w-full rounded-2xl flex items-center justify-center bg-black/80 p-3 border border-emerald-500/20 shadow-inner relative min-h-[300px]">
+                {String(lightboxImage.url || lightboxImage).startsWith('data:application/pdf') || String(lightboxImage.url || lightboxImage).endsWith('.pdf') ? (
+                  <iframe 
+                    src={lightboxImage.url || lightboxImage} 
+                    title="PDF Receipt" 
+                    className="w-full h-[70vh] rounded-xl border border-emerald-500/40"
+                  />
+                ) : (
+                  <img 
+                    src={lightboxImage.url || lightboxImage} 
+                    alt="إشعار التحويل الكامل" 
+                    style={{ transform: `scale(${lightboxZoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out' }}
+                    className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl transition-all cursor-zoom-in" 
+                    onClick={() => setLightboxZoom(prev => prev === 1 ? 1.8 : 1)}
+                    title="انقر للتكبير المباشر أو استخدم شريط الأدوات بالأعلى"
+                  />
+                )}
               </div>
+
+              {/* Footer */}
               <div className="w-full flex justify-between items-center pt-3 mt-2 border-t border-white/10 text-xs text-gray-400">
-                <span>استخدم زر الإغلاق ✕ أو انقر خارج الصورة للرجوع</span>
+                <span className="text-[11px] text-emerald-300 font-bold">💡 انقر على الصورة للتكبير 180%، أو استخدم أزرار التكبير بالأعلى لتوضيح أدق تفاصيل الحوالة.</span>
                 <button 
-                  onClick={() => setLightboxImage(null)}
+                  onClick={() => {
+                    setLightboxImage(null);
+                    setLightboxZoom(1);
+                  }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition cursor-pointer"
                 >
                   إغلاق المعاينة ✕

@@ -217,7 +217,7 @@ export default function Inbox() {
           isAdmin || 
           data.members?.includes(currentUser.uid) || 
           data.members?.includes(currentUser.email?.toLowerCase()) ||
-          data.members?.includes('admin') ||
+          
           data.createdByUid === currentUser.uid;
 
         if (isMember) {
