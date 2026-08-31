@@ -447,14 +447,7 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('impersonatedEmp');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [impersonatedEmp, setImpersonatedEmp] = useState(null);
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -3970,7 +3963,7 @@ const Dashboard = () => {
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex items-center bg-slate-950/80 p-1 rounded-xl gap-1 border border-white/5 text-[11px] font-bold">
+                  <div className="flex items-center bg-slate-950/80 p-1 rounded-xl gap-1 border border-white/5 text-[11px] font-bold flex-wrap">
                     <button 
                       onClick={() => setNotifActiveTab('all')}
                       className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'all' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
@@ -3989,15 +3982,58 @@ const Dashboard = () => {
                     >
                       ✉️ بريد ({unreadEmails.length})
                     </button>
+                    {(isAdmin || isCoordinator) && expiringSubscriptions.length > 0 && (
+                      <button 
+                        onClick={() => setNotifActiveTab('expiring')}
+                        className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'expiring' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300 hover:text-white'}`}
+                      >
+                        ⏳ اشتراكات ({expiringSubscriptions.length})
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1.5 space-y-1">
+                  {/* Expiring Subscriptions for Admin & Coordinator */}
+                  {(isAdmin || isCoordinator) && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
+                    <div className="p-2.5 bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 rounded-xl border border-amber-500/40 mb-2 space-y-2">
+                      <div className="flex items-center justify-between text-amber-300 font-bold text-xs border-b border-amber-500/20 pb-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-sm">⏳</span>
+                          <span>تنبيهات اقتراب / انتهاء الاشتراكات</span>
+                        </span>
+                        <span className="bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
+                          {expiringSubscriptions.length} عملاء
+                        </span>
+                      </div>
+                      {expiringSubscriptions.map(subItem => (
+                        <div key={subItem.id} className="p-2.5 bg-slate-900/95 rounded-xl border border-amber-500/30 text-xs flex items-center justify-between gap-2 shadow-sm">
+                          <div className="min-w-0 flex-1">
+                            <span className="font-black text-white block truncate">{subItem.name || subItem.phoneNumber}</span>
+                            <span className="text-[11px] text-amber-300 font-mono block mt-0.5">
+                              📅 {subItem.isExpired ? 'انتهى في:' : 'ينتهي في:'} <span className="font-bold text-white">{subItem.subscriptionDetails?.endDate}</span> ({subItem.daysDiff < 0 ? `منتهي منذ ${Math.abs(subItem.daysDiff)} يوم` : `متبقي ${subItem.daysDiff} أيام`})
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setIsNotifDropdownOpen(false);
+                              openSubscriptionModal(subItem);
+                            }}
+                            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition shadow-md active:scale-95 cursor-pointer"
+                          >
+                            تجديد / معاينة ➔
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Empty state */}
                   {((notifActiveTab === 'all' && totalAllNotificationsCount === 0) ||
                     (notifActiveTab === 'whatsapp' && unreadWhatsAppChats.length === 0) ||
-                    (notifActiveTab === 'email' && unreadEmails.length === 0)) && (
+                    (notifActiveTab === 'email' && unreadEmails.length === 0) ||
+                    (notifActiveTab === 'expiring' && expiringSubscriptions.length === 0)) && (
                     <div className="p-8 text-center text-gray-400 text-xs">
                       <CheckCircle2 size={32} className="text-emerald-400 mx-auto mb-2 opacity-80" />
                       <p className="font-bold text-white mb-0.5">رائع! لا توجد إشعارات جديدة</p>
