@@ -20,10 +20,21 @@ class DashboardErrorBoundary extends React.Component {
     console.error('Dashboard crash:', error, info);
     this.setState({ errorInfo: info });
   }
-  handleHardReset = () => {
+  handleHardReset = async () => {
     try {
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          await reg.unregister();
+        }
+      }
       sessionStorage.clear();
       localStorage.removeItem('activeTab');
+      localStorage.removeItem('impersonatedEmp');
     } catch (_) {}
     window.location.reload(true);
   };
