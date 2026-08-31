@@ -23,14 +23,6 @@ export default function Inbox() {
   const [internalGroups, setInternalGroups] = useState([]);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
-  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('impersonatedEmp');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -148,13 +140,29 @@ export default function Inbox() {
     }
   };
 
-  const currentUser = auth.currentUser;
-  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
-  const isAdmin = adminEmails.includes(currentUser?.email?.toLowerCase());
-  const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState('hide'); // default to 'hide' for Admin on load and return from Dashboard
+  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('impersonatedEmp');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const currentEmpUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+  const realCurrentUser = auth.currentUser;
+  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
+  const realIsAdmin = realCurrentUser && adminEmails.includes(realCurrentUser.email?.toLowerCase());
+
+  // If Admin is impersonating an employee, evaluate identity & permissions strictly as that employee
+  const currentUser = (realIsAdmin && impersonatedEmp)
+    ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name }
+    : realCurrentUser;
+
+  const isAdmin = realIsAdmin && !impersonatedEmp;
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState('hide');
+
+  const currentEmpUser = impersonatedEmp || employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
