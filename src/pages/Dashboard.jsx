@@ -370,59 +370,7 @@ const Dashboard = () => {
   const [lightboxImage, setLightboxImage] = useState(null);
   const [lightboxZoom, setLightboxZoom] = useState(1);
 
-  // --- GLOBAL ESCAPE KEY HANDLER TO CLOSE ANY MODAL / POPUP INSTANTLY ---
-  useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      if (e.key === 'Escape' || e.key === 'Esc') {
-        if (lightboxImage) {
-          setLightboxImage(null);
-        } else if (isSubscriptionModalOpen) {
-          setIsSubscriptionModalOpen(false);
-        } else if (isComposeOpen) {
-          setIsComposeOpen(false);
-        } else if (isMailModalOpen) {
-          setIsMailModalOpen(false);
-        } else if (isNotesModalOpen) {
-          setIsNotesModalOpen(false);
-        } else if (isAddEmployeeOpen) {
-          setIsAddEmployeeOpen(false);
-        } else if (isEditEmployeeOpen) {
-          setIsEditEmployeeOpen(false);
-        } else if (isImportModalOpen) {
-          setIsImportModalOpen(false);
-        } else if (isAssignModalOpen) {
-          setIsAssignModalOpen(false);
-        } else if (isLeadsAnalysisModalOpen) {
-          setIsLeadsAnalysisModalOpen(false);
-        } else if (isCallsAnalysisModalOpen) {
-          setIsCallsAnalysisModalOpen(false);
-        } else if (isCrmCampaignModalOpen) {
-          setIsCrmCampaignModalOpen(false);
-        } else if (isSystemTotalClientsModalOpen) {
-          setIsSystemTotalClientsModalOpen(false);
-        } else if (isPendingClientsModalOpen) {
-          setIsPendingClientsModalOpen(false);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [
-    lightboxImage,
-    isSubscriptionModalOpen,
-    isComposeOpen,
-    isMailModalOpen,
-    isNotesModalOpen,
-    isAddEmployeeOpen,
-    isEditEmployeeOpen,
-    isImportModalOpen,
-    isAssignModalOpen,
-    isLeadsAnalysisModalOpen,
-    isCallsAnalysisModalOpen,
-    isCrmCampaignModalOpen,
-    isSystemTotalClientsModalOpen,
-    isPendingClientsModalOpen
-  ]);
+
 
   const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
@@ -461,6 +409,15 @@ const Dashboard = () => {
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
+  const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
+  const [crmCampaignBatchSize, setCrmCampaignBatchSize] = useState(5); // 1 to 10
+  const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('welcome_msg');
+  const [crmCampaignCustomText, setCrmCampaignCustomText] = useState('');
+  const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
+  const [crmCampaignSending, setCrmCampaignSending] = useState(false);
+  const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
+  const [crmCampaignCheckedLeadIds, setCrmCampaignCheckedLeadIds] = useState([]);
+  const [campaignSourceFilter, setCampaignSourceFilter] = useState('all'); // 'all', 'crm_sheet', 'excel_import', 'direct'
 
   // Call Performance Analytics States
   const [callLogs, setCallLogs] = useState([]);
@@ -660,6 +617,63 @@ const Dashboard = () => {
     });
     return () => unsub();
   }, []);
+
+  // --- GLOBAL ESCAPE KEY HANDLER TO CLOSE ANY MODAL / POPUP INSTANTLY ---
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        if (lightboxImage) {
+          setLightboxImage(null);
+        } else if (isSubscriptionModalOpen) {
+          setIsSubscriptionModalOpen(false);
+        } else if (isComposeOpen) {
+          setIsComposeOpen(false);
+        } else if (isMailModalOpen) {
+          setIsMailModalOpen(false);
+        } else if (isNotesModalOpen) {
+          setIsNotesModalOpen(false);
+        } else if (isAddEmployeeOpen) {
+          setIsAddEmployeeOpen(false);
+        } else if (isEditEmployeeOpen) {
+          setIsEditEmployeeOpen(false);
+        } else if (isImportModalOpen) {
+          setIsImportModalOpen(false);
+        } else if (isAssignModalOpen) {
+          setIsAssignModalOpen(false);
+        } else if (isLeadsAnalysisModalOpen) {
+          setIsLeadsAnalysisModalOpen(false);
+        } else if (isCallsAnalysisModalOpen) {
+          setIsCallsAnalysisModalOpen(false);
+        } else if (isCrmCampaignModalOpen) {
+          setIsCrmCampaignModalOpen(false);
+        } else if (isSystemTotalClientsModalOpen) {
+          setIsSystemTotalClientsModalOpen(false);
+        } else if (isPendingClientsModalOpen) {
+          setIsPendingClientsModalOpen(false);
+        } else if (impersonatedEmp) {
+          setImpersonatedEmp(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    lightboxImage,
+    isSubscriptionModalOpen,
+    isComposeOpen,
+    isMailModalOpen,
+    isNotesModalOpen,
+    isAddEmployeeOpen,
+    isEditEmployeeOpen,
+    isImportModalOpen,
+    isAssignModalOpen,
+    isLeadsAnalysisModalOpen,
+    isCallsAnalysisModalOpen,
+    isCrmCampaignModalOpen,
+    isSystemTotalClientsModalOpen,
+    isPendingClientsModalOpen,
+    impersonatedEmp
+  ]);
 
   const handleToggleGlobalLock = async () => {
     if (!isAdmin) return;
@@ -3471,16 +3485,6 @@ const Dashboard = () => {
       text: ''
     }
   ];
-
-  const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
-  const [crmCampaignBatchSize, setCrmCampaignBatchSize] = useState(5); // 1 to 10
-  const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('welcome_msg');
-  const [crmCampaignCustomText, setCrmCampaignCustomText] = useState('');
-  const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
-  const [crmCampaignSending, setCrmCampaignSending] = useState(false);
-  const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
-  const [crmCampaignCheckedLeadIds, setCrmCampaignCheckedLeadIds] = useState([]);
-  const [campaignSourceFilter, setCampaignSourceFilter] = useState('all'); // 'all', 'crm_sheet', 'excel_import', 'direct'
 
   // 48 hours cooldown helper (2 days / يومين)
   const isLeadInCampaignCooldown = (lead) => {
