@@ -1411,22 +1411,21 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Auto-sync manual WhatsApp customers into employee_leads and keep customers for Website WhatsApp
+  // Auto-sync employee WhatsApp customer chats into employee_leads (keeping them in customers for WhatsApp Inbox)
   useEffect(() => {
     if (!customers || customers.length === 0) return;
     const manualList = customers.filter(c => 
-      c.addedBy && 
       c.addedBy !== 'WhatsApp Webhook' && 
       c.addedBy !== 'website_otp' && 
       c.addedBy !== 'website' && 
-      c.addedBy !== 'Website' && 
-      c.addedBy !== 'موقع الويب' && 
       c.source !== 'website' && 
-      c.source !== 'website_otp'
+      c.source !== 'website_otp' &&
+      c.source !== 'webhook' &&
+      c.status !== 'website_visitor'
     );
     if (manualList.length === 0) return;
 
-    const syncAndClean = async () => {
+    const syncAndEnsureEmployeeLeads = async () => {
       for (const c of manualList) {
         try {
           const cleanPhone = (c.phoneNumber || '').replace(/[^0-9+]/g, '');
@@ -1435,20 +1434,27 @@ const Dashboard = () => {
           const empDocRef = doc(db, 'employee_leads', empCleanId);
           const empDocSnap = await getDoc(empDocRef);
 
-          if (!empDocSnap.exists()) {
-            const empUser = employees.find(e => e.uid === c.addedByUid || e.email?.toLowerCase() === c.addedBy?.toLowerCase() || (e.name && c.addedBy === e.name));
-            const empName = c.addedBy || empUser?.name || 'موظف';
-            const assigneeUser = employees.find(e => e.uid === c.assignedToUid || e.email?.toLowerCase() === c.assignedTo?.toLowerCase());
+          const empUser = employees.find(e => 
+            (c.addedByUid && e.uid === c.addedByUid) || 
+            (c.assignedToUid && e.uid === c.assignedToUid) || 
+            (c.assignedTo && e.email?.toLowerCase() === c.assignedTo?.toLowerCase()) || 
+            (c.addedBy && e.email?.toLowerCase() === c.addedBy?.toLowerCase()) || 
+            (c.addedBy && e.name === c.addedBy)
+          );
+          const empName = empUser?.name || c.addedBy || 'موظف';
+          const empUid = empUser?.uid || c.addedByUid || c.assignedToUid || '';
+          const empEmail = empUser?.email || c.assignedTo || c.addedBy || 'الإدارة';
 
+          if (!empDocSnap.exists()) {
             await setDoc(empDocRef, {
               phoneNumber: cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`,
-              name: c.name || 'عميل جديد (يدوي)',
-              source: c.source || 'إضافة يدوية (WhatsApp)',
+              name: c.name || 'عميل واتساب',
+              source: 'إضافة عبر الواتساب (WhatsApp)',
               addedBy: empName,
-              addedByUid: c.addedByUid || empUser?.uid || '',
-              assignedTo: c.assignedTo || assigneeUser?.email || empUser?.email || 'الإدارة',
-              assignedToUid: c.assignedToUid || assigneeUser?.uid || empUser?.uid || 'admin',
-              status: c.status || 'assigned',
+              addedByUid: empUid,
+              assignedTo: empEmail,
+              assignedToUid: empUid || 'admin',
+              status: 'assigned',
               crmStatus: (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned',
               notes: c.notes || '',
               notesHistory: c.notesHistory || [],
@@ -1458,15 +1464,21 @@ const Dashboard = () => {
             }, { merge: true });
           }
 
-          // Delete from customers collection so customers collection contains purely Website WhatsApp leads
-          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id));
+          // Ensure customers doc has correct source and addedBy metadata without deleting
+          if (c.source !== 'whatsapp_manual' || !c.addedBy || c.addedBy === 'undefined') {
+            await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+              source: 'whatsapp_manual',
+              addedBy: empName,
+              addedByUid: empUid
+            }).catch(() => {});
+          }
         } catch (err) {
-          console.error("Auto sync/cleanup error:", err);
+          console.error("Auto sync employee leads error:", err);
         }
       }
     };
 
-    syncAndClean();
+    syncAndEnsureEmployeeLeads();
   }, [customers, employees]);
 
   const scrollToTable = () => {
@@ -1749,7 +1761,7 @@ const Dashboard = () => {
   const unassignedEmployeeLeadsCount = employeeLeads.filter(c => ((c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned') === 'unassigned').length;
   const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
   const unassignedCount = unassignedWhatsappCount;
-  const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'WhatsApp Webhook').length;
+  const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').length;
 
   // --- SUBSCRIBED CLIENTS DATA POOL (العملاء المشتركين) ---
   const getIsSubscribed = (c) => {
@@ -4120,7 +4132,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || c.source === 'webhook' || !c.addedBy).length.toLocaleString()}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
                 <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (رسائل وتسجيلات الموقع)
                 </span>
@@ -4353,7 +4365,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || c.source === 'webhook' || !c.addedBy).length.toLocaleString()}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
                 <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                   (رسائل وتسجيلات الموقع)
                 </span>
@@ -6361,16 +6373,26 @@ const Dashboard = () => {
                                   {(() => {
                                     const isAdderAdmin = !customer.addedBy || isAdminIdentifier(customer.addedBy);
                                     const adderName = isAdderAdmin ? 'الإدارة' : sanitizeDisplayName(customer.addedBy);
+                                    const isWhatsapp = customer.source?.includes('WhatsApp') || customer.source?.includes('واتساب');
                                     return (
-                                      <div className="flex flex-wrap items-center gap-1 mt-1">
-                                        {!isAdderAdmin && customer.source && (
-                                          <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
-                                            📦 {customer.source}
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        {isWhatsapp ? (
+                                          <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md font-extrabold border border-emerald-300 shadow-2xs flex items-center gap-1">
+                                            <span>💬</span>
+                                            <span>واتساب بواسطة: {adderName}</span>
                                           </span>
+                                        ) : (
+                                          <>
+                                            {!isAdderAdmin && customer.source && (
+                                              <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
+                                                📦 {customer.source}
+                                              </span>
+                                            )}
+                                            <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
+                                              👤 مضاف بواسطة: {adderName}
+                                            </span>
+                                          </>
                                         )}
-                                        <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
-                                          👤 مضاف بواسطة: {adderName}
-                                        </span>
                                         {customer.notesHistory && customer.notesHistory.length > 0 && (
                                           <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
                                         )}
@@ -7870,7 +7892,7 @@ const Dashboard = () => {
                           onChange={() => {
                             const combinedIds = [
                               ...visitors.map(v => v.id),
-                              ...customers.filter(c => c.addedBy === 'WhatsApp Webhook' || c.addedBy === 'website_otp' || c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website' || !c.addedBy).map(c => c.id)
+                              ...customers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').map(c => c.id)
                             ];
                             if (selectedVisitors.length > 0) setSelectedVisitors([]);
                             else setSelectedVisitors(combinedIds);
@@ -7920,20 +7942,17 @@ const Dashboard = () => {
                         _raw: v 
                       })),
                       ...customers.filter(c => 
-                        c.addedBy === 'WhatsApp Webhook' || 
                         c.addedBy === 'website_otp' || 
-                        c.addedBy === 'website' || 
-                        c.source === 'website' || 
                         c.source === 'website_otp' || 
-                        !c.addedBy
+                        c.status === 'website_visitor'
                       ).map(c => ({ 
                         id: c.id, 
-                        name: c.name || c.phoneNumber || 'عميل موقع', 
+                        name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
                         phone: c.phoneNumber || c.phone, 
                         email: c.email,
-                        source: (c.addedBy === 'website_otp' || c.source === 'website_otp' || c.source === 'website' || c.addedBy === 'website') ? 'موقع الويب (OTP)' : 'واتساب مباشر', 
+                        source: 'موقع الويب (OTP)', 
                         createdAt: c.createdAt, 
-                        status: c.status || 'unassigned', 
+                        status: c.status || 'website_visitor', 
                         crmStatus: c.crmStatus || 'unassigned',
                         assignedTo: c.assignedTo || 'الإدارة',
                         assignedToUid: c.assignedToUid || 'admin',
