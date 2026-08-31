@@ -1779,34 +1779,6 @@ const Dashboard = () => {
   };
 
   // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers
-    // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
-  const availableSubMonths = useMemo(() => {
-    const monthSet = new Set();
-    // Default add current and previous few months
-    const now = new Date();
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      monthSet.add(d.toISOString().slice(0, 7));
-    }
-    allSubscribedClients.forEach(c => {
-      if (c.subscriptionDetails?.startDate) {
-        monthSet.add(c.subscriptionDetails.startDate.slice(0, 7));
-      }
-      if (c.subscriptionHistory && Array.isArray(c.subscriptionHistory)) {
-        c.subscriptionHistory.forEach(h => {
-          if (h.month) monthSet.add(h.month);
-          else if (h.startDate) monthSet.add(h.startDate.slice(0, 7));
-          else if (h.date) monthSet.add(h.date.slice(0, 7));
-        });
-      }
-      if (c.createdAt) {
-        const d = c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 7) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 7) : '';
-        if (d) monthSet.add(d);
-      }
-    });
-    return Array.from(monthSet).filter(Boolean).sort().reverse();
-  }, [allSubscribedClients]);
-
   const allSubscribedClients = Array.from(
     new Map(
       [...leadsCrm, ...employeeLeads, ...customers]
@@ -1839,6 +1811,33 @@ const Dashboard = () => {
         .map(c => [c.phoneNumber || c.id, c])
     ).values()
   );
+
+  // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
+  const availableSubMonths = useMemo(() => {
+    const monthSet = new Set();
+    const now = new Date();
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthSet.add(d.toISOString().slice(0, 7));
+    }
+    (allSubscribedClients || []).forEach(c => {
+      if (c.subscriptionDetails?.startDate) {
+        monthSet.add(c.subscriptionDetails.startDate.slice(0, 7));
+      }
+      if (c.subscriptionHistory && Array.isArray(c.subscriptionHistory)) {
+        c.subscriptionHistory.forEach(h => {
+          if (h.month) monthSet.add(h.month);
+          else if (h.startDate) monthSet.add(h.startDate.slice(0, 7));
+          else if (h.date) monthSet.add(h.date.slice(0, 7));
+        });
+      }
+      if (c.createdAt) {
+        const d = c.createdAt?.toDate ? c.createdAt.toDate().toISOString().slice(0, 7) : typeof c.createdAt === 'string' ? c.createdAt.slice(0, 7) : '';
+        if (d) monthSet.add(d);
+      }
+    });
+    return Array.from(monthSet).filter(Boolean).sort().reverse();
+  }, [allSubscribedClients]);
 
   // --- LEAD IMPORT & EXCEL / GSHEETS / TEXT PARSER HANDLERS ---
   const handleFileUpload = (e) => {
