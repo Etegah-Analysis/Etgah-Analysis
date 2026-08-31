@@ -11,30 +11,47 @@ import * as XLSX from 'xlsx';
 class DashboardErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
   componentDidCatch(error, info) {
     console.error('Dashboard crash:', error, info);
+    this.setState({ errorInfo: info });
   }
+  handleHardReset = () => {
+    try {
+      sessionStorage.clear();
+      localStorage.removeItem('activeTab');
+    } catch (_) {}
+    window.location.reload(true);
+  };
   render() {
     if (this.state.hasError) {
+      const errMsg = this.state.error?.stack || this.state.error?.message || this.state.error?.toString() || 'Unknown React Error';
       return (
-        <div style={{ padding: 40, textAlign: 'center', background: '#1e1b4b', minHeight: '100vh', color: 'white', direction: 'rtl' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-          <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 12 }}>حدث خطأ في تحميل لوحة التحكم</h2>
-          <p style={{ color: '#a5b4fc', marginBottom: 8, fontSize: 14 }}>تفاصيل الخطأ:</p>
-          <pre style={{ background: '#312e81', padding: 16, borderRadius: 8, fontSize: 12, textAlign: 'left', overflowX: 'auto', maxWidth: 700, margin: '0 auto 24px', color: '#fca5a5' }}>
-            {this.state.error?.toString()}
+        <div style={{ padding: 32, textAlign: 'center', background: '#090d16', minHeight: '100vh', color: 'white', direction: 'rtl', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Cairo, sans-serif' }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>⚠️</div>
+          <h2 style={{ fontSize: 22, fontWeight: '900', marginBottom: 8, color: '#38bdf8' }}>حدث خطأ في عرض لوحة التحكم</h2>
+          <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 13 }}>يرجى النقر على زر التحديث أدناه بعد اكتمال رفع التحديثات:</p>
+          <pre style={{ background: '#1e293b', padding: 16, borderRadius: 14, fontSize: 11, textAlign: 'left', overflowX: 'auto', maxWidth: 750, width: '100%', margin: '0 auto 20px', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.3)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+            {errMsg}
           </pre>
-          <button
-            onClick={() => window.location.reload()}
-            style={{ background: '#7c3aed', color: 'white', border: 'none', padding: '12px 32px', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 16 }}
-          >
-            🔄 إعادة تحميل الصفحة
-          </button>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={this.handleHardReset}
+              style={{ background: '#059669', color: 'white', border: 'none', padding: '12px 30px', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 14, boxShadow: '0 4px 14px rgba(5,150,105,0.4)' }}
+            >
+              🔄 تحديث فوري وإعادة تحميل
+            </button>
+            <button
+              onClick={() => { window.location.href = '/login'; }}
+              style={{ background: '#334155', color: 'white', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}
+            >
+              🚪 تسجيل الدخول مجدداً
+            </button>
+          </div>
         </div>
       );
     }
