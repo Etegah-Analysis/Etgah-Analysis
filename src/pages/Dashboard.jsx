@@ -346,7 +346,9 @@ const Dashboard = () => {
   const [selectedSubCustomer, setSelectedSubCustomer] = useState(null);
   const [subStartDate, setSubStartDate] = useState('');
   const [subEndDate, setSubEndDate] = useState('');
-  const [subServiceType, setSubServiceType] = useState('الباقة السنوية');
+  const [subServiceType, setSubServiceType] = useState('باقة سنوية');
+  const [subServiceCategory, setSubServiceCategory] = useState('توصيات سعودي');
+  const [lightboxImage, setLightboxImage] = useState(null);
   const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
@@ -3146,7 +3148,8 @@ const Dashboard = () => {
     const details = customer.subscriptionDetails || {};
     setSubStartDate(details.startDate || new Date().toISOString().slice(0, 10));
     setSubEndDate(details.endDate || '');
-    setSubServiceType(details.serviceType || 'الباقة السنوية');
+    setSubServiceType(details.serviceType || 'باقة سنوية');
+    setSubServiceCategory(details.serviceCategory || 'توصيات سعودي');
     setSubPaymentType(details.paymentType || 'full');
     setSubPaidAmount(details.paidAmount || '');
     setSubRemainingAmount(details.remainingAmount || '');
@@ -3184,7 +3187,8 @@ const Dashboard = () => {
       const subData = {
         startDate: subStartDate,
         endDate: subEndDate,
-        serviceType: subServiceType || 'الباقة السنوية',
+        serviceType: subServiceType || 'باقة سنوية',
+        serviceCategory: subServiceCategory || 'توصيات سعودي',
         paymentType: subPaymentType,
         paidAmount: subPaidAmount,
         remainingAmount: subPaymentType === 'partial' ? subRemainingAmount : '',
@@ -6715,27 +6719,84 @@ const Dashboard = () => {
                           className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-md border border-emerald-400/40 cursor-pointer appearance-none"
                         >
                           <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({scopeSubscribed.length})</option>
+                          {(isAdmin || isCoordinator) && (
+                            <option value="admin" className="bg-slate-900 text-white">
+                              👑 الإدارة ({allSubscribedClients.filter(c => isLeadWithAdmin(c)).length} مشترك)
+                            </option>
+                          )}
                           {isLeader ? (
                             <>
-                              <option value={currentUser?.uid} className="bg-slate-900 text-white">👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                              {myTeamMembers.map(emp => {
-                                const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                              {(() => {
+                                const leaderOwnCount = leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length;
                                 return (
-                                  <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                    👤 {emp.name} ({count} مشترك)
+                                  <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
+                                    👑 خاص بي كـ ليدر ({leaderOwnCount} مشترك)
                                   </option>
                                 );
-                              })}
+                              })()}
+                              <optgroup label="👥 أعضاء فريقي" className="bg-slate-900 text-emerald-300 font-bold">
+                                {myTeamMembers.map(emp => {
+                                  const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                                  return (
+                                    <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                      👤 {emp.name} ({count} مشترك)
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
                             </>
                           ) : (
-                            employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(emp => {
-                              const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
-                              return (
-                                <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                  👤 {emp.name || emp.username} ({count} مشترك)
-                                </option>
-                              );
-                            })
+                            <>
+                              {/* Leaders and their teams grouped with breakdown */}
+                              {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
+                                const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                                const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.addedByUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
+                                const teamTotalCount = allSubscribedClients.filter(c => 
+                                  c.assignedToUid === leader.uid || 
+                                  c.addedByUid === leader.uid || 
+                                  c.assignedTo?.toLowerCase() === leader.email?.toLowerCase() ||
+                                  teamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
+                                ).length;
+
+                                return (
+                                  <optgroup 
+                                    key={leader.uid} 
+                                    label={`👑 فريق الليدر: ${leader.name} (إجمالي: ${teamTotalCount} مشترك)`}
+                                    className="bg-slate-900 text-amber-300 font-bold"
+                                  >
+                                    <option value={leader.uid} className="bg-slate-900 text-white">
+                                      👑 الليدر: ${leader.name} (خاص به: ${leaderOwnCount} مشترك)
+                                    </option>
+                                    {teamMembers.map(member => {
+                                      const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.addedByUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
+                                      return (
+                                        <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
+                                          　👤 ${member.name} (${memberCount} مشترك)
+                                        </option>
+                                      );
+                                    })}
+                                  </optgroup>
+                                );
+                              })}
+
+                              {/* Direct Employees */}
+                              {(() => {
+                                const directAgents = employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid);
+                                if (directAgents.length === 0) return null;
+                                return (
+                                  <optgroup label="🏢 موظفون مباشر للإدارة" className="bg-slate-900 text-cyan-300 font-bold">
+                                    {directAgents.map(emp => {
+                                      const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                                      return (
+                                        <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                          👤 ${emp.name || emp.username} (${count} مشترك)
+                                        </option>
+                                      );
+                                    })}
+                                  </optgroup>
+                                );
+                              })()}
+                            </>
                           )}
                         </select>
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-300 text-[10px] font-bold">
@@ -6923,16 +6984,24 @@ const Dashboard = () => {
                                       {isLeader ? (
                                         <>
                                           <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                                          {myTeamMembers.map(empItem => (
-                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                                          ))}
+                                          {myTeamMembers.map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                                         </>
                                       ) : (
                                         <>
                                           <option value="admin">👑 الإدارة</option>
-                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                                          ))}
+                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                                         </>
                                       )}
                                     </select>
@@ -7854,16 +7923,24 @@ const Dashboard = () => {
                       {isLeader ? (
                         <>
                           <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                          {myTeamMembers.map(empItem => (
-                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                          ))}
+                          {myTeamMembers.map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                         </>
                       ) : (
                         <>
                           <option value="admin">👑 الإدارة</option>
-                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                          ))}
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                         </>
                       )}
                     </select>
@@ -8139,16 +8216,24 @@ const Dashboard = () => {
                                   {isLeader ? (
                                     <>
                                       <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                                      {myTeamMembers.map(empItem => (
-                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                                      ))}
+                                      {myTeamMembers.map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                                     </>
                                   ) : (
                                     <>
                                       <option value="admin">👑 الإدارة (غير مخصص)</option>
-                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name}</option>
-                                      ))}
+                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
+    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
+    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
+    return (
+      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
+    );
+  })}
                                     </>
                                   )}
                                 </select>
@@ -10925,29 +11010,42 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* 2. Service Type & Payment Type */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 2. Package Type, Service Category & Payment Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">نوع الخدمة / الباقة</label>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">📦 نوع الباقة</label>
                     <select
                       value={subServiceType}
                       onChange={(e) => setSubServiceType(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
                     >
-                      <option value="الباقة الشهرية">الباقة الشهرية (1 شهر)</option>
-                      <option value="الباقة ربع السنوية (3 شهور)">الباقة ربع السنوية (3 شهور)</option>
-                      <option value="الباقة النصف سنوية (6 شهور)">الباقة النصف سنوية (6 شهور)</option>
-                      <option value="الباقة السنوية">الباقة السنوية (12 شهر)</option>
-                      <option value="باقة VIP">باقة VIP خاصة</option>
-                      <option value="توصيات الأسهم والعملات">توصيات الأسهم والعملات</option>
-                      <option value="كورس تدريبي خاص">كورس تدريبي خاص</option>
-                      <option value="استشارة خاصة">استشارة خاصة</option>
-                      <option value="أخرى">أخرى</option>
+                      <option value="باقة سنوية">باقة سنوية</option>
+                      <option value="باقة نصف سنوية">باقة نصف سنوية</option>
+                      <option value="باقة ربع سنوية">باقة ربع سنوية</option>
+                      <option value="نسبة">نسبة</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">نوع الدفع</label>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">🎯 تصنيف / نوع الخدمة</label>
+                    <select
+                      value={subServiceCategory}
+                      onChange={(e) => setSubServiceCategory(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
+                    >
+                      <option value="توصيات سعودي">توصيات سعودي</option>
+                      <option value="توصيات أمريكي">توصيات أمريكي</option>
+                      <option value="إدارة محافظ سعودي">إدارة محافظ سعودي</option>
+                      <option value="إدارة محافظ أمريكي">إدارة محافظ أمريكي</option>
+                      <option value="نسبة سعودي">نسبة سعودي</option>
+                      <option value="نسبة أمريكي">نسبة أمريكي</option>
+                      <option value="منصة ذكاء سعودي">منصة ذكاء سعودي</option>
+                      <option value="أبلكيشن">أبلكيشن</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5">💳 نوع الدفع</label>
                     <select
                       value={subPaymentType}
                       onChange={(e) => setSubPaymentType(e.target.value)}
@@ -11020,16 +11118,27 @@ const Dashboard = () => {
                       className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
                     />
                     {subReceiptFileUrl && (
-                      <div className="mt-2.5 p-2 bg-slate-900 rounded-xl border border-emerald-500/30 flex items-center justify-between">
-                        <span className="text-xs text-emerald-300 font-bold truncate">معاينة صورة الإشعار المرفق</span>
-                        <a 
-                          href={subReceiptFileUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-cyan-300 text-xs font-bold underline hover:text-cyan-200"
+                      <div className="mt-2.5 p-3 bg-slate-900 rounded-2xl border border-emerald-500/40 flex items-center justify-between gap-3 shadow-inner">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={subReceiptFileUrl} 
+                            alt="Receipt Thumbnail" 
+                            className="w-14 h-14 object-cover rounded-xl border border-emerald-400/50 cursor-pointer hover:scale-105 transition shadow-md"
+                            onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
+                            title="انقر لتكبير الإشعار"
+                          />
+                          <div>
+                            <span className="text-xs text-emerald-300 font-extrabold block">✓ تم إرفاق صورة الإشعار</span>
+                            <span className="text-[10px] text-gray-400 block mt-0.5">انقر على الصورة لمعاينتها بالحجم الكامل</span>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
+                          className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-emerald-500/40 cursor-pointer active:scale-95"
                         >
-                          عرض بالحجم الكامل ↗
-                        </a>
+                          <span>🔍 تكبير الإشعار</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -11761,6 +11870,46 @@ const Dashboard = () => {
           );
         })()}
 
+              {/* Lightbox Modal for Receipt Image Preview */}
+        {lightboxImage && typeof document !== 'undefined' && createPortal(
+          <div 
+            className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-[999999999] p-4 overflow-y-auto"
+            onClick={() => setLightboxImage(null)}
+            dir="rtl"
+          >
+            <div className="relative max-w-4xl w-full bg-slate-900 rounded-3xl p-4 sm:p-6 border border-emerald-500/50 shadow-2xl flex flex-col items-center my-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full flex justify-between items-center pb-3 mb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-black text-emerald-300">🧾 معاينة إشعار التحويل المرفق</span>
+                  {lightboxImage.title && <span className="text-xs text-slate-300 font-bold">({lightboxImage.title})</span>}
+                </div>
+                <button 
+                  onClick={() => setLightboxImage(null)}
+                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="overflow-auto max-h-[75vh] rounded-2xl flex items-center justify-center bg-black/60 p-2 w-full border border-white/5">
+                <img 
+                  src={lightboxImage.url || lightboxImage} 
+                  alt="إشعار التحويل الكامل" 
+                  className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl" 
+                />
+              </div>
+              <div className="w-full flex justify-between items-center pt-3 mt-2 border-t border-white/10 text-xs text-gray-400">
+                <span>استخدم زر الإغلاق ✕ أو انقر خارج الصورة للرجوع</span>
+                <button 
+                  onClick={() => setLightboxImage(null)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  إغلاق المعاينة ✕
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </main>
     </div>
   );
