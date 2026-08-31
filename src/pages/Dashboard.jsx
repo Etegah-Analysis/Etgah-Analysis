@@ -3267,11 +3267,19 @@ const Dashboard = () => {
 
     setSubSaving(true);
     try {
-      const currentMonthKey = (subStartDate || new Date().toISOString().slice(0, 10)).slice(0, 7);
+      const now = new Date();
+      const uploadIso = now.toISOString();
+      const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
+      const currentMonthKey = (subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
+
       const newPaymentRecord = {
         id: 'rec_' + Date.now(),
-        date: subStartDate || new Date().toISOString().slice(0, 10),
+        date: subStartDate || uploadIso.slice(0, 10),
         month: currentMonthKey,
+        uploadedAt: uploadIso,
+        uploadedDateTime: uploadedDateTimeLabel,
         startDate: subStartDate,
         endDate: subEndDate,
         serviceType: subServiceType || 'باقة سنوية',
@@ -3284,7 +3292,7 @@ const Dashboard = () => {
         notes: subNotes.trim(),
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
         savedByUid: currentUser?.uid || 'admin',
-        savedAt: new Date().toISOString()
+        savedAt: uploadIso
       };
 
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
@@ -3303,7 +3311,7 @@ const Dashboard = () => {
         notes: subNotes.trim(),
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
         savedByUid: currentUser?.uid || 'admin',
-        savedAt: new Date().toISOString()
+        savedAt: uploadIso
       };
 
       const targetId = selectedSubCustomer.id;
@@ -7251,13 +7259,56 @@ const Dashboard = () => {
                                   )}
                                 </td>
                                 <td className="p-3.5 text-center">
-                                  {sub.paymentType ? (
-                                    <span className="bg-purple-50 text-purple-900 border border-purple-200 px-2 py-0.5 rounded font-bold text-[11px]">
-                                      {sub.paymentType === 'full' ? `كامل (${sub.paidAmount || '0'})` : sub.paymentType === 'percentage' ? `نسبة (${sub.paidAmount || '0'})` : `جزء (${sub.paidAmount || '0'} / باقي: ${sub.remainingAmount || '0'})`}
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs font-medium">غير محدد</span>
-                                  )}
+                                  {(() => {
+                                    let monthPaidTotal = 0;
+                                    let monthReceiptsCount = 0;
+                                    const history = customer.subscriptionHistory || [];
+                                    if (subMonthFilter !== 'all') {
+                                      const matchHistory = history.filter(h => 
+                                        (h.month === subMonthFilter) || 
+                                        (h.uploadedAt?.startsWith(subMonthFilter)) || 
+                                        (h.savedAt?.startsWith(subMonthFilter)) || 
+                                        (h.startDate?.startsWith(subMonthFilter)) || 
+                                        (h.date?.startsWith(subMonthFilter))
+                                      );
+                                      if (matchHistory.length > 0) {
+                                        monthReceiptsCount = matchHistory.length;
+                                        matchHistory.forEach(h => {
+                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        });
+                                      } else if (sub.startDate?.startsWith(subMonthFilter) || sub.savedAt?.startsWith(subMonthFilter)) {
+                                        monthReceiptsCount = 1;
+                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                      }
+                                    } else {
+                                      if (history.length > 0) {
+                                        monthReceiptsCount = history.length;
+                                        history.forEach(h => {
+                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        });
+                                      } else {
+                                        monthReceiptsCount = 1;
+                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                      }
+                                    }
+
+                                    return (
+                                      <div className="space-y-1">
+                                        <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
+                                          💵 {monthPaidTotal.toLocaleString()} ريال
+                                        </span>
+                                        {monthReceiptsCount > 1 ? (
+                                          <span className="bg-cyan-100 text-cyan-900 border border-cyan-300 px-2 py-0.5 rounded-md text-[10px] font-bold block font-mono">
+                                            ({monthReceiptsCount} إشعارات دفع)
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-gray-500 font-bold block">
+                                            {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' ? 'نسبة' : 'دفع كامل')}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="p-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -11340,13 +11391,20 @@ const Dashboard = () => {
                     {subReceiptFileUrl && (
                       <div className="mt-2.5 p-3 bg-slate-900 rounded-2xl border border-emerald-500/40 flex items-center justify-between gap-3 shadow-inner">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={subReceiptFileUrl} 
-                            alt="Receipt Thumbnail" 
-                            className="w-14 h-14 object-cover rounded-xl border border-emerald-400/50 cursor-pointer hover:scale-105 transition shadow-md"
-                            onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
-                            title="انقر لتكبير الإشعار"
-                          />
+                          {subReceiptFileUrl.startsWith('data:image') || subReceiptFileUrl.startsWith('http') || subReceiptFileUrl.startsWith('blob:') ? (
+                            <img 
+                              src={subReceiptFileUrl} 
+                              alt="Receipt Thumbnail" 
+                              className="w-14 h-14 object-cover rounded-xl border border-emerald-400/50 cursor-pointer hover:scale-105 transition shadow-md bg-slate-950"
+                              onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
+                              title="انقر لتكبير الإشعار"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-xl bg-slate-800 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold text-xs">
+                              📄 إشعار
+                            </div>
+                          )}
                           <div>
                             <span className="text-xs text-emerald-300 font-extrabold block">✓ تم إرفاق صورة الإشعار</span>
                             <span className="text-[10px] text-gray-400 block mt-0.5">انقر على الصورة لمعاينتها بالحجم الكامل</span>
@@ -11355,7 +11413,7 @@ const Dashboard = () => {
                         <button 
                           type="button"
                           onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: selectedSubCustomer?.name || 'إشعار التحويل' })}
-                          className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-emerald-500/40 cursor-pointer active:scale-95"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-emerald-400/40 cursor-pointer active:scale-95 shadow-md"
                         >
                           <span>🔍 تكبير الإشعار</span>
                         </button>
@@ -11364,13 +11422,13 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Previous Payments & Receipts History */}
+                {/* Previous Payments & Receipts History with Exact Timestamp */}
                 {subPaymentHistory && subPaymentHistory.length > 0 && (
-                  <div className="bg-slate-950/90 p-3.5 rounded-2xl border border-cyan-500/30 space-y-2.5">
+                  <div className="bg-slate-950/95 p-3.5 rounded-2xl border border-cyan-500/40 space-y-2.5 shadow-inner">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
-                        <span>🧾 سجل الدفعات والإشعارات السابقة</span>
-                        <span className="bg-cyan-500/20 text-cyan-200 px-2 py-0.5 rounded-full text-[10px] font-mono">({subPaymentHistory.length})</span>
+                        <span>🧾 سجل الدفعات والإشعارات وتواريخ الرفع</span>
+                        <span className="bg-cyan-500/20 text-cyan-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">({subPaymentHistory.length} دفعات)</span>
                       </span>
                       <button
                         type="button"
@@ -11382,44 +11440,57 @@ const Dashboard = () => {
                           setSubStartDate(new Date().toISOString().slice(0, 10));
                           setSubEndDate('');
                           setSubNotes('');
-                          toast.success('جاهز لإدخال دفعة وإشعار تحويل جديد لشهر آخر 📝');
+                          toast.success('جاهز لتسجيل دفعة ورفع إشعار تحويل جديد 📝');
                         }}
-                        className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-2.5 py-1 rounded-xl text-[11px] font-bold transition flex items-center gap-1 border border-emerald-500/40 cursor-pointer"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-md cursor-pointer active:scale-95"
                       >
-                        <span>➕ دفعة جديدة لشهر آخر</span>
+                        <span>➕ إضافة إشعار / دفعة جديدة</span>
                       </button>
                     </div>
 
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {subPaymentHistory.map((item, idx) => (
-                        <div key={item.id || idx} className="p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between gap-2 text-xs">
-                          <div className="flex items-center gap-2.5">
-                            {item.receiptUrl && (
+                        <div key={item.id || idx} className="p-3 bg-slate-900/90 rounded-2xl border border-slate-700/60 hover:border-cyan-500/40 transition flex items-center justify-between gap-3 text-xs shadow-sm">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {item.receiptUrl ? (
                               <img 
                                 src={item.receiptUrl} 
                                 alt="Receipt" 
-                                className="w-10 h-10 object-cover rounded-lg border border-emerald-500/40 cursor-pointer hover:scale-105 transition bg-slate-800"
-                                onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} - شهر ${item.month || item.date || ''}` })}
+                                className="w-12 h-12 object-cover rounded-xl border-2 border-emerald-400/60 cursor-pointer hover:scale-110 transition shrink-0 bg-slate-950 shadow-md"
+                                onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
                                 title="انقر لتكبير الإشعار"
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
-                            )}
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-extrabold text-white">{item.packageType || item.serviceType || 'اشتراك'}</span>
-                                <span className="text-[10px] bg-cyan-900/60 text-cyan-300 px-1.5 py-0.2 rounded font-mono font-bold">شهر: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}</span>
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-400 shrink-0 text-xs font-mono font-bold">
+                                📄 كود
                               </div>
-                              <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                                <span>كود: {item.receiptProof || 'مسجل'}</span> • <span className="text-emerald-400 font-bold">المبلغ: {item.paidAmount || '0'}</span>
-                                {item.savedBy && <span className="text-gray-400"> (بواسطة: {item.savedBy})</span>}
+                            )}
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-white text-xs">{item.packageType || item.serviceType || 'اشتراك'}</span>
+                                <span className="text-[10px] bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
+                                <span className="text-emerald-400 font-black">💵 المبلغ: {item.paidAmount || '0'} ريال</span>
+                                <span>•</span>
+                                <span className="text-cyan-300 font-bold">كود: {item.receiptProof || 'مسجل'}</span>
+                              </div>
+                              <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1.5 flex-wrap">
+                                <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
+                                  🕒 تاريخ ووقت الرفع: {item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}
+                                </span>
+                                {item.savedBy && <span className="text-gray-400">(الموظف: {item.savedBy})</span>}
                               </div>
                             </div>
                           </div>
                           {item.receiptUrl && (
                             <button
                               type="button"
-                              onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} - شهر ${item.month || item.date || ''}` })}
-                              className="text-cyan-300 hover:text-cyan-100 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 cursor-pointer"
+                              onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
+                              className="text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition cursor-pointer active:scale-95 shadow-sm"
                             >
                               🔍 معاينة
                             </button>
