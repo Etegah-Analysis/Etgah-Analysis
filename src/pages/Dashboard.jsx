@@ -447,7 +447,14 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [impersonatedEmp, setImpersonatedEmp] = useState(null);
+  const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('impersonatedEmp');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [mailActiveFolder, setMailActiveFolder] = useState('inbox'); // 'inbox', 'sent', 'starred', 'all_system'
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -3853,7 +3860,9 @@ const Dashboard = () => {
           </div>
           <button
             onClick={() => {
+              sessionStorage.removeItem('impersonatedEmp');
               setImpersonatedEmp(null);
+              setActiveTab('analytics');
               toast.success('تم إنهاء المعاينة والرجوع لحساب الأدمن بنجاح 👑');
             }}
             className="bg-white text-rose-700 hover:bg-rose-50 px-4 py-1.5 rounded-xl font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 border border-rose-300"
@@ -8126,8 +8135,7 @@ const Dashboard = () => {
                             {isAdmin && (
                               <button
                                 onClick={() => {
-                                  // In-memory impersonation only (resets to Admin on refresh)
-                                sessionStorage.removeItem('impersonatedEmp');
+                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
                                   setImpersonatedEmp(emp);
                                   setActiveTab('assigned_clients');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);

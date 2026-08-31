@@ -141,7 +141,17 @@ export default function Inbox() {
   };
 
   const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
-    return location.state?.impersonatedEmp || null;
+    try {
+      const saved = sessionStorage.getItem('impersonatedEmp');
+      if (saved) return JSON.parse(saved);
+      if (location.state?.impersonatedEmp) {
+        sessionStorage.setItem('impersonatedEmp', JSON.stringify(location.state.impersonatedEmp));
+        return location.state.impersonatedEmp;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   });
 
   const realCurrentUser = auth.currentUser;
@@ -1611,6 +1621,11 @@ export default function Inbox() {
             onClick={() => {
               sessionStorage.removeItem('impersonatedEmp');
               setImpersonatedEmp(null);
+              setSelectedEmployee('hide');
+              setActiveChat(null);
+              try {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              } catch(e) {}
               toast.success('تم إنهاء المعاينة والرجوع لواتساب الأدمن بنجاح 👑');
             }}
             className="bg-white text-rose-700 hover:bg-rose-50 px-3.5 py-1.5 rounded-xl font-black text-xs transition shadow-md flex items-center gap-1 cursor-pointer active:scale-95 border border-rose-300"
