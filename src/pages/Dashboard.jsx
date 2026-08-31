@@ -7151,10 +7151,14 @@ const Dashboard = () => {
                 bannerClients = bannerClients.filter(c => {
                   const history = c.subscriptionHistory || [];
                   const hasReceiptInMonth = history.some(h => {
-                    const m = (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : (h.month || h.date?.slice(0, 7) || h.startDate?.slice(0, 7))));
+                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
                     return m === subMonthFilter;
                   });
-                  const inCurrentSub = (c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) || c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter) || c.subscriptionDetails?.startDate?.startsWith(subMonthFilter));
+                  const inCurrentSub = (
+                    c.subscriptionDetails?.month === subMonthFilter ||
+                    c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) ||
+                    c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter)
+                  );
                   return hasReceiptInMonth || (history.length === 0 && inCurrentSub);
                 });
               }
@@ -7165,7 +7169,7 @@ const Dashboard = () => {
                 const history = c.subscriptionHistory || [];
                 if (subMonthFilter !== 'all') {
                   const matchHistory = history.filter(h => {
-                    const m = (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : (h.month || h.date?.slice(0, 7) || h.startDate?.slice(0, 7))));
+                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
                     return m === subMonthFilter;
                   });
                   if (matchHistory.length > 0) {
@@ -7173,7 +7177,10 @@ const Dashboard = () => {
                       totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
                     });
                   } else if (c.subscriptionDetails?.paidAmount) {
-                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    const subM = c.subscriptionDetails?.month || (c.subscriptionDetails?.uploadedAt ? c.subscriptionDetails.uploadedAt.slice(0, 7) : (c.subscriptionDetails?.savedAt ? c.subscriptionDetails.savedAt.slice(0, 7) : ''));
+                    if (subM === subMonthFilter) {
+                      totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    }
                   }
                 } else {
                   if (history.length > 0) {
@@ -7410,9 +7417,17 @@ const Dashboard = () => {
 
               if (subMonthFilter !== 'all') {
                 filtered = filtered.filter(c => {
-                  const inCurrentSub = c.subscriptionDetails?.startDate?.startsWith(subMonthFilter);
-                  const inHistory = (c.subscriptionHistory || []).some(h => (h.month === subMonthFilter) || (h.startDate?.startsWith(subMonthFilter)) || (h.date?.startsWith(subMonthFilter)));
-                  return inCurrentSub || inHistory;
+                  const history = c.subscriptionHistory || [];
+                  const hasReceiptInMonth = history.some(h => {
+                    const m = h.month || (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : ''));
+                    return m === subMonthFilter;
+                  });
+                  const inCurrentSub = (
+                    c.subscriptionDetails?.month === subMonthFilter ||
+                    c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) ||
+                    c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter)
+                  );
+                  return hasReceiptInMonth || (history.length === 0 && inCurrentSub);
                 });
               }
 
