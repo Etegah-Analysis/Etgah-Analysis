@@ -2259,7 +2259,7 @@ export default function Inbox() {
                     showDateSep = true;
                   }
 
-                  // System notices in group or chat
+                  // System notices in group or chat (e.g. Member addition / removal)
                   if (msg.sender === 'system') {
                     return (
                       <React.Fragment key={msg.id}>
@@ -2270,10 +2270,24 @@ export default function Inbox() {
                             <div className="flex-1 h-px bg-white/20"></div>
                           </div>
                         )}
-                        <div className="flex justify-center my-2">
-                          <div className="bg-slate-800/80 text-cyan-300 text-xs px-3.5 py-1 rounded-full border border-cyan-500/30 flex items-center gap-1.5 shadow-md font-medium">
+                        <div className="flex justify-center my-2 group/sysmsg relative">
+                          <div className="bg-slate-800/90 text-cyan-300 text-xs px-3.5 py-1.5 rounded-full border border-cyan-500/30 flex items-center gap-2 shadow-md font-medium hover:border-cyan-400 transition">
                             <span>📢</span>
                             <span>{msg.text}</span>
+                            {/* زر مسح إشعار الإدراج / الإخراج (للأدمن فقط ويختفي من عند الجميع) */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteMessage(msg);
+                                }}
+                                className="text-gray-400 hover:text-rose-400 hover:bg-rose-950/60 p-1 rounded-full transition active:scale-95 cursor-pointer ml-1"
+                                title="مسح إشعار الإدراج/الإخراج من عند الجميع (للإدارة فقط)"
+                              >
+                                <Trash2 size={13} className="text-rose-400" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </React.Fragment>
