@@ -1817,10 +1817,10 @@ export default function Inbox() {
                 if (impersonatedEmp) {
                   sessionStorage.setItem('impersonatedEmp', JSON.stringify(impersonatedEmp));
                 }
-                navigate('/dashboard', { state: { impersonatedEmp, targetTab: 'leads_crm' } });
+                window.location.href = '/dashboard';
               }} 
               className="flex items-center gap-1 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-full shadow-[0_2px_10px_rgba(245,158,11,0.5)] border border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer relative z-30" 
-              title="الانتقال إلى لوحة التحكم Leads CRM"
+              title="الانتقال الفوري إلى لوحة التحكم Leads CRM"
             >
               <BarChart3 size={13} className="text-slate-950" />
               <span className="font-black text-[11px]">Leads CRM 🎯</span>

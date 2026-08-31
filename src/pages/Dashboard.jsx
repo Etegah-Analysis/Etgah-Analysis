@@ -4380,7 +4380,14 @@ const Dashboard = () => {
 
           {/* WhatsApp Chat Button */}
           <button 
-            onClick={() => navigate('/inbox', { state: { impersonatedEmp } })}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (impersonatedEmp) {
+                sessionStorage.setItem('impersonatedEmp', JSON.stringify(impersonatedEmp));
+              }
+              window.location.href = '/inbox';
+            }}
             className="flex items-center bg-slate-900 hover:bg-black text-white px-2.5 sm:px-3.5 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-gray-700 shrink-0"
             title="الانتقال إلى محادثات واتساب"
           >
