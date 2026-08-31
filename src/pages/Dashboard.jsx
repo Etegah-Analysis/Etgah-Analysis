@@ -5527,7 +5527,7 @@ const Dashboard = () => {
                         </td>
                       </tr>
                     ) : (
-                      paginatedTeamLeads.map((customer) => {
+                      paginatedTeamLeads.map((customer, idx) => {
                         const assignedEmp = employees.find(e => e.uid === customer.assignedToUid || e.email?.toLowerCase() === customer.assignedTo?.toLowerCase());
                         const isSelected = selectedTeamTrackingLeads.includes(customer.id);
 
@@ -5545,7 +5545,12 @@ const Dashboard = () => {
                               {customer.phoneNumber}
                             </td>
                             <td className="p-3.5 font-bold text-gray-900">
-                              {customer.name || 'عميل جديد'}
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
+                                  {startIndex + idx + 1}
+                                </span>
+                                <span>{customer.name || 'عميل جديد'}</span>
+                              </div>
                             </td>
                             <td className="p-3.5">
                               <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shadow-sm">
@@ -6019,7 +6024,7 @@ const Dashboard = () => {
                         {paginatedLeads.length === 0 ? (
                           <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
                         ) : (
-                          paginatedLeads.map((customer) => {
+                          paginatedLeads.map((customer, idx) => {
                             const currentCrmStatus = customer.crmStatus || 'unassigned';
                             const statusInfo = CRM_STATUS_MAP[currentCrmStatus] || CRM_STATUS_MAP.unassigned;
 
@@ -6751,7 +6756,7 @@ const Dashboard = () => {
                             </td>
                           </tr>
                         ) : (
-                          paginatedEmpLeads.map((customer) => {
+                          paginatedEmpLeads.map((customer, idx) => {
                             const currentCrmStatus = customer.crmStatus || 'unassigned';
                             const statusInfo = CRM_STATUS_MAP[currentCrmStatus] || CRM_STATUS_MAP.unassigned;
 
@@ -7465,8 +7470,8 @@ const Dashboard = () => {
                     <table className="w-full text-right border-collapse">
                       <thead>
                         <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
-                          <th className="p-3.5 text-center">رقم الهاتف</th>
                           <th className="p-3.5">اسم العميل</th>
+                          <th className="p-3.5 text-center">رقم الهاتف</th>
                           <th className="p-3.5 text-center">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
@@ -7490,6 +7495,14 @@ const Dashboard = () => {
 
                             return (
                               <tr key={customer.id || idx} className="hover:bg-emerald-50/40 transition">
+                                <td className="p-3.5 font-bold text-gray-800">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
+                                      {startIndexSub + idx + 1}
+                                    </span>
+                                    <span className="font-extrabold text-emerald-950">{customer.name || 'عميل مشترك'}</span>
+                                  </div>
+                                </td>
                                 <td className="p-3.5 text-center font-mono font-bold text-gray-900" dir="ltr">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     <span>{customer.phoneNumber || '—'}</span>
@@ -7503,14 +7516,6 @@ const Dashboard = () => {
                                         <span>Call</span>
                                       </button>
                                     )}
-                                  </div>
-                                </td>
-                                <td className="p-3.5 font-bold text-gray-800">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-black">
-                                      {startIndexSub + idx + 1}
-                                    </span>
-                                    <span className="font-extrabold text-emerald-950">{customer.name || 'عميل مشترك'}</span>
                                   </div>
                                 </td>
                                 <td className="p-3.5 text-center font-bold text-purple-900">
@@ -7910,7 +7915,12 @@ const Dashboard = () => {
                       </div>
                     </td>
                     <td className="p-4 text-sm font-semibold text-gray-700">
-                      <div>{customer.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
+                          {startIndexCust + idx + 1}
+                        </span>
+                        <span className="font-extrabold text-gray-900">{customer.name || 'عميل مسجل'}</span>
+                      </div>
                       {customer.addedBy && customer.addedBy !== 'WhatsApp Webhook' && (() => {
                         const isAdderAdmin = adminEmails.includes(customer.addedBy?.toLowerCase()) || customer.addedBy === 'admin' || customer.addedBy?.includes('gmail') || customer.addedBy?.includes('الإدارة') || customer.addedBy?.includes('الرئيسي');
                         const adderName = isAdderAdmin ? 'الإدارة' : (employees.find(e => e.email === customer.addedBy)?.name || customer.addedBy?.split('@')[0]);
