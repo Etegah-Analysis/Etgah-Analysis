@@ -3384,6 +3384,123 @@ const Dashboard = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleEditReceiptFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const resultData = event.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1920;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        const ultraResJpeg = canvas.toDataURL('image/jpeg', 0.95);
+        setEditReceiptFileUrl(ultraResJpeg);
+        toast.success('تم تجهيز صورة الإشعار الجديدة للتعديل 📄');
+      };
+      img.onerror = () => {
+        setEditReceiptFileUrl(resultData);
+        toast.success('تم تجهيز صورة الإشعار الجديدة للتعديل 📄');
+      };
+      img.src = resultData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdatePaymentRecord = async (recordId) => {
+    if (!selectedSubCustomer || !recordId) return;
+    setEditReceiptSaving(true);
+    try {
+      const now = new Date();
+      const uploadIso = now.toISOString();
+      const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted} (معدل)`;
+
+      const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+      const updatedHistory = existingHistory.map(h => {
+        if (h.id === recordId) {
+          return {
+            ...h,
+            paidAmount: editReceiptPaidAmount ? String(editReceiptPaidAmount).replace(/[^0-9.]/g, '') : h.paidAmount,
+            receiptProof: editReceiptProof.trim() || h.receiptProof || 'مسجل',
+            receiptUrl: editReceiptFileUrl || h.receiptUrl || '',
+            uploadedDateTime: uploadedDateTimeLabel,
+            savedAt: uploadIso,
+            // KEEP THE ORIGINAL FINANCIAL MONTH UNCHANGED
+            month: h.month,
+            lastEditedBy: currentEmpUser?.name || currentUser?.email || 'المستخدم',
+            lastEditedAt: uploadIso
+          };
+        }
+        return h;
+      });
+
+      const targetId = selectedSubCustomer.id;
+      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      if (phoneDocId) {
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      }
+
+      setSubPaymentHistory(updatedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionHistory: updatedHistory }));
+      setEditingReceiptId(null);
+      toast.success('تم حفظ وتحديث الإشعار والمبلغ وتحديث تاريخ ووقت التعديل بنجاح ✏️✨');
+    } catch (err) {
+      console.error('Error updating receipt:', err);
+      toast.error('حدث خطأ أثناء تعديل الإشعار');
+    } finally {
+      setEditReceiptSaving(false);
+    }
+  };
+
+  const handleDeletePaymentRecord = async (recordId) => {
+    if (!selectedSubCustomer || !recordId) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الإشعار من سجل الدفعات نهائياً؟')) return;
+    try {
+      const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+      const updatedHistory = existingHistory.filter(h => h.id !== recordId);
+
+      const targetId = selectedSubCustomer.id;
+      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      if (phoneDocId) {
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      }
+
+      setSubPaymentHistory(updatedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionHistory: updatedHistory }));
+      toast.success('تم حذف الإشعار من السجل بنجاح 🗑️');
+    } catch (err) {
+      console.error('Error deleting receipt:', err);
+      toast.error('حدث خطأ أثناء حذف الإشعار');
+    }
+  };
+
   const handleSaveSubscriptionDetails = async (e) => {
     e?.preventDefault();
     if (!selectedSubCustomer) return;
@@ -3408,7 +3525,9 @@ const Dashboard = () => {
       const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
       const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
       const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
-      const currentMonthKey = (subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
+      const currentMonthKey = uploadIso.slice(0, 7);
+
+      const cleanPaid = (subPaidAmount || '').replace(/[^0-9.]/g, '') || '0';
 
       const newPaymentRecord = {
         id: 'rec_' + Date.now(),
@@ -3422,9 +3541,9 @@ const Dashboard = () => {
         serviceCategory: subServiceCategory || 'توصيات سعودي',
         paymentType: subPaymentType,
         agreedPercentage: (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? subAgreedPercentage : '',
-        paidAmount: subPaidAmount || '0',
-        remainingAmount: subPaymentType === 'partial' ? subRemainingAmount : '',
-        receiptProof: subReceiptProof.trim(),
+        paidAmount: cleanPaid,
+        remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+        receiptProof: subReceiptProof.trim() || 'مسجل',
         receiptUrl: subReceiptFileUrl || '',
         notes: subNotes.trim(),
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
@@ -3442,9 +3561,9 @@ const Dashboard = () => {
         serviceCategory: subServiceCategory || 'توصيات سعودي',
         paymentType: subPaymentType,
         agreedPercentage: (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? subAgreedPercentage : '',
-        paidAmount: subPaidAmount,
-        remainingAmount: subPaymentType === 'partial' ? subRemainingAmount : '',
-        receiptProof: subReceiptProof.trim(),
+        paidAmount: cleanPaid,
+        remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+        receiptProof: subReceiptProof.trim() || 'مسجل',
         receiptUrl: subReceiptFileUrl || '',
         notes: subNotes.trim(),
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
@@ -3458,18 +3577,25 @@ const Dashboard = () => {
 
       const promises = [
         updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'leads_crm', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
         updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'employee_leads', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}),
-        updateDoc(doc(db, 'بيانات_تسجيل_العملاء', targetId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {})
       ];
-
+      if (phoneDocId) {
+        promises.push(updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch(() => {}));
+      }
       await Promise.all(promises);
 
-      toast.success('تم حفظ وتأكيد بيانات اشتراك العميل بنجاح 💳✨');
-      setIsSubscriptionModalOpen(false);
+      // Clear input fields so the form is clean and ready for the next entry
+      setSubPaidAmount('');
+      setSubRemainingAmount('');
+      setSubReceiptProof('');
+      setSubReceiptFileUrl('');
+      setSubNotes('');
+      setSubPaymentHistory(updatedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory }));
+
+      toast.success('تم حفظ وتأكيد بيانات الاشتراك ورفع الإشعار بنجاح 💾✨');
     } catch (err) {
-      console.error(err);
+      console.error('Error saving subscription details:', err);
       toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك');
     } finally {
       setSubSaving(false);
@@ -11598,7 +11724,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Previous Payments & Receipts History with Exact Timestamp */}
+                {/* Previous Payments & Receipts History with Exact Timestamp & Edit/Delete Capabilities */}
                 {subPaymentHistory && subPaymentHistory.length > 0 && (() => {
                   const totalAllPaidCumulative = subPaymentHistory.reduce((sum, h) => {
                     const val = parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -11616,7 +11742,7 @@ const Dashboard = () => {
                         </div>
                         <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-400/50 px-3 py-1 rounded-xl text-xs font-extrabold text-emerald-300 flex items-center gap-1.5 shadow">
                           <span>💰 إجمالي ما تم دفعه في جميع الإشعارات:</span>
-                          <span className="text-white font-mono text-sm font-black">{totalAllPaidCumulative.toLocaleString()} ريال / $</span>
+                          <span className="text-white font-mono text-sm font-black">{totalAllPaidCumulative.toLocaleString()} ريال</span>
                         </div>
                       </div>
 
@@ -11639,57 +11765,157 @@ const Dashboard = () => {
                         </button>
                       </div>
 
-                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                      {subPaymentHistory.map((item, idx) => (
-                        <div key={item.id || idx} className="p-3 bg-slate-900/90 rounded-2xl border border-slate-700/60 hover:border-cyan-500/40 transition flex items-center justify-between gap-3 text-xs shadow-sm">
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {item.receiptUrl ? (
-                              <img 
-                                src={item.receiptUrl} 
-                                alt="Receipt" 
-                                className="w-12 h-12 object-cover rounded-xl border-2 border-emerald-400/60 cursor-pointer hover:scale-110 transition shrink-0 bg-slate-950 shadow-md"
-                                onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
-                                title="انقر لتكبير الإشعار"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-400 shrink-0 text-xs font-mono font-bold">
-                                📄 كود
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-extrabold text-white text-xs">{item.packageType || item.serviceType || 'اشتراك'}</span>
-                                <span className="text-[10px] bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
-                                  الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
+                      <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      {subPaymentHistory.map((item, idx) => {
+                        const isEditingThis = editingReceiptId === item.id;
+
+                        if (isEditingThis) {
+                          return (
+                            <div key={item.id || idx} className="p-3.5 bg-slate-900 rounded-2xl border-2 border-amber-500/60 shadow-lg space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-amber-300 flex items-center gap-1">
+                                  <span>✏️ تعديل بيانات الإشعار</span>
+                                  <span className="text-[10px] bg-cyan-900/60 text-cyan-200 px-2 py-0.5 rounded-md font-mono">الشهر المالي الثابت: {item.month}</span>
                                 </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingReceiptId(null)}
+                                  className="text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded-lg bg-slate-800"
+                                >
+                                  إلغاء ✕
+                                </button>
                               </div>
-                              <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
-                                <span className="text-emerald-400 font-black">💵 المبلغ: {item.paidAmount || '0'} ريال</span>
-                                <span>•</span>
-                                <span className="text-cyan-300 font-bold">كود: {item.receiptProof || 'مسجل'}</span>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-300 mb-1">المبلغ المدفوع (ريال)</label>
+                                  <input 
+                                    type="text"
+                                    value={editReceiptPaidAmount}
+                                    onChange={(e) => setEditReceiptPaidAmount(e.target.value)}
+                                    placeholder="مثال: 3662 ريال"
+                                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-amber-400 font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-300 mb-1">كود الإشعار / المرجع</label>
+                                  <input 
+                                    type="text"
+                                    value={editReceiptProof}
+                                    onChange={(e) => setEditReceiptProof(e.target.value)}
+                                    placeholder="رقم أو كود الإشعار"
+                                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-amber-400"
+                                  />
+                                </div>
                               </div>
-                              <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1.5 flex-wrap">
-                                <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
-                                  🕒 تاريخ ووقت الرفع: {item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}
-                                </span>
-                                {item.savedBy && <span className="text-gray-400">(الموظف: {item.savedBy})</span>}
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-1">استبدال صورة الإشعار (اختياري)</label>
+                                <input 
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  onChange={handleEditReceiptFileUpload}
+                                  className="block w-full text-xs text-slate-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-amber-600 file:text-white hover:file:bg-amber-700 cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingReceiptId(null)}
+                                  className="px-3 py-1 rounded-xl text-xs font-bold bg-slate-800 text-gray-300 hover:bg-slate-700"
+                                >
+                                  إلغاء
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={editReceiptSaving}
+                                  onClick={() => handleUpdatePaymentRecord(item.id)}
+                                  className="bg-amber-600 hover:bg-amber-500 text-white font-black px-4 py-1 rounded-xl text-xs shadow transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                >
+                                  <span>{editReceiptSaving ? 'جاري الحفظ...' : 'حفظ التعديل وتحديث الوقت 💾'}</span>
+                                </button>
                               </div>
                             </div>
+                          );
+                        }
+
+                        return (
+                          <div key={item.id || idx} className="p-3 bg-slate-900/90 rounded-2xl border border-slate-700/60 hover:border-cyan-500/40 transition flex items-center justify-between gap-3 text-xs shadow-sm flex-wrap sm:flex-nowrap">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              {item.receiptUrl ? (
+                                <img 
+                                  src={item.receiptUrl} 
+                                  alt="Receipt" 
+                                  className="w-12 h-12 object-cover rounded-xl border-2 border-emerald-400/60 cursor-pointer hover:scale-110 transition shrink-0 bg-slate-950 shadow-md"
+                                  onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
+                                  title="انقر لتكبير الإشعار"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-400 shrink-0 text-xs font-mono font-bold">
+                                  📄 كود
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-extrabold text-white text-xs">{item.packageType || item.serviceType || 'اشتراك'}</span>
+                                  <span className="text-[10px] bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                                    الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
+                                  <span className="text-emerald-400 font-black">💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
+                                  <span>•</span>
+                                  <span className="text-cyan-300 font-bold">كود: {item.receiptProof || 'مسجل'}</span>
+                                </div>
+                                <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1.5 flex-wrap">
+                                  <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
+                                    🕒 تاريخ ووقت الرفع: {item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}
+                                  </span>
+                                  {item.savedBy && <span className="text-gray-400">(الموظف: {item.savedBy})</span>}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {item.receiptUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
+                                  className="text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                  title="معاينة وتكبير صورة الإشعار"
+                                >
+                                  🔍 معاينة
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingReceiptId(item.id);
+                                  setEditReceiptPaidAmount(item.paidAmount || '');
+                                  setEditReceiptProof(item.receiptProof || '');
+                                  setEditReceiptFileUrl(item.receiptUrl || '');
+                                }}
+                                className="text-amber-300 hover:text-white bg-amber-950/80 hover:bg-amber-600 border border-amber-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                title="تعديل المبلغ أو صورة الإشعار"
+                              >
+                                ✏️ تعديل
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePaymentRecord(item.id)}
+                                className="text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-600 border border-rose-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                title="حذف هذا الإشعار من السجل"
+                              >
+                                🗑️ حذف
+                              </button>
+                            </div>
                           </div>
-                          {item.receiptUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
-                              className="text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition cursor-pointer active:scale-95 shadow-sm"
-                            >
-                              🔍 معاينة
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
+                      </div>
                     </div>
-                  </div>
                   );
                 })()}
 
