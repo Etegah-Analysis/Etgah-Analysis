@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
@@ -6012,8 +6012,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">تاريخ الاستيراد</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
@@ -6731,8 +6731,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">تاريخ الإضافة</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
@@ -7899,21 +7899,6 @@ const Dashboard = () => {
                     <td className="p-4 text-center">
                       <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded" />
                     </td>
-                    <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                      <div className="flex items-center gap-2">
-                        <span>{customer.phoneNumber}</span>
-                        {!isCoordinator && customer.phoneNumber && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
-                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
-                            title="اتصال مباشر عبر MicroSIP 📞"
-                          >
-                            <PhoneCall size={12} className="animate-pulse" />
-                            <span>Call</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
                     <td className="p-4 text-sm font-semibold text-gray-700">
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
@@ -7933,6 +7918,21 @@ const Dashboard = () => {
                       {customer.notesHistory && customer.notesHistory.length > 0 && (
                         <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات مضافة</span>
                       )}
+                    </td>
+                    <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                      <div className="flex items-center gap-2">
+                        <span>{customer.phoneNumber}</span>
+                        {!isCoordinator && customer.phoneNumber && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                            title="اتصال مباشر عبر MicroSIP 📞"
+                          >
+                            <PhoneCall size={12} className="animate-pulse" />
+                            <span>Call</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="p-4 text-sm text-gray-600 font-medium">
@@ -8027,8 +8027,8 @@ const Dashboard = () => {
                               className="w-4 h-4 text-primary rounded cursor-pointer accent-blue-600" 
                             />
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm">اسم العميل</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
                           <th 
                             className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 transition select-none"
                             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
