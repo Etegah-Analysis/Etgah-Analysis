@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
+import { Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where } from '../firebase';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
@@ -6939,39 +6939,24 @@ const Dashboard = () => {
               });
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
-                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
                     <div>
-                      <span className="text-[11px] text-emerald-300 font-bold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
-                      <h4 className="text-xl font-black text-cyan-300 font-mono mt-0.5">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال / $</span></h4>
+                      <span className="text-xs text-emerald-300 font-extrabold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
+                      <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال / $</span></h4>
                     </div>
-                    <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30">
-                      <CreditCard size={22} />
+                    <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30 shadow-md">
+                      <CreditCard size={24} />
                     </div>
                   </div>
 
-                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
                     <div>
-                      <span className="text-[11px] text-cyan-300 font-bold block">👥 عدد المشتركين والدفعات المسجلة</span>
-                      <h4 className="text-xl font-black text-white font-mono mt-0.5">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
+                      <span className="text-xs text-cyan-300 font-extrabold block">👥 عدد المشتركين والدفعات المسجلة</span>
+                      <h4 className="text-2xl font-black text-white font-mono mt-1">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
                     </div>
-                    <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-400/30">
-                      <Users size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
-                    <div>
-                      <span className="text-[11px] text-amber-300 font-bold block">👑 الصلاحية ونطاق المبيعات</span>
-                      <h4 className="text-xs sm:text-sm font-black text-amber-200 mt-0.5">
-                        {isAdmin ? 'تحليل المنصة الشامل' : 'منسق عام الإدارة'}
-                      </h4>
-                      {totalRemainingDue > 0 && (
-                        <span className="text-[10px] text-amber-300 block font-mono">متبقي آجل: {totalRemainingDue.toLocaleString()}</span>
-                      )}
-                    </div>
-                    <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30">
-                      <Award size={22} />
+                    <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-400/30 shadow-md">
+                      <Users size={24} />
                     </div>
                   </div>
                 </div>
