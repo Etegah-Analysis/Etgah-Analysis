@@ -3775,6 +3775,33 @@ const Dashboard = () => {
         style={{ backgroundImage: "url('/logo.jpg')", backgroundSize: "600px", backgroundAttachment: "fixed" }}
       ></div>
       
+      {/* Floating Impersonation Banner for Admin */}
+      {impersonatedEmp && (
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-amber-300 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <span className="text-xl animate-bounce">👁️</span>
+            <div className="text-xs sm:text-sm font-black">
+              <span>أنت تتصفح لوحة التحكم حالياً كـ: </span>
+              <span className="bg-amber-950/60 px-2.5 py-0.5 rounded-lg border border-amber-300 text-amber-200 font-mono">
+                {impersonatedEmp.name || impersonatedEmp.username}
+              </span>
+              <span className="text-amber-200 text-xs mr-2 font-normal">
+                ({impersonatedEmp.jobTitle || impersonatedEmp.role || 'موظف'})
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setImpersonatedEmp(null);
+              toast.success('تم إنهاء المعاينة والرجوع لحساب الأدمن بنجاح 👑');
+            }}
+            className="bg-white text-rose-700 hover:bg-rose-50 px-4 py-1.5 rounded-xl font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 border border-rose-300"
+          >
+            <span>🔴 إنهاء المعاينة والرجوع لحساب الأدمن</span>
+          </button>
+        </div>
+      )}
+
       {/* Header - Fixed & Floating on scroll smoothly across all devices */}
       <header 
         className="sticky top-0 z-20 bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200/90 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
@@ -6867,6 +6894,90 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Financial Sales Summary Banner (For Admin and Coordinator ONLY inside Subscribed Clients) */}
+            {(isAdmin || isCoordinator) && (() => {
+              let bannerClients = allSubscribedClients;
+              if (subMonthFilter !== 'all') {
+                bannerClients = bannerClients.filter(c => {
+                  const history = c.subscriptionHistory || [];
+                  const hasReceiptInMonth = history.some(h => {
+                    const m = (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : (h.month || h.date?.slice(0, 7) || h.startDate?.slice(0, 7))));
+                    return m === subMonthFilter;
+                  });
+                  const inCurrentSub = (c.subscriptionDetails?.uploadedAt?.startsWith(subMonthFilter) || c.subscriptionDetails?.savedAt?.startsWith(subMonthFilter) || c.subscriptionDetails?.startDate?.startsWith(subMonthFilter));
+                  return hasReceiptInMonth || (history.length === 0 && inCurrentSub);
+                });
+              }
+
+              let totalMonthRevenue = 0;
+              let totalRemainingDue = 0;
+              bannerClients.forEach(c => {
+                const history = c.subscriptionHistory || [];
+                if (subMonthFilter !== 'all') {
+                  const matchHistory = history.filter(h => {
+                    const m = (h.uploadedAt ? h.uploadedAt.slice(0, 7) : (h.savedAt ? h.savedAt.slice(0, 7) : (h.month || h.date?.slice(0, 7) || h.startDate?.slice(0, 7))));
+                    return m === subMonthFilter;
+                  });
+                  if (matchHistory.length > 0) {
+                    matchHistory.forEach(h => {
+                      totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    });
+                  } else if (c.subscriptionDetails?.paidAmount) {
+                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                  }
+                } else {
+                  if (history.length > 0) {
+                    history.forEach(h => {
+                      totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    });
+                  } else if (c.subscriptionDetails?.paidAmount) {
+                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                  }
+                }
+                const rem = parseFloat((c.subscriptionDetails?.remainingAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                totalRemainingDue += rem;
+              });
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
+                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-emerald-300 font-bold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
+                      <h4 className="text-xl font-black text-cyan-300 font-mono mt-0.5">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال / $</span></h4>
+                    </div>
+                    <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30">
+                      <CreditCard size={22} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-cyan-300 font-bold block">👥 عدد المشتركين والدفعات المسجلة</span>
+                      <h4 className="text-xl font-black text-white font-mono mt-0.5">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
+                    </div>
+                    <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-400/30">
+                      <Users size={22} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
+                    <div>
+                      <span className="text-[11px] text-amber-300 font-bold block">👑 الصلاحية ونطاق المبيعات</span>
+                      <h4 className="text-xs sm:text-sm font-black text-amber-200 mt-0.5">
+                        {isAdmin ? 'تحليل المنصة الشامل' : 'منسق عام الإدارة'}
+                      </h4>
+                      {totalRemainingDue > 0 && (
+                        <span className="text-[10px] text-amber-300 block font-mono">متبقي آجل: {totalRemainingDue.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30">
+                      <Award size={22} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Filter Bar */}
             {(() => {
               const scopeSubscribed = (!isAdmin && !isCoordinator)
@@ -7923,6 +8034,20 @@ const Dashboard = () => {
                         <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(emp.lastLoginAt)}</td>
                         <td className="p-4">
                           <div className="flex items-center justify-center space-x-2 space-x-reverse">
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  setImpersonatedEmp(emp);
+                                  setActiveTab('assigned_clients');
+                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
+                                }}
+                                className="p-2 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40"
+                                title={`دخول ومعاينة لوحة تحكم ${emp.name || emp.username} (كأنك مسجل دخوله بحسابه)`}
+                              >
+                                <Monitor size={16} />
+                                <span className="text-[11px] font-black hidden sm:inline">دخول شاشته</span>
+                              </button>
+                            )}
                             <button 
                               onClick={() => { 
                                 setEditEmp(emp); 
@@ -11329,25 +11454,6 @@ const Dashboard = () => {
 
                 {/* 4. Transfer Receipt / Proof - Required */}
                 <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <span>🧾 إشعار التحويل / كود العملية (بالإنجليزي)</span>
-                        <span className="text-rose-400 font-black">*</span>
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-normal">كتابة أو نسخ ولصق</span>
-                    </label>
-                    <input 
-                      type="text"
-                      dir="ltr"
-                      required={!subReceiptFileUrl}
-                      placeholder="e.g. TXN-94820194 / AlRajhi Ref: 48201948"
-                      value={subReceiptProof}
-                      onChange={(e) => setSubReceiptProof(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-mono font-bold text-cyan-300 outline-none focus:border-emerald-400 text-left"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
                       <span>📁 أو رفع صورة إشعار التحويل:</span>
