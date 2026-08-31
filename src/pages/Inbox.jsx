@@ -1810,15 +1810,18 @@ export default function Inbox() {
               </>
             )}
             <button 
+              type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 if (impersonatedEmp) {
-                  navigate('/dashboard', { state: { impersonatedEmp } });
+                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(impersonatedEmp));
+                  navigate('/dashboard', { state: { impersonatedEmp, targetTab: 'leads_crm' } });
                 } else {
                   navigate('/dashboard');
                 }
               }} 
-              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(245,158,11,0.6)] border-2 border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer relative z-20" 
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(245,158,11,0.6)] border-2 border-yellow-200 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer relative z-30" 
               title="الانتقال إلى لوحة التحكم Leads CRM"
             >
               <BarChart3 size={15} className="text-slate-950" />

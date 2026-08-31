@@ -1920,17 +1920,26 @@ const Dashboard = () => {
     ).values()
   );
 
-  // Expiring Subscriptions Computation (for Admin and Coordinator Notifications)
+  // Expiring Subscriptions Computation (for Admin, Coordinator, Leaders, and Agents)
   const expiringSubscriptions = useMemo(() => {
-    if (!isAdmin && !isCoordinator) return [];
+    if (!isAdmin && !isCoordinator && !isLeader && !isAgent) return [];
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    return (allSubscribedClients || []).filter(c => {
+    const pool = (isAdmin || isCoordinator) 
+      ? (allSubscribedClients || [])
+      : isLeader 
+        ? (leaderSubscribedClients || [])
+        : (agentSubscribedClients || []);
+
+    return pool.filter(c => {
       const sub = c.subscriptionDetails;
       if (!sub?.endDate) return false;
       if (sub.serviceType === 'اتفاق نسبة' || sub.paymentType === 'percentage') return false;
-      return sub.endDate <= in7Days;
+      if (sub.endDate > in7Days) return false;
+      // Hide from notification bell once acknowledged/opened for this specific endDate
+      if (sub.alertDismissedEndDate === sub.endDate) return false;
+      return true;
     }).map(c => {
       const sub = c.subscriptionDetails;
       const daysDiff = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -1940,7 +1949,7 @@ const Dashboard = () => {
         isExpired: daysDiff < 0
       };
     });
-  }, [allSubscribedClients, isAdmin, isCoordinator]);
+  }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent]);
 
   const totalAllNotificationsCount = (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
 
@@ -4174,9 +4183,18 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               setIsNotifDropdownOpen(false);
                               openSubscriptionModal(subItem);
+                              const endD = subItem.subscriptionDetails?.endDate;
+                              if (endD) {
+                                await updateDoc(doc(db, 'leads_crm', subItem.id), {
+                                  'subscriptionDetails.alertDismissedEndDate': endD
+                                }).catch(() => {});
+                                await updateDoc(doc(db, 'employee_leads', subItem.id), {
+                                  'subscriptionDetails.alertDismissedEndDate': endD
+                                }).catch(() => {});
+                              }
                             }}
                             className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition shadow-md active:scale-95 cursor-pointer"
                           >
@@ -6012,8 +6030,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">تاريخ الاستيراد</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
@@ -6731,8 +6749,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">تاريخ الإضافة</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
@@ -7602,13 +7620,29 @@ const Dashboard = () => {
                                   </div>
                                 </td>
                                 <td className="p-3.5 text-center font-mono text-[11px]">
-                                  {sub.startDate && sub.endDate ? (
-                                    <div className="text-gray-700 font-bold">
-                                      <span>{sub.startDate}</span>
-                                      <span className="mx-1 text-emerald-600">➔</span>
-                                      <span>{sub.endDate}</span>
-                                    </div>
-                                  ) : (
+                                  {sub.startDate && sub.endDate ? (() => {
+                                    const todayStr = new Date().toISOString().slice(0, 10);
+                                    const isExpired = sub.endDate < todayStr;
+                                    return (
+                                      <div className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border transition-all ${
+                                        isExpired 
+                                          ? 'bg-rose-50 border-rose-300 text-rose-700 font-black shadow-xs' 
+                                          : 'bg-emerald-50/60 border-emerald-200 text-gray-800 font-bold'
+                                      }`}>
+                                        <div className="flex items-center justify-center gap-1.5">
+                                          <span>{sub.startDate}</span>
+                                          <span className={isExpired ? "text-rose-600 font-black text-xs" : "text-emerald-600 font-bold"}>➔</span>
+                                          <span className={isExpired ? "text-rose-700 font-black" : "text-emerald-950 font-bold"}>{sub.endDate}</span>
+                                        </div>
+                                        {isExpired && (
+                                          <span className="text-[10px] text-rose-700 font-black bg-rose-200/80 px-2 py-0.5 rounded-full mt-1 flex items-center gap-1 animate-pulse">
+                                            <span>⚠️</span>
+                                            <span>اشتراك منتهي</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })() : (
                                     <span className="text-rose-500 font-bold">غير مسجل ⚠️</span>
                                   )}
                                 </td>
@@ -7899,6 +7933,21 @@ const Dashboard = () => {
                     <td className="p-4 text-center">
                       <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded" />
                     </td>
+                    <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                      <div className="flex items-center gap-2">
+                        <span>{customer.phoneNumber}</span>
+                        {!isCoordinator && customer.phoneNumber && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                            title="اتصال مباشر عبر MicroSIP 📞"
+                          >
+                            <PhoneCall size={12} className="animate-pulse" />
+                            <span>Call</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-4 text-sm font-semibold text-gray-700">
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
@@ -7918,21 +7967,6 @@ const Dashboard = () => {
                       {customer.notesHistory && customer.notesHistory.length > 0 && (
                         <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات مضافة</span>
                       )}
-                    </td>
-                    <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
-                      <div className="flex items-center gap-2">
-                        <span>{customer.phoneNumber}</span>
-                        {!isCoordinator && customer.phoneNumber && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
-                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
-                            title="اتصال مباشر عبر MicroSIP 📞"
-                          >
-                            <PhoneCall size={12} className="animate-pulse" />
-                            <span>Call</span>
-                          </button>
-                        )}
-                      </div>
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="p-4 text-sm text-gray-600 font-medium">
@@ -8027,8 +8061,8 @@ const Dashboard = () => {
                               className="w-4 h-4 text-primary rounded cursor-pointer accent-blue-600" 
                             />
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm">اسم العميل</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm">اسم العميل</th>
                           <th 
                             className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 transition select-none"
                             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
