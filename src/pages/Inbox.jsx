@@ -1705,10 +1705,14 @@ export default function Inbox() {
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold text-white text-xs truncate max-w-[120px]" dir="ltr">
-                  {userProfile?.name || userProfile?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0])}
+                <span className="font-bold text-white text-xs truncate max-w-[140px]" dir="ltr">
+                  {impersonatedEmp ? (impersonatedEmp.name || impersonatedEmp.username) : (userProfile?.name || userProfile?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
                 </span>
-                {isAdmin ? (
+                {impersonatedEmp ? (
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm shrink-0 bg-blue-600/30 text-blue-300 border border-blue-400/40">
+                    {impersonatedEmp.jobTitle === 'Leader' || impersonatedEmp.jobTitle === 'ليدر' ? '👑 Leader' : (impersonatedEmp.jobTitle || impersonatedEmp.role || '👤 Agent')}
+                  </span>
+                ) : isAdmin ? (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm shrink-0 flex items-center gap-0.5">
                     👑 أدمن
                   </span>
