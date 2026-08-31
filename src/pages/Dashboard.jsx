@@ -850,7 +850,7 @@ const Dashboard = () => {
       });
   }, [internalEmails, currentUser, myUid, isAdmin, isCoordinator, isLeader, myTeamMembers, currentEmpUser, myEmail]);
 
-  const totalAllNotificationsCount = (unreadWhatsAppChats.length > 0 ? unreadWhatsAppChats.length : 0) + (unreadEmails.length > 0 ? unreadEmails.length : 0) + (expiringSubscriptions.length > 0 ? expiringSubscriptions.length : 0);
+
 
   // Real-time live toast alert when new WhatsApp or Group message arrives on Dashboard
   useEffect(() => {
@@ -1903,18 +1903,16 @@ const Dashboard = () => {
     ).values()
   );
 
-  // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
   // Expiring Subscriptions Computation (for Admin and Coordinator Notifications)
   const expiringSubscriptions = useMemo(() => {
     if (!isAdmin && !isCoordinator) return [];
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     return (allSubscribedClients || []).filter(c => {
       const sub = c.subscriptionDetails;
       if (!sub?.endDate) return false;
-      if (sub.serviceType === 'اتفاق نسبة' || sub.serviceType === 'نسبة' || sub.paymentType === 'percentage') return false;
+      if (sub.serviceType === 'اتفاق نسبة' || sub.paymentType === 'percentage') return false;
       return sub.endDate <= in7Days;
     }).map(c => {
       const sub = c.subscriptionDetails;
@@ -1926,6 +1924,11 @@ const Dashboard = () => {
       };
     });
   }, [allSubscribedClients, isAdmin, isCoordinator]);
+
+  const totalAllNotificationsCount = (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
+
+  // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
+
 
   const availableSubMonths = useMemo(() => {
     const monthSet = new Set();
@@ -11418,7 +11421,7 @@ const Dashboard = () => {
                       <option value="باقة سنوية">باقة سنوية</option>
                       <option value="باقة نصف سنوية">باقة نصف سنوية</option>
                       <option value="باقة ربع سنوية">باقة ربع سنوية</option>
-                      <option value="نسبة">نسبة</option>
+                      
                     </select>
                   </div>
 
