@@ -1,5 +1,25 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, where, updateDoc, setDoc, getDoc, serverTimestamp, onSnapshot, arrayUnion, writeBatch } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  getFirestore,
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  orderBy, 
+  deleteDoc, 
+  doc, 
+  where, 
+  updateDoc, 
+  setDoc, 
+  getDoc, 
+  serverTimestamp, 
+  onSnapshot, 
+  arrayUnion, 
+  writeBatch 
+} from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
@@ -12,9 +32,22 @@ const firebaseConfig = {
   appId: "1:754580123107:web:20a5454b787fa0965d84d6"
 };
 
-// Initialize Firebase
+// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// Initialize Firestore with High-Speed IndexedDB Persistent Local Cache & Multi-tab Sync
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} catch (e) {
+  console.warn("Falling back to standard Firestore getFirestore:", e);
+  db = getFirestore(app);
+}
+
 const auth = getAuth(app);
 const storage = getStorage(app);
 
@@ -39,11 +72,11 @@ export {
   updateDoc, 
   setDoc, 
   getDoc, 
-  serverTimestamp,
-  onSnapshot,
-  arrayUnion,
-  writeBatch,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
+  serverTimestamp, 
+  onSnapshot, 
+  arrayUnion, 
+  writeBatch, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
 };
