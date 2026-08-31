@@ -11539,7 +11539,7 @@ const Dashboard = () => {
         )}
 
         {/* Internal Mail System Modal (بريد اتجاه الداخلي - Gmail System) */}
-        {isMailModalOpen && (
+        {isMailModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsMailModalOpen(false)}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col border border-purple-500/30 overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
               
