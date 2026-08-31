@@ -3535,7 +3535,7 @@ const Dashboard = () => {
       const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
       const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
       const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
-      const currentMonthKey = uploadIso.slice(0, 7);
+      const currentMonthKey = (subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
 
       const cleanPaid = (subPaidAmount || '').replace(/[^0-9.]/g, '') || '0';
 
@@ -3549,6 +3549,7 @@ const Dashboard = () => {
         endDate: subEndDate,
         serviceType: subServiceType || 'باقة سنوية',
         serviceCategory: subServiceCategory || 'توصيات سعودي',
+        month: currentMonthKey,
         paymentType: subPaymentType,
         agreedPercentage: (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? subAgreedPercentage : '',
         paidAmount: cleanPaid,
@@ -7476,7 +7477,7 @@ const Dashboard = () => {
                       <tbody className="divide-y divide-gray-100 text-xs">
                         {paginatedSub.length === 0 ? (
                           <tr>
-                            <td colSpan="7" className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={(isAdmin || isCoordinator) ? 7 : 6} className="p-10 text-center text-gray-500 font-bold">
                               لا يوجد عملاء مشتركين يطابقون شروط البحث الحالية 🎉
                             </td>
                           </tr>
@@ -7579,9 +7580,21 @@ const Dashboard = () => {
                                   })()}
                                 </td>
                                 <td className="p-3.5 text-center">
-                                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-full text-[11px]">
-                                    {sub.serviceType || 'الباقة السنوية'}
-                                  </span>
+                                  <div className="flex flex-col items-center justify-center gap-1">
+                                    <span className="inline-flex items-center justify-center whitespace-nowrap bg-emerald-100 text-emerald-950 border border-emerald-300 font-black px-3 py-1 rounded-full text-xs shadow-xs">
+                                      {sub.serviceType || 'الباقة السنوية'}
+                                    </span>
+                                    {sub.serviceCategory && (
+                                      <span className="inline-flex items-center justify-center whitespace-nowrap bg-teal-50 text-teal-900 border border-teal-200 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                                        {sub.serviceCategory}
+                                      </span>
+                                    )}
+                                    {sub.agreedPercentage && (
+                                      <span className="inline-flex items-center justify-center whitespace-nowrap bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                                        نسبة: {sub.agreedPercentage}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3.5 text-center font-mono text-[11px]">
                                   {sub.startDate && sub.endDate ? (
@@ -7594,58 +7607,52 @@ const Dashboard = () => {
                                     <span className="text-rose-500 font-bold">غير مسجل ⚠️</span>
                                   )}
                                 </td>
-                                <td className="p-3.5 text-center">
-                                  {(() => {
-                                    let monthPaidTotal = 0;
-                                    let monthReceiptsCount = 0;
-                                    const history = customer.subscriptionHistory || [];
-                                    if (subMonthFilter !== 'all') {
-                                      const matchHistory = history.filter(h => 
-                                        (h.month === subMonthFilter) || 
-                                        (h.uploadedAt?.startsWith(subMonthFilter)) || 
-                                        (h.savedAt?.startsWith(subMonthFilter)) || 
-                                        (h.startDate?.startsWith(subMonthFilter)) || 
-                                        (h.date?.startsWith(subMonthFilter))
-                                      );
-                                      if (matchHistory.length > 0) {
-                                        monthReceiptsCount = matchHistory.length;
-                                        matchHistory.forEach(h => {
-                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                        });
-                                      } else if (sub.startDate?.startsWith(subMonthFilter) || sub.savedAt?.startsWith(subMonthFilter)) {
-                                        monthReceiptsCount = 1;
-                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                      }
-                                    } else {
-                                      if (history.length > 0) {
-                                        monthReceiptsCount = history.length;
-                                        history.forEach(h => {
-                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                        });
+                                {(isAdmin || isCoordinator) && (
+                                  <td className="p-3.5 text-center">
+                                    {(() => {
+                                      let monthPaidTotal = 0;
+                                      let monthReceiptsCount = 0;
+                                      const history = customer.subscriptionHistory || [];
+                                      if (subMonthFilter !== 'all') {
+                                        const matchHistory = history.filter(h => h.month === subMonthFilter);
+                                        if (matchHistory.length > 0) {
+                                          monthReceiptsCount = matchHistory.length;
+                                          matchHistory.forEach(h => {
+                                            monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                          });
+                                        } else if (sub.month === subMonthFilter) {
+                                          monthReceiptsCount = 1;
+                                          monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        }
                                       } else {
-                                        monthReceiptsCount = 1;
-                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        if (history.length > 0) {
+                                          monthReceiptsCount = history.length;
+                                          history.forEach(h => {
+                                            monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                          });
+                                        } else {
+                                          monthReceiptsCount = 1;
+                                          monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        }
                                       }
-                                    }
 
-                                    return (
-                                      <div className="space-y-1">
-                                        <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
-                                          💵 {monthPaidTotal.toLocaleString()} ريال
-                                        </span>
-                                        {monthReceiptsCount > 1 ? (
-                                          <span className="bg-cyan-100 text-cyan-900 border border-cyan-300 px-2 py-0.5 rounded-md text-[10px] font-bold block font-mono">
-                                            ({monthReceiptsCount} إشعارات دفع)
+                                      return (
+                                        <div className="space-y-1">
+                                          <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
+                                            💵 {monthPaidTotal.toLocaleString()} ريال
                                           </span>
-                                        ) : (
-                                          <span className="text-[10px] text-gray-500 font-bold block">
-                                            {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' ? 'نسبة' : 'دفع كامل')}
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
+                                          <div className="text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1">
+                                            <span>({monthReceiptsCount} إشعار / دفعة)</span>
+                                            <span>•</span>
+                                            <span className="text-gray-600 font-semibold">
+                                              {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </td>
+                                )}
                                 <td className="p-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     {/* Glassmorphic Subscription Details Button */}
