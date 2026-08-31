@@ -290,7 +290,7 @@ export default function Inbox() {
       console.error("Error fetching internal groups:", err);
     });
     return () => unsubscribe();
-  }, [currentUser, isAdmin, location.state]);
+  }, [currentUser, currentEmpUser, isAdmin, isCoordinator, location.state]);
 
   // Global ESC Key Handler to close modals, image previews, emoji pickers, or active chats
   useEffect(() => {
@@ -497,6 +497,7 @@ export default function Inbox() {
     if (!title) return 'Agent';
     const clean = title.toString().trim().toLowerCase();
     if (clean.includes('leader') || clean.includes('ليدر')) return 'Leader';
+    if (clean.includes('coordinator') || clean.includes('منسق')) return 'Coordinator';
     return 'Agent';
   };
 
