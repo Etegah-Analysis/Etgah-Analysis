@@ -243,6 +243,39 @@ export default function Inbox() {
     return () => unsubscribe();
   }, [currentUser, isAdmin, location.state]);
 
+  // Global ESC Key Handler to close modals, image previews, emoji pickers, or active chats
+  useEffect(() => {
+    const handleGlobalEsc = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        if (attachment) setAttachment(null);
+        else if (showEmojiPicker) setShowEmojiPicker(false);
+        else if (isGroupInfoModalOpen) setIsGroupInfoModalOpen(false);
+        else if (isCreateGroupModalOpen) setIsCreateGroupModalOpen(false);
+        else if (isAddModalOpen) setIsAddModalOpen(false);
+        else if (isExcelModalOpen) setIsExcelModalOpen(false);
+        else if (isTemplateModalOpen) setIsTemplateModalOpen(false);
+        else if (isForwardModalOpen) setIsForwardModalOpen(false);
+        else if (isAnalyticsModalOpen) setIsAnalyticsModalOpen(false);
+        else if (replyingToMessage) setReplyingToMessage(null);
+        else if (activeChat && window.innerWidth < 768) setActiveChat(null);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalEsc);
+    return () => window.removeEventListener('keydown', handleGlobalEsc);
+  }, [
+    attachment,
+    showEmojiPicker,
+    isGroupInfoModalOpen,
+    isCreateGroupModalOpen,
+    isAddModalOpen,
+    isExcelModalOpen,
+    isTemplateModalOpen,
+    isForwardModalOpen,
+    isAnalyticsModalOpen,
+    replyingToMessage,
+    activeChat
+  ]);
+
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
 

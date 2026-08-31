@@ -369,6 +369,61 @@ const Dashboard = () => {
   const [subPaymentHistory, setSubPaymentHistory] = useState([]);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [lightboxZoom, setLightboxZoom] = useState(1);
+
+  // --- GLOBAL ESCAPE KEY HANDLER TO CLOSE ANY MODAL / POPUP INSTANTLY ---
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        if (lightboxImage) {
+          setLightboxImage(null);
+        } else if (isSubscriptionModalOpen) {
+          setIsSubscriptionModalOpen(false);
+        } else if (isComposeOpen) {
+          setIsComposeOpen(false);
+        } else if (isMailModalOpen) {
+          setIsMailModalOpen(false);
+        } else if (isNotesModalOpen) {
+          setIsNotesModalOpen(false);
+        } else if (isAddEmployeeOpen) {
+          setIsAddEmployeeOpen(false);
+        } else if (isEditEmployeeOpen) {
+          setIsEditEmployeeOpen(false);
+        } else if (isImportModalOpen) {
+          setIsImportModalOpen(false);
+        } else if (isAssignModalOpen) {
+          setIsAssignModalOpen(false);
+        } else if (isLeadsAnalysisModalOpen) {
+          setIsLeadsAnalysisModalOpen(false);
+        } else if (isCallsAnalysisModalOpen) {
+          setIsCallsAnalysisModalOpen(false);
+        } else if (isCrmCampaignModalOpen) {
+          setIsCrmCampaignModalOpen(false);
+        } else if (isSystemTotalClientsModalOpen) {
+          setIsSystemTotalClientsModalOpen(false);
+        } else if (isPendingClientsModalOpen) {
+          setIsPendingClientsModalOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    lightboxImage,
+    isSubscriptionModalOpen,
+    isComposeOpen,
+    isMailModalOpen,
+    isNotesModalOpen,
+    isAddEmployeeOpen,
+    isEditEmployeeOpen,
+    isImportModalOpen,
+    isAssignModalOpen,
+    isLeadsAnalysisModalOpen,
+    isCallsAnalysisModalOpen,
+    isCrmCampaignModalOpen,
+    isSystemTotalClientsModalOpen,
+    isPendingClientsModalOpen
+  ]);
+
   const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
