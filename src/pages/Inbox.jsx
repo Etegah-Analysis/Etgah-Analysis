@@ -505,6 +505,30 @@ export default function Inbox() {
     }
   };
 
+  // Calculate accurate distinct group members count (1 Admin + distinct employees)
+  const getGroupMembersCount = (membersList) => {
+    if (!Array.isArray(membersList) || membersList.length === 0) return 1;
+    const distinctEmpUids = new Set();
+    let includesAdmin = false;
+
+    membersList.forEach(m => {
+      if (!m) return;
+      const lower = String(m).toLowerCase().trim();
+      if (lower === 'admin' || adminEmails.includes(lower)) {
+        includesAdmin = true;
+        return;
+      }
+      const emp = employees.find(e => e.uid === m || e.email?.toLowerCase() === lower);
+      if (emp?.role === 'admin' || adminEmails.includes(emp?.email?.toLowerCase())) {
+        includesAdmin = true;
+      } else {
+        distinctEmpUids.add(emp ? emp.uid : m);
+      }
+    });
+
+    return (includesAdmin ? 1 : 1) + distinctEmpUids.size;
+  };
+
   const formatJobTitle = (title) => {
     if (!title) return 'Agent';
     const clean = title.toString().trim().toLowerCase();
@@ -875,12 +899,12 @@ export default function Inbox() {
       const creatorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser.email?.split('@')[0] || 'موظف');
       const creatorRole = isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent';
 
-      // Ensure Admin is always included in members
-      const finalMembers = Array.from(new Set([
-        'admin',
-        currentUser.uid,
-        ...selectedGroupMemberUids
-      ])).filter(Boolean);
+      // Ensure Admin is always included uniquely (not duplicating Admin UID)
+      const nonAdminUids = selectedGroupMemberUids.filter(uid => {
+        const emp = employees.find(e => e.uid === uid);
+        return emp && emp.role !== 'admin' && !adminEmails.includes(emp.email?.toLowerCase());
+      });
+      const finalMembers = Array.from(new Set(['admin', ...nonAdminUids]));
 
       const groupDoc = {
         name: newGroupName.trim(),
@@ -936,7 +960,8 @@ export default function Inbox() {
     }
 
     try {
-      const updatedMembers = Array.from(new Set([...(activeChat.members || []), newMemberToAddUid, 'admin']));
+      const currentClean = (activeChat.members || []).filter(m => m !== 'admin');
+      const updatedMembers = Array.from(new Set(['admin', ...currentClean, newMemberToAddUid]));
       await updateDoc(doc(db, 'internal_groups', activeChat.id), {
         members: updatedMembers,
         updatedAt: serverTimestamp()
@@ -2005,7 +2030,7 @@ export default function Inbox() {
                         <span className="text-purple-300">👥</span>
                         <span className="truncate">{chat.name}</span>
                         <span className="bg-purple-900/60 text-purple-200 border border-purple-400/40 text-[10px] px-1.5 py-0.2 rounded-full font-bold shrink-0">
-                          {chat.members?.length || 1} عضو
+                          {getGroupMembersCount(chat.members)} عضو
                         </span>
                       </h3>
                       <p className="text-[11px] text-purple-300/80 truncate">
@@ -2137,7 +2162,7 @@ export default function Inbox() {
                       </h2>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-purple-200/80 flex-wrap">
                         <span className="bg-purple-900/60 border border-purple-400/40 text-[10px] px-2 py-0.2 rounded-full font-bold">
-                          {activeChat.members?.length || 1} أعضاء
+                          {getGroupMembersCount(activeChat.members)} أعضاء
                         </span>
                         <span className="text-[11px] text-gray-300">
                           أنشئ بواسطة: <span className="font-bold text-cyan-300">{activeChat.createdByName}</span>
@@ -2233,7 +2258,7 @@ export default function Inbox() {
                       title="عرض وإدارة أعضاء الجروب"
                     >
                       <Users size={14} />
-                      <span>الأعضاء ({activeChat.members?.length || 1})</span>
+                      <span>الأعضاء ({getGroupMembersCount(activeChat.members)})</span>
                     </button>
                     {isAdmin && (
                       <button
@@ -3079,7 +3104,7 @@ export default function Inbox() {
                     👥 {activeChat.name}
                   </h3>
                   <span className="text-[11px] text-purple-300 font-medium block">
-                    أنشئ بواسطة: {activeChat.createdByName} • {activeChat.members?.length || 1} أعضاء
+                    أنشئ بواسطة: {activeChat.createdByName} • {getGroupMembersCount(activeChat.members)} أعضاء
                   </span>
                 </div>
               </div>
@@ -3128,7 +3153,7 @@ export default function Inbox() {
               {/* Current Members List */}
               <div className="flex-1 flex flex-col overflow-hidden">
                 <span className="text-xs font-bold text-purple-200 mb-2 shrink-0">
-                  قائمة الأعضاء الحاليين ({activeChat.members?.length || 1}):
+                  قائمة الأعضاء الحاليين ({getGroupMembersCount(activeChat.members)}):
                 </span>
 
                 <div className="flex-1 overflow-y-auto bg-slate-950/60 p-3 rounded-2xl border border-white/10 space-y-2">
