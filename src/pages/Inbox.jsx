@@ -155,7 +155,16 @@ export default function Inbox() {
   });
 
   const realCurrentUser = auth.currentUser;
-  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
+  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'];
+  const adminUids = ['admin', 'KZoAQt0FQ8MfKLt2aasGhES4ZOF3'];
+
+  const isAdminMember = (uid) => {
+    if (!uid) return false;
+    const lower = String(uid).toLowerCase().trim();
+    if (lower === 'admin' || adminUids.includes(uid) || adminEmails.includes(lower)) return true;
+    const emp = employees.find(e => e.uid === uid || e.email?.toLowerCase() === lower);
+    return emp?.role === 'admin' || adminEmails.includes(emp?.email?.toLowerCase());
+  };
 
   const isAdminIdentifier = (val) => {
     if (!val) return false;
@@ -194,10 +203,10 @@ export default function Inbox() {
   // Allowed members when creating or adding to a group based on role
   const getEligibleMembersForGroup = () => {
     if (isAdmin || isCoordinator) {
-      return employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid);
+      return employees.filter(e => e.role !== 'admin' && !isAdminMember(e.uid) && e.uid !== currentUser?.uid);
     }
     if (isLeader) {
-      return myTeamMembers;
+      return myTeamMembers.filter(e => !isAdminMember(e.uid));
     }
     return [];
   };
@@ -505,28 +514,20 @@ export default function Inbox() {
     }
   };
 
-  // Calculate accurate distinct group members count (1 Admin + distinct employees)
+  // Calculate accurate distinct group members count (1 Admin + distinct real employees)
   const getGroupMembersCount = (membersList) => {
     if (!Array.isArray(membersList) || membersList.length === 0) return 1;
-    const distinctEmpUids = new Set();
-    let includesAdmin = false;
+    const validEmpUids = new Set();
 
     membersList.forEach(m => {
-      if (!m) return;
-      const lower = String(m).toLowerCase().trim();
-      if (lower === 'admin' || adminEmails.includes(lower)) {
-        includesAdmin = true;
-        return;
-      }
-      const emp = employees.find(e => e.uid === m || e.email?.toLowerCase() === lower);
-      if (emp?.role === 'admin' || adminEmails.includes(emp?.email?.toLowerCase())) {
-        includesAdmin = true;
-      } else {
-        distinctEmpUids.add(emp ? emp.uid : m);
+      if (!m || isAdminMember(m)) return;
+      const emp = employees.find(e => e.uid === m || e.email?.toLowerCase() === String(m).toLowerCase());
+      if (emp && !isAdminMember(emp.uid)) {
+        validEmpUids.add(emp.uid);
       }
     });
 
-    return (includesAdmin ? 1 : 1) + distinctEmpUids.size;
+    return 1 + validEmpUids.size;
   };
 
   const formatJobTitle = (title) => {
@@ -3179,9 +3180,9 @@ export default function Inbox() {
 
                   {/* Other Group Members */}
                   {(activeChat.members || []).map((memberUid) => {
-                    if (memberUid === 'admin') return null;
+                    if (isAdminMember(memberUid)) return null;
                     const emp = employees.find(e => e.uid === memberUid);
-                    if (emp?.role === 'admin' || adminEmails.includes(emp?.email?.toLowerCase())) return null;
+                    if (!emp || isAdminMember(emp.uid)) return null;
 
                     const title = formatJobTitle(emp?.jobTitle);
                     const canRemoveThisMember = 
