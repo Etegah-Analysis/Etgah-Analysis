@@ -801,6 +801,42 @@ export default function Inbox() {
     }
   };
 
+  // Admin-only: Permanently delete any internal group and all its messages
+  const handleDeleteGroup = async (group) => {
+    if (!isAdmin) {
+      toast.error('صلاحية حذف الجروبات مخصصة للإدارة فقط 🔒');
+      return;
+    }
+    const groupName = group?.name || 'هذا الجروب';
+    if (!window.confirm(`هل أنت متأكد من حذف جروب (${groupName}) نهائياً؟\n\nسيتم مسح الجروب وكافة رسائله واختفاؤه من عند جميع الموظفين.`)) {
+      return;
+    }
+    try {
+      // 1. Delete group document from internal_groups
+      await deleteDoc(doc(db, 'internal_groups', group.id));
+
+      // 2. Delete all messages of this group from رسائل_الموظفين_للعملاء
+      const msgsQuery = query(collection(db, 'رسائل_الموظفين_للعملاء'), where('conversationId', '==', group.id));
+      const msgsSnap = await getDocs(msgsQuery);
+      if (!msgsSnap.empty) {
+        const batch = writeBatch(db);
+        msgsSnap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+
+      // 3. Reset activeChat if current activeChat is this group
+      if (activeChat?.id === group.id) {
+        setActiveChat(null);
+        setIsGroupInfoModalOpen(false);
+      }
+
+      toast.success(`تم حذف جروب (${groupName}) بنجاح من عند الجميع 🗑️`);
+    } catch (err) {
+      console.error('Error deleting group:', err);
+      toast.error('حدث خطأ أثناء حذف الجروب: ' + err.message);
+    }
+  };
+
   const handleChatClick = async (chat) => {
     if (isCoordinator && !chat.isGroup) {
       toast.error('غير مصرح لحساب المنسق بالدخول لمحادثات العملاء 🔒');
@@ -1986,6 +2022,20 @@ export default function Inbox() {
                     <span className="mt-1 bg-purple-950/60 text-purple-300 border border-purple-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold">
                       جروب موظفين
                     </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteGroup(chat);
+                        }}
+                        className="mt-1.5 px-2 py-0.5 rounded-md bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 hover:text-rose-200 border border-rose-500/40 transition shadow-sm flex items-center gap-1 text-[10px] font-black cursor-pointer active:scale-95"
+                        title="حذف هذا الجروب بالكامل (للإدارة فقط)"
+                      >
+                        <Trash2 size={11} className="text-rose-400" />
+                        <span>حذف</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -2176,14 +2226,27 @@ export default function Inbox() {
               <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
                 {activeChat.isGroup ? (
                   /* Group Action Buttons */
-                  <button 
-                    onClick={() => setIsGroupInfoModalOpen(true)}
-                    className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white border border-purple-400/50 px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md"
-                    title="عرض وإدارة أعضاء الجروب"
-                  >
-                    <Users size={15} />
-                    <span>إدارة الأعضاء ({activeChat.members?.length || 1})</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => setIsGroupInfoModalOpen(true)}
+                      className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white border border-purple-400/50 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                      title="عرض وإدارة أعضاء الجروب"
+                    >
+                      <Users size={14} />
+                      <span>الأعضاء ({activeChat.members?.length || 1})</span>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGroup(activeChat)}
+                        className="bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+                        title="حذف هذا الجروب نهائياً (للإدارة فقط)"
+                      >
+                        <Trash2 size={13} className="text-rose-400" />
+                        <span className="hidden sm:inline">حذف الجروب</span>
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   /* Customer Action Buttons */
                   <>
@@ -3143,12 +3206,23 @@ export default function Inbox() {
                 </div>
               </div>
 
-              {/* Close Button */}
-              <div className="flex justify-end pt-3 shrink-0 border-t border-white/10">
+              {/* Modal Footer Controls */}
+              <div className="flex justify-between items-center pt-3 shrink-0 border-t border-white/10">
+                {isAdmin ? (
+                  <button 
+                    type="button" 
+                    onClick={() => handleDeleteGroup(activeChat)} 
+                    className="px-4 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-200 hover:text-white text-xs font-black border border-rose-500/40 transition flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                    title="حذف هذا الجروب بالكامل نهائياً"
+                  >
+                    <Trash2 size={14} className="text-rose-300" />
+                    <span>حذف الجروب بالكامل</span>
+                  </button>
+                ) : <div /> }
                 <button 
                   type="button" 
                   onClick={() => setIsGroupInfoModalOpen(false)} 
-                  className="px-5 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition"
+                  className="px-5 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition cursor-pointer"
                 >
                   إغلاق
                 </button>
