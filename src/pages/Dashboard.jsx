@@ -1903,9 +1903,8 @@ const Dashboard = () => {
       [...leadsCrm, ...employeeLeads, ...customers]
         .filter(c => getIsSubscribed(c) && (
           c.assignedToUid === currentUser?.uid || 
-          c.addedByUid === currentUser?.uid || 
           c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() ||
-          myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
+          myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
         ))
         .map(c => [c.phoneNumber || c.id, c])
     ).values()
@@ -1916,7 +1915,6 @@ const Dashboard = () => {
       [...leadsCrm, ...employeeLeads, ...customers]
         .filter(c => getIsSubscribed(c) && (
           c.assignedToUid === currentUser?.uid || 
-          c.addedByUid === currentUser?.uid || 
           c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()
         ))
         .map(c => [c.phoneNumber || c.id, c])
@@ -7269,13 +7267,13 @@ const Dashboard = () => {
                 ? (isLeader
                     ? (subscribedEmpFilter === 'all'
                         ? leaderSubscribedClients
-                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
                     : agentSubscribedClients)
                 : (subscribedEmpFilter === 'all'
                     ? allSubscribedClients
                     : (subscribedEmpFilter === 'admin'
                         ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
-                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
@@ -7296,11 +7294,11 @@ const Dashboard = () => {
                           )}
                           {isLeader && (
                             <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
-                              👑 خاص بي كـ ليدر ({leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} مشترك)
+                              👑 خاص بي كـ ليدر ({leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} مشترك)
                             </option>
                           )}
                           {isLeader && myTeamMembers.map(emp => {
-                            const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                                 👤 {emp.name || emp.username} ({count} مشترك)
@@ -7309,7 +7307,7 @@ const Dashboard = () => {
                           })}
                           {!isLeader && employees.filter(e => e.jobTitle === 'Leader').map(leader => {
                             const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
-                            const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.addedByUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
+                            const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
                             const teamTotalCount = allSubscribedClients.filter(c => 
                               c.assignedToUid === leader.uid || 
                               c.addedByUid === leader.uid || 
@@ -7327,7 +7325,7 @@ const Dashboard = () => {
                                   👑 الليدر: {leader.name || leader.username} (خاص به: {leaderOwnCount} مشترك)
                                 </option>
                                 {teamMembers.map(member => {
-                                  const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.addedByUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
+                                  const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
                                   return (
                                     <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
                                       👤 {member.name || member.username} ({memberCount} مشترك)
@@ -7338,7 +7336,7 @@ const Dashboard = () => {
                             );
                           })}
                           {!isLeader && employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
-                            const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                                 🏢 {emp.name || emp.username} (مباشر للإدارة - {count} مشترك)
@@ -7450,13 +7448,13 @@ const Dashboard = () => {
                 ? (isLeader
                     ? (subscribedEmpFilter === 'all'
                         ? leaderSubscribedClients
-                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
                     : agentSubscribedClients)
                 : (subscribedEmpFilter === 'all'
                     ? allSubscribedClients
                     : (subscribedEmpFilter === 'admin'
                         ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
-                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.addedByUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
 
               if (subMonthFilter !== 'all') {
                 filtered = filtered.filter(c => {
@@ -7561,12 +7559,14 @@ const Dashboard = () => {
                                           const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
                                           await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', customer.id), { assignedToUid: 'admin', assignedTo: 'الإدارة', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           toast.success('تم تعيين العميل إلى الإدارة 👑');
                                         } else {
                                           const targetEmp = employees.find(x => x.uid === uid);
                                           const logObj = createAssignmentLog(prevEmpName, `👤 ${targetEmp?.name}`, assignerDisplay);
                                           await updateDoc(doc(db, 'leads_crm', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           await updateDoc(doc(db, 'employee_leads', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
+                                          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', customer.id), { assignedToUid: uid, assignedTo: targetEmp?.email || '', assignedBy: assignerDisplay, assignedByRole: assignerRole, assignedByUid: assignerUid, assignedAt: serverTimestamp(), assignmentHistory: arrayUnion(logObj) }).catch(() => {});
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
