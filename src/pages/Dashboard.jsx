@@ -770,6 +770,7 @@ const Dashboard = () => {
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
   const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
+  const [dismissedNotifIds, setDismissedNotifIds] = useState([]);
   const notifDropdownRef = useRef(null);
   const prevUnreadMapRef = useRef({});
   const isFirstLoadRef = useRef(true);
@@ -795,11 +796,16 @@ const Dashboard = () => {
   const unreadWhatsAppChats = useMemo(() => {
     if (!currentUser) return [];
 
-    // A. Filter Customer Chats
+    // A. Filter Customer Chats (Strictly real unread messages, excluded if already read or dismissed)
     let filteredCustomerChats = [];
     if (!isCoordinator) {
-      filteredCustomerChats = customers.filter(c => {
-        const hasUnread = (c.unread && Number(c.unread) > 0) || c.status === 'unassigned';
+      filteredCustomerChats = (customers || []).filter(c => {
+        if (dismissedNotifIds.includes(c.id)) return false;
+
+        const isRead = c.readBy && (c.readBy.includes(currentUser.uid) || (isAdmin && c.readBy.includes('admin')));
+        if (isRead) return false;
+
+        const hasUnread = Number(c.unread) > 0;
         if (!hasUnread) return false;
 
         if (isAdmin) return true; // Admin gets notifications for all customer chats
@@ -807,8 +813,7 @@ const Dashboard = () => {
         if (isLeader) {
           return c.assignedToUid === currentUser.uid ||
                  c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase() ||
-                 myTeamMembers.some(m => m.uid === c.assignedToUid) ||
-                 c.status === 'unassigned';
+                 myTeamMembers.some(m => m.uid === c.assignedToUid);
         }
 
         // Regular Agent
@@ -819,6 +824,7 @@ const Dashboard = () => {
 
     // B. Filter Employee Groups strictly for members only
     const filteredGroups = (internalGroups || []).filter(g => {
+      if (dismissedNotifIds.includes(g.id)) return false;
       if (!g.lastMessage) return false;
       const isLastSenderMe = g.lastMessageSenderUid === currentUser.uid || (isAdmin && (g.lastMessageSenderUid === 'admin' || g.lastMessageSenderUid === currentUser.uid));
       if (isLastSenderMe) return false;
@@ -917,14 +923,28 @@ const Dashboard = () => {
         toast(
           (t) => (
             <div 
-              onClick={() => {
+              onClick={async () => {
+                setDismissedNotifIds(prev => [...prev, c.id]);
                 toast.dismiss(t.id);
-                if (c.isGroup) {
+                const uid = currentUser?.uid || '';
+                if (c.isGroup || c.isDirect) {
+                  try {
+                    await updateDoc(doc(db, 'internal_groups', c.id), {
+                      readBy: arrayUnion(uid, 'admin'),
+                      unread: 0
+                    });
+                  } catch(e) {}
                   navigate('/inbox', { state: { selectedGroupId: c.id } });
                 } else if (isWebsiteLead) {
                   setActiveTab('whatsapp_visitors');
                   scrollToTable();
                 } else {
+                  try {
+                    await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                      readBy: arrayUnion(uid, 'admin'),
+                      unread: 0
+                    });
+                  } catch(e) {}
                   navigate('/inbox', { state: { selectedCustomerId: c.id } });
                 }
               }}
@@ -4128,9 +4148,56 @@ const Dashboard = () => {
                       </div>
                       <span className="text-xs font-black text-white">مركز الإشعارات والتنبيهات</span>
                     </div>
-                    <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                      {totalAllNotificationsCount} إشعار جديد
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {totalAllNotificationsCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const allIds = [
+                              ...unreadWhatsAppChats.map(c => c.id),
+                              ...unreadEmails.map(m => m.id)
+                            ];
+                            setDismissedNotifIds(prev => [...prev, ...allIds]);
+                            setHasViewedNotifications(true);
+
+                            const uid = currentUser?.uid || '';
+                            unreadWhatsAppChats.forEach(async (c) => {
+                              try {
+                                if (c.isGroup || c.isDirect) {
+                                  await updateDoc(doc(db, 'internal_groups', c.id), {
+                                    readBy: arrayUnion(uid, 'admin'),
+                                    unread: 0
+                                  });
+                                } else {
+                                  await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                                    readBy: arrayUnion(uid, 'admin'),
+                                    unread: 0
+                                  });
+                                }
+                              } catch(e) {}
+                            });
+
+                            unreadEmails.forEach(async (m) => {
+                              try {
+                                await updateDoc(doc(db, 'internal_emails', m.id), {
+                                  readBy: arrayUnion(myUid, uid, 'admin')
+                                });
+                              } catch(e) {}
+                            });
+
+                            toast.success('تم قراءة وتصفير جميع الإشعارات بنجاح ✓✓');
+                          }}
+                          className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-400/40 text-[10px] px-2 py-0.5 rounded-full font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
+                          title="تحديد وقراءة كافة الإشعارات فوراً"
+                        >
+                          <CheckCheck size={11} className="text-cyan-400" />
+                          <span>تحديد الكل كمقروء</span>
+                        </button>
+                      )}
+                      <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {totalAllNotificationsCount} جديد
+                      </span>
+                    </div>
                   </div>
 
                   {/* Filter Tabs */}
@@ -4227,11 +4294,13 @@ const Dashboard = () => {
                       <div 
                         key={`notif-conv-${c.id}`}
                         onClick={async () => {
+                          setDismissedNotifIds(prev => [...prev, c.id]);
                           setIsNotifDropdownOpen(false);
-                          if (c.isGroup) {
+                          const uid = currentUser?.uid || '';
+                          if (c.isGroup || c.isDirect) {
                             try {
                               await updateDoc(doc(db, 'internal_groups', c.id), {
-                                readBy: arrayUnion(myUid, currentUser.uid, 'admin'),
+                                readBy: arrayUnion(myUid, uid, 'admin'),
                                 unread: 0
                               });
                             } catch(e) {}
@@ -4239,6 +4308,7 @@ const Dashboard = () => {
                           } else {
                             try {
                               await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                                readBy: arrayUnion(myUid, uid, 'admin'),
                                 unread: 0
                               });
                             } catch(e) {}

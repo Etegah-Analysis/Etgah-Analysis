@@ -774,6 +774,7 @@ export default function Inbox() {
           });
         } else {
           await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), {
+            readBy: arrayUnion(currentUser.uid, 'admin'),
             unread: 0
           });
         }
@@ -2176,9 +2177,20 @@ export default function Inbox() {
                   </div>
                   <div className="text-left flex flex-col items-end shrink-0 ml-2">
                     <span className="text-[10px] text-gray-400">{formatTime(chat.updatedAt)}</span>
-                    <span className="mt-1 bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold">
-                      محادثة زميل
-                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteGroup(chat);
+                        }}
+                        className="mt-1.5 px-2 py-0.5 rounded-md bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 hover:text-rose-200 border border-rose-500/40 transition shadow-sm flex items-center gap-1 text-[10px] font-black cursor-pointer active:scale-95"
+                        title="حذف هذه المحادثة بالكامل (للإدارة فقط)"
+                      >
+                        <Trash2 size={11} className="text-rose-400" />
+                        <span>حذف</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
