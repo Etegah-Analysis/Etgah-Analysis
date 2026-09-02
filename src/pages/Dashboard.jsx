@@ -830,13 +830,16 @@ const Dashboard = () => {
         return true;
       }
 
-      // Strictly only groups the employee was explicitly added to, or Coordinator/Admin
-      if (isCoordinator) return true;
-      return g.members?.includes(currentUser?.uid) || 
-             g.members?.includes(currentUser?.email?.toLowerCase()) || 
-             g.members?.includes(currentEmpUser?.uid) || 
-             g.members?.includes(currentEmpUser?.email?.toLowerCase()) || 
-             g.createdByUid === currentUser?.uid;
+      // Strictly only groups or direct chats where employee is an explicit member
+      const myId = currentUser?.uid;
+      const myEmpId = currentEmpUser?.uid;
+      const myMail = currentUser?.email?.toLowerCase();
+      const myEmpMail = currentEmpUser?.email?.toLowerCase();
+
+      return (myId && g.members?.includes(myId)) || 
+             (myEmpId && g.members?.includes(myEmpId)) || 
+             (myMail && (g.members?.includes(myMail) || g.memberEmails?.includes(myMail))) || 
+             (myEmpMail && (g.members?.includes(myEmpMail) || g.memberEmails?.includes(myEmpMail)));
     });
 
     return [...filteredCustomerChats, ...filteredGroups].sort((a, b) => {

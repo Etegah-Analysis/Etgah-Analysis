@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, deleteDoc, storage, setDoc } from '../firebase';
+import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -27,8 +27,10 @@ export default function Inbox() {
   const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isGroupInfoModalOpen, setIsGroupInfoModalOpen] = useState(false);
-  const [chatTabFilter, setChatTabFilter] = useState('all'); // 'all' | 'direct' | 'groups'
+  const [chatTabFilter, setChatTabFilter] = useState('all'); // 'all' | 'direct' | 'groups' | 'colleagues'
   const [newMemberToAddUid, setNewMemberToAddUid] = useState('');
+  const [isDirectModalOpen, setIsDirectModalOpen] = useState(false);
+  const [directSearchTerm, setDirectSearchTerm] = useState('');
 
   React.useEffect(() => {
     document.title = 'CRM WhatsApp Etegah';
@@ -273,7 +275,7 @@ export default function Inbox() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Reactively filter internalGroups based on role, members, and impersonation
+  // Reactively filter internalGroups based on role, members, and impersonation (Airtight Strict Isolation)
   const internalGroups = React.useMemo(() => {
     const myUid = currentUser?.uid;
     const myEmail = currentUser?.email?.toLowerCase();
@@ -283,25 +285,40 @@ export default function Inbox() {
     const impersonatedEmail = impersonatedEmp?.email?.toLowerCase();
 
     return rawInternalGroups.filter(data => {
-      if (isAdmin || isCoordinator) return true;
+      // 1. Super Admin oversees all groups and conversations
+      if (isAdmin) return true;
 
+      // 2. Direct Colleague Chat: Strictly visible ONLY to the two participants (plus Admin)
+      if (data.isDirect) {
+        const membersList = Array.isArray(data.members) ? data.members : [];
+        const emailsList = Array.isArray(data.memberEmails) ? data.memberEmails.map(e => String(e).toLowerCase()) : [];
+        const isParticipant = 
+          (myUid && membersList.includes(myUid)) ||
+          (myEmpUid && membersList.includes(myEmpUid)) ||
+          (impersonatedUid && membersList.includes(impersonatedUid)) ||
+          (myEmail && (emailsList.includes(myEmail) || membersList.includes(myEmail))) ||
+          (myEmpEmail && (emailsList.includes(myEmpEmail) || membersList.includes(myEmpEmail))) ||
+          (impersonatedEmail && (emailsList.includes(impersonatedEmail) || membersList.includes(impersonatedEmail)));
+        return Boolean(isParticipant);
+      }
+
+      // 3. Regular Groups: Coordinator sees group ONLY if explicitly listed in members or creator
       const membersList = Array.isArray(data.members) ? data.members : [];
+      const emailsList = Array.isArray(data.memberEmails) ? data.memberEmails.map(e => String(e).toLowerCase()) : [];
+
+      // Strict Membership Check for all employees (Coordinator, Leader, Agent)
       const isMember = 
-        (myUid && membersList.includes(myUid)) || 
-        (myEmail && membersList.includes(myEmail)) ||
-        (myEmpUid && membersList.includes(myEmpUid)) ||
-        (myEmpEmail && membersList.includes(myEmpEmail)) ||
-        (impersonatedUid && membersList.includes(impersonatedUid)) ||
-        (impersonatedEmail && membersList.includes(impersonatedEmail)) ||
-        membersList.includes('coordinator') ||
-        membersList.includes('all') ||
-        data.createdByUid === myUid ||
-        data.createdByUid === myEmpUid ||
-        data.createdByUid === impersonatedUid;
+        (myUid && (membersList.includes(myUid) || membersList.includes(myEmail))) || 
+        (myEmpUid && (membersList.includes(myEmpUid) || membersList.includes(myEmpEmail))) ||
+        (impersonatedUid && (membersList.includes(impersonatedUid) || membersList.includes(impersonatedEmail))) ||
+        (myEmail && (membersList.includes(myEmail) || emailsList.includes(myEmail))) ||
+        (myEmpEmail && (membersList.includes(myEmpEmail) || emailsList.includes(myEmpEmail))) ||
+        (myUid && data.createdByUid && data.createdByUid === myUid) ||
+        (myEmpUid && data.createdByUid && data.createdByUid === myEmpUid);
 
       return Boolean(isMember);
     });
-  }, [rawInternalGroups, currentUser, currentEmpUser, impersonatedEmp, isAdmin, isCoordinator]);
+  }, [rawInternalGroups, currentUser, currentEmpUser, impersonatedEmp, isAdmin]);
 
   useEffect(() => {
     if (location.state?.selectedGroupId && internalGroups.length > 0) {
@@ -750,7 +767,7 @@ export default function Inbox() {
     // Immediately mark active chat/group as read on open
     const markAsRead = async () => {
       try {
-        if (activeChat.isGroup) {
+        if (activeChat.isGroup || activeChat.isDirect) {
           await updateDoc(doc(db, 'internal_groups', activeChat.id), {
             readBy: arrayUnion(currentUser.uid, 'admin'),
             unread: 0
@@ -869,7 +886,7 @@ export default function Inbox() {
     }
     setActiveChat(chat);
     try {
-      if (chat.isGroup) {
+      if (chat.isGroup || chat.isDirect) {
         const groupRef = doc(db, 'internal_groups', chat.id);
         await updateDoc(groupRef, { 
           readBy: arrayUnion(currentUser.uid, 'admin'),
@@ -946,6 +963,68 @@ export default function Inbox() {
       toast.error('خطأ في إنشاء الجروب: ' + err.message);
     } finally {
       setIsCreatingGroup(false);
+    }
+  };
+
+  // Start or Open 1-on-1 Direct Colleague Chat
+  const handleStartDirectChat = async (targetEmp) => {
+    if (!targetEmp) return;
+    const myId = currentUser?.uid;
+    const targetId = targetEmp.uid || targetEmp.id;
+    if (myId === targetId || currentEmpUser?.uid === targetId) {
+      toast.error('لا يمكنك بدء محادثة مع نفسك');
+      return;
+    }
+
+    // Deterministic ID for 1-on-1 chat so both colleagues share the exact same room
+    const sortedIds = [String(myId), String(targetId)].sort();
+    const directChatId = `direct_${sortedIds[0]}_${sortedIds[1]}`;
+
+    try {
+      const myName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف');
+      const targetName = isAdminIdentifier(targetEmp.email) || targetEmp.role === 'admin' || targetId === 'admin' ? '👑 الإدارة' : (targetEmp.name || targetEmp.username || 'موظف');
+      
+      const chatRef = doc(db, 'internal_groups', directChatId);
+      const chatSnap = await getDoc(chatRef);
+
+      let chatData;
+      if (!chatSnap.exists()) {
+        chatData = {
+          id: directChatId,
+          isGroup: false,
+          isDirect: true,
+          members: [myId, targetId],
+          memberEmails: [currentUser?.email?.toLowerCase(), (targetEmp.email || '').toLowerCase()].filter(Boolean),
+          memberNames: {
+            [myId]: myName,
+            [targetId]: targetName
+          },
+          memberTitles: {
+            [myId]: isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent'),
+            [targetId]: targetEmp.jobTitle || targetEmp.role || 'Agent'
+          },
+          name: targetName,
+          createdByUid: myId,
+          createdByName: myName,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessage: '🎉 تم بدء المحادثة المباشرة',
+          lastMessageSender: myName,
+          readBy: [myId],
+          unread: 0
+        };
+        await setDoc(chatRef, chatData);
+      } else {
+        chatData = { id: chatSnap.id, ...chatSnap.data(), isDirect: true };
+      }
+
+      setIsDirectModalOpen(false);
+      setDirectSearchTerm('');
+      setActiveChat(chatData);
+      toast.success(`تم فتح المحادثة المباشرة مع ${targetName} 💬`);
+    } catch (err) {
+      console.error('Error starting direct chat:', err);
+      toast.error('خطأ في بدء المحادثة: ' + err.message);
     }
   };
 
@@ -1083,8 +1162,23 @@ export default function Inbox() {
       setUploadingAttachment(false);
     }
 
-    // Group Message Handling (Internal WhatsApp Group)
-    if (activeChat.isGroup) {
+    // Internal Message Handling (Group or 1-on-1 Colleague Direct Chat)
+    if (activeChat.isGroup || activeChat.isDirect) {
+      // Security Check: Must be Admin or authorized member
+      const myId = currentUser?.uid;
+      const myEmpId = currentEmpUser?.uid;
+      const myMail = currentUser?.email?.toLowerCase();
+      const isAuthorizedMember = 
+        isAdmin || 
+        (myId && activeChat.members?.includes(myId)) || 
+        (myEmpId && activeChat.members?.includes(myEmpId)) || 
+        (myMail && (activeChat.members?.includes(myMail) || activeChat.memberEmails?.includes(myMail)));
+
+      if (!isAuthorizedMember) {
+        toast.error('غير مصرح لك بإرسال رسائل في هذه المحادثة (لست عضواً مسجلاً) 🔒');
+        return;
+      }
+
       try {
         const senderDisplayName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser?.email?.split('@')[0] || 'موظف');
         const senderRoleName = isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent';
@@ -1097,7 +1191,8 @@ export default function Inbox() {
           senderName: senderDisplayName,
           senderEmail: currentUser.email,
           senderRole: senderRoleName,
-          isGroupMessage: true,
+          isGroupMessage: Boolean(activeChat.isGroup),
+          isDirectMessage: Boolean(activeChat.isDirect),
           timestamp: serverTimestamp(),
           status: 'delivered',
           replyTo: replyingToMessage || null
@@ -1122,7 +1217,7 @@ export default function Inbox() {
 
         setReplyingToMessage(null);
       } catch (err) {
-        console.error("خطأ في إرسال رسالة الجروب:", err);
+        console.error("خطأ في إرسال رسالة المحادثة الداخلية:", err);
         toast.error('خطأ في إرسال الرسالة: ' + err.message);
       }
       return;
@@ -1646,13 +1741,17 @@ export default function Inbox() {
     }
 
     // Tab filter
-    if (chatTabFilter === 'direct' && chat.isGroup) return false;
-    if (chatTabFilter === 'groups' && !chat.isGroup) return false;
+    if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect)) return false;
+    if (chatTabFilter === 'groups' && (!chat.isGroup || chat.isDirect)) return false;
+    if (chatTabFilter === 'colleagues' && !chat.isDirect) return false;
 
-    if (chat.isGroup) {
+    if (chat.isGroup || chat.isDirect) {
       if (sidebarSearch.trim()) {
         const term = sidebarSearch.toLowerCase();
-        const matchName = chat.name?.toLowerCase().includes(term);
+        const otherUid = (chat.members || []).find(m => m !== currentUser?.uid && m !== currentEmpUser?.uid);
+        const otherEmp = employees.find(e => e.uid === otherUid);
+        const otherName = otherEmp?.name || otherEmp?.username || chat.memberNames?.[otherUid] || '';
+        const matchName = chat.name?.toLowerCase().includes(term) || otherName.toLowerCase().includes(term);
         const matchCreator = chat.createdByName?.toLowerCase().includes(term);
         if (!matchName && !matchCreator) return false;
       }
@@ -1867,6 +1966,19 @@ export default function Inbox() {
           </div>
           
           <div className="flex items-center space-x-1 space-x-reverse shrink-0">
+            {/* بدء محادثة مباشرة مع زميل (1-on-1) - متاح للجميع */}
+            <button 
+              type="button"
+              onClick={() => {
+                setDirectSearchTerm('');
+                setIsDirectModalOpen(true);
+              }}
+              className="flex items-center justify-center p-1.5 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-[0_2px_8px_rgba(6,182,212,0.4)] border border-cyan-300/50 hover:from-cyan-500 hover:to-indigo-500 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer" 
+              title="بدء محادثة مباشرة مع زميل عمل (1-on-1)"
+            >
+              <MessageSquarePlus size={13} />
+            </button>
+
             {canCreateGroup && (
               <button 
                 onClick={() => setIsCreateGroupModalOpen(true)} 
@@ -1944,7 +2056,14 @@ export default function Inbox() {
               className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>👥 الجروبات</span>
-              <span className="text-[10px] opacity-75">({internalGroups.length})</span>
+              <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
+            </button>
+            <button 
+              onClick={() => setChatTabFilter('colleagues')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <span>🤝 الزملاء</span>
+              <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isDirect).length})</span>
             </button>
           </div>
         )}
@@ -2011,6 +2130,59 @@ export default function Inbox() {
               : isUnassignedOrUnread 
                 ? 'bg-red-950/50 border-r-4 border-r-red-500 hover:bg-red-900/60 shadow-inner' 
                 : 'hover:bg-white/5 border-r-4 border-r-transparent';
+
+            // Direct Colleague Chat Card Item (1-on-1)
+            if (chat.isDirect) {
+              const otherUid = (chat.members || []).find(m => m !== currentUser?.uid && m !== currentEmpUser?.uid) || chat.members?.[0];
+              const otherEmp = employees.find(e => e.uid === otherUid || e.email?.toLowerCase() === String(otherUid).toLowerCase());
+              const otherName = otherEmp?.name || otherEmp?.username || chat.memberNames?.[otherUid] || chat.name || 'زميل عمل';
+              const isOtherAdmin = isAdminMember(otherUid) || otherEmp?.role === 'admin' || otherUid === 'admin';
+              const otherTitle = isOtherAdmin ? '👑 الإدارة' : formatJobTitle(otherEmp?.jobTitle || otherEmp?.role || chat.memberTitles?.[otherUid] || 'Agent');
+
+              return (
+                <div 
+                  key={chat.id}
+                  onClick={() => handleChatClick(chat)}
+                  className={`p-4 cursor-pointer transition flex items-center justify-between ${itemBg}`}
+                >
+                  <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
+                    <div className="relative shrink-0">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 text-white border border-cyan-400/40">
+                        <User size={18} />
+                      </div>
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full shadow-xs"></span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-white text-sm flex items-center gap-1.5 truncate">
+                        <span className="text-cyan-400">💬</span>
+                        <span className="truncate">{otherName}</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold border shrink-0 ${
+                          isOtherAdmin
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : otherTitle === 'Leader'
+                              ? 'bg-purple-900/60 text-purple-200 border-purple-400/30'
+                              : otherTitle === 'Coordinator'
+                                ? 'bg-cyan-900/60 text-cyan-200 border-cyan-400/30'
+                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                        }`}>
+                          {otherTitle === 'Leader' ? '👑 Leader' : (otherTitle === 'Coordinator' ? '📋 منسق' : (isOtherAdmin ? '👑 الإدارة' : '👤 Agent'))}
+                        </span>
+                      </h3>
+                      <p className="text-xs truncate mt-1 text-gray-300">
+                        <span className="text-cyan-400 font-bold">{chat.lastMessageSender ? `${chat.lastMessageSender}: ` : ''}</span>
+                        {chat.lastMessage || 'بدء المحادثة المباشرة...'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left flex flex-col items-end shrink-0 ml-2">
+                    <span className="text-[10px] text-gray-400">{formatTime(chat.updatedAt)}</span>
+                    <span className="mt-1 bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold">
+                      محادثة زميل
+                    </span>
+                  </div>
+                </div>
+              );
+            }
 
             // Group Card Item
             if (chat.isGroup) {
@@ -2150,7 +2322,55 @@ export default function Inbox() {
                   <ChevronRight size={24} />
                 </button>
                 
-                {activeChat.isGroup ? (
+                {activeChat.isDirect ? (
+                  /* Direct Colleague Header Avatar & Title */
+                  (() => {
+                    const otherUid = (activeChat.members || []).find(m => m !== currentUser?.uid && m !== currentEmpUser?.uid) || activeChat.members?.[0];
+                    const otherEmp = employees.find(e => e.uid === otherUid || e.email?.toLowerCase() === String(otherUid).toLowerCase());
+                    const otherName = otherEmp?.name || otherEmp?.username || activeChat.memberNames?.[otherUid] || activeChat.name || 'زميل عمل';
+                    const rawTitle = otherEmp?.jobTitle || otherEmp?.role || activeChat.memberTitles?.[otherUid] || 'Agent';
+                    const isOtherAdmin = isAdminMember(otherUid) || otherEmp?.role === 'admin' || otherUid === 'admin';
+                    const formattedRole = isOtherAdmin ? '👑 الإدارة' : formatJobTitle(rawTitle);
+
+                    return (
+                      <>
+                        <div className="relative shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md border border-cyan-400/40">
+                            <User size={20} />
+                          </div>
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full shadow-xs"></span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h2 className="font-bold text-white text-base flex items-center gap-1.5 truncate">
+                            <span className="text-cyan-400">💬</span>
+                            <span className="truncate">{otherName}</span>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shrink-0 ${
+                              isOtherAdmin 
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
+                                : formattedRole === 'Leader' 
+                                  ? 'bg-purple-900/60 text-purple-200 border-purple-400/40' 
+                                  : formattedRole === 'Coordinator' 
+                                    ? 'bg-cyan-900/60 text-cyan-200 border-cyan-400/40' 
+                                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                            }`}>
+                              {formattedRole === 'Leader' ? '👑 Leader' : (formattedRole === 'Coordinator' ? '📋 منسق' : (isOtherAdmin ? '👑 الإدارة' : '👤 Agent'))}
+                            </span>
+                          </h2>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-300 flex-wrap">
+                            <span className="text-[11px] text-cyan-300 font-medium">
+                              محادثة مباشرة 1-on-1 (خاصة ومشفرة 🔒)
+                            </span>
+                            {otherEmp?.email && (
+                              <span className="text-[10px] text-gray-400 font-mono hidden sm:inline" dir="ltr">
+                                {otherEmp.email}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : activeChat.isGroup ? (
                   /* Group Header Avatar & Title */
                   <>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center text-white font-bold shadow-md shrink-0 border border-purple-400/40">
@@ -2250,7 +2470,26 @@ export default function Inbox() {
 
               {/* Right Side Header Controls */}
               <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
-                {activeChat.isGroup ? (
+                {activeChat.isDirect ? (
+                  /* Direct Colleague Action Buttons */
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                      <span>نشط الآن</span>
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGroup(activeChat)}
+                        className="bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+                        title="حذف هذه المحادثة نهائياً (للإدارة فقط)"
+                      >
+                        <Trash2 size={13} className="text-rose-400" />
+                        <span className="hidden sm:inline">حذف المحادثة</span>
+                      </button>
+                    )}
+                  </div>
+                ) : activeChat.isGroup ? (
                   /* Group Action Buttons */
                   <div className="flex items-center gap-1.5">
                     <button 
@@ -2923,6 +3162,146 @@ export default function Inbox() {
 
             <div className="flex justify-end pt-3 shrink-0 border-t border-white/10 mt-2">
               <button onClick={() => setIsForwardModalOpen(false)} className="px-4 py-1.5 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: محادثة مباشرة جديدة مع زميل عمل (1-on-1 Direct Colleague Chat) */}
+      {isDirectModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 w-full max-w-lg shadow-[0_10px_40px_rgba(6,182,212,0.3)] text-right max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10 shrink-0">
+              <h3 className="font-black text-white text-lg flex items-center gap-2">
+                <MessageSquarePlus className="text-cyan-400" size={22} />
+                <span>💬 محادثة مباشرة مع زميل عمل</span>
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setIsDirectModalOpen(false)} 
+                className="text-gray-400 hover:text-white transition p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="mb-3 shrink-0">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="ابحث بالاسم، الإيميل، أو المسمى الوظيفي..." 
+                  value={directSearchTerm}
+                  onChange={(e) => setDirectSearchTerm(e.target.value)}
+                  className="w-full bg-slate-950 text-white placeholder-gray-400 border border-cyan-500/30 rounded-xl py-2.5 pr-9 pl-4 text-xs font-bold focus:outline-none focus:border-cyan-400 transition"
+                  autoFocus
+                />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyan-400" size={15} />
+              </div>
+            </div>
+
+            {/* Colleague List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {/* Admin Card (Shown if current user is not admin) */}
+              {!isAdmin && (() => {
+                const term = directSearchTerm.trim().toLowerCase();
+                const matchAdmin = !term || term.includes('admin') || term.includes('إدارة') || term.includes('ادارة');
+                if (!matchAdmin) return null;
+
+                return (
+                  <div 
+                    onClick={() => handleStartDirectChat({ uid: 'admin', name: 'إدارة المنصة (Admin)', email: 'admin@etegah.com', role: 'admin', jobTitle: 'Admin' })}
+                    className="p-3 bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-slate-900 border border-amber-500/40 hover:border-amber-400 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm active:scale-[0.99]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-md shrink-0">
+                        <Crown size={18} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-amber-300 block flex items-center gap-1">
+                          <span>👑 إدارة المنصة (Admin)</span>
+                        </span>
+                        <span className="text-[10px] text-amber-400/80 font-mono" dir="ltr">
+                          admin@etegah.com
+                        </span>
+                      </div>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      مراسلة الإدارة ➔
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {/* Employees List */}
+              {employees
+                .filter(emp => {
+                  const empUid = emp.uid || emp.id;
+                  const myUid = currentUser?.uid;
+                  const myEmpUid = currentEmpUser?.uid;
+                  if (empUid === myUid || empUid === myEmpUid) return false;
+                  if (emp.role === 'admin' || isAdminMember(empUid)) return false;
+
+                  if (directSearchTerm.trim()) {
+                    const t = directSearchTerm.trim().toLowerCase();
+                    const n = (emp.name || emp.username || '').toLowerCase();
+                    const em = (emp.email || '').toLowerCase();
+                    const j = (emp.jobTitle || emp.role || '').toLowerCase();
+                    return n.includes(t) || em.includes(t) || j.includes(t);
+                  }
+                  return true;
+                })
+                .map(emp => {
+                  const title = formatJobTitle(emp.jobTitle || emp.role);
+                  return (
+                    <div 
+                      key={emp.uid || emp.id}
+                      onClick={() => handleStartDirectChat(emp)}
+                      className="p-3 bg-slate-950/70 border border-white/5 hover:border-cyan-500/50 hover:bg-slate-950 rounded-2xl cursor-pointer transition flex items-center justify-between group active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shrink-0 border border-cyan-400/30">
+                          <User size={16} />
+                        </div>
+                        <div className="overflow-hidden">
+                          <span className="text-xs font-bold text-white block truncate group-hover:text-cyan-300 transition">
+                            {emp.name || emp.username}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
+                            {emp.email}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                          title === 'Leader'
+                            ? 'bg-purple-900/60 text-purple-200 border-purple-400/40'
+                            : emp.jobTitle === 'Coordinator' || emp.role === 'coordinator'
+                              ? 'bg-cyan-900/60 text-cyan-200 border-cyan-400/40'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                        }`}>
+                          {title === 'Leader' ? '👑 Leader' : (emp.jobTitle === 'Coordinator' ? '📋 منسق' : '👤 Agent')}
+                        </span>
+                        <span className="text-cyan-400 opacity-0 group-hover:opacity-100 transition text-xs font-bold">
+                          مراسلة ➔
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 shrink-0 border-t border-white/10 mt-2">
+              <button 
+                type="button" 
+                onClick={() => setIsDirectModalOpen(false)} 
+                className="px-5 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition cursor-pointer"
+              >
+                إغلاق
+              </button>
             </div>
           </div>
         </div>
