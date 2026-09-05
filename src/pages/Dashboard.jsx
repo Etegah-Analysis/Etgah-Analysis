@@ -4641,714 +4641,774 @@ const Dashboard = () => {
           );
         })()}
 
-        {/* Stats Cards */}
+        {/* Stats Cards: Divided into (1) Sheets & Client Databases on TOP, (2) Performance Analytics on BOTTOM */}
         {isAdmin ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
-            {/* Card 1: Dedicated Leads CRM */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <FileSpreadsheet className="text-purple-300" size={28} />
+          <div className="space-y-4 mb-6 md:mb-8">
+            {/* 1. Upper Section: Sheets & Client Databases (9 Cards) */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
+              {/* Card 1: Dedicated Leads CRM */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <FileSpreadsheet className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+
+              {/* Card 2: Employee Added Data */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Upload className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
+                </div>
+              </div>
+
+              {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Award className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (اشتراكات مؤكدة)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 4: Total Customers */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsSystemTotalClientsModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Users className="text-blue-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                </div>
+              </div>
+              
+              {/* Card 5: Pending Customers (All Sources) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPendingClientsModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Clock className="text-red-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (واتساب + CRM + داتا الموظف)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 6: Website WhatsApp Leads */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Globe className="text-emerald-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (رسائل وتسجيلات الموقع)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 7: Employees Count */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'employees', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employees' ? 'border-green-400 scale-105 shadow-[0_8px_25px_rgba(34,197,94,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <UserCheck className="text-emerald-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">إجمالي الموظفين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
+                </div>
+              </div>
+
+              {/* Card 8: Visitors */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Globe className="text-indigo-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                </div>
+              </div>
+              
+              {/* Card 9: Recycle Bin */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'recycle_bin' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Trash2 className="text-rose-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">سلة المهملات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{recycleBin.length.toLocaleString()}</h3>
+                </div>
               </div>
             </div>
 
-            {/* Card 2: Employee Added Data */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Upload className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
-              </div>
+            {/* Section Divider: Performance & Analytics */}
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                <BarChart3 size={15} className="text-cyan-400" />
+                <span>📊 تحليلات ومؤشرات الأداء</span>
+              </span>
+              <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
             </div>
 
-            {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Award className="text-purple-300" size={28} />
+            {/* 2. Lower Section: Performance Analytics (3 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+              {/* Card 10: Leads CRM Analysis */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLeadsAnalysisModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <BarChart3 className="text-cyan-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (اشتراكات مؤكدة)
-                </span>
-              </div>
-            </div>
 
-            {/* Card 4: Leads CRM Analysis */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLeadsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <BarChart3 className="text-cyan-300" size={28} />
+              {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCallsAnalysisModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (إجمالي مكالمات السيستم)
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
-                </span>
-              </div>
-            </div>
 
-            {/* Card: Call Performance Analytics (تحليل أداء المكالمات) */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCallsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (إجمالي مكالمات السيستم)
-                </span>
-              </div>
-            </div>
-
-            {/* Card 4: Total Customers */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsSystemTotalClientsModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Users className="text-blue-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
-              </div>
-            </div>
-            
-            {/* Card 5: Pending Customers (All Sources) */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsPendingClientsModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Clock className="text-red-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (واتساب + CRM + داتا الموظف)
-                </span>
-              </div>
-            </div>
-
-            {/* Card 6: Website WhatsApp Leads */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'website')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Globe className="text-emerald-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (رسائل وتسجيلات الموقع)
-                </span>
-              </div>
-            </div>
-
-            {/* Card 7: Employees Count */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'employees', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employees' ? 'border-green-400 scale-105 shadow-[0_8px_25px_rgba(34,197,94,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <UserCheck className="text-emerald-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">إجمالي الموظفين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
-              </div>
-            </div>
-
-            {/* Card 8: Visitors */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Globe className="text-indigo-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
-              </div>
-            </div>
-            
-            {/* Card 9: Recycle Bin */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'recycle_bin' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Trash2 className="text-rose-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">سلة المهملات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{recycleBin.length.toLocaleString()}</h3>
-              </div>
-            </div>
-
-            {/* Card 10: Campaigns */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <BarChart3 className="text-amber-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
-                </span>
+              {/* Card 12: Campaigns */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <BarChart3 className="text-amber-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ) : isCoordinator ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5 mb-6 md:mb-8">
-            {/* Card 1: Dedicated Leads CRM */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <FileSpreadsheet className="text-purple-300" size={28} />
+          <div className="space-y-4 mb-6 md:mb-8">
+            {/* 1. Upper Section: Sheets & Client Databases (7 Cards) */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
+              {/* Card 1: Dedicated Leads CRM */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <FileSpreadsheet className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+
+              {/* Card 2: Employee Added Data */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Upload className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
+                </div>
+              </div>
+
+              {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Award className="text-purple-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (اشتراكات مؤكدة)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 4: Total Customer Database */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsSystemTotalClientsModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Users className="text-blue-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                </div>
+              </div>
+              
+              {/* Card 5: Pending Customers (All Sources) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPendingClientsModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Clock className="text-red-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (واتساب + CRM + داتا الموظف)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 6: Website WhatsApp Leads */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Globe className="text-emerald-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (رسائل وتسجيلات الموقع)
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 7: Visitors (عملاء الزوار والموقع) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <Globe className="text-indigo-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (تحويل وتوزيع للموظفين)
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Card 2: Employee Added Data */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Upload className="text-purple-300" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
-              </div>
+            {/* Section Divider: Performance & Analytics */}
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                <BarChart3 size={15} className="text-cyan-400" />
+                <span>📊 تحليلات ومؤشرات الأداء</span>
+              </span>
+              <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
             </div>
 
-            {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Award className="text-purple-300" size={28} />
+            {/* 2. Lower Section: Performance Analytics (3 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+              {/* Card 8: Leads CRM Analysis */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLeadsAnalysisModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <BarChart3 className="text-cyan-300" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (اشتراكات مؤكدة)
-                </span>
-              </div>
-            </div>
 
-            {/* Card 4: Leads CRM Analysis */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLeadsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <BarChart3 className="text-cyan-300" size={28} />
+              {/* Card 9: Call Performance Analytics */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCallsAnalysisModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    (تحليل شامل للإدارة والمنسق)
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
-                </span>
-              </div>
-            </div>
 
-            {/* Coordinator Card 5: Campaign Performance (أداء الحملات) - Same analysis as Admin */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <BarChart3 className="text-amber-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
-                </span>
-              </div>
-            </div>
-
-            {/* Coordinator Card 6: Call Performance Analytics */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCallsAnalysisModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
-                  {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                </h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (تحليل شامل للإدارة والمنسق)
-                </span>
-              </div>
-            </div>
-
-            {/* Coordinator Card 7: Total Customer Database */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsSystemTotalClientsModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Users className="text-blue-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
-              </div>
-            </div>
-            
-            {/* Coordinator Card 8: Pending Customers (All Sources) */}
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsPendingClientsModalOpen(true);
-              }}
-              className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-              title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Clock className="text-red-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (واتساب + CRM + داتا الموظف)
-                </span>
-              </div>
-            </div>
-
-            {/* Coordinator Card 9: Website WhatsApp Leads */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'customers', 'website')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Globe className="text-emerald-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (رسائل وتسجيلات الموقع)
-                </span>
-              </div>
-            </div>
-
-            {/* Coordinator Card 10: Visitors (عملاء الزوار والموقع) */}
-            <div 
-              onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
-              className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-              title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
-            >
-              <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
-                <Globe className="text-indigo-400" size={28} />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
-                <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                  (تحويل وتوزيع للموظفين)
-                </span>
+              {/* Card 10: Campaign Performance (أداء الحملات) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                  <BarChart3 className="text-amber-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                  </h3>
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View (8 Cards) */
+          /* Leader Dashboard Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
           (() => {
             const leaderTeamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(m => m.email?.toLowerCase())].filter(Boolean);
             const leaderTeamTemplateMsgs = templateMessages.filter(m => leaderTeamEmails.includes(m.senderEmail?.toLowerCase()) || m.senderUid === currentUser?.uid || myTeamMembers.some(tm => tm.uid === m.senderUid));
             
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Leader Card 1: Leads CRM (Personal Leads) */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض جدول Leads CRM الخاص بك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <FileSpreadsheet className="text-purple-300" size={28} />
+              <div className="space-y-4 mb-6">
+                {/* 1. Upper Section: Sheets & Team Data (5 Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Leader Card 1: Leads CRM (Personal Leads) */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض جدول Leads CRM الخاص بك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <FileSpreadsheet className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                      </h3>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                    </h3>
+
+                  {/* Leader Card 2: Employee Added Data */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Upload className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Leader Card 3: Subscribed Clients */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Award className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                      <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (مشتركي الفريق)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Leader Card 4: Website WhatsApp Leads */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Globe className="text-emerald-400" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Leader Card 5: Team Members & Total Team Leads */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لمتابعة عملاء فريقك وسحب الداتا"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Users className="text-amber-400" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-amber-200 font-extrabold mb-1">👥 أعضاء فريقي</p>
+                      <h3 className="text-2xl font-black text-amber-300">
+                        {myTeamMembers.length} موظف
+                      </h3>
+                      <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
+                        ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Leader Card 2: Employee Added Data */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Upload className="text-purple-300" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
-                    </h3>
-                  </div>
+                {/* Section Divider: Performance & Analytics */}
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                    <BarChart3 size={15} className="text-cyan-400" />
+                    <span>📊 تحليلات ومؤشرات الأداء</span>
+                  </span>
+                  <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
                 </div>
 
-                {/* Leader Card 3: Subscribed Clients */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Award className="text-purple-300" size={28} />
+                {/* 2. Lower Section: Performance Analytics (3 Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Leader Card 6: Leads CRM Analysis */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsLeadsAnalysisModalOpen(true);
+                    }}
+                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <BarChart3 className="text-cyan-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                      <h3 className="text-xl font-black text-cyan-300">
+                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                      </h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (داتا تقييم الفريق)
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                    <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (مشتركي الفريق)
-                    </span>
-                  </div>
-                </div>
 
-                {/* Leader Card 4: Website WhatsApp Leads */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Globe className="text-emerald-400" size={28} />
+                  {/* Leader Card 7: Call Performance Analytics */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCallsAnalysisModalOpen(true);
+                    }}
+                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                      <h3 className="text-xl font-black text-cyan-300">
+                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                      </h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (مكالمات الفريق)
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
-                    </h3>
-                  </div>
-                </div>
 
-                {/* Leader Card 5: Team Members & Total Team Leads */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
-                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] p-5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لمتابعة عملاء فريقك وسحب الداتا"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Users className="text-amber-400" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-amber-200 font-extrabold mb-1">👥 أعضاء فريقي</p>
-                    <h3 className="text-2xl font-black text-amber-300">
-                      {myTeamMembers.length} موظف
-                    </h3>
-                    <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
-                      ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Leader Card 6: Leads CRM Analysis */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsLeadsAnalysisModalOpen(true);
-                  }}
-                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-                  title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <BarChart3 className="text-cyan-300" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                    <h3 className="text-xl font-black text-cyan-300">
-                      {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                    </h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (داتا تقييم الفريق)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Leader Card 7: Campaign Performance (أداء الحملات) */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <BarChart3 className="text-amber-400" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-amber-200 font-extrabold mb-1">أداء الحملات 📢</p>
-                    <h3 className="text-2xl font-black text-amber-300">
-                      {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
-                    </h3>
-                    <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                      ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Leader Card 8: Call Performance Analytics */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCallsAnalysisModalOpen(true);
-                  }}
-                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-                  title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                    <h3 className="text-xl font-black text-cyan-300">
-                      {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                    </h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (مكالمات الفريق)
-                    </span>
+                  {/* Leader Card 8: Campaign Performance (أداء الحملات) */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <BarChart3 className="text-amber-400" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-amber-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                      <h3 className="text-2xl font-black text-amber-300">
+                        {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                      </h3>
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })()
         ) : (
-          /* Regular Employee (Agent) Cards View (7 Cards) */
+          /* Regular Employee (Agent) Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
           (() => {
             const agentTemplateMsgs = templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
 
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Agent Card 1: Leads CRM */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <FileSpreadsheet className="text-purple-300" size={28} />
+              <div className="space-y-4 mb-6">
+                {/* 1. Upper Section: Sheets & Personal Leads Data (4 Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Agent Card 1: Leads CRM */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <FileSpreadsheet className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                      </h3>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM (داتاي)</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                    </h3>
+
+                  {/* Agent Card 2: Employee Added Data */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Upload className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Agent Card 3: Subscribed Clients */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Award className="text-purple-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                      <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (مشتركي الخاصين)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Agent Card 4: Website WhatsApp Leads */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <Globe className="text-emerald-400" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
+                      </h3>
+                    </div>
                   </div>
                 </div>
 
-                {/* Agent Card 2: Employee Added Data */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Upload className="text-purple-300" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
-                    </h3>
-                  </div>
+                {/* Section Divider: Performance & Analytics */}
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                    <BarChart3 size={15} className="text-cyan-400" />
+                    <span>📊 تحليلات ومؤشرات الأداء</span>
+                  </span>
+                  <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
                 </div>
 
-                {/* Agent Card 3: Subscribed Clients */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Award className="text-purple-300" size={28} />
+                {/* 2. Lower Section: Performance Analytics (3 Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Agent Card 5: Leads CRM Analysis */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsLeadsAnalysisModalOpen(true);
+                    }}
+                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <BarChart3 className="text-cyan-300" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                      </h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (داتا التقييم الخاصة بي)
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
-                    <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (مشتركي الخاصين)
-                    </span>
-                  </div>
-                </div>
 
-                {/* Agent Card 4: Website WhatsApp Leads */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <Globe className="text-emerald-400" size={28} />
+                  {/* Agent Card 6: Call Performance Analytics */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCallsAnalysisModalOpen(true);
+                    }}
+                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
+                      <h3 className="text-xl font-black text-cyan-300">
+                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                      </h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        (مكالماتي الخاصة)
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
-                    </h3>
-                  </div>
-                </div>
 
-                {/* Agent Card 5: Leads CRM Analysis */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsLeadsAnalysisModalOpen(true);
-                  }}
-                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-                  title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <BarChart3 className="text-cyan-300" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-purple-200 font-extrabold mb-1">📊 Leads CRM Analysis</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
-                    </h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (داتا التقييم الخاصة بي)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Agent Card 6: Campaign Performance (أداء الحملات) */}
-                <div 
-                  onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                  className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <BarChart3 className="text-amber-400" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
-                    <h3 className="text-2xl font-black text-cyan-300">
-                      {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
-                    </h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Agent Card 7: Call Performance Analytics */}
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCallsAnalysisModalOpen(true);
-                  }}
-                  className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
-                  title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
-                    <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-200 font-extrabold mb-1">📞 تحليل أداء المكالمات</p>
-                    <h3 className="text-xl font-black text-cyan-300">
-                      {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
-                    </h3>
-                    <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                      (مكالماتي الخاصة)
-                    </span>
+                  {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
+                  <div 
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
+                  >
+                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-full ml-4 shadow-inner border border-white/20">
+                      <BarChart3 className="text-amber-400" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-purple-200 font-extrabold mb-1">أداء الحملات 📢</p>
+                      <h3 className="text-2xl font-black text-cyan-300">
+                        {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                      </h3>
+                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
