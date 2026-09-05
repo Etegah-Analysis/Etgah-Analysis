@@ -429,7 +429,7 @@ const Dashboard = () => {
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
   const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
   const [crmCampaignBatchSize, setCrmCampaignBatchSize] = useState(5); // 1 to 10
-  const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('welcome_msg');
+  const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('custom');
   const [crmCampaignCustomText, setCrmCampaignCustomText] = useState('');
   const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
   const [crmCampaignSending, setCrmCampaignSending] = useState(false);
@@ -2579,8 +2579,9 @@ const Dashboard = () => {
 
   const handleTransferToWhatsapp = async (customer) => {
     try {
-      let phoneNum = customer.phoneNumber.replace(/[^0-9]/g, '');
-      const waUrl = `https://wa.me/${phoneNum}?text=${encodeURIComponent('مرحباً ' + customer.name + '، متواجدين لخدمتك من منصة اتجاه 📈')}`;
+      let rawPhone = customer.phoneNumber || customer.phone || '';
+      let phoneNum = rawPhone.replace(/[^0-9]/g, '');
+      const waUrl = `https://wa.me/${phoneNum}`;
       
       window.open(waUrl, '_blank');
 
@@ -2599,7 +2600,7 @@ const Dashboard = () => {
         updatedAt: serverTimestamp()
       });
 
-      toast.success('تم فتح الواتساب وتعيين العميل كمُحول بنجاح');
+      toast.success('تم فتح الواتساب بنجاح 💬');
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ عند فتح الواتساب');
@@ -3899,11 +3900,10 @@ const Dashboard = () => {
       return;
     }
 
-    const templateObj = CRM_CAMPAIGN_TEMPLATES.find(t => t.id === crmCampaignTemplateId);
-    const msgText = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText.trim() : (templateObj?.text || '');
+    const msgText = crmCampaignCustomText.trim();
 
     if (!msgText) {
-      toast.error('يرجى كتابة نص الرسالة الإعلانية أو اختيار قالب');
+      toast.error('يرجى كتابة نص الرسالة الترويجية للحملة أولاً ✍️');
       return;
     }
 
@@ -11252,56 +11252,41 @@ const Dashboard = () => {
                     )}
                   </div>
 
-                  {/* Step 3: Template or Custom Message Selector */}
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20 shadow-inner">
-                    <span className="text-xs font-black text-emerald-300 block mb-2.5">
-                      3️⃣ اختيار القالب التسويقي أو كتابة رسالة مخصصة:
-                    </span>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                      {CRM_CAMPAIGN_TEMPLATES.map(tmpl => (
-                        <button
-                          key={tmpl.id}
-                          type="button"
-                          disabled={crmCampaignSending}
-                          onClick={() => setCrmCampaignTemplateId(tmpl.id)}
-                          className={`p-2.5 rounded-xl text-right text-xs font-bold transition border cursor-pointer ${
-                            crmCampaignTemplateId === tmpl.id
-                              ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-sm ring-1 ring-emerald-400/50'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <input 
-                              type="radio" 
-                              checked={crmCampaignTemplateId === tmpl.id} 
-                              onChange={() => {}} 
-                              className="accent-emerald-500 pointer-events-none"
-                            />
-                            <span>{tmpl.name}</span>
-                          </div>
-                        </button>
-                      ))}
+                  {/* Step 3: Custom Promotional Campaign Message */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/30 shadow-inner">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                        <span>📢</span>
+                        <span>3️⃣ كتابة نص الرسالة الترويجية للحملة:</span>
+                      </span>
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                        ✍️ رسالة ترويجية مخصصة للموظف
+                      </span>
                     </div>
 
-                    {crmCampaignTemplateId === 'custom' ? (
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">اكتب نص الرسالة الإعلانية المخصصة:</label>
-                        <textarea
-                          rows={4}
-                          disabled={crmCampaignSending}
-                          value={crmCampaignCustomText}
-                          onChange={(e) => setCrmCampaignCustomText(e.target.value)}
-                          placeholder="السلام عليكم .. نقدم لحضرتك أقوى الفرص والتوصيات الاستثمارية..."
-                          className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl p-3 text-xs text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans"
-                        />
+                    <p className="text-[11px] text-slate-400 mb-2.5 leading-relaxed">
+                      اكتب الرسالة الترويجية الخاصة بك التي ستصل للعملاء المستهدفين في هذه الحملة:
+                    </p>
+
+                    <textarea
+                      rows={5}
+                      disabled={crmCampaignSending}
+                      value={crmCampaignCustomText}
+                      onChange={(e) => setCrmCampaignCustomText(e.target.value)}
+                      placeholder="السلام عليكم 🤝 .. مع حضرتك منصة اتجاه للتحليل الذكي .. يسعدنا تقديم أقوى الفرص والتوصيات الاستثمارية لحسابك..."
+                      className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans shadow-inner transition"
+                    />
+
+                    {crmCampaignCustomText.trim() ? (
+                      <div className="mt-3 bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <span className="text-[10px] text-emerald-400 font-bold block mb-1">معاينة الرسالة كما ستصل للعميل:</span>
+                        <p className="text-xs text-emerald-100 font-sans leading-relaxed whitespace-pre-line bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
+                          {crmCampaignCustomText.trim()}
+                        </p>
                       </div>
                     ) : (
-                      <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
-                        <span className="text-[10px] text-slate-400 font-bold block mb-1">معاينة نص الرسالة التي ستصل للعميل:</span>
-                        <p className="text-xs text-emerald-200 font-sans leading-relaxed whitespace-pre-line bg-slate-950/70 p-3 rounded-lg border border-slate-800">
-                          {currentMsgPreview}
-                        </p>
+                      <div className="mt-2 text-[11px] text-amber-400/90 flex items-center gap-1">
+                        <span>⚠️ يرجى كتابة نص الرسالة الترويجية قبل الضغط على زر الإرسال.</span>
                       </div>
                     )}
                   </div>
