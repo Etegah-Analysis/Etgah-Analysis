@@ -3002,29 +3002,46 @@ const Dashboard = () => {
       return;
     }
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedVisitors.length} زائر إلى سلة المهملات؟`)) return;
-    for (const id of selectedVisitors) {
-      const visitor = visitors.find(v => v.id === id);
-      const whatsappCustomer = customers.find(c => c.id === id && c.addedBy === 'WhatsApp Webhook');
-      
-      if (visitor) {
+    try {
+      for (const id of selectedVisitors) {
+        const vFromVis = visitors.find(v => v.id === id);
+        const cFromCust = customers.find(c => c.id === id);
+        const isFromVis = Boolean(vFromVis) || !cFromCust;
+        const targetCol = isFromVis ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
+        const rawObj = vFromVis || cFromCust || {};
+
+        const displayName = `${rawObj.firstName || rawObj.name || ''} ${rawObj.lastName || ''}`.trim() || rawObj.phone || rawObj.phoneNumber || 'زائر موقع (OTP)';
+        const displayPhone = rawObj.phone || rawObj.phoneNumber || '';
+
         await setDoc(doc(db, 'recycle_bin', id), {
-          ...visitor,
-          originalCollection: 'visitor_customers',
+          ...rawObj,
+          id: id,
+          name: displayName,
+          firstName: rawObj.firstName || displayName,
+          lastName: rawObj.lastName || '',
+          phone: displayPhone,
+          phoneNumber: displayPhone,
+          email: rawObj.email || '',
+          originalCollection: targetCol,
           type: 'visitor',
-          deletedAt: serverTimestamp()
+          source: 'موقع الويب (OTP)',
+          deletedAt: serverTimestamp(),
+          deletedBy: '👑 الإدارة'
         });
-        await deleteDoc(doc(db, 'visitor_customers', id));
-      } else if (whatsappCustomer) {
-        await setDoc(doc(db, 'recycle_bin', id), {
-          ...whatsappCustomer,
-          originalCollection: 'بيانات_تسجيل_العملاء',
-          type: 'customer',
-          deletedAt: serverTimestamp()
-        });
-        await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id));
+
+        await deleteDoc(doc(db, targetCol, id)).catch(() => {});
+        if (isFromVis) {
+          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id)).catch(() => {});
+        } else {
+          await deleteDoc(doc(db, 'visitor_customers', id)).catch(() => {});
+        }
       }
+      setSelectedVisitors([]);
+      toast.success('تم نقل الزوار المحددين إلى سلة المهملات بنجاح 🗑️');
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء الحذف');
     }
-    setSelectedVisitors([]);
   };
 
   const handleDeleteSingleVisitor = async (item) => {
@@ -3032,26 +3049,38 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من مسح الزائر (${item.name || item.phone}) ونقله إلى سلة المهملات؟`)) return;
+    const displayName = item.name || `${item._raw?.firstName || item._raw?.name || ''} ${item._raw?.lastName || ''}`.trim() || item.phone || item.phoneNumber || 'زائر موقع (OTP)';
+    if (!window.confirm(`هل أنت متأكد من مسح الزائر (${displayName}) ونقله إلى سلة المهملات؟`)) return;
     try {
-      if (item.source === 'موقع الويب') {
-        await setDoc(doc(db, 'recycle_bin', item.id), {
-          ...item._raw,
-          originalCollection: 'visitor_customers',
-          type: 'visitor',
-          deletedAt: serverTimestamp()
-        });
-        await deleteDoc(doc(db, 'visitor_customers', item.id));
+      const isFromVisitorCustomers = item.isVisitorDoc || visitors.some(v => v.id === item.id) || item.source === 'موقع الويب' || item.source === 'موقع الويب (OTP)';
+      const targetCol = isFromVisitorCustomers ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
+      const displayPhone = item.phone || item.phoneNumber || item._raw?.phone || item._raw?.phoneNumber || '';
+
+      await setDoc(doc(db, 'recycle_bin', item.id), {
+        ...(item._raw || {}),
+        id: item.id,
+        name: displayName,
+        firstName: item._raw?.firstName || displayName,
+        lastName: item._raw?.lastName || '',
+        phone: displayPhone,
+        phoneNumber: displayPhone,
+        email: item.email || item._raw?.email || '',
+        originalCollection: targetCol,
+        type: 'visitor',
+        source: 'موقع الويب (OTP)',
+        deletedAt: serverTimestamp(),
+        deletedBy: '👑 الإدارة'
+      });
+
+      // Delete from target collection so it immediately disappears from the Visitors card!
+      await deleteDoc(doc(db, targetCol, item.id));
+      if (isFromVisitorCustomers) {
+        await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', item.id)).catch(() => {});
       } else {
-        await setDoc(doc(db, 'recycle_bin', item.id), {
-          ...item._raw,
-          originalCollection: 'بيانات_تسجيل_العملاء',
-          type: 'customer',
-          deletedAt: serverTimestamp()
-        });
-        await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', item.id));
+        await deleteDoc(doc(db, 'visitor_customers', item.id)).catch(() => {});
       }
-      toast.success('تم نقل الزائر إلى سلة المهملات بنجاح');
+
+      toast.success('تم نقل الزائر إلى سلة المهملات بنجاح 🗑️');
     } catch (e) {
       console.error(e);
       toast.error('حدث خطأ أثناء المسح');
@@ -3124,6 +3153,17 @@ const Dashboard = () => {
     }
     if(window.confirm('هل أنت متأكد من الحذف النهائي للأبد؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
+        const item = recycleBin.find(r => r.id === id);
+        // Also guarantee deletion from original collection if it still existed!
+        if (item?.originalCollection) {
+          await deleteDoc(doc(db, item.originalCollection, id)).catch(() => {});
+        }
+        if (item?.type === 'visitor' || item?.originalCollection === 'visitor_customers') {
+          await deleteDoc(doc(db, 'visitor_customers', id)).catch(() => {});
+        }
+        if (item?.type === 'customer' || item?.originalCollection === 'بيانات_تسجيل_العملاء') {
+          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id)).catch(() => {});
+        }
         await deleteDoc(doc(db, 'recycle_bin', id));
         toast.success('تم الحذف النهائي بنجاح');
       } catch (error) {
@@ -3137,7 +3177,16 @@ const Dashboard = () => {
     setSelectedRecycleItems(prev => prev.includes(id) ? prev.filter(rId => rId !== id) : [...prev, id]);
   };
   const toggleAllRecycleItems = () => {
-    const filteredItems = recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter);
+    const filteredItems = recycleBin.filter(item => {
+      const isVisitorItem = item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP');
+      return rbFilter === 'all' 
+        ? true 
+        : rbFilter === 'visitor' 
+          ? isVisitorItem 
+          : rbFilter === 'customer' 
+            ? (item.type === 'customer' && !isVisitorItem) 
+            : item.type === rbFilter;
+    });
     if (selectedRecycleItems.length === filteredItems.length && filteredItems.length > 0) setSelectedRecycleItems([]);
     else setSelectedRecycleItems(filteredItems.map(i => i.id));
   };
@@ -3163,6 +3212,16 @@ const Dashboard = () => {
     if (!window.confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedRecycleItems.length} عنصر للأبد؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
     try {
       for (const id of selectedRecycleItems) {
+        const item = recycleBin.find(r => r.id === id);
+        if (item?.originalCollection) {
+          await deleteDoc(doc(db, item.originalCollection, id)).catch(() => {});
+        }
+        if (item?.type === 'visitor' || item?.originalCollection === 'visitor_customers') {
+          await deleteDoc(doc(db, 'visitor_customers', id)).catch(() => {});
+        }
+        if (item?.type === 'customer' || item?.originalCollection === 'بيانات_تسجيل_العملاء') {
+          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id)).catch(() => {});
+        }
         await deleteDoc(doc(db, 'recycle_bin', id));
       }
       setSelectedRecycleItems([]);
@@ -9065,7 +9124,7 @@ const Dashboard = () => {
                 <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'all' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>الكل</button>
                 <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'employee' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>موظفين</button>
                 <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'customer' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>عملاء</button>
-                <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'visitor' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>زوار</button>
+                <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'visitor' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>زوار (OTP)</button>
                 <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'email' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>✉️ إيميلات</button>
                 <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'message' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>رسائل</button>
               </div>
@@ -9107,7 +9166,14 @@ const Dashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-red-50">
                   {recycleBin.filter(item => {
-                    const matchesType = rbFilter === 'all' || item.type === rbFilter;
+                    const isVisitorItem = item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP');
+                    const matchesType = rbFilter === 'all' 
+                      ? true 
+                      : rbFilter === 'visitor' 
+                        ? isVisitorItem 
+                        : rbFilter === 'customer' 
+                          ? (item.type === 'customer' && !isVisitorItem) 
+                          : item.type === rbFilter;
                     if (!matchesType) return false;
                     if (!dashboardSearch.trim()) return true;
                     const term = dashboardSearch.toLowerCase();
@@ -9123,18 +9189,31 @@ const Dashboard = () => {
                         />
                       </td>
                       <td className="p-4 text-sm font-bold text-gray-700">
-                        {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">👤 موظف</span>}
-                        {item.type === 'customer' && item.originalCollection === 'leads_crm' && <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs">🎯 Leads CRM</span>}
-                        {item.type === 'customer' && item.originalCollection === 'employee_leads' && <span className="bg-cyan-100 text-cyan-800 px-2 py-1 rounded text-xs">📋 داتا موظف</span>}
-                        {item.type === 'customer' && item.originalCollection !== 'leads_crm' && item.originalCollection !== 'employee_leads' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">💬 عميل واتساب</span>}
-                        {item.type === 'visitor' && <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">🌐 زائر موقع</span>}
-                        {item.type === 'email' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">✉️ بريد داخلي</span>}
-                        {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs">💬 رسالة شات</span>}
+                        {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">👤 موظف</span>}
+                        {item.type === 'customer' && item.originalCollection === 'leads_crm' && <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">🎯 Leads CRM</span>}
+                        {item.type === 'customer' && item.originalCollection === 'employee_leads' && <span className="bg-cyan-100 text-cyan-800 px-2 py-1 rounded text-xs font-bold">📋 داتا موظف</span>}
+                        {(item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP')) ? (
+                          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded text-xs font-bold">🌐 زائر موقع (OTP)</span>
+                        ) : (
+                          item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">💬 عميل واتساب</span>
+                        )}
+                        {item.type === 'email' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">✉️ بريد داخلي</span>}
+                        {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">💬 رسالة شات</span>}
                       </td>
                       <td className="p-4 text-sm text-gray-800">
                         {item.type === 'employee' && (<span>{item.name} ({item.email})</span>)}
-                        {item.type === 'customer' && (<span>{item.name || 'عميل'} <span dir="ltr">({item.phoneNumber})</span> {item.addedBy ? <span className="text-xs text-gray-500 font-normal">| أضافه: {item.addedBy}</span> : ''}</span>)}
-                        {item.type === 'visitor' && (<span>{item.firstName || ''} {item.lastName || ''} <span dir="ltr">({item.phone})</span></span>)}
+                        {(item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP')) ? (
+                          <span>
+                            <strong className="text-gray-900">{item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'زائر موقع (OTP)'}</strong>{' '}
+                            <span dir="ltr" className="text-gray-600 font-mono">({item.phone || item.phoneNumber || 'بدون هاتف'})</span>
+                          </span>
+                        ) : item.type === 'customer' ? (
+                          <span>
+                            <strong className="text-gray-900">{item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'عميل'}</strong>{' '}
+                            <span dir="ltr" className="text-gray-600 font-mono">({item.phoneNumber || item.phone})</span>{' '}
+                            {item.addedBy ? <span className="text-xs text-gray-500 font-normal">| أضافه: {item.addedBy}</span> : ''}
+                          </span>
+                        ) : null}
                         {item.type === 'email' && (<span>📌 {item.subject || 'بدون موضوع'} <span className="text-xs text-purple-700 font-bold">(من: {item.senderName || item.senderEmail} ➔ إلى: {item.recipientName})</span></span>)}
                         {item.type === 'message' && (<span className="text-gray-500 italic">"{item.text?.substring(0, 50)}..."</span>)}
                       </td>
