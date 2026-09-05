@@ -202,7 +202,7 @@ export default function Inbox() {
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
   const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
-  const canCreateGroup = isAdmin || isCoordinator || isLeader;
+  const canCreateGroup = isAdmin || hasPermission(currentEmpUser, 'canManageInternalGroups') || isCoordinator || isLeader;
 
   // Allowed members when creating or adding to a group based on role
   const getEligibleMembersForGroup = () => {
@@ -973,6 +973,10 @@ export default function Inbox() {
   // Start or Open 1-on-1 Direct Colleague Chat
   const handleStartDirectChat = async (targetEmp) => {
     if (!targetEmp) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canChatColleagues')) {
+      toast.error('صلاحية محادثة الزملاء غير مفعّلة لحسابك ⛔');
+      return;
+    }
     const myId = currentUser?.uid;
     const targetId = targetEmp.uid || targetEmp.id;
     if (myId === targetId || currentEmpUser?.uid === targetId) {

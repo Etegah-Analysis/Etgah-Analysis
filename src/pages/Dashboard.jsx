@@ -1,12 +1,14 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
+import { Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import EmployeePermissionsModal from '../components/EmployeePermissionsModal';
+import { hasPermission } from '../config/permissionsConfig';
 
 // Error Boundary to catch React runtime crashes and show error instead of white screen
 class DashboardErrorBoundary extends React.Component {
@@ -611,7 +613,7 @@ const Dashboard = () => {
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
   const isAgent = !isAdmin && !isCoordinator && !isLeader;
   const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
-  const isAllowedToManageLeads = isAdmin || isCoordinator || isLeader;
+  const isAllowedToManageLeads = isAdmin || hasPermission(currentEmpUser, 'canReassignLeads') || (isCoordinator || isLeader);
   const myUid = isAdmin ? 'admin' : (effectiveUser?.uid || currentUser?.uid || '');
   const myEmail = effectiveUser?.email?.toLowerCase() || currentUser?.email?.toLowerCase() || '';
 
@@ -679,6 +681,8 @@ const Dashboard = () => {
           setIsNotesModalOpen(false);
         } else if (isAddEmployeeOpen) {
           setIsAddEmployeeOpen(false);
+        } else if (isPermissionsModalOpen) {
+          setIsPermissionsModalOpen(false);
         } else if (isEditEmployeeOpen) {
           setIsEditEmployeeOpen(false);
         } else if (isImportModalOpen) {
@@ -6536,7 +6540,7 @@ const Dashboard = () => {
                                   <span className="text-[11px] font-black">WhatsApp</span>
                                 </button>
                               )}
-                              {isAdmin && (
+                              {(isAdmin || hasPermission(currentEmpUser, 'canDeleteLeads')) && (
                                 <button
                                   onClick={() => handleDeleteSingleLeadCrm(customer)}
                                   className="bg-red-50 text-red-600 hover:bg-red-100 p-2 rounded-lg transition shadow-sm cursor-pointer"
@@ -8639,6 +8643,18 @@ const Dashboard = () => {
                             >
                               <Edit size={18} />
                             </button>
+                            {isAdmin && (
+                              <button 
+                                onClick={() => { 
+                                  setSelectedEmpForPermissions(emp);
+                                  setIsPermissionsModalOpen(true);
+                                }}
+                                className="p-1.5 text-purple-600 hover:bg-purple-100/60 rounded-lg transition cursor-pointer"
+                                title="إعدادات وصلاحيات الموظف المتقدمة"
+                              >
+                                <Settings size={18} />
+                              </button>
+                            )}
                             <button 
                               onClick={() => toggleEmployeeActive(emp)}
                               className={`p-2 rounded-lg transition shadow-sm border ${emp.isActive === false ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'}`}
@@ -9597,6 +9613,19 @@ const Dashboard = () => {
             </div>
           </div>, document.body
         )}
+
+        {/* Modal: Employee Custom Permissions Settings */}
+        <EmployeePermissionsModal
+          isOpen={isPermissionsModalOpen}
+          onClose={() => {
+            setIsPermissionsModalOpen(false);
+            setSelectedEmpForPermissions(null);
+          }}
+          employee={selectedEmpForPermissions}
+          onSaveSuccess={(updatedPermissions, empDocId) => {
+            setEmployees(prev => prev.map(e => (e.uid === empDocId || e.id === empDocId) ? { ...e, customPermissions: updatedPermissions } : e));
+          }}
+        />
 
         {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
         {isImportModalOpen && typeof document !== 'undefined' && document.body && createPortal(
