@@ -557,7 +557,11 @@ const Dashboard = () => {
   const [loadingAdd, setLoadingAdd] = useState(false);
   const [errorAdd, setErrorAdd] = useState('');
 
-  // Edit Employee Modal
+    // Employee Permissions Settings Modal
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [selectedEmpForPermissions, setSelectedEmpForPermissions] = useState(null);
+
+// Edit Employee Modal
   const [isEditEmployeeOpen, setIsEditEmployeeOpen] = useState(false);
   const [editEmp, setEditEmp] = useState(null);
   const [editEmpPassword, setEditEmpPassword] = useState('');
