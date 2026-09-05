@@ -4,9 +4,54 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Send, User, Clock, CheckCircle2, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { hasPermission } from '../config/permissionsConfig';
 import * as XLSX from 'xlsx';
 
-export default function Inbox() {
+// Error Boundary to catch React runtime crashes in Inbox
+class InboxErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('Inbox crash:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      const errMsg = this.state.error?.stack || this.state.error?.message || 'Unknown React Error';
+      return (
+        <div style={{ padding: 32, textAlign: 'center', background: '#090d16', minHeight: '100vh', color: 'white', direction: 'rtl', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Cairo, sans-serif' }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>⚠️</div>
+          <h2 style={{ fontSize: 22, fontWeight: '900', marginBottom: 8, color: '#38bdf8' }}>حدث خطأ في عرض محادثات الواتساب</h2>
+          <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 13 }}>يرجى النقر على زر التحديث أدناه بعد اكتمال رفع التحديثات:</p>
+          <pre style={{ background: '#1e293b', padding: 16, borderRadius: 14, fontSize: 11, textAlign: 'left', overflowX: 'auto', maxWidth: 750, width: '100%', margin: '0 auto 20px', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.3)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+            {errMsg}
+          </pre>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => window.location.reload(true)}
+              style={{ background: '#059669', color: 'white', border: 'none', padding: '12px 30px', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 14, boxShadow: '0 4px 14px rgba(5,150,105,0.4)' }}
+            >
+              🔄 تحديث فوري وإعادة تحميل
+            </button>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              style={{ background: '#4338ca', color: 'white', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}
+            >
+              📊 العودة للوحة التحكم
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function InboxContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -155,6 +200,23 @@ export default function Inbox() {
       return null;
     }
   });
+
+  // Keep impersonatedEmp synced with location.state & sessionStorage
+  useEffect(() => {
+    if (location.state?.impersonatedEmp) {
+      setImpersonatedEmp(location.state.impersonatedEmp);
+      try {
+        sessionStorage.setItem('impersonatedEmp', JSON.stringify(location.state.impersonatedEmp));
+      } catch (_) {}
+    } else {
+      try {
+        const saved = sessionStorage.getItem('impersonatedEmp');
+        if (saved) {
+          setImpersonatedEmp(JSON.parse(saved));
+        }
+      } catch (_) {}
+    }
+  }, [location.state]);
 
   const realCurrentUser = auth.currentUser;
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'];
@@ -704,10 +766,17 @@ export default function Inbox() {
         const chatId = doc.id;
 
         // Check if chat belongs to employee or admin
+        const empUid = currentUser?.uid;
+        const empEmail = currentUser?.email?.toLowerCase();
+        const empName = currentEmpUser?.name || currentUser?.displayName;
+        const empUsername = currentEmpUser?.username;
+
         const isAssignedToThisEmp = 
           isAdmin || 
-          data.assignedToUid === currentUser.uid || 
-          (data.assignedTo && currentUser.email && data.assignedTo.toLowerCase() === currentUser.email.toLowerCase());
+          (empUid && (data.assignedToUid === empUid || data.addedByUid === empUid)) || 
+          (empEmail && (data.assignedTo?.toLowerCase() === empEmail || data.addedBy?.toLowerCase() === empEmail)) ||
+          (empName && (data.assignedTo === empName || data.addedBy === empName)) ||
+          (empUsername && (data.assignedTo === empUsername || data.addedBy === empUsername));
 
         if (!isAssignedToThisEmp) return;
 
@@ -3656,5 +3725,14 @@ export default function Inbox() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function Inbox() {
+  return (
+    <InboxErrorBoundary>
+      <InboxContent />
+    </InboxErrorBoundary>
   );
 }
