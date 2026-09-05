@@ -592,12 +592,17 @@ const Dashboard = () => {
   const realIsAdmin = realCurrentUser && adminEmails.includes(realCurrentUser.email?.toLowerCase());
 
   // Impersonation: When Admin enters an employee account, UI behaves 100% as that employee
-  const effectiveUser = (realIsAdmin && impersonatedEmp)
-    ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name }
-    : realCurrentUser;
-  const effectiveEmpUser = (realIsAdmin && impersonatedEmp)
-    ? impersonatedEmp
-    : employees.find(e => e.uid === realCurrentUser?.uid || e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase());
+  const effectiveUser = useMemo(() => {
+    return (realIsAdmin && impersonatedEmp)
+      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name || impersonatedEmp.username }
+      : realCurrentUser;
+  }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
+
+  const effectiveEmpUser = useMemo(() => {
+    return (realIsAdmin && impersonatedEmp)
+      ? impersonatedEmp
+      : employees.find(e => e.uid === realCurrentUser?.uid || e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase());
+  }, [realIsAdmin, impersonatedEmp, employees, realCurrentUser]);
 
   const currentUser = effectiveUser;
   const isAdmin = realIsAdmin && !impersonatedEmp;
@@ -2013,6 +2018,23 @@ const Dashboard = () => {
     }
     return Array.from(monthSet).filter(Boolean).sort().reverse();
   }, [allSubscribedClients]);
+
+    // Memoized employee lead counts for Leads CRM Filter Bar (avoids 300k loop iterations on render)
+  const employeeLeadCounts = useMemo(() => {
+    const map = {};
+    if (!leadsCrm || !employees) return map;
+    employees.forEach(emp => {
+      const empMail = emp.email?.toLowerCase();
+      const empName = emp.name;
+      map[emp.uid] = leadsCrm.filter(c => 
+        c.assignedToUid === emp.uid || 
+        c.addedByUid === emp.uid || 
+        (empMail && c.assignedTo?.toLowerCase() === empMail) || 
+        (empName && c.addedBy === empName)
+      ).length;
+    });
+    return map;
+  }, [leadsCrm, employees]);
 
   // --- LEAD IMPORT & EXCEL / GSHEETS / TEXT PARSER HANDLERS ---
   const handleFileUpload = (e) => {
@@ -4499,7 +4521,10 @@ const Dashboard = () => {
                   <button 
                     onClick={() => {
                       setIsNotifDropdownOpen(false);
-                      navigate('/inbox');
+                      if (impersonatedEmp) {
+                        sessionStorage.setItem('impersonatedEmp', JSON.stringify(impersonatedEmp));
+                      }
+                      navigate('/inbox', { state: { impersonatedEmp } });
                     }}
                     className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-1.5 px-2 rounded-xl text-[11px] font-black transition shadow-sm flex items-center justify-center gap-1"
                   >
@@ -4654,8 +4679,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <FileSpreadsheet className="text-purple-300" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎯 Leads CRM</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">🎯 Leads CRM</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -4669,8 +4694,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <Upload className="text-purple-300" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">📁 داتا مضافة بواسطة الموظف</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">📁 داتا مضافة بواسطة الموظف</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -4684,8 +4709,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <Award className="text-purple-300" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🎉 العملاء المشتركين</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">🎉 العملاء المشتركين</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                     (اشتراكات مؤكدة)
@@ -4720,13 +4745,13 @@ const Dashboard = () => {
                 className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
-                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <Clock className="text-red-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">⏳ عملاء الانتظار (شامل)</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5 truncate" dir="rtl">
                     (واتساب + CRM + داتا الموظف)
                   </span>
                 </div>
@@ -4741,8 +4766,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <Globe className="text-emerald-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء واتساب الموقع (Website)</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">عملاء واتساب الموقع (Website)</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                     (رسائل وتسجيلات الموقع)
@@ -4772,8 +4797,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <Globe className="text-indigo-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">عملاء الزوار</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">عملاء الزوار</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
                 </div>
               </div>
@@ -4873,7 +4898,7 @@ const Dashboard = () => {
         ) : isCoordinator ? (
           <div className="space-y-4 mb-6 md:mb-8">
             {/* 1. Upper Section: Sheets & Client Databases (7 Cards) */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
@@ -4930,11 +4955,11 @@ const Dashboard = () => {
                 className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
-                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
+                <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <Users className="text-blue-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">🌐 إجمالي عدد العملاء على السيستم</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate" title="إجمالي عدد العملاء على السيستم">🌐 إجمالي عدد العملاء على السيستم</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
@@ -4951,8 +4976,8 @@ const Dashboard = () => {
                 <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-full ml-3.5 shadow-inner border border-white/20">
                   <Clock className="text-red-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1">⏳ عملاء الانتظار (شامل)</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-xs sm:text-sm text-purple-200 font-extrabold mb-1 truncate">⏳ عملاء الانتظار (شامل)</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
                     (واتساب + CRM + داتا الموظف)
@@ -6052,6 +6077,7 @@ const Dashboard = () => {
               </div>
             )}
 
+
             {/* Filter Bar */}
             {(() => {
               const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
@@ -6086,7 +6112,7 @@ const Dashboard = () => {
                           <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
                           <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
-                            const count = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
+                            const count = employeeLeadCounts[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
                                 👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
@@ -8587,7 +8613,7 @@ const Dashboard = () => {
                                 onClick={() => {
                                   sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
                                   setImpersonatedEmp(emp);
-                                  setActiveTab('assigned_clients');
+                                  setActiveTab('leads_crm');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
                                 }}
                                 className="p-2 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40"

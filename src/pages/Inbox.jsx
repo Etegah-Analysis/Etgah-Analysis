@@ -184,9 +184,11 @@ export default function Inbox() {
   );
 
   // If Admin is impersonating an employee, evaluate identity & permissions strictly as that employee
-  const currentUser = (realIsAdmin && impersonatedEmp)
-    ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name }
-    : realCurrentUser;
+  const currentUser = React.useMemo(() => {
+    return (realIsAdmin && impersonatedEmp)
+      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name || impersonatedEmp.username }
+      : realCurrentUser;
+  }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
 
   const isAdmin = realIsAdmin && !impersonatedEmp;
   const [employees, setEmployees] = useState([]);
@@ -253,11 +255,11 @@ export default function Inbox() {
       }
     };
     fetchEmployees();
-  }, [currentUser, isAdmin]);
+  }, [currentUser?.uid, isAdmin]);
 
   // Realtime subscription to Internal Employee Groups
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
     const q = query(collection(db, 'internal_groups'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const groupsData = [];
@@ -273,7 +275,7 @@ export default function Inbox() {
       console.error("Error fetching internal groups:", err);
     });
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser?.uid]);
 
   // Reactively filter internalGroups based on role, members, and impersonation (Airtight Strict Isolation)
   const internalGroups = React.useMemo(() => {
@@ -308,6 +310,7 @@ export default function Inbox() {
 
       // Strict Membership Check for all employees (Coordinator, Leader, Agent)
       const isMember = 
+        data.adminMandatory === true ||
         (myUid && (membersList.includes(myUid) || membersList.includes(myEmail))) || 
         (myEmpUid && (membersList.includes(myEmpUid) || membersList.includes(myEmpEmail))) ||
         (impersonatedUid && (membersList.includes(impersonatedUid) || membersList.includes(impersonatedEmail))) ||
@@ -325,7 +328,7 @@ export default function Inbox() {
       const foundGroup = internalGroups.find(g => g.id === location.state.selectedGroupId);
       if (foundGroup) {
         setActiveChat(foundGroup);
-        setSelectedChatType('groups');
+        setChatTabFilter('groups');
       }
     }
   }, [location.state, internalGroups]);
