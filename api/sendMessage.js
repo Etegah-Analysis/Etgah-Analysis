@@ -44,17 +44,22 @@ export default async function handler(req, res) {
     let sentVia = 'telnyx';
     let messageId = null;
 
+    const telnyxPayload = {
+      from: fromPhone,
+      to: cleanTo,
+      text: text || (fileName ? `📎 ${fileName}` : '')
+    };
+    if (mediaUrl) {
+      telnyxPayload.media_urls = [mediaUrl];
+    }
+
     const telnyxRes = await fetch('https://api.telnyx.com/v2/messages', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${TELNYX_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        from: fromPhone,
-        to: cleanTo,
-        text: text || ''
-      })
+      body: JSON.stringify(telnyxPayload)
     });
     const telnyxData = await telnyxRes.json();
     if (telnyxRes.ok) {

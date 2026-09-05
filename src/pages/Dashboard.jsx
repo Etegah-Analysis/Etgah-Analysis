@@ -2,7 +2,8 @@ import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2 } from 'lucide-react';
-import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where } from '../firebase';
+import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -431,6 +432,9 @@ const Dashboard = () => {
   const [crmCampaignBatchSize, setCrmCampaignBatchSize] = useState(5); // 1 to 10
   const [crmCampaignTemplateId, setCrmCampaignTemplateId] = useState('custom');
   const [crmCampaignCustomText, setCrmCampaignCustomText] = useState('');
+  const [crmCampaignAttachment, setCrmCampaignAttachment] = useState(null);
+  const [crmCampaignUploading, setCrmCampaignUploading] = useState(false);
+  const crmCampaignFileInputRef = useRef(null);
   const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
   const [crmCampaignSending, setCrmCampaignSending] = useState(false);
   const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
@@ -3902,13 +3906,38 @@ const Dashboard = () => {
 
     const msgText = crmCampaignCustomText.trim();
 
-    if (!msgText) {
-      toast.error('يرجى كتابة نص الرسالة الترويجية للحملة أولاً ✍️');
+    if (!msgText && !crmCampaignAttachment) {
+      toast.error('يرجى كتابة نص الرسالة أو إرفاق ملف للحملة أولاً ✍️📎');
       return;
     }
 
     setCrmCampaignSending(true);
     setCrmCampaignProgress(0);
+
+    // Upload attachment to Firebase Storage once if present
+    let mediaUrl = null;
+    let fileType = null;
+    let fileName = null;
+
+    if (crmCampaignAttachment) {
+      setCrmCampaignUploading(true);
+      try {
+        const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const safeName = crmCampaignAttachment.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileRef = ref(storage, `campaign_media/campaign_${uniqueId}_${safeName}`);
+        await uploadBytes(fileRef, crmCampaignAttachment);
+        mediaUrl = await getDownloadURL(fileRef);
+        fileType = crmCampaignAttachment.type;
+        fileName = crmCampaignAttachment.name;
+      } catch (uploadErr) {
+        console.error('Error uploading campaign file:', uploadErr);
+        toast.error('فشل في رفع ملف الحملة: ' + (uploadErr.message || 'خطأ غير معروف'));
+        setCrmCampaignSending(false);
+        setCrmCampaignUploading(false);
+        return;
+      }
+      setCrmCampaignUploading(false);
+    }
 
     let successCount = 0;
     let failCount = 0;
@@ -3949,7 +3978,11 @@ const Dashboard = () => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 to: cleanPhone,
-                text: msgText
+                text: msgText || (fileName ? `📎 ${fileName}` : ''),
+                mediaUrl: mediaUrl || null,
+                fileType: fileType || null,
+                fileName: fileName || null,
+                senderType: 'campaigns'
               })
             });
             const resData = await res.json();
@@ -3971,7 +4004,7 @@ const Dashboard = () => {
           campaignSource: 'crm_sheet',
           assignedSender: 'campaigns',
           status: 'assigned',
-          lastMessage: msgText,
+          lastMessage: msgText || (fileName ? `📎 ${fileName}` : 'مرفق ترويجي'),
           updatedAt: serverTimestamp(),
           createdAt: lead.createdAt || serverTimestamp(),
           lastCampaignSentAt: serverTimestamp(),
@@ -3981,13 +4014,13 @@ const Dashboard = () => {
         }, { merge: true });
 
         // Record message in 'رسائل_الموظفين_للعملاء' for Campaign Analytics
-        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+        const campaignMsgData = {
           conversationId: crmDocId,
-          text: msgText,
-          templateName: templateObj?.name || (crmCampaignTemplateId === 'custom' ? 'رسالة ترويجية مخصصة' : crmCampaignTemplateId),
+          text: msgText || (fileName ? `📎 ${fileName}` : 'مرفق ترويجي'),
+          templateName: 'رسالة ترويجية مخصصة',
           isTemplate: true,
-          campaignSource: 'crm_sheet',
-          source: 'crm_sheet',
+          campaignSource: crmCampaignTargetPool,
+          source: crmCampaignTargetPool,
           sender: 'agent',
           senderName: senderName,
           senderEmail: currentUser?.email || 'unknown',
@@ -3996,7 +4029,13 @@ const Dashboard = () => {
           status: 'delivered',
           timestamp: serverTimestamp(),
           metaMessageId: metaMsgId
-        });
+        };
+        if (mediaUrl) {
+          campaignMsgData.mediaUrl = mediaUrl;
+          campaignMsgData.fileType = fileType;
+          campaignMsgData.fileName = fileName;
+        }
+        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), campaignMsgData);
 
         // Add history note and 2-day cooldown timestamps to lead
         const noteLog = {
@@ -4026,6 +4065,8 @@ const Dashboard = () => {
     }
 
     setCrmCampaignSending(false);
+    setCrmCampaignAttachment(null);
+    if (crmCampaignFileInputRef.current) crmCampaignFileInputRef.current.value = '';
     setIsCrmCampaignModalOpen(false);
 
     if (successCount > 0) {
@@ -11252,41 +11293,115 @@ const Dashboard = () => {
                     )}
                   </div>
 
-                  {/* Step 3: Custom Promotional Campaign Message */}
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/30 shadow-inner">
-                    <div className="flex items-center justify-between mb-2">
+                  {/* Step 3: Custom Promotional Campaign Message & File Upload */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/30 shadow-inner space-y-3">
+                    <div className="flex items-center justify-between">
                       <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
                         <span>📢</span>
                         <span>3️⃣ كتابة نص الرسالة الترويجية للحملة:</span>
                       </span>
                       <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
-                        ✍️ رسالة ترويجية مخصصة للموظف
+                        ✍️ رسالة ترويجية مخصصة
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-400 mb-2.5 leading-relaxed">
-                      اكتب الرسالة الترويجية الخاصة بك التي ستصل للعملاء المستهدفين في هذه الحملة:
-                    </p>
-
                     <textarea
-                      rows={5}
-                      disabled={crmCampaignSending}
+                      rows={4}
+                      disabled={crmCampaignSending || crmCampaignUploading}
                       value={crmCampaignCustomText}
                       onChange={(e) => setCrmCampaignCustomText(e.target.value)}
-                      placeholder="السلام عليكم 🤝 .. مع حضرتك منصة اتجاه للتحليل الذكي .. يسعدنا تقديم أقوى الفرص والتوصيات الاستثمارية لحسابك..."
-                      className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans shadow-inner transition"
+                      placeholder="اكتب النص..."
+                      className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans shadow-inner transition"
                     />
 
-                    {crmCampaignCustomText.trim() ? (
-                      <div className="mt-3 bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                    {/* File Attachment Upload Area (Image / Excel / Word / Video / PDF) */}
+                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                          <Paperclip size={14} className="text-emerald-400" />
+                          <span>إرفاق ملف للحملة (صورة / إكسيل / وورد / فيديو / PDF):</span>
+                        </label>
+                        
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            ref={crmCampaignFileInputRef}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 50 * 1024 * 1024) {
+                                  toast.error('حجم الملف كبير جداً، الحد الأقصى 50 ميجابايت');
+                                  return;
+                                }
+                                setCrmCampaignAttachment(file);
+                              }
+                            }}
+                            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            disabled={crmCampaignSending || crmCampaignUploading}
+                            onClick={() => crmCampaignFileInputRef.current?.click()}
+                            className="bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                          >
+                            <Upload size={13} />
+                            <span>{crmCampaignAttachment ? 'تغيير الملف' : 'اختر ملفاً'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selected File Badge Preview */}
+                      {crmCampaignAttachment && (
+                        <div className="mt-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl p-2.5 flex items-center justify-between gap-3 animate-in fade-in">
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                              {crmCampaignAttachment.type?.startsWith('image/') ? '🖼️' : crmCampaignAttachment.type?.startsWith('video/') ? '🎬' : crmCampaignAttachment.name?.match(/\.(xls|xlsx|csv)$/i) ? '📊' : crmCampaignAttachment.name?.match(/\.(doc|docx)$/i) ? '📄' : '📎'}
+                            </div>
+                            <div className="overflow-hidden">
+                              <span className="text-xs font-bold text-white block truncate">
+                                {crmCampaignAttachment.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono block">
+                                {(crmCampaignAttachment.size / (1024 * 1024)).toFixed(2)} MB • {crmCampaignAttachment.type || 'ملف مرفق'}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={crmCampaignSending || crmCampaignUploading}
+                            onClick={() => {
+                              setCrmCampaignAttachment(null);
+                              if (crmCampaignFileInputRef.current) crmCampaignFileInputRef.current.value = '';
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/5 transition cursor-pointer"
+                            title="إلغاء الملف المرفق"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview box */}
+                    {(crmCampaignCustomText.trim() || crmCampaignAttachment) ? (
+                      <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
                         <span className="text-[10px] text-emerald-400 font-bold block mb-1">معاينة الرسالة كما ستصل للعميل:</span>
-                        <p className="text-xs text-emerald-100 font-sans leading-relaxed whitespace-pre-line bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
-                          {crmCampaignCustomText.trim()}
-                        </p>
+                        {crmCampaignCustomText.trim() && (
+                          <p className="text-xs text-emerald-100 font-sans leading-relaxed whitespace-pre-line bg-slate-950/70 p-3 rounded-lg border border-slate-800/80 mb-2">
+                            {crmCampaignCustomText.trim()}
+                          </p>
+                        )}
+                        {crmCampaignAttachment && (
+                          <div className="inline-flex items-center gap-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-bold">
+                            <span>📎 مرفق:</span>
+                            <span className="truncate max-w-[200px]">{crmCampaignAttachment.name}</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div className="mt-2 text-[11px] text-amber-400/90 flex items-center gap-1">
-                        <span>⚠️ يرجى كتابة نص الرسالة الترويجية قبل الضغط على زر الإرسال.</span>
+                      <div className="text-[11px] text-amber-400/90 flex items-center gap-1">
+                        <span>⚠️ يرجى كتابة نص الرسالة أو إرفاق ملف قبل الضغط على زر الإرسال.</span>
                       </div>
                     )}
                   </div>
@@ -11322,8 +11437,12 @@ const Dashboard = () => {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      disabled={crmCampaignSending}
-                      onClick={() => setIsCrmCampaignModalOpen(false)}
+                      disabled={crmCampaignSending || crmCampaignUploading}
+                      onClick={() => {
+                        setCrmCampaignAttachment(null);
+                        if (crmCampaignFileInputRef.current) crmCampaignFileInputRef.current.value = '';
+                        setIsCrmCampaignModalOpen(false);
+                      }}
                       className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer disabled:opacity-40"
                     >
                       إلغاء
@@ -11331,12 +11450,18 @@ const Dashboard = () => {
 
                     <button
                       type="button"
-                      disabled={crmCampaignSending || selectedTargets.length === 0 || !currentMsgPreview?.trim()}
+                      disabled={crmCampaignSending || crmCampaignUploading || selectedTargets.length === 0 || (!currentMsgPreview?.trim() && !crmCampaignAttachment)}
                       onClick={handleSendCrmCampaign}
                       className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Send size={15} />
-                      <span>{crmCampaignSending ? 'جاري الإرسال...' : `🚀 إرسال الحملة لـ (${selectedTargets.length}) عميل`}</span>
+                      <span>
+                        {crmCampaignUploading 
+                          ? '⏳ جاري رفع الملف...' 
+                          : crmCampaignSending 
+                            ? 'جاري الإرسال...' 
+                            : `🚀 إرسال الحملة لـ (${selectedTargets.length}) عميل`}
+                      </span>
                     </button>
                   </div>
                 </div>
