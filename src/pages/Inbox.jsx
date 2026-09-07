@@ -586,7 +586,7 @@ function InboxContent() {
           calledDateStr: new Date().toISOString().split('T')[0],
           timestampMillis: Date.now(),
           source: 'MicroSIP WhatsApp',
-          status: 'answered',
+          status: 'calling',
           durationSeconds: 0,
           durationFormatted: '00:00'
         });

@@ -1147,6 +1147,69 @@ const Dashboard = () => {
     return `${m}:${s < 10 ? '0' : ''}${s} دقيقة`;
   };
 
+  // Unified Automatic Call Outcome Resolver (Tied strictly to real call duration & calling session state)
+  const getCallOutcomeInfo = (log) => {
+    if (!log) {
+      return {
+        status: 'no_answer',
+        label: '📵 لم يرد',
+        enLabel: 'No Answer',
+        fullLabel: '📵 No Answer (لم يرد)',
+        badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+      };
+    }
+
+    const durationSec = Number(log.durationSeconds) || 0;
+    const rawStatus = (log.status || '').toLowerCase();
+    const formatted = log.durationFormatted || '';
+
+    // 1. Busy detection
+    if (rawStatus === 'busy' || formatted.includes('مشغول')) {
+      return {
+        status: 'busy',
+        label: '🔴 مشغول',
+        enLabel: 'Busy',
+        fullLabel: '🔴 Busy (مشغول)',
+        badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-xs'
+      };
+    }
+
+    // 2. In-Progress / Calling live detection
+    if (rawStatus === 'calling' || rawStatus === 'ringing' || rawStatus === 'in_progress') {
+      return {
+        status: 'calling',
+        label: '📲 جاري الاتصال',
+        enLabel: 'Calling...',
+        fullLabel: '📲 Calling (جاري الاتصال)',
+        badge: 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse'
+      };
+    }
+
+    // 3. Answered detection: must have real talk duration > 0 OR formatted with actual time (not 00:00)
+    const hasRealDuration = durationSec > 0 || 
+      (formatted.includes('دقيقة') && !formatted.startsWith('0:00')) || 
+      (formatted.includes('ثانية') && formatted !== '0 ثانية' && formatted !== '00:00');
+
+    if (hasRealDuration || (rawStatus === 'answered' && durationSec > 0)) {
+      return {
+        status: 'answered',
+        label: '🟢 تم الرد',
+        enLabel: 'Answered',
+        fullLabel: '🟢 Answered (تم الرد)',
+        badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs'
+      };
+    }
+
+    // 4. Default: No Answer (0 duration, hung up during ringing, or timeout)
+    return {
+      status: 'no_answer',
+      label: '📵 لم يرد',
+      enLabel: 'No Answer',
+      fullLabel: '📵 No Answer (لم يرد)',
+      badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+    };
+  };
+
   // Active Call Session Live Timer & Auto-lifecycle Effect (Auto-Answer & Auto-No-Answer)
   useEffect(() => {
     let interval = null;
@@ -1211,7 +1274,7 @@ const Dashboard = () => {
           calledDateStr: new Date().toISOString().split('T')[0],
           timestampMillis: Date.now(),
           source: 'MicroSIP',
-          status: 'answered', // 'answered', 'no_answer', 'busy'
+          status: 'calling', // 'calling', 'answered', 'no_answer', 'busy'
           durationSeconds: 0,
           durationFormatted: '00:00'
         });
@@ -1250,7 +1313,7 @@ const Dashboard = () => {
 
     const durationFormatted = finalStatus === 'answered' 
       ? formatCallDuration(finalSeconds) 
-      : finalStatus === 'no_answer' ? 'لم يرد 📵' : 'مشغول 🔴';
+      : finalStatus === 'busy' ? 'مشغول 🔴' : 'لم يرد 📵';
 
     try {
       if (callDocId) {
@@ -1262,11 +1325,11 @@ const Dashboard = () => {
         });
       }
       if (finalStatus === 'answered') {
-        toast.success(`تم توثيق وإنهاء المكالمة بنجاح 🟢 (مدة التحدث: ${durationFormatted})`);
-      } else if (finalStatus === 'no_answer') {
-        toast.error(`تم توثيق نتيجة المكالمة: لم يرد العميل 📵`);
+        toast.success(`تم توثيق وإنهاء المكالمة تلقائياً 🟢 (مدة التحدث: ${durationFormatted})`);
+      } else if (finalStatus === 'busy') {
+        toast(`تم توثيق نتيجة المكالمة تلقائياً: خط مشغول 🔴`);
       } else {
-        toast(`تم توثيق نتيجة المكالمة: مشغول 🔴`);
+        toast.error(`تم توثيق نتيجة المكالمة تلقائياً: لم يرد العميل 📵`);
       }
     } catch (err) {
       console.error('Error updating call log outcome:', err);
@@ -10978,13 +11041,13 @@ const Dashboard = () => {
             return true;
           });
 
-          // Metrics & Outcomes Calculation
+          // Metrics & Outcomes Calculation (Computed automatically from true duration & session states)
           const totalCallsInPeriod = filteredLogs.length;
-          const answeredCallsCount = filteredLogs.filter(l => l.status === 'answered' || (!l.status && (l.durationSeconds > 0 || l.durationFormatted?.includes('دقيقة') || l.durationFormatted?.includes('ثانية')))).length;
-          const noAnswerCallsCount = filteredLogs.filter(l => l.status === 'no_answer').length;
-          const busyCallsCount = filteredLogs.filter(l => l.status === 'busy').length;
+          const answeredCallsCount = filteredLogs.filter(l => getCallOutcomeInfo(l).status === 'answered').length;
+          const busyCallsCount = filteredLogs.filter(l => getCallOutcomeInfo(l).status === 'busy').length;
+          const noAnswerCallsCount = filteredLogs.filter(l => getCallOutcomeInfo(l).status === 'no_answer').length;
           
-          const totalDurationSeconds = filteredLogs.reduce((sum, l) => sum + (l.durationSeconds || 0), 0);
+          const totalDurationSeconds = filteredLogs.reduce((sum, l) => sum + (Number(l.durationSeconds) || 0), 0);
           const totalMinutes = (totalDurationSeconds / 60).toFixed(1);
           const avgDurationSeconds = answeredCallsCount > 0 ? Math.round(totalDurationSeconds / answeredCallsCount) : 0;
           const answerRate = totalCallsInPeriod > 0 ? Math.round((answeredCallsCount / totalCallsInPeriod) * 100) : 0;
@@ -11029,9 +11092,9 @@ const Dashboard = () => {
               const t = getTimestampMillis(l.calledAt) || l.timestampMillis || 0;
               return t >= startOfToday;
             });
-            const empAnswered = empFilteredLogs.filter(l => l.status === 'answered' || (!l.status && l.durationSeconds > 0)).length;
-            const empNoAnswer = empFilteredLogs.filter(l => l.status === 'no_answer').length;
-            const empDurationSec = empFilteredLogs.reduce((sum, l) => sum + (l.durationSeconds || 0), 0);
+            const empAnswered = empFilteredLogs.filter(l => getCallOutcomeInfo(l).status === 'answered').length;
+            const empNoAnswer = empFilteredLogs.filter(l => getCallOutcomeInfo(l).status === 'no_answer').length;
+            const empDurationSec = empFilteredLogs.reduce((sum, l) => sum + (Number(l.durationSeconds) || 0), 0);
             const empAnswerRate = empFilteredLogs.length > 0 ? Math.round((empAnswered / empFilteredLogs.length) * 100) : 0;
             const lastCall = empAllLogs.length > 0 ? (getTimestampMillis(empAllLogs[0].calledAt) || empAllLogs[0].timestampMillis) : null;
 
@@ -11347,9 +11410,10 @@ const Dashboard = () => {
                           ) : (
                             paginatedLogs.map((log, idx) => {
                               const callTime = log.calledAt?.toDate ? log.calledAt.toDate() : (log.timestampMillis ? new Date(log.timestampMillis) : null);
-                              const isAnswered = log.status === 'answered' || (!log.status && (log.durationSeconds > 0 || log.durationFormatted?.includes('دقيقة') || log.durationFormatted?.includes('ثانية')));
-                              const isNoAnswer = log.status === 'no_answer';
-                              const isBusy = log.status === 'busy';
+                              const outcome = getCallOutcomeInfo(log);
+                              const isAnswered = outcome.status === 'answered';
+                              const isNoAnswer = outcome.status === 'no_answer';
+                              const isBusy = outcome.status === 'busy';
 
                               return (
                                 <tr key={log.id || idx} className="hover:bg-purple-900/20 transition">
@@ -11372,32 +11436,15 @@ const Dashboard = () => {
                                     {log.phoneNumber}
                                   </td>
                                   <td className="p-3 text-center">
-                                    <div className="inline-flex items-center gap-1">
-                                      <button
-                                        onClick={() => handleUpdateCallLogStatus(log.id, 'answered')}
-                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isAnswered ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                                        title="تحديد: تم الرد"
-                                      >
-                                        🟢 رد
-                                      </button>
-                                      <button
-                                        onClick={() => handleUpdateCallLogStatus(log.id, 'no_answer')}
-                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isNoAnswer ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                                        title="تحديد: لم يرد"
-                                      >
-                                        📵 لم يرد
-                                      </button>
-                                      <button
-                                        onClick={() => handleUpdateCallLogStatus(log.id, 'busy')}
-                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${isBusy ? 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                                        title="تحديد: مشغول"
-                                      >
-                                        🔴 مشغول
-                                      </button>
-                                    </div>
+                                    <span className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-black leading-tight shadow-xs select-none ${outcome.badge}`}>
+                                      <span>{outcome.label}</span>
+                                      <span className="text-[9px] opacity-80 font-medium">{outcome.enLabel}</span>
+                                    </span>
                                   </td>
                                   <td className="p-3 text-center font-mono font-bold text-cyan-300">
-                                    {log.durationFormatted || (log.durationSeconds ? formatCallDuration(log.durationSeconds) : isNoAnswer ? 'لم يرد 📵' : '—')}
+                                    {log.durationFormatted && log.durationFormatted !== '00:00' 
+                                      ? log.durationFormatted 
+                                      : (log.durationSeconds > 0 ? formatCallDuration(log.durationSeconds) : isBusy ? 'مشغول 🔴' : 'لم يرد 📵')}
                                   </td>
                                   <td className="p-3 text-center">
                                     <span className="bg-purple-900/40 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -13299,17 +13346,40 @@ const Dashboard = () => {
                 )}
               </div>
 
-              {/* Automated End Button */}
+              {/* Automated End Buttons based on live call phase */}
               <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleFinishCallSession()}
-                  className="w-full bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-rose-300/40"
-                  title="إنهاء المكالمة وتوثيق مدتها بالداشبورد تلقائياً"
-                >
-                  <PhoneCall size={14} className="rotate-[135deg]" />
-                  <span>إنهاء وتوثيق المكالمة تلقائياً 🛑</span>
-                </button>
+                {isRinging ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleFinishCallSession('busy')}
+                      className="bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/50 font-black py-2.5 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="توثيق أن الخط مشغول"
+                    >
+                      <span>🔴</span>
+                      <span>خط مشغول</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFinishCallSession('no_answer')}
+                      className="bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-500/50 font-black py-2.5 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="إنهاء المكالمة: لم يرد العميل"
+                    >
+                      <PhoneCall size={13} className="rotate-[135deg]" />
+                      <span>لم يرد / إلغاء</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleFinishCallSession('answered')}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-emerald-300/40"
+                    title="إنهاء وتوثيق المكالمة تلقائياً بمدة التحدث الفعلية"
+                  >
+                    <PhoneCall size={14} className="rotate-[135deg]" />
+                    <span>إنهاء وتوثيق المكالمة تلقائياً (تم الرد 🟢)</span>
+                  </button>
+                )}
               </div>
             </div>
           );
