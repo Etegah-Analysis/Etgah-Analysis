@@ -2461,6 +2461,16 @@ const Dashboard = () => {
       return;
     }
 
+    // Security check: If Leader, can only distribute to team members or himself
+    if (isLeader) {
+      const isHimself = singleAssignEmpUid === currentUser?.uid;
+      const isTeamMember = myTeamMembers.some(m => m.uid === singleAssignEmpUid);
+      if (!isHimself && !isTeamMember) {
+        toast.error('غير مصرح لليدر بتوزيع العملاء إلا لأعضاء فريقه فقط ⛔');
+        return;
+      }
+    }
+
     const targetLeads = leadsCrm.filter(c => selectedLeadsCrm.includes(c.id));
     if (targetLeads.length === 0) {
       toast.error('لم يتم العثور على بيانات العملاء المحددين للتوزيع');
@@ -2480,45 +2490,55 @@ const Dashboard = () => {
       const assignerRole = getAssignerRole();
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
 
-      for (const lead of targetLeads) {
-        const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+      // Execute via writeBatch in chunks of 400 (Firestore maximum is 500 operations per batch)
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < targetLeads.length; i += BATCH_SIZE) {
+        const batchChunk = targetLeads.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
 
-        if (isTargetAdmin) {
-          const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
-          await updateDoc(doc(db, 'leads_crm', lead.id), {
-            assignedTo: 'الإدارة',
-            assignedToUid: 'admin',
-            assignedBy: assignerDisplay,
-            assignedByRole: assignerRole,
-            assignedByUid: assignerUid,
-            assignedAt: serverTimestamp(),
-            status: 'unassigned',
-            crmStatus: 'unassigned',
-            updatedAt: serverTimestamp(),
-            assignmentHistory: arrayUnion(logObj)
-          });
-        } else {
-          const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
-          const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
+        for (const lead of batchChunk) {
+          const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
 
-          await updateDoc(doc(db, 'leads_crm', lead.id), {
-            assignedTo: emp.email,
-            assignedToUid: emp.uid,
-            assignedBy: assignerDisplay,
-            assignedByRole: assignerRole,
-            assignedByUid: assignerUid,
-            assignedAt: serverTimestamp(),
-            status: 'assigned',
-            crmStatus: 'unassigned', // Initial state is pending/unassigned so it appears in employee pending tab and Card 5!
-            updatedAt: serverTimestamp(),
-            assignmentHistory: arrayUnion(logObj)
-          });
+          if (isTargetAdmin) {
+            const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
+            const leadRef = doc(db, 'leads_crm', lead.id);
+            batch.update(leadRef, {
+              assignedTo: 'الإدارة',
+              assignedToUid: 'admin',
+              assignedBy: assignerDisplay,
+              assignedByRole: assignerRole,
+              assignedByUid: assignerUid,
+              assignedAt: serverTimestamp(),
+              status: 'unassigned',
+              crmStatus: 'unassigned',
+              updatedAt: serverTimestamp(),
+              assignmentHistory: arrayUnion(logObj)
+            });
+          } else {
+            const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
+            const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
+            const leadRef = doc(db, 'leads_crm', lead.id);
+            batch.update(leadRef, {
+              assignedTo: emp.email,
+              assignedToUid: emp.uid,
+              assignedBy: assignerDisplay,
+              assignedByRole: assignerRole,
+              assignedByUid: assignerUid,
+              assignedAt: serverTimestamp(),
+              status: 'assigned',
+              crmStatus: 'unassigned', // Initial state is pending/unassigned so it appears in employee pending tab and Card 5!
+              updatedAt: serverTimestamp(),
+              assignmentHistory: arrayUnion(logObj)
+            });
+          }
         }
+        await batch.commit();
       }
 
-      toast.success(isTargetAdmin ? `تم إرجاع ${targetLeads.length} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${targetLeads.length} عميل محدد إلى الموظف ${emp.name} بنجاح 🚀`);
+      toast.success(isTargetAdmin ? `تم إرجاع ${targetLeads.length} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${targetLeads.length} عميل محدد دفعة واحدة إلى الموظف ${emp.name} بنجاح 🚀`);
       setIsAssignModalOpen(false);
       setSelectedLeadsCrm([]);
+      setSelectedTeamTrackingLeads([]);
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء توزيع العملاء');
@@ -2616,6 +2636,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleLeadCrm = async (lead) => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
@@ -2638,6 +2662,10 @@ const Dashboard = () => {
   };
 
   const deleteSelectedLeadsCrm = async () => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
@@ -2872,6 +2900,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSelectedEmpLeads = async () => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
@@ -3030,6 +3062,10 @@ const Dashboard = () => {
     }
   };
   const deleteSelectedCustomers = async () => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
@@ -3188,6 +3224,10 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleCustomer = async (cust) => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
@@ -5771,14 +5811,28 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {selectedTeamTrackingLeads.length > 0 && (
-                    <button 
-                      onClick={handleBulkPullLeads}
-                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer animate-pulse"
-                      title="سحب جميع العملاء المحددين وإعادتهم إلى Leads CRM الخاص بك"
-                    >
-                      <ArrowDownLeft size={16} />
-                      <span>📥 سحب ({selectedTeamTrackingLeads.length}) عميل إلى داتاي</span>
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => {
+                          setSelectedLeadsCrm(selectedTeamTrackingLeads);
+                          setIsAssignModalOpen(true);
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ring-2 ring-purple-300"
+                        title="توزيع العملاء المحددين دفعة واحدة إلى أحد أفراد الفريق"
+                      >
+                        <UserCheck2 size={15} />
+                        <span>⚖️ توزيع العملاء المحددين ({selectedTeamTrackingLeads.length})</span>
+                      </button>
+
+                      <button 
+                        onClick={handleBulkPullLeads}
+                        className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer animate-pulse"
+                        title="سحب جميع العملاء المحددين وإعادتهم إلى Leads CRM الخاص بك"
+                      >
+                        <ArrowDownLeft size={16} />
+                        <span>📥 سحب ({selectedTeamTrackingLeads.length}) عميل إلى داتاي</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -6067,7 +6121,7 @@ const Dashboard = () => {
                     </button>
                   </>
                 )}
-                {(isAdmin || isCoordinator) && (
+                {(isAdmin || isCoordinator || isLeader) && (
                   <button 
                     onClick={() => {
                       if (selectedLeadsCrm.length === 0) {
@@ -6283,7 +6337,7 @@ const Dashboard = () => {
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400" size={15} />
                   </div>
 
-                  {isAdmin && selectedLeadsCrm.length > 0 && (
+                  {isAdmin && !isLeader && selectedLeadsCrm.length > 0 && (
                     <button 
                       onClick={deleteSelectedLeadsCrm}
                       className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-xs font-black transition flex items-center gap-1.5 shadow-md transform hover:scale-105 active:scale-95"
@@ -6353,6 +6407,63 @@ const Dashboard = () => {
 
               return (
                 <>
+                  {/* Multi-Page Selection Banner (Shared for Leader, Admin, Coordinator) */}
+                  {selectedLeadsCrm.length > 0 && (
+                    <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border border-purple-500/40 rounded-xl mx-4 my-3 p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-purple-200 shadow-md">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-black">
+                          ✓
+                        </div>
+                        <span className="font-bold text-white">
+                          تم تحديد <strong className="text-cyan-300 font-mono text-sm px-1.5 py-0.5 bg-cyan-950/60 rounded-md border border-cyan-400/30">{selectedLeadsCrm.length}</strong> عميل
+                          {filtered.length > 0 && <span className="text-purple-300 mr-1">(من إجمالي {filtered.length.toLocaleString()} عميل)</span>}
+                        </span>
+                        {isPageSelected && filtered.length > paginatedLeads.length && selectedLeadsCrm.length < filtered.length && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLeadsCrm([...new Set([...selectedLeadsCrm, ...filtered.map(c => c.id)])])}
+                            className="text-cyan-300 underline font-black hover:text-cyan-200 cursor-pointer transition flex items-center gap-1"
+                          >
+                            <span>🌐 هل تريد تحديد جميع الـ ({filtered.length.toLocaleString()}) عميل في كافة الصفحات؟</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => toggleAllLeadsCrm(paginatedLeads)}
+                          className="bg-purple-800/80 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border border-purple-400/30"
+                        >
+                          {isPageSelected ? 'إلغاء تحديد الصفحة الحالية' : `☑️ تحديد الصفحة الحالية (${paginatedLeads.length})`}
+                        </button>
+                        {filtered.length > paginatedLeads.length && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allFilteredIds = filtered.map(c => c.id);
+                              const isAllFilteredSelected = allFilteredIds.every(id => selectedLeadsCrm.includes(id));
+                              if (isAllFilteredSelected) {
+                                setSelectedLeadsCrm(selectedLeadsCrm.filter(id => !allFilteredIds.includes(id)));
+                              } else {
+                                setSelectedLeadsCrm([...new Set([...selectedLeadsCrm, ...allFilteredIds])]);
+                              }
+                            }}
+                            className="bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border border-indigo-400/30"
+                          >
+                            {filtered.map(c => c.id).every(id => selectedLeadsCrm.includes(id)) ? 'إلغاء تحديد كافة الصفحات' : `🌐 تحديد كافة الصفحات (${filtered.length.toLocaleString()})`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLeadsCrm([])}
+                          className="bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          ✕ إلغاء التحديد بالكامل
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
                       <thead>
@@ -6608,7 +6719,7 @@ const Dashboard = () => {
                                   <span className="text-[11px] font-black">WhatsApp</span>
                                 </button>
                               )}
-                              {(isAdmin || hasPermission(currentEmpUser, 'canDeleteLeads')) && (
+                              {!isLeader && (isAdmin || hasPermission(currentEmpUser, 'canDeleteLeads')) && (
                                 <button
                                   onClick={() => handleDeleteSingleLeadCrm(customer)}
                                   className="bg-red-50 text-red-600 hover:bg-red-100 p-2 rounded-lg transition shadow-sm cursor-pointer"
@@ -6789,7 +6900,7 @@ const Dashboard = () => {
                     </button>
                   </>
                 )}
-                {isAdmin && selectedEmployeeLeads.length > 0 && (
+                {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
                   <button 
                     onClick={handleDeleteSelectedEmpLeads}
                     className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
@@ -7356,9 +7467,13 @@ const Dashboard = () => {
                                         <span className="text-[11px] font-black">WhatsApp</span>
                                       </button>
                                     )}
-                                    {isAdmin && (
+                                    {isAdmin && !isLeader && (
                                       <button 
                                         onClick={async () => {
+                                          if (isLeader) {
+                                            toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+                                            return;
+                                          }
                                           if (window.confirm('هل تريد حذف هذا العميل من داتا الموظف نهائياً؟')) {
                                             await deleteDoc(doc(db, 'employee_leads', customer.id));
                                             toast.success('تم حذف العميل');
@@ -8207,7 +8322,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {isAdmin && selectedCustomers.length > 0 && (
+              {isAdmin && !isLeader && selectedCustomers.length > 0 && (
                 <button 
                   onClick={deleteSelectedCustomers}
                   className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg flex items-center text-sm font-bold transition"
@@ -8380,7 +8495,7 @@ const Dashboard = () => {
                           <span className="text-[11px] font-black">WhatsApp</span>
                         </button>
                       )}
-                      {isAdmin && (
+                      {isAdmin && !isLeader && (
                         <button
                           onClick={() => handleDeleteSingleCustomer(customer)}
                           className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"

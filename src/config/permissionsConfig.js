@@ -90,7 +90,7 @@ export const SYSTEM_PERMISSIONS = [
     goal: 'توزيع الحملات الضخمة وقواعد البيانات الكبيرة في ثوانٍ معدودة.',
     riskLevel: 'high',
     riskLabel: 'حساس',
-    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false }
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: false }
   },
   {
     id: 'canFilterAllEmployees',

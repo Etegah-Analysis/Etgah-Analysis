@@ -37,6 +37,11 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
 
   // Toggle single permission
   const handleToggle = (permId) => {
+    const permObj = SYSTEM_PERMISSIONS.find(p => p.id === permId);
+    if (roleKey === 'leader' && permObj?.category === 'deletion') {
+      toast.error('غير مصرح بتفعيل صلاحيات الحذف لليدر لحماية بيانات المنصة ⛔');
+      return;
+    }
     setPermissions(prev => ({
       ...prev,
       [permId]: !prev[permId]
@@ -54,10 +59,14 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
   const handleEnableAll = () => {
     const allOn = {};
     SYSTEM_PERMISSIONS.forEach(p => {
-      allOn[p.id] = true;
+      if (roleKey === 'leader' && p.category === 'deletion') {
+        allOn[p.id] = false;
+      } else {
+        allOn[p.id] = true;
+      }
     });
     setPermissions(allOn);
-    toast.success('تم تفعيل جميع الصلاحيات بالكامل ✅');
+    toast.success('تم تفعيل جميع الصلاحيات بالكامل (مع استثناء الحذف لليدر) ✅');
   };
 
   // Disable all
@@ -316,32 +325,51 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
                       </div>
                     </div>
 
-                    {/* Green / Red Interactive Toggle Switch */}
+                    {/* Green / Red Interactive Toggle Switch or Locked for Leader */}
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                      <span className={`text-xs font-black font-mono transition-colors ${
-                        isEnabled ? 'text-emerald-400' : 'text-rose-400'
-                      }`}>
-                        {isEnabled ? 'مفعّل' : 'معطّل'}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(perm.id)}
-                        className={`w-16 h-8 rounded-full p-1 transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none flex items-center shadow-inner ${
-                          isEnabled 
-                            ? 'bg-emerald-600 justify-end shadow-[0_0_15px_rgba(16,185,129,0.5)]' 
-                            : 'bg-rose-600 justify-start shadow-[0_0_15px_rgba(225,29,72,0.4)]'
-                        }`}
-                        title={isEnabled ? "انقر للتعطيل (إيقاف)" : "انقر للتفعيل (تشغيل)"}
-                      >
-                        <div 
-                          className={`w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center transition-transform duration-300 ${
-                            isEnabled ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
-                          }`}
-                        >
-                          {isEnabled ? <Check size={14} className="stroke-[3]" /> : <X size={14} className="stroke-[3]" />}
+                      {roleKey === 'leader' && perm.category === 'deletion' ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-rose-300 bg-rose-950/80 border border-rose-500/40 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+                            <Lock size={12} className="text-rose-400" />
+                            <span>محظور لليدر (حظر الحذف)</span>
+                          </span>
+                          <div 
+                            className="w-16 h-8 rounded-full p-1 bg-slate-800/80 justify-start flex items-center opacity-50 cursor-not-allowed border border-white/10"
+                            title="الحذف محظور تماماً لقادة الفرق لحماية قواعد البيانات"
+                          >
+                            <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center text-slate-300">
+                              <Lock size={12} />
+                            </div>
+                          </div>
                         </div>
-                      </button>
+                      ) : (
+                        <>
+                          <span className={`text-xs font-black font-mono transition-colors ${
+                            isEnabled ? 'text-emerald-400' : 'text-rose-400'
+                          }`}>
+                            {isEnabled ? 'مفعّل' : 'معطّل'}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggle(perm.id)}
+                            className={`w-16 h-8 rounded-full p-1 transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none flex items-center shadow-inner ${
+                              isEnabled 
+                                ? 'bg-emerald-600 justify-end shadow-[0_0_15px_rgba(16,185,129,0.5)]' 
+                                : 'bg-rose-600 justify-start shadow-[0_0_15px_rgba(225,29,72,0.4)]'
+                            }`}
+                            title={isEnabled ? "انقر للتعطيل (إيقاف)" : "انقر للتفعيل (تشغيل)"}
+                          >
+                            <div 
+                              className={`w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center transition-transform duration-300 ${
+                                isEnabled ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
+                              }`}
+                            >
+                              {isEnabled ? <Check size={14} className="stroke-[3]" /> : <X size={14} className="stroke-[3]" />}
+                            </div>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
