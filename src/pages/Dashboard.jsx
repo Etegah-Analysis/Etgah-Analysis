@@ -1714,6 +1714,7 @@ const Dashboard = () => {
 
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
+    if (isCoordinator && type === 'subscribed_clients') return;
     
     // Toggle close if clicking background or already active tab
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
@@ -4969,7 +4970,7 @@ const Dashboard = () => {
           </div>
         ) : isCoordinator ? (
           <div className="space-y-4 mb-6 md:mb-8">
-            {/* 1. Upper Section: Sheets & Client Databases (7 Cards) */}
+            {/* 1. Upper Section: Sheets & Client Databases (6 Cards) */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
@@ -4997,24 +4998,6 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
                   <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
-                </div>
-              </div>
-
-              {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Award className="text-purple-300" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                    (اشتراكات مؤكدة)
-                  </span>
                 </div>
               </div>
 
@@ -7504,7 +7487,7 @@ const Dashboard = () => {
         )}
 
         {/* Dedicated Subscribed Clients Tab (العملاء المشتركين) */}
-        {activeTab === 'subscribed_clients' && (
+        {activeTab === 'subscribed_clients' && !isCoordinator && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
