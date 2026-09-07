@@ -2541,14 +2541,15 @@ function InboxContent() {
                           }}
                           className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
                         >
-                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ في الانتظار</option>
-                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 تم التوجيه</option>
-                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 مهتم</option>
-                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ غير مهتم</option>
-                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 لم يرد</option>
-                          <option value="lost" className="bg-slate-900 text-red-300">🥀 مفقود</option>
-                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 تم الاشتراك</option>
-                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 بدأ تجربة بالفعل</option>
+                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Pending (في الانتظار)</option>
+                          <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back (معاودة اتصال)</option>
+                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested (مهتم)</option>
+                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested (غير مهتم)</option>
+                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer (لم يرد)</option>
+                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Started Trial (بدأ تجربة)</option>
+                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Subscribed (تم الاشتراك)</option>
+                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned (تم التوجيه)</option>
+                          <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost (مفقود)</option>
                         </select>
                       </div>
                     </div>
