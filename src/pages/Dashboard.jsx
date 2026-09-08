@@ -4648,8 +4648,9 @@ const Dashboard = () => {
           text: msgText || (fileName ? `📎 ${fileName}` : 'مرفق ترويجي'),
           templateName: 'رسالة ترويجية مخصصة',
           isTemplate: true,
-          campaignSource: crmCampaignTargetPool,
-          source: crmCampaignTargetPool,
+          campaignSource: 'crm_sheet',
+          source: 'crm_sheet',
+          poolSource: crmCampaignTargetPool,
           sender: 'agent',
           senderName: senderName,
           senderEmail: currentUser?.email || 'unknown',
@@ -5493,7 +5494,7 @@ const Dashboard = () => {
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
                   <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
                   </span>
                 </div>
               </div>
@@ -5680,7 +5681,7 @@ const Dashboard = () => {
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
                   <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل واتساب)
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
                   </span>
                 </div>
               </div>
@@ -5858,7 +5859,7 @@ const Dashboard = () => {
                         {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل)
                       </span>
                     </div>
                   </div>
@@ -6017,7 +6018,7 @@ const Dashboard = () => {
                         {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                       </h3>
                       <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
-                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import' || (!m.campaignSource && !m.source)).length} إكسيل)
+                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل)
                       </span>
                     </div>
                   </div>
@@ -6029,6 +6030,23 @@ const Dashboard = () => {
 
         {/* Campaigns Analytics Tab (Role-scoped) */}
         {activeTab === 'campaigns' && (() => {
+          // Unified helpers to categorize campaign message sources accurately
+          const isCrmSheetSource = (msgOrSrc) => {
+            if (!msgOrSrc) return false;
+            const src = typeof msgOrSrc === 'string' ? msgOrSrc : (msgOrSrc.campaignSource || msgOrSrc.source || '');
+            return src === 'crm_sheet' || src === 'leads_crm' || src === 'employee_leads';
+          };
+
+          const isExcelSource = (msgOrSrc) => {
+            if (!msgOrSrc) return false;
+            const src = typeof msgOrSrc === 'string' ? msgOrSrc : (msgOrSrc.campaignSource || msgOrSrc.source || '');
+            return src === 'excel_import' || src === 'excel';
+          };
+
+          const isDirectSource = (msgOrSrc) => {
+            return !isCrmSheetSource(msgOrSrc) && !isExcelSource(msgOrSrc);
+          };
+
           // Scope template messages by user role
           const roleScopedMessages = (() => {
             if (isAdmin || isCoordinator) return templateMessages;
@@ -6039,28 +6057,28 @@ const Dashboard = () => {
             return templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
           })();
 
-          // Calculate source metrics
-          const crmSheetMsgs = roleScopedMessages.filter(m => m.campaignSource === 'crm_sheet' || m.source === 'crm_sheet');
-          const excelMsgs = roleScopedMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import');
-          const directMsgs = roleScopedMessages.filter(m => !m.campaignSource && !m.source && (m.isTemplate || m.text?.includes('[قالب')));
+          // Calculate source metrics (100% matched: Total = CRM Sheet + Excel + Direct)
+          const crmSheetMsgs = roleScopedMessages.filter(m => isCrmSheetSource(m));
+          const excelMsgs = roleScopedMessages.filter(m => isExcelSource(m));
+          const directMsgs = roleScopedMessages.filter(m => isDirectSource(m));
 
           // Filter by active source tab
           const filteredMessages = roleScopedMessages.filter(msg => {
-            const src = msg.campaignSource || msg.source || 'direct';
             if (campaignSourceFilter === 'all') return true;
-            if (campaignSourceFilter === 'crm_sheet') return src === 'crm_sheet';
-            if (campaignSourceFilter === 'excel_import') return src === 'excel_import';
-            if (campaignSourceFilter === 'direct') return src !== 'crm_sheet' && src !== 'excel_import';
+            if (campaignSourceFilter === 'crm_sheet') return isCrmSheetSource(msg);
+            if (campaignSourceFilter === 'excel_import') return isExcelSource(msg);
+            if (campaignSourceFilter === 'direct') return isDirectSource(msg);
             return true;
           });
 
-          // Group template messages by template name, employee, and source
+          // Group template messages by template name, employee, and normalized source
           const groupedCampaigns = {};
           
           filteredMessages.forEach(msg => {
             const templateName = msg.templateName || (msg.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'رسالة ترويجية');
             const empEmail = msg.senderEmail || 'مجهول';
-            const src = msg.campaignSource || msg.source || 'direct';
+            const rawSrc = msg.campaignSource || msg.source || 'direct';
+            const src = isCrmSheetSource(rawSrc) ? 'crm_sheet' : isExcelSource(rawSrc) ? 'excel_import' : 'direct';
             const chatId = msg.conversationId || msg.recipientPhone || msg.to || 'unknown';
             
             const key = `${templateName}_${empEmail}_${src}`;
@@ -6093,9 +6111,9 @@ const Dashboard = () => {
             return { ...campaign, sentOnce, sentTwice, sentMore };
           }).sort((a,b) => b.sent - a.sent);
 
-          const totalSentAll = templateMessages.length;
-          const totalDeliveredAll = templateMessages.filter(m => m.status === 'delivered' || m.status === 'read' || m.status === 'sent').length;
-          const totalReadAll = templateMessages.filter(m => m.status === 'read').length;
+          const totalSentAll = roleScopedMessages.length;
+          const totalDeliveredAll = roleScopedMessages.filter(m => m.status === 'delivered' || m.status === 'read' || m.status === 'sent').length;
+          const totalReadAll = roleScopedMessages.filter(m => m.status === 'read').length;
           const avgOpenRateAll = totalDeliveredAll > 0 ? Math.round((totalReadAll / totalDeliveredAll) * 100) : 0;
 
           return (
@@ -6190,11 +6208,11 @@ const Dashboard = () => {
                         <tr key={idx} className="hover:bg-purple-50/30 transition">
                           <td className="p-3.5 text-xs font-black text-gray-900">{campaign.templateName}</td>
                           <td className="p-3.5 text-center">
-                            {campaign.source === 'crm_sheet' ? (
+                            {(campaign.source === 'crm_sheet' || campaign.source === 'leads_crm' || campaign.source === 'employee_leads') ? (
                               <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
                                 🎯 شيت CRM
                               </span>
-                            ) : campaign.source === 'excel_import' ? (
+                            ) : (campaign.source === 'excel_import' || campaign.source === 'excel') ? (
                               <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
                                 📁 إكسيل واتساب
                               </span>
