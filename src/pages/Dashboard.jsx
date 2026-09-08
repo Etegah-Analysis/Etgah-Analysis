@@ -6357,7 +6357,7 @@ const Dashboard = () => {
                       <select 
                         value={crmStatusFilter} 
                         onChange={(e) => setCrmStatusFilter(e.target.value)}
-                        className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                        className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer min-w-[160px]"
                       >
                         <option value="all">All Statuses ({statusCounts.all})</option>
                         <option value="unassigned">⏳ Waiting ({statusCounts.unassigned})</option>
@@ -6423,7 +6423,7 @@ const Dashboard = () => {
                         setOpenPop: setOpenTeamCommentDatePop,
                         label: 'تاريخ Last Comment'
                       })}
-                      <th className="p-3.5 text-center">حالة المتابعة (CRM)</th>
+                      <th className="p-3.5 text-center min-w-[165px]">حالة المتابعة (CRM)</th>
                       <th className="p-3.5 text-center">إجراء السحب والواتساب</th>
                     </tr>
                   </thead>
@@ -6475,7 +6475,7 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-center text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
-                            <td className="p-3.5 text-center">
+                            <td className="p-3.5 text-center min-w-[165px]">
                               <div className="flex flex-col items-center justify-center gap-1.5">
                                 {(() => {
                                   const st = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned';
@@ -6976,7 +6976,7 @@ const Dashboard = () => {
                             setOpenPop: setOpenCrmCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[165px] text-center">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
                           {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
                         </tr>
@@ -7084,12 +7084,13 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
-                            <td className="p-4 text-sm">
+                            <td className="p-4 text-sm min-w-[165px] text-center">
                               <div className="flex flex-col gap-1.5 items-center">
                                 <select 
                                   value={currentCrmStatus}
                                   onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, true)}
-                                  className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
+                                  dir="rtl"
+                                  className={`w-full min-w-[155px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                 >
                                   <option value="unassigned">⏳ Waiting</option>
                                   <option value="call_back">📞 Call Back</option>
@@ -7698,7 +7699,7 @@ const Dashboard = () => {
                             setOpenPop: setOpenEmpCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[165px] text-center">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-950 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
                         </tr>
@@ -7829,12 +7830,13 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                                   {getLastCommentDate(customer)}
                                 </td>
-                                <td className="p-4 text-sm">
+                                <td className="p-4 text-sm min-w-[165px] text-center">
                                   <div className="flex flex-col gap-1.5 items-center">
                                     <select 
                                       value={currentCrmStatus}
                                       onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, false)}
-                                      className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
+                                      dir="rtl"
+                                      className={`w-full min-w-[155px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                     >
                                       <option value="unassigned">⏳ Waiting</option>
                                       <option value="call_back">📞 Call Back</option>
