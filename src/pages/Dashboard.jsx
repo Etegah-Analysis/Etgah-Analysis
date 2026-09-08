@@ -113,11 +113,18 @@ const extractCleanCustomerName = (raw) => {
   let text = String(raw).trim();
   if (!text || text === 'null' || text === 'undefined') return 'عميل جديد';
 
-  // 1. Remove English keywords, CRM tags, column headers
-  text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Primary Phone|Mobile Phone|Phone|Email|Notes|Description|vtiger|crm)\b/gi, ' ');
-  
-  // 2. Remove English usernames / codes / tokens (e.g. ahmed.abbas, didpxo)
-  text = text.replace(/[a-zA-Z0-9_.-]*[a-zA-Z][a-zA-Z0-9_.-]*/g, ' ');
+  // 1. Remove URLs & Emails
+  text = text.replace(/https?:\/\/\S+|www\.\S+/gi, ' ');
+  text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, ' ');
+
+  // 2. Remove English & Arabic keywords, CRM tags, column headers
+  text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Full Name|Customer Name|Client Name|Primary Phone|Mobile Phone|Phone Number|Mobile Number|Phone|Mobile|Email|Notes|Description|vtiger|crm|status|tel|telephone|contact|customer|client|lead|undefined|null|nan)\b/gi, ' ');
+  text = text.replace(/\b(اسم العميل|الاسم الأول|الاسم الاول|اسم العائلة|اسم العائله|رقم الهاتف|رقم الجوال|الهاتف|الجوال|الرقم|الايميل|البريد|ملاحظات)\b/g, ' ');
+
+  // 3. Remove technical tokens, system usernames with dots/underscores, mixed alphanumerics (preserving real English names)
+  text = text.replace(/\b(didpxo)\b/gi, ' ');
+  text = text.replace(/\b[a-zA-Z0-9_-]+[._][a-zA-Z0-9_-]+\b/g, ' ');
+  text = text.replace(/\b[a-zA-Z]+\d+[a-zA-Z0-9]*\b|\b\d+[a-zA-Z]+[a-zA-Z0-9]*\b/g, ' ');
   
   // 3. Remove dates & full timestamps
   text = text.replace(/(?:\d{1,4}[-/.])?\d{1,2}[-/.]\d{2,4}/g, ' ');
@@ -2123,19 +2130,46 @@ const Dashboard = () => {
         const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
         const parsed = data.map((row) => {
-          // vtiger columns: First Name, Last Name, Lead Status, Primary Phone, Mobile Phone, Assigned To
-          const firstName = row['First Name'] || row['الاسم الاول'] || '';
-          const lastName = row['Last Name'] || row['اسم العائله'] || '';
+          const getVal = (keys) => {
+            const rowKeys = Object.keys(row);
+            for (const k of keys) {
+              if (row[k] !== undefined && String(row[k]).trim() !== '') return String(row[k]).trim();
+              const found = rowKeys.find(rk => rk.trim().toLowerCase() === k.trim().toLowerCase());
+              if (found && row[found] !== undefined && String(row[found]).trim() !== '') return String(row[found]).trim();
+            }
+            return '';
+          };
+
+          const firstName = getVal(['First Name', 'first_name', 'firstName', 'الاسم الاول', 'الاسم الأول']);
+          const lastName = getVal(['Last Name', 'last_name', 'lastName', 'اسم العائله', 'اسم العائلة', 'اسم الأب', 'اللقب']);
+          const fullName = getVal(['Name', 'name', 'Full Name', 'full_name', 'fullName', 'Customer Name', 'customer_name', 'Client Name', 'client_name', 'Customer', 'Client', 'الاسم', 'اسم العميل', 'اسم_العميل', 'الاسم بالكامل', 'اسم المشترك']);
+          
           let name = '';
           if (firstName || lastName) {
             name = extractCleanCustomerName(`${firstName} ${lastName}`);
+          } else if (fullName) {
+            name = extractCleanCustomerName(fullName);
           } else {
-            name = extractCleanCustomerName(row['الاسم'] || row['اسم العميل'] || row['Name'] || row['name'] || String(Object.values(row)[0] || ''));
+            const firstCol = String(Object.values(row)[0] || '').trim();
+            name = extractCleanCustomerName(firstCol);
           }
-          // vtiger primary phone
-          const phone = row['Primary Phone'] || row['Mobile Phone'] || row['الهاتف'] || row['الجوال'] || row['الرقم'] || row['Phone'] || row['phone'] || row['Mobile'] || String(Object.values(row)[1] || '') || '';
-          const email = row['Email'] || row['الايميل'] || row['البريد'] || row['email'] || '';
-          const notes = row['ملاحظات'] || row['Notes'] || row['notes'] || '';
+
+          let phone = getVal(['Primary Phone', 'primary_phone', 'Mobile Phone', 'mobile_phone', 'Phone Number', 'phone_number', 'Mobile Number', 'mobile_number', 'Phone', 'phone', 'Mobile', 'mobile', 'Tel', 'tel', 'Telephone', 'Contact', 'contact', 'الهاتف', 'الجوال', 'الرقم', 'رقم الهاتف', 'رقم الجوال', 'هاتف', 'جوال']);
+          if (!phone) {
+            const vals = Object.values(row);
+            for (const v of vals) {
+              const s = String(v).trim();
+              const digits = s.replace(/[^0-9]/g, '');
+              if (digits.length >= 8 && digits.length <= 16) {
+                phone = s;
+                break;
+              }
+            }
+            if (!phone && vals[1]) phone = String(vals[1]).trim();
+          }
+
+          const email = getVal(['Email', 'email', 'E-mail', 'الايميل', 'البريد', 'البريد الالكتروني']);
+          const notes = getVal(['Notes', 'notes', 'Note', 'Description', 'ملاحظات', 'الملاحظات', 'تفاصيل']);
           return { name: name || 'عميل جديد', phone: String(phone).trim(), email: String(email).trim(), notes: String(notes).trim() };
         }).filter(item => item.phone || item.name);
 
@@ -2170,17 +2204,46 @@ const Dashboard = () => {
       const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
       const parsed = data.map((row) => {
-          const firstName = row['First Name'] || row['الاسم الاول'] || '';
-          const lastName = row['Last Name'] || row['اسم العائله'] || '';
+          const getVal = (keys) => {
+            const rowKeys = Object.keys(row);
+            for (const k of keys) {
+              if (row[k] !== undefined && String(row[k]).trim() !== '') return String(row[k]).trim();
+              const found = rowKeys.find(rk => rk.trim().toLowerCase() === k.trim().toLowerCase());
+              if (found && row[found] !== undefined && String(row[found]).trim() !== '') return String(row[found]).trim();
+            }
+            return '';
+          };
+
+          const firstName = getVal(['First Name', 'first_name', 'firstName', 'الاسم الاول', 'الاسم الأول']);
+          const lastName = getVal(['Last Name', 'last_name', 'lastName', 'اسم العائله', 'اسم العائلة', 'اسم الأب', 'اللقب']);
+          const fullName = getVal(['Name', 'name', 'Full Name', 'full_name', 'fullName', 'Customer Name', 'customer_name', 'Client Name', 'client_name', 'Customer', 'Client', 'الاسم', 'اسم العميل', 'اسم_العميل', 'الاسم بالكامل', 'اسم المشترك']);
+          
           let name = '';
           if (firstName || lastName) {
             name = extractCleanCustomerName(`${firstName} ${lastName}`);
+          } else if (fullName) {
+            name = extractCleanCustomerName(fullName);
           } else {
-            name = extractCleanCustomerName(row['الاسم'] || row['اسم العميل'] || row['Name'] || row['name'] || String(Object.values(row)[0] || ''));
+            const firstCol = String(Object.values(row)[0] || '').trim();
+            name = extractCleanCustomerName(firstCol);
           }
-          const phone = row['Primary Phone'] || row['Mobile Phone'] || row['الهاتف'] || row['الجوال'] || row['الرقم'] || row['Phone'] || row['phone'] || String(Object.values(row)[1] || '') || '';
-          const email = row['Email'] || row['الايميل'] || row['email'] || '';
-          const notes = row['ملاحظات'] || row['Notes'] || '';
+
+          let phone = getVal(['Primary Phone', 'primary_phone', 'Mobile Phone', 'mobile_phone', 'Phone Number', 'phone_number', 'Mobile Number', 'mobile_number', 'Phone', 'phone', 'Mobile', 'mobile', 'Tel', 'tel', 'Telephone', 'Contact', 'contact', 'الهاتف', 'الجوال', 'الرقم', 'رقم الهاتف', 'رقم الجوال', 'هاتف', 'جوال']);
+          if (!phone) {
+            const vals = Object.values(row);
+            for (const v of vals) {
+              const s = String(v).trim();
+              const digits = s.replace(/[^0-9]/g, '');
+              if (digits.length >= 8 && digits.length <= 16) {
+                phone = s;
+                break;
+              }
+            }
+            if (!phone && vals[1]) phone = String(vals[1]).trim();
+          }
+
+          const email = getVal(['Email', 'email', 'E-mail', 'الايميل', 'البريد', 'البريد الالكتروني']);
+          const notes = getVal(['Notes', 'notes', 'Note', 'Description', 'ملاحظات', 'الملاحظات', 'تفاصيل']);
           return { name: name || 'عميل جديد', phone: String(phone).trim(), email: String(email).trim(), notes: String(notes).trim() };
         }).filter(item => item.phone || item.name);
 

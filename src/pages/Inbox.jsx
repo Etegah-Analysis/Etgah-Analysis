@@ -1467,8 +1467,17 @@ function InboxContent() {
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        let phone = row.phone || row.Phone || row['رقم الهاتف'] || row['الهاتف'] || row['الرقم'] || row.mobile || row.Mobile;
-        let name = row.name || row.Name || row['الاسم'] || row['اسم العميل'] || 'عميل';
+        const getRowVal = (keys) => {
+          const rowKeys = Object.keys(row);
+          for (const k of keys) {
+            if (row[k] !== undefined && String(row[k]).trim() !== '') return String(row[k]).trim();
+            const found = rowKeys.find(rk => rk.trim().toLowerCase() === k.trim().toLowerCase());
+            if (found && row[found] !== undefined && String(row[found]).trim() !== '') return String(row[found]).trim();
+          }
+          return '';
+        };
+        let phone = getRowVal(['phone', 'Phone', 'mobile', 'Mobile', 'Primary Phone', 'Mobile Phone', 'Phone Number', 'Mobile Number', 'Tel', 'Contact', 'رقم الهاتف', 'الهاتف', 'الرقم', 'الجوال', 'رقم الجوال']);
+        let name = getRowVal(['name', 'Name', 'Full Name', 'full_name', 'Customer Name', 'customer_name', 'Client Name', 'client_name', 'First Name', 'الاسم', 'اسم العميل', 'الاسم بالكامل']) || 'عميل';
 
         if (!phone) {
           failedCount++;
