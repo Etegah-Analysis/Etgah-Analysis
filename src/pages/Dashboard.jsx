@@ -690,18 +690,24 @@ const Dashboard = () => {
                   <label className="block text-xs font-bold text-purple-300 mb-1">من تاريخ (Start Date):</label>
                   <input
                     type="date"
+                    data-empty={!regFrom}
                     value={regFrom}
                     onChange={(e) => setRegFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer"
+                    onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                    className={`w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer text-center date-input-dark ${!regFrom ? 'text-transparent empty-date' : 'text-white'}`}
+                    dir="ltr"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-purple-300 mb-1">إلى تاريخ (End Date):</label>
                   <input
                     type="date"
+                    data-empty={!regTo}
                     value={regTo}
                     onChange={(e) => setRegTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer"
+                    onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                    className={`w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer text-center date-input-dark ${!regTo ? 'text-transparent empty-date' : 'text-white'}`}
+                    dir="ltr"
                   />
                 </div>
               </div>
@@ -834,18 +840,24 @@ const Dashboard = () => {
                   <label className="block text-xs font-bold text-amber-300 mb-1">من تاريخ (Start Date):</label>
                   <input
                     type="date"
+                    data-empty={!commentFrom}
                     value={commentFrom}
                     onChange={(e) => setCommentFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                    onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                    className={`w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer text-center date-input-dark ${!commentFrom ? 'text-transparent empty-date' : 'text-white'}`}
+                    dir="ltr"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-amber-300 mb-1">إلى تاريخ (End Date):</label>
                   <input
                     type="date"
+                    data-empty={!commentTo}
                     value={commentTo}
                     onChange={(e) => setCommentTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                    onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                    className={`w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer text-center date-input-dark ${!commentTo ? 'text-transparent empty-date' : 'text-white'}`}
+                    dir="ltr"
                   />
                 </div>
               </div>
@@ -8339,22 +8351,26 @@ const Dashboard = () => {
                       </span>
                       <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 min-w-[105px] justify-between cursor-pointer">
                         <span className="text-[10px] text-emerald-200 font-bold shrink-0">من</span>
-                        {!dateFromFilter && <span className="text-[11px] text-emerald-300 font-mono font-bold">--/--/----</span>}
                         <input 
                           type="date" 
+                          data-empty={!dateFromFilter}
                           value={dateFromFilter}
                           onChange={(e) => setDateFromFilter(e.target.value)}
-                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateFromFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
+                          onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                          className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer font-bold border-none text-center date-input-dark ${!dateFromFilter ? 'text-transparent empty-date w-[70px]' : 'text-white w-[95px]'}`}
+                          dir="ltr"
                         />
                       </div>
                       <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 min-w-[105px] justify-between cursor-pointer">
                         <span className="text-[10px] text-emerald-200 font-bold shrink-0">إلى</span>
-                        {!dateToFilter && <span className="text-[11px] text-emerald-300 font-mono font-bold">--/--/----</span>}
                         <input 
                           type="date" 
+                          data-empty={!dateToFilter}
                           value={dateToFilter}
                           onChange={(e) => setDateToFilter(e.target.value)}
-                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateToFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
+                          onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                          className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer font-bold border-none text-center date-input-dark ${!dateToFilter ? 'text-transparent empty-date w-[70px]' : 'text-white w-[95px]'}`}
+                          dir="ltr"
                         />
                       </div>
                       {(dateFromFilter || dateToFilter) && (
@@ -10655,9 +10671,12 @@ const Dashboard = () => {
                         ) : (
                           <input 
                             type="date"
+                            data-empty={!trialDateForNotes}
                             value={trialDateForNotes}
                             onChange={(e) => setTrialDateForNotes(e.target.value)}
-                            className="w-full p-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer"
+                            onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                            className={`w-full p-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer text-center ${!trialDateForNotes ? 'text-transparent empty-date' : 'text-slate-800'}`}
+                            dir="ltr"
                           />
                         )}
                       </div>
@@ -11780,26 +11799,28 @@ const Dashboard = () => {
                     <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800 text-xs">
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400 font-bold">من:</span>
-                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[120px] justify-between cursor-pointer">
-                          {!callsCustomDateFrom && <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>}
+                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[105px] justify-between cursor-pointer">
                           <input
                             type="date"
+                            data-empty={!callsCustomDateFrom}
                             value={callsCustomDateFrom}
                             onChange={(e) => { setCallsCustomDateFrom(e.target.value); setCallsCurrentPage(1); }}
-                            className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!callsCustomDateFrom ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[100px]'}`}
+                            onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                            className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer font-bold border-none text-center date-input-dark ${!callsCustomDateFrom ? 'text-transparent empty-date w-[70px]' : 'text-white w-[100px]'}`}
                             dir="ltr"
                           />
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400 font-bold">إلى:</span>
-                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[120px] justify-between cursor-pointer">
-                          {!callsCustomDateTo && <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>}
+                        <div className="relative flex items-center gap-1 bg-slate-800 border border-purple-500/40 rounded-xl px-2.5 py-1 text-xs min-w-[105px] justify-between cursor-pointer">
                           <input
                             type="date"
+                            data-empty={!callsCustomDateTo}
                             value={callsCustomDateTo}
                             onChange={(e) => { setCallsCustomDateTo(e.target.value); setCallsCurrentPage(1); }}
-                            className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!callsCustomDateTo ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[100px]'}`}
+                            onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                            className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer font-bold border-none text-center date-input-dark ${!callsCustomDateTo ? 'text-transparent empty-date w-[70px]' : 'text-white w-[100px]'}`}
                             dir="ltr"
                           />
                         </div>
@@ -12921,9 +12942,12 @@ const Dashboard = () => {
                     <input 
                       type="date"
                       required
+                      data-empty={!subStartDate}
                       value={subStartDate}
                       onChange={(e) => setSubStartDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                      onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                      className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subStartDate ? 'text-transparent empty-date' : 'text-white'}`}
+                      dir="ltr"
                     />
                   </div>
 
@@ -12939,9 +12963,12 @@ const Dashboard = () => {
                       <input 
                         type="date"
                         required
+                        data-empty={!subEndDate}
                         value={subEndDate}
                         onChange={(e) => setSubEndDate(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                        onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                        className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subEndDate ? 'text-transparent empty-date' : 'text-white'}`}
+                        dir="ltr"
                       />
                     </div>
                   )}

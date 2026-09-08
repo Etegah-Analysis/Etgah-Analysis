@@ -52,3 +52,33 @@ body.no-select textarea {
   user-select: text !important;
   -webkit-touch-callout: default !important;
 }
+
+/* Date Input Styling: Completely eliminate broken browser date placeholders (e.g. 'ة نس / ر هش / مو ي') */
+input[type="date"] {
+  direction: ltr !important;
+  text-align: center;
+}
+
+input[type="date"].empty-date::-webkit-datetime-edit,
+input[type="date"][data-empty="true"]::-webkit-datetime-edit,
+input[type="date"].text-transparent::-webkit-datetime-edit {
+  color: transparent !important;
+}
+
+input[type="date"].empty-date,
+input[type="date"][data-empty="true"] {
+  color: transparent !important;
+}
+
+/* Ensure calendar picker icon on dark inputs is crisp, bright, and clickable */
+input[type="date"].date-input-dark::-webkit-calendar-picker-indicator,
+.date-input-dark::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
