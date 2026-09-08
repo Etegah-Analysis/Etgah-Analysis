@@ -2357,7 +2357,7 @@ function InboxContent() {
                     <h3 className="font-bold text-white text-sm flex items-center gap-2 truncate">
                       <span>{chat.name || 'عميل بدون اسم'}</span>
                       {chat.status === 'unassigned' && (
-                        <span className="bg-red-600/30 text-red-200 border border-red-500/50 text-[10px] px-1.5 py-0.2 rounded font-extrabold shrink-0 animate-pulse">⏳ في الانتظار</span>
+                        <span className="bg-red-600/30 text-red-200 border border-red-500/50 text-[10px] px-1.5 py-0.2 rounded font-extrabold shrink-0 animate-pulse">⏳ Waiting</span>
                       )}
                     </h3>
                     <p className="text-xs text-gray-400 font-mono truncate" dir="ltr">{chat.phoneNumber}</p>
@@ -2549,15 +2549,15 @@ function InboxContent() {
                           }}
                           className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
                         >
-                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Pending (في الانتظار)</option>
-                          <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back (معاودة اتصال)</option>
-                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested (مهتم)</option>
-                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested (غير مهتم)</option>
-                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer (لم يرد)</option>
-                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Started Trial (بدأ تجربة)</option>
-                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Subscribed (تم الاشتراك)</option>
-                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned (تم التوجيه)</option>
-                          <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost (مفقود)</option>
+                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
+                          <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back</option>
+                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested</option>
+                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested</option>
+                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer</option>
+                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Demo</option>
+                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Paid</option>
+                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
+                          <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
                         </select>
                       </div>
                     </div>

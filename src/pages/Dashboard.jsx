@@ -74,15 +74,15 @@ class DashboardErrorBoundary extends React.Component {
 }
 
 const CRM_STATUS_MAP = {
-  unassigned: { label: '⏳ Pending', arLabel: 'في الانتظار', fullLabel: '⏳ Pending (في الانتظار)', bg: 'bg-gray-100 text-gray-700 border-gray-300' },
-  call_back: { label: '📞 Call Back', arLabel: 'معاودة اتصال', fullLabel: '📞 Call Back (معاودة اتصال)', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
-  interested: { label: '🌟 Interested', arLabel: 'مهتم', fullLabel: '🌟 Interested (مهتم)', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-  not_interested: { label: '❌ Not Interested', arLabel: 'غير مهتم', fullLabel: '❌ Not Interested (غير مهتم)', bg: 'bg-rose-100 text-rose-800 border-rose-300' },
-  no_answer: { label: '📵 No Answer', arLabel: 'لم يرد', fullLabel: '📵 No Answer (لم يرد)', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
-  started_trial: { label: '🚀 Started Trial', arLabel: 'بدأ تجربة', fullLabel: '🚀 Started Trial (بدأ تجربة)', bg: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
-  subscribed: { label: '🎉 Subscribed', arLabel: 'تم الاشتراك', fullLabel: '🎉 Subscribed (تم الاشتراك)', bg: 'bg-purple-100 text-purple-800 border-purple-300' },
-  assigned: { label: '📋 Assigned', arLabel: 'تم التوجيه', fullLabel: '📋 Assigned (تم التوجيه)', bg: 'bg-blue-100 text-blue-700 border-blue-300' },
-  lost: { label: '🥀 Lost', arLabel: 'مفقود', fullLabel: '🥀 Lost (مفقود)', bg: 'bg-red-100 text-red-800 border-red-300' },
+  unassigned: { label: '⏳ Waiting', arLabel: 'Waiting', fullLabel: '⏳ Waiting', bg: 'bg-gray-100 text-gray-700 border-gray-300' },
+  call_back: { label: '📞 Call Back', arLabel: 'Call Back', fullLabel: '📞 Call Back', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
+  interested: { label: '🌟 Interested', arLabel: 'Interested', fullLabel: '🌟 Interested', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  not_interested: { label: '❌ Not Interested', arLabel: 'Not Interested', fullLabel: '❌ Not Interested', bg: 'bg-rose-100 text-rose-800 border-rose-300' },
+  no_answer: { label: '📵 No Answer', arLabel: 'No Answer', fullLabel: '📵 No Answer', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
+  started_trial: { label: '🚀 Demo', arLabel: 'Demo', fullLabel: '🚀 Demo', bg: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
+  subscribed: { label: '🎉 Paid', arLabel: 'Paid', fullLabel: '🎉 Paid', bg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  assigned: { label: '📋 Assigned', arLabel: 'Assigned', fullLabel: '📋 Assigned', bg: 'bg-blue-100 text-blue-700 border-blue-300' },
+  lost: { label: '🥀 Lost', arLabel: 'Lost', fullLabel: '🥀 Lost', bg: 'bg-red-100 text-red-800 border-red-300' },
 };
 
 const getTimestampMillis = (val) => {
@@ -339,7 +339,7 @@ const Dashboard = () => {
   // Employee Leads Tab Filters & Pagination State
   const [currentPageEmpLeads, setCurrentPageEmpLeads] = useState(1);
   const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('all');
-  const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('unassigned');
+  const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('all');
   const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
   const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
   const [empLeadsSortOrder, setEmpLeadsSortOrder] = useState('desc');
@@ -5988,14 +5988,14 @@ const Dashboard = () => {
                         onChange={(e) => setCrmStatusFilter(e.target.value)}
                         className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
                       >
-                        <option value="all">🏷️ All Statuses (جميع الحالات) ({statusCounts.all})</option>
-                        <option value="unassigned">⏳ Pending (في الانتظار) ({statusCounts.unassigned})</option>
-                        <option value="call_back">📞 Call Back (معاودة اتصال) ({statusCounts.call_back})</option>
-                        <option value="started_trial">🚀 Started Trial (بدأ تجربة) ({statusCounts.started_trial})</option>
-                        <option value="subscribed">🎉 Subscribed (تم الاشتراك) ({statusCounts.subscribed})</option>
-                        <option value="interested">🌟 Interested (مهتم) ({statusCounts.interested})</option>
-                        <option value="no_answer">📵 No Answer (لم يرد) ({statusCounts.no_answer})</option>
-                        <option value="not_interested">❌ Not Interested (غير مهتم) ({statusCounts.not_interested})</option>
+                        <option value="all">All Statuses ({statusCounts.all})</option>
+                        <option value="unassigned">⏳ Waiting ({statusCounts.unassigned})</option>
+                        <option value="call_back">📞 Call Back ({statusCounts.call_back})</option>
+                        <option value="interested">🌟 Interested ({statusCounts.interested})</option>
+                        <option value="not_interested">❌ Not Interested ({statusCounts.not_interested})</option>
+                        <option value="no_answer">📵 No Answer ({statusCounts.no_answer})</option>
+                        <option value="started_trial">🚀 Demo ({statusCounts.started_trial})</option>
+                        <option value="subscribed">🎉 Paid ({statusCounts.subscribed})</option>
                       </select>
                     );
                   })()}
@@ -6092,9 +6092,8 @@ const Dashboard = () => {
                                   const st = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned';
                                   const info = CRM_STATUS_MAP[st] || CRM_STATUS_MAP.unassigned;
                                   return (
-                                    <span className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-bold leading-tight shadow-xs ${info.bg}`}>
+                                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-bold leading-tight shadow-xs ${info.bg}`}>
                                       <span>{info.label}</span>
-                                      <span className="text-[9px] opacity-80 font-medium">{info.arLabel}</span>
                                     </span>
                                   );
                                 })()}
@@ -6377,14 +6376,14 @@ const Dashboard = () => {
                         onChange={(e) => setCrmStatusFilter(e.target.value)}
                         className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                       >
-                        <option value="all" className="bg-purple-950 text-white">🌟 All Statuses (جميع الحالات) ({getCrmStatusCount('all')})</option>
-                        <option value="unassigned" className="bg-purple-950 text-white">⏳ Pending (في الانتظار) ({getCrmStatusCount('unassigned')})</option>
-                        <option value="call_back" className="bg-purple-950 text-white">📞 Call Back (معاودة اتصال) ({getCrmStatusCount('call_back')})</option>
-                        <option value="interested" className="bg-purple-950 text-white">🌟 Interested (مهتم) ({getCrmStatusCount('interested')})</option>
-                        <option value="not_interested" className="bg-purple-950 text-white">❌ Not Interested (غير مهتم) ({getCrmStatusCount('not_interested')})</option>
-                        <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer (لم يرد) ({getCrmStatusCount('no_answer')})</option>
-                        <option value="started_trial" className="bg-purple-950 text-white">🚀 Started Trial (بدأ تجربة) ({getCrmStatusCount('started_trial')})</option>
-                        <option value="subscribed" className="bg-purple-950 text-white">🎉 Subscribed (تم الاشتراك) ({getCrmStatusCount('subscribed')})</option>
+                        <option value="all" className="bg-purple-950 text-white">All Statuses ({getCrmStatusCount('all')})</option>
+                        <option value="unassigned" className="bg-purple-950 text-white">⏳ Waiting ({getCrmStatusCount('unassigned')})</option>
+                        <option value="call_back" className="bg-purple-950 text-white">📞 Call Back ({getCrmStatusCount('call_back')})</option>
+                        <option value="interested" className="bg-purple-950 text-white">🌟 Interested ({getCrmStatusCount('interested')})</option>
+                        <option value="not_interested" className="bg-purple-950 text-white">❌ Not Interested ({getCrmStatusCount('not_interested')})</option>
+                        <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getCrmStatusCount('no_answer')})</option>
+                        <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getCrmStatusCount('started_trial')})</option>
+                        <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getCrmStatusCount('subscribed')})</option>
                       </select>
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
                         ▼
@@ -6719,17 +6718,16 @@ const Dashboard = () => {
                                   onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, true)}
                                   className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
                                 >
-                                  <option value="unassigned">⏳ Pending (في الانتظار)</option>
-                                  <option value="call_back">📞 Call Back (معاودة اتصال)</option>
-                                  <option value="interested">🌟 Interested (مهتم)</option>
-                                  <option value="not_interested">❌ Not Interested (غير مهتم)</option>
-                                  <option value="no_answer">📵 No Answer (لم يرد)</option>
-                                  <option value="started_trial">🚀 Started Trial (بدأ تجربة)</option>
-                                  <option value="subscribed">🎉 Subscribed (تم الاشتراك)</option>
+                                  <option value="unassigned">⏳ Waiting</option>
+                                  <option value="call_back">📞 Call Back</option>
+                                  <option value="interested">🌟 Interested</option>
+                                  <option value="not_interested">❌ Not Interested</option>
+                                  <option value="no_answer">📵 No Answer</option>
+                                  <option value="started_trial">🚀 Demo</option>
+                                  <option value="subscribed">🎉 Paid</option>
                                 </select>
-                                <span className="text-[10px] opacity-75 font-bold">{statusInfo.arLabel}</span>
                                 {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
-                                  <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 التجربة: {customer.trialStartDate}</span>
+                                  <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>
                                 )}
                                 <button 
                                   onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
@@ -7156,37 +7154,25 @@ const Dashboard = () => {
                       </div>
                     )}
 
-                    {/* Status Tabs */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {[
-                        { key: 'unassigned', label: '⏳ Pending', arLabel: 'في الانتظار', bg: 'bg-gray-100 text-gray-700' },
-                        { key: 'call_back', label: '📞 Call Back', arLabel: 'معاودة اتصال', bg: 'bg-blue-100 text-blue-800' },
-                        { key: 'interested', label: '🌟 Interested', arLabel: 'مهتم', bg: 'bg-emerald-100 text-emerald-800' },
-                        { key: 'not_interested', label: '❌ Not Interested', arLabel: 'غير مهتم', bg: 'bg-rose-100 text-rose-800' },
-                        { key: 'no_answer', label: '📵 No Answer', arLabel: 'لم يرد', bg: 'bg-amber-100 text-amber-800' },
-                        { key: 'started_trial', label: '🚀 Started Trial', arLabel: 'بدأ تجربة', bg: 'bg-cyan-100 text-cyan-800' },
-                        { key: 'subscribed', label: '🎉 Subscribed', arLabel: 'تم الاشتراك', bg: 'bg-purple-100 text-purple-800' },
-                      ].map(tab => {
-                        const count = getEmpLeadStatusCount(tab.key);
-                        const isSelected = empLeadsStatusFilter === tab.key;
-                        return (
-                          <button
-                            key={tab.key}
-                            onClick={() => setEmpLeadsStatusFilter(tab.key)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs ${
-                              isSelected ? 'bg-purple-700 text-white shadow-sm ring-2 ring-purple-400' : `${tab.bg} hover:opacity-85`
-                            }`}
-                          >
-                            <div className="flex flex-col items-center leading-tight">
-                              <span className="font-black text-[11px] sm:text-xs">{tab.label}</span>
-                              <span className={`text-[9px] ${isSelected ? 'text-purple-200' : 'opacity-80'}`}>{tab.arLabel}</span>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isSelected ? 'bg-white/20 text-white' : 'bg-black/10'}`}>
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    {/* Status Filter Dropdown */}
+                    <div className="relative">
+                      <select
+                        value={empLeadsStatusFilter}
+                        onChange={(e) => setEmpLeadsStatusFilter(e.target.value)}
+                        className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
+                      >
+                        <option value="all" className="bg-purple-950 text-white">All Statuses ({getEmpLeadStatusCount('all')})</option>
+                        <option value="unassigned" className="bg-purple-950 text-white">⏳ Waiting ({getEmpLeadStatusCount('unassigned')})</option>
+                        <option value="call_back" className="bg-purple-950 text-white">📞 Call Back ({getEmpLeadStatusCount('call_back')})</option>
+                        <option value="interested" className="bg-purple-950 text-white">🌟 Interested ({getEmpLeadStatusCount('interested')})</option>
+                        <option value="not_interested" className="bg-purple-950 text-white">❌ Not Interested ({getEmpLeadStatusCount('not_interested')})</option>
+                        <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getEmpLeadStatusCount('no_answer')})</option>
+                        <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getEmpLeadStatusCount('started_trial')})</option>
+                        <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getEmpLeadStatusCount('subscribed')})</option>
+                      </select>
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
+                        ▼
+                      </div>
                     </div>
                   </div>
 
@@ -7471,17 +7457,16 @@ const Dashboard = () => {
                                       onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, false)}
                                       className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
                                     >
-                                      <option value="unassigned">⏳ Pending (في الانتظار)</option>
-                                      <option value="call_back">📞 Call Back (معاودة اتصال)</option>
-                                      <option value="interested">🌟 Interested (مهتم)</option>
-                                      <option value="not_interested">❌ Not Interested (غير مهتم)</option>
-                                      <option value="no_answer">📵 No Answer (لم يرد)</option>
-                                      <option value="started_trial">🚀 Started Trial (بدأ تجربة)</option>
-                                      <option value="subscribed">🎉 Subscribed (تم الاشتراك)</option>
+                                      <option value="unassigned">⏳ Waiting</option>
+                                      <option value="call_back">📞 Call Back</option>
+                                      <option value="interested">🌟 Interested</option>
+                                      <option value="not_interested">❌ Not Interested</option>
+                                      <option value="no_answer">📵 No Answer</option>
+                                      <option value="started_trial">🚀 Demo</option>
+                                      <option value="subscribed">🎉 Paid</option>
                                     </select>
-                                    <span className="text-[10px] opacity-75 font-bold">{statusInfo.arLabel}</span>
                                     {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
-                                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 التجربة: {customer.trialStartDate}</span>
+                                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>
                                     )}
                                     <button 
                                       onClick={() => handleOpenNotesModal(customer, false)}
@@ -10244,7 +10229,7 @@ const Dashboard = () => {
               {isStatusChangeMandatory && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black mb-3 flex items-center gap-2 shadow-sm animate-pulse">
                   <span className="text-base">⚠️</span>
-                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label} ({CRM_STATUS_MAP[selectedStatusForNotes]?.arLabel})</span></span>
+                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label}</span></span>
                 </div>
               )}
 
@@ -10276,8 +10261,7 @@ const Dashboard = () => {
                       <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
                       {isCoordinator ? (
                         <div className="w-full p-2.5 border rounded-xl text-xs font-black text-gray-800 bg-gray-50 flex items-center justify-between">
-                          <span>{CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ Pending'}</span>
-                          <span className="text-gray-500 font-normal">({CRM_STATUS_MAP[selectedStatusForNotes]?.arLabel || 'في الانتظار'})</span>
+                          <span>{CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ Waiting'}</span>
                         </div>
                       ) : (
                         <select 
@@ -10285,13 +10269,13 @@ const Dashboard = () => {
                           onChange={(e) => setSelectedStatusForNotes(e.target.value)}
                           className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
                         >
-                          <option value="unassigned">⏳ Pending (في الانتظار)</option>
-                          <option value="call_back">📞 Call Back (معاودة اتصال)</option>
-                          <option value="interested">🌟 Interested (مهتم)</option>
-                          <option value="not_interested">❌ Not Interested (غير مهتم)</option>
-                          <option value="no_answer">📵 No Answer (لم يرد)</option>
-                          <option value="started_trial">🚀 Started Trial (بدأ تجربة)</option>
-                          <option value="subscribed">🎉 Subscribed (تم الاشتراك)</option>
+                          <option value="unassigned">⏳ Waiting</option>
+                          <option value="call_back">📞 Call Back</option>
+                          <option value="interested">🌟 Interested</option>
+                          <option value="not_interested">❌ Not Interested</option>
+                          <option value="no_answer">📵 No Answer</option>
+                          <option value="started_trial">🚀 Demo</option>
+                          <option value="subscribed">🎉 Paid</option>
                         </select>
                       )}
                     </div>
@@ -10300,7 +10284,7 @@ const Dashboard = () => {
                     {selectedStatusForNotes === 'started_trial' && (
                       <div className="bg-cyan-50 p-3 rounded-xl border border-cyan-200">
                         <label className="block text-xs font-bold text-cyan-800 mb-1 flex items-center gap-1">
-                          <Calendar size={14} /> تاريخ بدء التجربة:
+                          <Calendar size={14} /> تاريخ بدء Demo:
                         </label>
                         {isCoordinator ? (
                           <div className="w-full p-2 border border-cyan-200 rounded-lg text-xs font-black text-cyan-900 bg-white">
@@ -10561,8 +10545,7 @@ const Dashboard = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                           <div className="bg-purple-900/40 p-3.5 rounded-xl border border-purple-500/40 text-center">
                             <div className="mb-1 leading-tight">
-                              <span className="text-xs text-purple-300 font-bold block">🎉 Subscribed</span>
-                              <span className="text-[10px] text-purple-200/80 font-medium block">تم الاشتراك</span>
+                              <span className="text-xs text-purple-300 font-bold block">🎉 Paid</span>
                             </div>
                             <span className="text-2xl font-black text-purple-300">{subscribed}</span>
                             <span className="text-[10px] text-purple-400 font-mono block mt-0.5">({total > 0 ? ((subscribed/total)*100).toFixed(1) : 0}%)</span>
@@ -10570,8 +10553,7 @@ const Dashboard = () => {
 
                           <div className="bg-cyan-900/40 p-3.5 rounded-xl border border-cyan-500/40 text-center">
                             <div className="mb-1 leading-tight">
-                              <span className="text-xs text-cyan-300 font-bold block">🚀 Started Trial</span>
-                              <span className="text-[10px] text-cyan-200/80 font-medium block">بدأ تجربة</span>
+                              <span className="text-xs text-cyan-300 font-bold block">🚀 Demo</span>
                             </div>
                             <span className="text-2xl font-black text-cyan-300">{trial}</span>
                             <span className="text-[10px] text-cyan-400 font-mono block mt-0.5">({total > 0 ? ((trial/total)*100).toFixed(1) : 0}%)</span>
@@ -10580,7 +10562,6 @@ const Dashboard = () => {
                           <div className="bg-emerald-900/40 p-3.5 rounded-xl border border-emerald-500/40 text-center">
                             <div className="mb-1 leading-tight">
                               <span className="text-xs text-emerald-300 font-bold block">🌟 Interested</span>
-                              <span className="text-[10px] text-emerald-200/80 font-medium block">مهتم</span>
                             </div>
                             <span className="text-2xl font-black text-emerald-300">{interested}</span>
                             <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">({total > 0 ? ((interested/total)*100).toFixed(1) : 0}%)</span>
@@ -10589,7 +10570,6 @@ const Dashboard = () => {
                           <div className="bg-blue-900/40 p-3.5 rounded-xl border border-blue-500/40 text-center">
                             <div className="mb-1 leading-tight">
                               <span className="text-xs text-blue-300 font-bold block">📞 Call Back</span>
-                              <span className="text-[10px] text-blue-200/80 font-medium block">معاودة اتصال</span>
                             </div>
                             <span className="text-2xl font-black text-blue-300">{callBack}</span>
                             <span className="text-[10px] text-blue-400 font-mono block mt-0.5">({total > 0 ? ((callBack/total)*100).toFixed(1) : 0}%)</span>
@@ -10598,7 +10578,6 @@ const Dashboard = () => {
                           <div className="bg-amber-900/40 p-3.5 rounded-xl border border-amber-500/40 text-center">
                             <div className="mb-1 leading-tight">
                               <span className="text-xs text-amber-300 font-bold block">📵 No Answer</span>
-                              <span className="text-[10px] text-amber-200/80 font-medium block">لم يرد</span>
                             </div>
                             <span className="text-2xl font-black text-amber-300">{noAnswer}</span>
                             <span className="text-[10px] text-amber-400 font-mono block mt-0.5">({total > 0 ? ((noAnswer/total)*100).toFixed(1) : 0}%)</span>
@@ -10607,7 +10586,6 @@ const Dashboard = () => {
                           <div className="bg-rose-900/40 p-3.5 rounded-xl border border-rose-500/40 text-center">
                             <div className="mb-1 leading-tight">
                               <span className="text-xs text-rose-300 font-bold block">❌ Not Interested</span>
-                              <span className="text-[10px] text-rose-200/80 font-medium block">غير مهتم</span>
                             </div>
                             <span className="text-2xl font-black text-rose-300">{notInterested}</span>
                             <span className="text-[10px] text-rose-400 font-mono block mt-0.5">({total > 0 ? ((notInterested/total)*100).toFixed(1) : 0}%)</span>
@@ -10615,8 +10593,7 @@ const Dashboard = () => {
 
                           <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700 text-center">
                             <div className="mb-1 leading-tight">
-                              <span className="text-xs text-slate-300 font-bold block">⏳ Pending</span>
-                              <span className="text-[10px] text-slate-400 font-medium block">في الانتظار</span>
+                              <span className="text-xs text-slate-300 font-bold block">⏳ Waiting</span>
                             </div>
                             <span className="text-2xl font-black text-slate-200">{pending}</span>
                             <span className="text-[10px] text-slate-400 font-mono block mt-0.5">({total > 0 ? ((pending/total)*100).toFixed(1) : 0}%)</span>
@@ -10748,46 +10725,39 @@ const Dashboard = () => {
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-amber-300 font-black">⏳ Pending</span>
-                                      <span className="text-[9px] text-amber-400/80 font-normal">في الانتظار</span>
+                                      <span className="text-amber-300 font-black">⏳ Waiting</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">نسبة النجاح</th>
                                   <th className="p-3 text-center">التواصل</th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-purple-300 font-bold">🎉 Subscribed</span>
-                                      <span className="text-[9px] text-purple-400/80 font-normal">تم الاشتراك</span>
+                                      <span className="text-purple-300 font-bold">🎉 Paid</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-cyan-300 font-bold">🚀 Started Trial</span>
-                                      <span className="text-[9px] text-cyan-400/80 font-normal">بدأ تجربة</span>
+                                      <span className="text-cyan-300 font-bold">🚀 Demo</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-emerald-300 font-bold">🌟 Interested</span>
-                                      <span className="text-[9px] text-emerald-400/80 font-normal">مهتم</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-blue-300 font-bold">📞 Call Back</span>
-                                      <span className="text-[9px] text-blue-400/80 font-normal">معاودة اتصال</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-amber-300 font-bold">📵 No Answer</span>
-                                      <span className="text-[9px] text-amber-400/80 font-normal">لم يرد</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-rose-300 font-bold">❌ Not Interested</span>
-                                      <span className="text-[9px] text-rose-400/80 font-normal">غير مهتم</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">التقييم</th>
@@ -11019,46 +10989,39 @@ const Dashboard = () => {
                                     <th className="p-3 text-center">إجمالي الداتا</th>
                                     <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                       <div className="flex flex-col items-center leading-tight">
-                                        <span className="text-amber-300 font-black">⏳ Pending</span>
-                                        <span className="text-[9px] text-amber-400/80 font-normal">في الانتظار</span>
+                                        <span className="text-amber-300 font-black">⏳ Waiting</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">نسبة النجاح</th>
                                     <th className="p-3 text-center">التواصل</th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
-                                        <span className="text-purple-300 font-bold">🎉 Subscribed</span>
-                                        <span className="text-[9px] text-purple-400/80 font-normal">تم الاشتراك</span>
+                                        <span className="text-purple-300 font-bold">🎉 Paid</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
-                                        <span className="text-cyan-300 font-bold">🚀 Started Trial</span>
-                                        <span className="text-[9px] text-cyan-400/80 font-normal">بدأ تجربة</span>
+                                        <span className="text-cyan-300 font-bold">🚀 Demo</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
                                         <span className="text-emerald-300 font-bold">🌟 Interested</span>
-                                        <span className="text-[9px] text-emerald-400/80 font-normal">مهتم</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
                                         <span className="text-blue-300 font-bold">📞 Call Back</span>
-                                        <span className="text-[9px] text-blue-400/80 font-normal">معاودة اتصال</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
                                         <span className="text-amber-300 font-bold">📵 No Answer</span>
-                                        <span className="text-[9px] text-amber-400/80 font-normal">لم يرد</span>
                                       </div>
                                     </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
                                         <span className="text-rose-300 font-bold">❌ Not Interested</span>
-                                        <span className="text-[9px] text-rose-400/80 font-normal">غير مهتم</span>
                                       </div>
                                     </th>
                                   </tr>
@@ -11113,46 +11076,39 @@ const Dashboard = () => {
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-amber-300 font-black">⏳ Pending</span>
-                                      <span className="text-[9px] text-amber-400/80 font-normal">في الانتظار</span>
+                                      <span className="text-amber-300 font-black">⏳ Waiting</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">نسبة النجاح</th>
                                   <th className="p-3 text-center">التواصل</th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-purple-300 font-bold">🎉 Subscribed</span>
-                                      <span className="text-[9px] text-purple-400/80 font-normal">تم الاشتراك</span>
+                                      <span className="text-purple-300 font-bold">🎉 Paid</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
-                                      <span className="text-cyan-300 font-bold">🚀 Started Trial</span>
-                                      <span className="text-[9px] text-cyan-400/80 font-normal">بدأ تجربة</span>
+                                      <span className="text-cyan-300 font-bold">🚀 Demo</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-emerald-300 font-bold">🌟 Interested</span>
-                                      <span className="text-[9px] text-emerald-400/80 font-normal">مهتم</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-blue-300 font-bold">📞 Call Back</span>
-                                      <span className="text-[9px] text-blue-400/80 font-normal">معاودة اتصال</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-amber-300 font-bold">📵 No Answer</span>
-                                      <span className="text-[9px] text-amber-400/80 font-normal">لم يرد</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-rose-300 font-bold">❌ Not Interested</span>
-                                      <span className="text-[9px] text-rose-400/80 font-normal">غير مهتم</span>
                                     </div>
                                   </th>
                                   <th className="p-3 text-center">التقييم</th>
@@ -11877,7 +11833,7 @@ const Dashboard = () => {
                                   </span>
                                 ) : (
                                   <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">
-                                    {CRM_STATUS_MAP[lead.crmStatus]?.fullLabel || CRM_STATUS_MAP[lead.crmStatus]?.label || '⏳ Pending (في الانتظار)'}
+                                    {CRM_STATUS_MAP[lead.crmStatus]?.fullLabel || CRM_STATUS_MAP[lead.crmStatus]?.label || '⏳ Waiting'}
                                   </span>
                                 )}
                               </div>

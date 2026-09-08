@@ -40,19 +40,19 @@ export const translations = {
     actionsHeader: 'الإجراءات والتقرير',
 
     // Statuses
-    unassigned: '⏳ Pending (في الانتظار)',
-    call_back: '📞 Call Back (معاودة اتصال)',
-    assigned: '📋 Assigned (تم التوجيه)',
-    interested: '🌟 Interested (مهتم)',
-    not_interested: '❌ Not Interested (غير مهتم)',
-    no_answer: '📵 No Answer (لم يرد)',
-    lost: '🥀 Lost (مفقود)',
-    subscribed: '🎉 Subscribed (تم الاشتراك)',
-    started_trial: '🚀 Started Trial (بدأ تجربة)',
+    unassigned: '⏳ Waiting',
+    call_back: '📞 Call Back',
+    assigned: '📋 Assigned',
+    interested: '🌟 Interested',
+    not_interested: '❌ Not Interested',
+    no_answer: '📵 No Answer',
+    lost: '🥀 Lost',
+    subscribed: '🎉 Paid',
+    started_trial: '🚀 Demo',
 
     // Filters
     allEmployees: '👥 جميع الموظفين',
-    allStatuses: '🌟 جميع الحالات',
+    allStatuses: 'All Statuses',
     from: '📅 من:',
     to: 'إلى:',
     sortNewest: '⬇️ ترتيب: الأحدث إلى الأقدم',
@@ -107,15 +107,15 @@ export const translations = {
     actionsHeader: 'Actions & Reports',
 
     // Statuses
-    unassigned: '⏳ Pending',
+    unassigned: '⏳ Waiting',
     call_back: '📞 Call Back',
     assigned: '📋 Assigned',
     interested: '🌟 Interested',
     not_interested: '❌ Not Interested',
     no_answer: '📵 No Answer',
     lost: '🥀 Lost',
-    subscribed: '🎉 Subscribed',
-    started_trial: '🚀 Started Trial',
+    subscribed: '🎉 Paid',
+    started_trial: '🚀 Demo',
 
     // Filters
     allEmployees: '👥 All Staff',
