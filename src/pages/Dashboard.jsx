@@ -610,7 +610,7 @@ const Dashboard = () => {
     return null;
   };
 
-  // 3D Column Header Filter Component for Registration Date
+  // 3D Column Header Filter Component for Registration Date (Pure 3D Icon, React Portal Modal)
   const renderColHeaderRegDate3D = ({
     regFrom,
     setRegFrom,
@@ -620,63 +620,79 @@ const Dashboard = () => {
     setOpenPop,
     label = 'تاريخ تسجيل العميل'
   }) => {
+    const isFiltered = Boolean(regFrom || regTo);
     return (
-      <th className="p-3 font-bold text-purple-900 text-sm select-none min-w-[175px] text-center">
-        <div className="flex flex-col items-center justify-center gap-1">
+      <th className="p-3 font-bold text-purple-900 text-sm select-none min-w-[135px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1.5">
           <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setOpenPop(true); }}
-            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_3px_10px_rgba(0,0,0,0.25)] hover:shadow-[0_5px_15px_rgba(0,0,0,0.35)] active:scale-95 border cursor-pointer ${
-              (regFrom || regTo)
-                ? 'bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 text-white border-purple-300 ring-2 ring-purple-400/50'
-                : 'bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-purple-200 border-purple-500/40 hover:border-purple-300'
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpenPop(true);
+            }}
+            className={`relative group p-1 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(147,51,234,0.5)] hover:scale-110 active:scale-95 border ${
+              isFiltered
+                ? 'bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-900 border-purple-300 ring-2 ring-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.7)]'
+                : 'bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 hover:from-purple-950 hover:to-indigo-900 border-purple-500/40 hover:border-purple-300'
             }`}
-            title={`فلترة ${label} (من - إلى)`}
+            title={isFiltered ? `مفلتر: من ${regFrom || 'البداية'} إلى ${regTo || 'اليوم'}` : `فلترة ${label} (من - إلى)`}
           >
-            <div className="w-5 h-5 rounded-md bg-gradient-to-b from-indigo-500 to-purple-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
-              <div className="w-full bg-indigo-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
-                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
-                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+            {/* 3D Realistic Calendar Icon Widget - Pure Icon Only */}
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-indigo-500 via-purple-600 to-purple-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-indigo-700 h-2 rounded-t-[5px] flex justify-around items-center px-1">
+                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
+                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
               </div>
-              <div className="bg-white w-full flex-1 flex items-center justify-center text-[8px] font-black text-purple-950 font-mono rounded-b-xs">
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[13px] font-black text-purple-950 font-mono rounded-b-[5px]">
                 📅
               </div>
             </div>
-            <span className="text-[10px] font-mono whitespace-nowrap" dir="ltr">
-              {(regFrom || regTo) ? `${regFrom || 'Start'} ➔ ${regTo || 'End'}` : 'فلترة 3D'}
-            </span>
-            {(regFrom || regTo) ? (
-              <span
-                onClick={(e) => { e.stopPropagation(); setRegFrom(''); setRegTo(''); }}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm cursor-pointer mr-0.5"
-                title="مسح التصفية"
-              >
-                ✕
+
+            {/* Active Filter Indicator Badge */}
+            {isFiltered && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-md flex items-center justify-center animate-pulse" title="فلتر نشط">
+                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
               </span>
-            ) : (
-              <span className="text-purple-400 text-[9px]">▼</span>
             )}
           </button>
         </div>
 
-        {openPop && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 text-right" onClick={() => setOpenPop(false)}>
-            <div className="bg-slate-900 border border-purple-500/50 rounded-2xl p-4 shadow-2xl text-white w-80 max-w-[95vw] animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-purple-500/30 pb-2 mb-3">
-                <span className="text-sm font-black text-purple-200 flex items-center gap-1.5">
-                  <span>📅</span> فلترة {label} (3D)
-                </span>
-                <button onClick={() => setOpenPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer p-1">✕</button>
+        {openPop && createPortal(
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 text-right" 
+            onClick={(e) => { e.stopPropagation(); setOpenPop(false); }}
+          >
+            <div 
+              className="bg-slate-900 border-2 border-purple-500/60 rounded-2xl p-5 shadow-2xl text-white w-84 max-w-[95vw] animate-in zoom-in-95 duration-150 relative z-[1000000]" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-purple-500/30 pb-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-700/80 flex items-center justify-center text-base shadow-md border border-purple-400/40">
+                    📅
+                  </div>
+                  <span className="text-sm font-black text-purple-200">
+                    فلترة {label} (3D)
+                  </span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setOpenPop(false)} 
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer transition"
+                >
+                  ✕
+                </button>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-purple-300 mb-1">من تاريخ (Start Date):</label>
                   <input
                     type="date"
                     value={regFrom}
                     onChange={(e) => setRegFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400"
+                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer"
                   />
                 </div>
                 <div>
@@ -685,11 +701,11 @@ const Dashboard = () => {
                     type="date"
                     value={regTo}
                     onChange={(e) => setRegTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400"
+                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400 cursor-pointer"
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-purple-500/20 text-xs">
+              <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-purple-500/20 text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -697,7 +713,7 @@ const Dashboard = () => {
                     setRegFrom(t);
                     setRegTo(t);
                   }}
-                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-1.5 text-purple-200 font-bold transition cursor-pointer"
+                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-2 text-purple-200 font-bold transition cursor-pointer text-center"
                 >
                   اليوم
                 </button>
@@ -709,14 +725,14 @@ const Dashboard = () => {
                     setRegFrom(past.toISOString().slice(0, 10));
                     setRegTo(now.toISOString().slice(0, 10));
                   }}
-                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-1.5 text-purple-200 font-bold transition cursor-pointer"
+                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-2 text-purple-200 font-bold transition cursor-pointer text-center"
                 >
                   7 أيام
                 </button>
                 <button
                   type="button"
                   onClick={() => { setRegFrom(''); setRegTo(''); }}
-                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-2.5 py-1.5 text-rose-300 font-bold transition cursor-pointer"
+                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-3 py-2 text-rose-300 font-bold transition cursor-pointer text-center"
                   title="مسح التصفية"
                 >
                   مسح
@@ -725,18 +741,20 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setOpenPop(false)}
-                className="w-full mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-2 rounded-xl text-xs transition shadow-lg cursor-pointer"
+                className="w-full mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
               >
-                تطبيق الفلتر ✓
+                <span>تطبيق الفلتر</span>
+                <span>✓</span>
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </th>
     );
   };
 
-  // 3D Column Header Filter Component for Last Comment Date
+  // 3D Column Header Filter Component for Last Comment Date (Pure 3D Icon, React Portal Modal)
   const renderColHeaderCommentDate3D = ({
     commentFrom,
     setCommentFrom,
@@ -746,63 +764,79 @@ const Dashboard = () => {
     setOpenPop,
     label = 'تاريخ Last Comment'
   }) => {
+    const isFiltered = Boolean(commentFrom || commentTo);
     return (
-      <th className="p-3 font-bold text-amber-900 text-sm select-none min-w-[175px] text-center">
-        <div className="flex flex-col items-center justify-center gap-1">
+      <th className="p-3 font-bold text-amber-900 text-sm select-none min-w-[135px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1.5">
           <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setOpenPop(true); }}
-            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_3px_10px_rgba(0,0,0,0.25)] hover:shadow-[0_5px_15px_rgba(0,0,0,0.35)] active:scale-95 border cursor-pointer ${
-              (commentFrom || commentTo)
-                ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white border-amber-300 ring-2 ring-amber-400/50'
-                : 'bg-gradient-to-r from-slate-900 via-amber-950/80 to-slate-900 text-amber-200 border-amber-500/40 hover:border-amber-300'
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpenPop(true);
+            }}
+            className={`relative group p-1 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(245,158,11,0.5)] hover:scale-110 active:scale-95 border ${
+              isFiltered
+                ? 'bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 border-amber-300 ring-2 ring-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]'
+                : 'bg-gradient-to-br from-slate-900 via-amber-950/80 to-slate-900 hover:from-amber-950 hover:to-orange-950 border-amber-500/40 hover:border-amber-300'
             }`}
-            title={`فلترة ${label} (من - إلى)`}
+            title={isFiltered ? `مفلتر: من ${commentFrom || 'البداية'} إلى ${commentTo || 'اليوم'}` : `فلترة ${label} (من - إلى)`}
           >
-            <div className="w-5 h-5 rounded-md bg-gradient-to-b from-amber-500 to-orange-700 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
-              <div className="w-full bg-amber-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
-                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
-                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+            {/* 3D Realistic Calendar Icon Widget - Pure Icon Only */}
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-amber-500 via-orange-600 to-amber-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-amber-700 h-2 rounded-t-[5px] flex justify-around items-center px-1">
+                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
+                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
               </div>
-              <div className="bg-white w-full flex-1 flex items-center justify-center text-[8px] font-black text-amber-950 font-mono rounded-b-xs">
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[13px] font-black text-amber-950 font-mono rounded-b-[5px]">
                 🗓️
               </div>
             </div>
-            <span className="text-[10px] font-mono whitespace-nowrap" dir="ltr">
-              {(commentFrom || commentTo) ? `${commentFrom || 'Start'} ➔ ${commentTo || 'End'}` : 'فلترة 3D'}
-            </span>
-            {(commentFrom || commentTo) ? (
-              <span
-                onClick={(e) => { e.stopPropagation(); setCommentFrom(''); setCommentTo(''); }}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm cursor-pointer mr-0.5"
-                title="مسح التصفية"
-              >
-                ✕
+
+            {/* Active Filter Indicator Badge */}
+            {isFiltered && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-md flex items-center justify-center animate-pulse" title="فلتر نشط">
+                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
               </span>
-            ) : (
-              <span className="text-amber-400 text-[9px]">▼</span>
             )}
           </button>
         </div>
 
-        {openPop && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 text-right" onClick={() => setOpenPop(false)}>
-            <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-4 shadow-2xl text-white w-80 max-w-[95vw] animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
-                <span className="text-sm font-black text-amber-200 flex items-center gap-1.5">
-                  <span>🗓️</span> فلترة {label} (3D)
-                </span>
-                <button onClick={() => setOpenPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer p-1">✕</button>
+        {openPop && createPortal(
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 text-right" 
+            onClick={(e) => { e.stopPropagation(); setOpenPop(false); }}
+          >
+            <div 
+              className="bg-slate-900 border-2 border-amber-500/60 rounded-2xl p-5 shadow-2xl text-white w-84 max-w-[95vw] animate-in zoom-in-95 duration-150 relative z-[1000000]" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-amber-500/30 pb-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-700/80 flex items-center justify-center text-base shadow-md border border-amber-400/40">
+                    🗓️
+                  </div>
+                  <span className="text-sm font-black text-amber-200">
+                    فلترة {label} (3D)
+                  </span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setOpenPop(false)} 
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer transition"
+                >
+                  ✕
+                </button>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-amber-300 mb-1">من تاريخ (Start Date):</label>
                   <input
                     type="date"
                     value={commentFrom}
                     onChange={(e) => setCommentFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400"
+                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer"
                   />
                 </div>
                 <div>
@@ -811,11 +845,11 @@ const Dashboard = () => {
                     type="date"
                     value={commentTo}
                     onChange={(e) => setCommentTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400"
+                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400 cursor-pointer"
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-amber-500/20 text-xs">
+              <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-amber-500/20 text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -823,7 +857,7 @@ const Dashboard = () => {
                     setCommentFrom(t);
                     setCommentTo(t);
                   }}
-                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-1.5 text-amber-200 font-bold transition cursor-pointer"
+                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-2 text-amber-200 font-bold transition cursor-pointer text-center"
                 >
                   اليوم
                 </button>
@@ -835,14 +869,14 @@ const Dashboard = () => {
                     setCommentFrom(past.toISOString().slice(0, 10));
                     setCommentTo(now.toISOString().slice(0, 10));
                   }}
-                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-1.5 text-amber-200 font-bold transition cursor-pointer"
+                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-2 text-amber-200 font-bold transition cursor-pointer text-center"
                 >
                   7 أيام
                 </button>
                 <button
                   type="button"
                   onClick={() => { setCommentFrom(''); setCommentTo(''); }}
-                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-2.5 py-1.5 text-rose-300 font-bold transition cursor-pointer"
+                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-3 py-2 text-rose-300 font-bold transition cursor-pointer text-center"
                   title="مسح التصفية"
                 >
                   مسح
@@ -851,12 +885,14 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setOpenPop(false)}
-                className="w-full mt-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-2 rounded-xl text-xs transition shadow-lg cursor-pointer"
+                className="w-full mt-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
               >
-                تطبيق الفلتر ✓
+                <span>تطبيق الفلتر</span>
+                <span>✓</span>
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </th>
     );
@@ -6943,7 +6979,7 @@ const Dashboard = () => {
                             label: 'تاريخ Last Comment'
                           })}
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
                           {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7083,7 +7119,7 @@ const Dashboard = () => {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-sm text-gray-600 font-medium">
+                            <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
                               {(isAdmin || isCoordinator || isLeader) ? (
                                 <select 
                                   value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7131,7 +7167,7 @@ const Dashboard = () => {
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     }
                                   }}
-                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                 >
                                   {isLeader ? (
                                     <>
@@ -7665,7 +7701,7 @@ const Dashboard = () => {
                             label: 'تاريخ Last Comment'
                           })}
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7828,7 +7864,7 @@ const Dashboard = () => {
                                     </button>
                                   </div>
                                 </td>
-                                <td className="p-4 text-sm text-gray-600 font-medium">
+                                <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
                                   {(isAdmin || isCoordinator || isLeader) ? (
                                     <select 
                                       value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7874,7 +7910,7 @@ const Dashboard = () => {
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
                                       }}
-                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8411,7 +8447,7 @@ const Dashboard = () => {
                         <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
                           <th className="p-3.5">اسم العميل</th>
                           <th className="p-3.5 text-center">رقم الهاتف</th>
-                          <th className="p-3.5 text-center min-w-[210px]">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center min-w-[320px]">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
                           {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
@@ -8483,7 +8519,7 @@ const Dashboard = () => {
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
-                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
+                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8744,7 +8780,7 @@ const Dashboard = () => {
 
               <div className="flex items-center gap-3 flex-wrap flex-1 max-w-xl justify-end">
                 {/* Employee Filter Selector */}
-                <div className="relative min-w-[210px]">
+                <div className="relative min-w-[260px]">
                   <select
                     value={selectedEmpFilter}
                     onChange={(e) => setSelectedEmpFilter(e.target.value)}
@@ -8884,12 +8920,12 @@ const Dashboard = () => {
                       )}
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
-                    <td className="p-4 text-sm text-gray-600 font-medium">
+                    <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
                       {(isAdmin || isCoordinator || isLeader) ? (
                         <select 
                           value={customer.assignedToUid || ""}
                           onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
-                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                         >
                           <option value="" disabled>-- سحب أو تعيين --</option>
                           {isLeader ? (
@@ -8990,7 +9026,7 @@ const Dashboard = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm text-center">الإجراءات والواتساب</th>
                         </tr>
                       </thead>
@@ -9573,7 +9609,7 @@ const Dashboard = () => {
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[220px]">الموظف المسؤول ومضاف بواسطة</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[320px]">الموظف المسؤول ومضاف بواسطة</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -9803,7 +9839,7 @@ const Dashboard = () => {
                                       toast.success(`تم إسناد العميل إلى (${targetEmp?.name || 'الموظف'}) وظهوره في كارت CRM الخاص به بنجاح ✓`);
                                     }
                                   }}
-                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
+                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
                                 >
                                   {isLeader ? (
                                     <>
