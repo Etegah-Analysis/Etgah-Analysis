@@ -5174,7 +5174,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="p-3 sm:p-6 max-w-7xl mx-auto w-full relative z-10">
+      <main className="p-2 sm:p-4 lg:p-5 w-full max-w-[99%] 2xl:max-w-[1650px] mx-auto relative z-10">
         {/* Anti-Screenshot & Window Blur Frosted Shield + Security Watermark on Blur / Screenshot */}
         {!isAdmin && currentUser && (() => {
           const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
@@ -6357,7 +6357,7 @@ const Dashboard = () => {
                       <select 
                         value={crmStatusFilter} 
                         onChange={(e) => setCrmStatusFilter(e.target.value)}
-                        className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer min-w-[160px]"
+                        className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer min-w-[150px]"
                       >
                         <option value="all">All Statuses ({statusCounts.all})</option>
                         <option value="unassigned">⏳ Waiting ({statusCounts.unassigned})</option>
@@ -6423,7 +6423,7 @@ const Dashboard = () => {
                         setOpenPop: setOpenTeamCommentDatePop,
                         label: 'تاريخ Last Comment'
                       })}
-                      <th className="p-3.5 text-center min-w-[165px]">حالة المتابعة (CRM)</th>
+                      <th className="p-3.5 text-center min-w-[150px]">حالة المتابعة (CRM)</th>
                       <th className="p-3.5 text-center">إجراء السحب والواتساب</th>
                     </tr>
                   </thead>
@@ -6475,7 +6475,7 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-center text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
-                            <td className="p-3.5 text-center min-w-[165px]">
+                            <td className="p-3.5 text-center min-w-[150px]">
                               <div className="flex flex-col items-center justify-center gap-1.5">
                                 {(() => {
                                   const st = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned';
@@ -6956,8 +6956,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs whitespace-nowrap">رقم الهاتف</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs">اسم العميل ومصدر الداتا</th>
                           {renderColHeaderRegDate3D({
                             regFrom: dateFromFilter,
                             setRegFrom: setDateFromFilter,
@@ -6976,9 +6976,9 @@ const Dashboard = () => {
                             setOpenPop: setOpenCrmCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[165px] text-center">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
-                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
+                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
+                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-bold text-purple-900 text-xs text-center">الإجراءات</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -7001,7 +7001,7 @@ const Dashboard = () => {
                                 />
                               </td>
                             )}
-                            <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                            <td className="px-3 py-2 text-xs font-bold text-gray-800" dir="ltr">
                               <div className="flex items-center gap-2">
                                 <span>{customer.phoneNumber}</span>
                                 {!isCoordinator && customer.phoneNumber && (
@@ -7016,7 +7016,7 @@ const Dashboard = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="p-4 text-sm font-semibold text-gray-700">
+                            <td className="px-3 py-2 text-xs font-semibold text-gray-700">
                               {editingLeadId === customer.id ? (
                                 <div className="flex items-center gap-1 mb-1">
                                   <input 
@@ -7084,13 +7084,13 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
-                            <td className="p-4 text-sm min-w-[165px] text-center">
+                            <td className="px-2.5 py-2 text-xs min-w-[150px] text-center">
                               <div className="flex flex-col gap-1.5 items-center">
                                 <select 
                                   value={currentCrmStatus}
                                   onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, true)}
                                   dir="rtl"
-                                  className={`w-full min-w-[155px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
+                                  className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                 >
                                   <option value="unassigned">⏳ Waiting</option>
                                   <option value="call_back">📞 Call Back</option>
@@ -7118,7 +7118,7 @@ const Dashboard = () => {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
+                            <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">
                               {(isAdmin || isCoordinator || isLeader) ? (
                                 <select 
                                   value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7166,7 +7166,7 @@ const Dashboard = () => {
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     }
                                   }}
-                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[220px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                 >
                                   {isLeader ? (
                                     <>
@@ -7207,7 +7207,7 @@ const Dashboard = () => {
                               })()}
                             </td>
                             {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && (
-                            <td className="p-4 flex items-center gap-1.5 justify-center">
+                            <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                               {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                 <button 
                                   onClick={() => handleTransferToWhatsapp(customer)}
@@ -7679,8 +7679,8 @@ const Dashboard = () => {
                               />
                             </th>
                           )}
-                          <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs whitespace-nowrap">رقم الهاتف</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs">اسم العميل وتفاصيل الإضافة</th>
                           {renderColHeaderRegDate3D({
                             regFrom: empLeadsDateFrom,
                             setRegFrom: setEmpLeadsDateFrom,
@@ -7699,9 +7699,9 @@ const Dashboard = () => {
                             setOpenPop: setOpenEmpCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[165px] text-center">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
-                          {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
+                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
+                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-950 text-xs text-center">الإجراءات</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -7737,7 +7737,7 @@ const Dashboard = () => {
                                     />
                                   </td>
                                 )}
-                                <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                                <td className="px-3 py-2 text-xs font-bold text-gray-800" dir="ltr">
                                   <div className="flex items-center gap-2">
                                     <span>{customer.phoneNumber}</span>
                                     {!isCoordinator && customer.phoneNumber && (
@@ -7752,7 +7752,7 @@ const Dashboard = () => {
                                     )}
                                   </div>
                                 </td>
-                                <td className="p-4 text-sm font-semibold text-gray-700">
+                                <td className="px-3 py-2 text-xs font-semibold text-gray-700">
                                   {editingLeadId === customer.id ? (
                                     <div className="flex items-center gap-1 mb-1">
                                       <input 
@@ -7830,13 +7830,13 @@ const Dashboard = () => {
                             <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                                   {getLastCommentDate(customer)}
                                 </td>
-                                <td className="p-4 text-sm min-w-[165px] text-center">
+                                <td className="px-2.5 py-2 text-xs min-w-[150px] text-center">
                                   <div className="flex flex-col gap-1.5 items-center">
                                     <select 
                                       value={currentCrmStatus}
                                       onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, false)}
                                       dir="rtl"
-                                      className={`w-full min-w-[155px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
+                                      className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                     >
                                       <option value="unassigned">⏳ Waiting</option>
                                       <option value="call_back">📞 Call Back</option>
@@ -7864,7 +7864,7 @@ const Dashboard = () => {
                                     </button>
                                   </div>
                                 </td>
-                                <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
+                                <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">
                                   {(isAdmin || isCoordinator || isLeader) ? (
                                     <select 
                                       value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7910,7 +7910,7 @@ const Dashboard = () => {
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
                                       }}
-                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[220px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8447,7 +8447,7 @@ const Dashboard = () => {
                         <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
                           <th className="p-3.5">اسم العميل</th>
                           <th className="p-3.5 text-center">رقم الهاتف</th>
-                          <th className="p-3.5 text-center min-w-[280px]">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center min-w-[230px]">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
                           {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
@@ -8519,7 +8519,7 @@ const Dashboard = () => {
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
-                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
+                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[220px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8884,7 +8884,7 @@ const Dashboard = () => {
                     <td className="p-4 text-center">
                       <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded" />
                     </td>
-                    <td className="p-4 text-sm font-bold text-gray-800" dir="ltr">
+                    <td className="px-3 py-2 text-xs font-bold text-gray-800" dir="ltr">
                       <div className="flex items-center gap-2">
                         <span>{customer.phoneNumber}</span>
                         {!isCoordinator && customer.phoneNumber && (
@@ -8899,7 +8899,7 @@ const Dashboard = () => {
                         )}
                       </div>
                     </td>
-                    <td className="p-4 text-sm font-semibold text-gray-700">
+                    <td className="px-3 py-2 text-xs font-semibold text-gray-700">
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
                           {startIndexCust + idx + 1}
@@ -8920,12 +8920,12 @@ const Dashboard = () => {
                       )}
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
-                    <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
+                    <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">
                       {(isAdmin || isCoordinator || isLeader) ? (
                         <select 
                           value={customer.assignedToUid || ""}
                           onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
-                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[220px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                         >
                           <option value="" disabled>-- سحب أو تعيين --</option>
                           {isLeader ? (
@@ -8966,7 +8966,7 @@ const Dashboard = () => {
                         );
                       })()}
                     </td>
-                    <td className="p-4 flex items-center gap-1.5 justify-center">
+                    <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                       <button 
                         onClick={() => handleOpenNotesModal(customer)}
                         className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm cursor-pointer"
@@ -9026,7 +9026,7 @@ const Dashboard = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[230px] text-center">الموظف المسؤول</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm text-center">الإجراءات والواتساب</th>
                         </tr>
                       </thead>
@@ -9609,7 +9609,7 @@ const Dashboard = () => {
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[280px]">الموظف المسؤول ومضاف بواسطة</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[230px]">الموظف المسؤول ومضاف بواسطة</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -9839,7 +9839,7 @@ const Dashboard = () => {
                                       toast.success(`تم إسناد العميل إلى (${targetEmp?.name || 'الموظف'}) وظهوره في كارت CRM الخاص به بنجاح ✓`);
                                     }
                                   }}
-                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
+                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[220px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
                                 >
                                   {isLeader ? (
                                     <>
@@ -13566,7 +13566,7 @@ const Dashboard = () => {
                                   className={`p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-purple-950/30 transition cursor-pointer ${isUnread ? 'bg-purple-950/40 font-bold border-r-4 border-cyan-400' : 'text-slate-300'}`}
                                 >
                                   {/* Star & Sender */}
-                                  <div className="flex items-center gap-3 min-w-[160px] sm:min-w-[200px] shrink-0">
+                                  <div className="flex items-center gap-3 min-w-[150px] sm:min-w-[200px] shrink-0">
                                     <button 
                                       onClick={(e) => handleToggleStarEmail(mail, e)}
                                       className="text-slate-500 hover:text-amber-400 transition"
