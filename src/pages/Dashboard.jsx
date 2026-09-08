@@ -557,6 +557,16 @@ const Dashboard = () => {
     return null;
   };
 
+  // English Job Title Helper
+  const getJobTitleEnglish = (title) => {
+    if (!title) return 'Agent';
+    const t = String(title).trim().toLowerCase();
+    if (t === 'leader' || t === 'ليدر') return 'Leader 👑';
+    if (t === 'coordinator' || t === 'منسق للإدارة' || t === 'منسق' || t === 'منسق إدارة') return 'Coordinator';
+    if (t === 'admin' || t === 'أدمن' || t === 'إدارة') return 'Admin 👑';
+    return 'Agent';
+  };
+
   // Assignment Transfer Audit Log Helper
   const createAssignmentLog = (fromName, toName, customAssignedBy) => {
     const isFromAdmin = !fromName || isAdminIdentifier(fromName) || String(fromName).includes('الإدارة') || String(fromName).includes('admin');
@@ -4425,11 +4435,10 @@ const Dashboard = () => {
               {isAdmin ? 'الإدارة' : (employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || 'موظف')}
             </span>
             <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
-              {isAdmin ? '👑 أدمن' : (() => {
+              {isAdmin ? '👑 Admin' : (() => {
                 const emp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
                 const r = emp?.jobTitle || emp?.role || 'Agent';
-                if (r === 'Coordinator' || r === 'منسق للإدارة' || r === 'منسق إدارة') return '📋 منسق';
-                return r === 'Leader' || r === 'ليدر' ? '👑 Leader' : `👤 ${r}`;
+                return getJobTitleEnglish(r);
               })()}
             </span>
           </div>
@@ -6077,7 +6086,7 @@ const Dashboard = () => {
                             <td className="p-3.5">
                               <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shadow-sm">
                                 <span>👤</span>
-                                <span>{assignedEmp?.name || customer.assignedTo || 'عضو بالفريق'}</span>
+                                <span>{assignedEmp?.name || customer.assignedTo || 'عضو بالفريق'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
                               </span>
                             </td>
                             <td className="p-3.5 text-center text-gray-500 text-[11px] font-mono">
@@ -6796,19 +6805,19 @@ const Dashboard = () => {
                                 >
                                   {isLeader ? (
                                     <>
-                                      <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                                       {myTeamMembers.map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
-                                          👤 {emp.name} (عضو فريقي)
+                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                                         </option>
                                       ))}
                                     </>
                                   ) : (
                                     <>
-                                      <option value="admin">👑 الإدارة (الإدارة)</option>
+                                      <option value="admin">👑 الإدارة (Admin 👑)</option>
                                       {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
-                                          👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
                                         </option>
                                       ))}
                                     </>
@@ -6816,7 +6825,7 @@ const Dashboard = () => {
                                 </select>
                               ) : (
                                 <span className="inline-block text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full font-bold">
-                                  👤 مخصص لك
+                                  👤 {currentEmpUser?.name || 'مخصص لك'} ({getJobTitleEnglish(currentEmpUser?.jobTitle)})
                                 </span>
                               )}
 
@@ -6826,7 +6835,7 @@ const Dashboard = () => {
                                 if (!assigner || (customer.crmStatus === 'unassigned' && isLeadWithAdmin(customer))) return null;
                                 return (
                                   <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
-                                    <span className="text-amber-600 font-black">الموزع:</span>
+                                    <span className="text-amber-600 font-black">مضاف بواسطة:</span>
                                     <span className="text-gray-900 font-black">{assigner}</span>
                                   </div>
                                 );
@@ -7533,19 +7542,19 @@ const Dashboard = () => {
                                     >
                                       {isLeader ? (
                                         <>
-                                          <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                                           {myTeamMembers.map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
-                                              👤 {emp.name || emp.username}
+                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)})
                                             </option>
                                           ))}
                                         </>
                                       ) : (
                                         <>
-                                          <option value="admin">👑 الإدارة (غير مخصص)</option>
+                                          <option value="admin">👑 الإدارة (Admin 👑)</option>
                                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
-                                              👤 {emp.name || emp.username} ({emp.jobTitle === 'Leader' ? 'ليدر 👑' : 'ايجنت'})
+                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
                                             </option>
                                           ))}
                                         </>
@@ -7553,7 +7562,7 @@ const Dashboard = () => {
                                     </select>
                                   ) : (
                                     <div className="font-bold text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded inline-block">
-                                      👤 {customer.assignedTo === currentUser?.email ? (currentEmpUser?.name || 'أنا') : (customer.assignedTo || 'حسابي')}
+                                      👤 {customer.assignedTo === currentUser?.email ? (currentEmpUser?.name || 'أنا') : (customer.assignedTo || 'حسابي')} ({getJobTitleEnglish(currentEmpUser?.jobTitle)})
                                     </div>
                                   )}
 
@@ -7563,7 +7572,7 @@ const Dashboard = () => {
                                     if (!assigner) return null;
                                     return (
                                       <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
-                                        <span className="text-amber-600 font-black">الموزع:</span>
+                                        <span className="text-amber-600 font-black">مضاف بواسطة:</span>
                                         <span className="text-gray-900 font-black">{assigner}</span>
                                       </div>
                                     );
@@ -8140,30 +8149,22 @@ const Dashboard = () => {
                                     >
                                       {isLeader ? (
                                         <>
-                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                                          {myTeamMembers.map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                                          {myTeamMembers.map(empItem => (
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)})</option>
+                                          ))}
                                         </>
                                       ) : (
                                         <>
-                                          <option value="admin">👑 الإدارة</option>
-                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                                          <option value="admin">👑 الإدارة (Admin 👑)</option>
+                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                                          ))}
                                         </>
                                       )}
                                     </select>
                                   ) : (
-                                    <span>👤 {empName}</span>
+                                    <span>👤 {empName} ({getJobTitleEnglish(emp?.jobTitle || (customer.assignedTo === 'admin' ? 'Admin' : 'Agent'))})</span>
                                   )}
 
                                   {/* Distributor / Assigner Badge */}
@@ -8172,7 +8173,7 @@ const Dashboard = () => {
                                     if (!assigner) return null;
                                     return (
                                       <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm mx-auto w-fit" title="من قام بتوزيع وتعيين العميل">
-                                        <span className="text-amber-600 font-black">الموزع:</span>
+                                        <span className="text-amber-600 font-black">مضاف بواسطة:</span>
                                         <span className="text-gray-900 font-black">{assigner}</span>
                                       </div>
                                     );
@@ -8555,19 +8556,19 @@ const Dashboard = () => {
                           <option value="" disabled>-- سحب أو تعيين --</option>
                           {isLeader ? (
                             <>
-                              <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                              <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                               {myTeamMembers.map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
-                                  👤 {emp.name} (عضو فريقي)
+                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                                 </option>
                               ))}
                             </>
                           ) : (
                             <>
-                              <option value="admin">👑 الإدارة (الإدارة)</option>
+                              <option value="admin">👑 الإدارة (Admin 👑)</option>
                               {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
-                                  👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
                                 </option>
                               ))}
                             </>
@@ -8575,7 +8576,7 @@ const Dashboard = () => {
                         </select>
                       ) : (
                         <span className="inline-block text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold">
-                          👤 مخصص لك
+                          👤 {currentEmpUser?.name || 'مخصص لك'} ({getJobTitleEnglish(currentEmpUser?.jobTitle)})
                         </span>
                       )}
                       {customer.assignedAt && <span className="block text-xs text-gray-400" dir="ltr">{formatDate(customer.assignedAt)}</span>}
@@ -8585,7 +8586,7 @@ const Dashboard = () => {
                         if (!assigner) return null;
                         return (
                           <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
-                            <span className="text-amber-600 font-black">الموزع:</span>
+                            <span className="text-amber-600 font-black">مضاف بواسطة:</span>
                             <span className="text-gray-900 font-black">{assigner}</span>
                           </div>
                         );
@@ -8866,7 +8867,7 @@ const Dashboard = () => {
                             </span>
                           ) : emp.jobTitle === 'Coordinator' ? (
                             <span className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                              📋 منسق للإدارة (Coordinator)
+                              📋 Coordinator
                             </span>
                           ) : (
                             <span className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
@@ -9183,25 +9184,17 @@ const Dashboard = () => {
                       <option value="">-- اختر موظفاً --</option>
                       {isLeader ? (
                         <>
-                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                          {myTeamMembers.map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                          {myTeamMembers.map(empItem => (
+                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)})</option>
+                          ))}
                         </>
                       ) : (
                         <>
-                          <option value="admin">👑 الإدارة</option>
-                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                          <option value="admin">👑 الإدارة (Admin 👑)</option>
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                          ))}
                         </>
                       )}
                     </select>
@@ -9242,7 +9235,7 @@ const Dashboard = () => {
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">الموظف المسؤول والموزع</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">الموظف المسؤول ومضاف بواسطة</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -9476,25 +9469,17 @@ const Dashboard = () => {
                                 >
                                   {isLeader ? (
                                     <>
-                                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'الليدر'})</option>
-                                      {myTeamMembers.map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                                      {myTeamMembers.map(empItem => (
+                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)})</option>
+                                      ))}
                                     </>
                                   ) : (
                                     <>
-                                      <option value="admin">👑 الإدارة (غير مخصص)</option>
-                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => {
-    const leaderObj = empItem.leaderUid ? employees.find(l => l.uid === empItem.leaderUid) : null;
-    const leaderLabel = empItem.jobTitle === 'Leader' ? '👑 (قائد فريق)' : leaderObj ? `(فريق: ${leaderObj.name})` : '(مباشر للإدارة)';
-    return (
-      <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} {leaderLabel}</option>
-    );
-  })}
+                                      <option value="admin">👑 الإدارة (Admin 👑)</option>
+                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
+                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                                      ))}
                                     </>
                                   )}
                                 </select>
@@ -9502,7 +9487,7 @@ const Dashboard = () => {
                                 {/* شارة جهة التوزيع */}
                                 {visitor.assignedBy ? (
                                   <div className="inline-flex items-center gap-1 bg-amber-100/90 text-amber-900 border border-amber-300/80 px-2 py-0.5 rounded-md text-[10px] font-black shadow-xs whitespace-nowrap">
-                                    <span>الموزع:</span>
+                                    <span>مضاف بواسطة:</span>
                                     <span className="font-extrabold">{visitor.assignedBy}</span>
                                   </div>
                                 ) : (
@@ -9511,7 +9496,10 @@ const Dashboard = () => {
                               </div>
                             ) : (
                               <span className="text-xs font-bold text-gray-700">
-                                {employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo)?.name || '👑 الإدارة'}
+                                {(() => {
+                                  const vEmp = employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo);
+                                  return `👤 ${vEmp?.name || '👑 الإدارة'} (${getJobTitleEnglish(vEmp?.jobTitle || (visitor.assignedToUid === 'admin' ? 'Admin' : 'Agent'))})`;
+                                })()}
                               </span>
                             )}
                           </td>
@@ -9747,9 +9735,9 @@ const Dashboard = () => {
                     onChange={(e) => setNewEmpJobTitle(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-bold"
                   >
-                    <option value="Agent">Agent (ايجنت)</option>
-                    <option value="Leader">Leader (ليدر)</option>
-                    <option value="Coordinator">منسق للإدارة (Coordinator)</option>
+                    <option value="Agent">Agent</option>
+                    <option value="Leader">Leader</option>
+                    <option value="Coordinator">Coordinator</option>
                   </select>
                 </div>
                 {newEmpJobTitle === 'Agent' && (
@@ -9763,7 +9751,7 @@ const Dashboard = () => {
                       <option value="">-- بدون ليدر (مباشر للإدارة) --</option>
                       {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').map(ldr => (
                         <option key={ldr.uid} value={ldr.uid}>
-                          👑 {ldr.name} ({ldr.username || ldr.empCode || 'ليدر'})
+                          ({ldr.username || ldr.name || ldr.empCode}) 👑
                         </option>
                       ))}
                     </select>
@@ -9859,9 +9847,9 @@ const Dashboard = () => {
                     onChange={(e) => setEditEmpJobTitle(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-bold"
                   >
-                    <option value="Agent">Agent (ايجنت)</option>
-                    <option value="Leader">Leader (ليدر)</option>
-                    <option value="Coordinator">منسق للإدارة (Coordinator)</option>
+                    <option value="Agent">Agent</option>
+                    <option value="Leader">Leader</option>
+                    <option value="Coordinator">Coordinator</option>
                   </select>
                 </div>
                 {editEmpJobTitle === 'Agent' && (
@@ -9875,7 +9863,7 @@ const Dashboard = () => {
                       <option value="">-- بدون ليدر (مباشر للإدارة) --</option>
                       {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin' && e.uid !== editEmp.uid).map(ldr => (
                         <option key={ldr.uid} value={ldr.uid}>
-                          👑 {ldr.name} ({ldr.username || ldr.empCode || 'ليدر'})
+                          ({ldr.username || ldr.name || ldr.empCode}) 👑
                         </option>
                       ))}
                     </select>
@@ -10176,19 +10164,19 @@ const Dashboard = () => {
                   <option value="">-- اختر الموظف المستلم --</option>
                   {isLeader ? (
                     <>
-                      <option value={currentUser?.uid}>👤 نفسي (الليدر: {currentEmpUser?.name || 'أنا'})</option>
+                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                       {myTeamMembers.map(emp => (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} (عضو فريقي)
+                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                         </option>
                       ))}
                     </>
                   ) : (
                     <>
-                      <option value="admin">👑 الإدارة (إرجاع كداتا غير موزعة)</option>
+                      <option value="admin">👑 الإدارة (Admin 👑)</option>
                       {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
                         </option>
                       ))}
                     </>
@@ -10354,7 +10342,7 @@ const Dashboard = () => {
                       const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
                       return (
                         <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs">
-                          {assigner ? `تم التوزيع بواسطة: ${assigner}` : '👑 الإدارة'}
+                          {assigner ? `مضاف بواسطة: ${assigner}` : '👑 الإدارة'}
                         </span>
                       );
                     })()}
@@ -12880,7 +12868,7 @@ const Dashboard = () => {
                     <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                       <span>✉️ بريد اتجاه الداخلي</span>
                       <span className="text-[10px] font-bold bg-purple-900/80 text-purple-200 border border-purple-400/30 px-2 py-0.5 rounded-full">
-                        {isAdmin ? '👑 حساب الإدارة' : isCoordinator ? '📋 منسق الإدارة' : isLeader ? '👑 ليدر فريق' : '👤 موظف'}
+                        {isAdmin ? '👑 Admin' : isCoordinator ? '📋 Coordinator' : isLeader ? '👑 Leader' : '👤 Agent'}
                       </span>
                     </h2>
                     <p className="text-[11px] text-purple-300/80 font-medium">

@@ -2030,7 +2030,7 @@ function InboxContent() {
                   </span>
                 ) : isAdmin ? (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 flex items-center gap-0.5">
-                    👑 أدمن
+                    👑 Admin
                   </span>
                 ) : (
                   <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
