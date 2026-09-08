@@ -610,7 +610,7 @@ const Dashboard = () => {
     return null;
   };
 
-  // 3D Column Header Filter Component for Registration Date (Pure 3D Icon, React Portal Modal)
+  // Column Header Filter Component for Registration Date (Compact, Pure Icon, React Portal Modal)
   const renderColHeaderRegDate3D = ({
     regFrom,
     setRegFrom,
@@ -622,9 +622,9 @@ const Dashboard = () => {
   }) => {
     const isFiltered = Boolean(regFrom || regTo);
     return (
-      <th className="p-3 font-bold text-purple-900 text-sm select-none min-w-[135px] text-center">
-        <div className="flex flex-col items-center justify-center gap-1.5">
-          <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
+      <th className="px-2 py-1.5 font-bold text-purple-900 text-xs select-none min-w-[100px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-[11px] font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
             onClick={(e) => {
@@ -632,28 +632,28 @@ const Dashboard = () => {
               e.stopPropagation();
               setOpenPop(true);
             }}
-            className={`relative group p-1 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(147,51,234,0.5)] hover:scale-110 active:scale-95 border ${
+            className={`relative group p-0.5 rounded-lg transition-all duration-200 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.25)] hover:shadow-[0_4px_12px_rgba(147,51,234,0.4)] hover:scale-110 active:scale-95 border ${
               isFiltered
-                ? 'bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-900 border-purple-300 ring-2 ring-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.7)]'
+                ? 'bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-900 border-purple-300 ring-2 ring-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.7)]'
                 : 'bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 hover:from-purple-950 hover:to-indigo-900 border-purple-500/40 hover:border-purple-300'
             }`}
             title={isFiltered ? `مفلتر: من ${regFrom || 'البداية'} إلى ${regTo || 'اليوم'}` : `فلترة ${label} (من - إلى)`}
           >
-            {/* 3D Realistic Calendar Icon Widget - Pure Icon Only */}
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-indigo-500 via-purple-600 to-purple-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
-              <div className="w-full bg-indigo-700 h-2 rounded-t-[5px] flex justify-around items-center px-1">
-                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
-                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
+            {/* Realistic Calendar Icon Widget - Compact */}
+            <div className="w-6 h-6 rounded-md bg-gradient-to-b from-indigo-500 via-purple-600 to-purple-800 p-0.5 shadow-xs flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-indigo-700 h-1.5 rounded-t-[3px] flex justify-around items-center px-0.5">
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
               </div>
-              <div className="bg-white w-full flex-1 flex items-center justify-center text-[13px] font-black text-purple-950 font-mono rounded-b-[5px]">
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[10px] font-black text-purple-950 font-mono rounded-b-[3px]">
                 📅
               </div>
             </div>
 
             {/* Active Filter Indicator Badge */}
             {isFiltered && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-md flex items-center justify-center animate-pulse" title="فلتر نشط">
-                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-xs flex items-center justify-center animate-pulse" title="فلتر نشط">
+                <span className="w-1 h-1 bg-white rounded-full"></span>
               </span>
             )}
           </button>
@@ -674,7 +674,7 @@ const Dashboard = () => {
                     📅
                   </div>
                   <span className="text-sm font-black text-purple-200">
-                    فلترة {label} (3D)
+                    فلترة {label}
                   </span>
                 </div>
                 <button 
@@ -754,7 +754,7 @@ const Dashboard = () => {
     );
   };
 
-  // 3D Column Header Filter Component for Last Comment Date (Pure 3D Icon, React Portal Modal)
+  // Column Header Filter Component for Last Comment Date (Compact, Pure Icon, React Portal Modal)
   const renderColHeaderCommentDate3D = ({
     commentFrom,
     setCommentFrom,
@@ -766,9 +766,9 @@ const Dashboard = () => {
   }) => {
     const isFiltered = Boolean(commentFrom || commentTo);
     return (
-      <th className="p-3 font-bold text-amber-900 text-sm select-none min-w-[135px] text-center">
-        <div className="flex flex-col items-center justify-center gap-1.5">
-          <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
+      <th className="px-2 py-1.5 font-bold text-amber-900 text-xs select-none min-w-[100px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-[11px] font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
             onClick={(e) => {
@@ -776,28 +776,28 @@ const Dashboard = () => {
               e.stopPropagation();
               setOpenPop(true);
             }}
-            className={`relative group p-1 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(245,158,11,0.5)] hover:scale-110 active:scale-95 border ${
+            className={`relative group p-0.5 rounded-lg transition-all duration-200 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.25)] hover:shadow-[0_4px_12px_rgba(245,158,11,0.4)] hover:scale-110 active:scale-95 border ${
               isFiltered
-                ? 'bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 border-amber-300 ring-2 ring-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]'
+                ? 'bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 border-amber-300 ring-2 ring-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.7)]'
                 : 'bg-gradient-to-br from-slate-900 via-amber-950/80 to-slate-900 hover:from-amber-950 hover:to-orange-950 border-amber-500/40 hover:border-amber-300'
             }`}
             title={isFiltered ? `مفلتر: من ${commentFrom || 'البداية'} إلى ${commentTo || 'اليوم'}` : `فلترة ${label} (من - إلى)`}
           >
-            {/* 3D Realistic Calendar Icon Widget - Pure Icon Only */}
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-amber-500 via-orange-600 to-amber-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
-              <div className="w-full bg-amber-700 h-2 rounded-t-[5px] flex justify-around items-center px-1">
-                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
-                <span className="w-1 h-1 bg-white rounded-full shadow-xs"></span>
+            {/* Realistic Calendar Icon Widget - Compact */}
+            <div className="w-6 h-6 rounded-md bg-gradient-to-b from-amber-500 via-orange-600 to-amber-800 p-0.5 shadow-xs flex flex-col items-center justify-between border border-white/50 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-amber-700 h-1.5 rounded-t-[3px] flex justify-around items-center px-0.5">
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
               </div>
-              <div className="bg-white w-full flex-1 flex items-center justify-center text-[13px] font-black text-amber-950 font-mono rounded-b-[5px]">
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[10px] font-black text-amber-950 font-mono rounded-b-[3px]">
                 🗓️
               </div>
             </div>
 
             {/* Active Filter Indicator Badge */}
             {isFiltered && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-md flex items-center justify-center animate-pulse" title="فلتر نشط">
-                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-xs flex items-center justify-center animate-pulse" title="فلتر نشط">
+                <span className="w-1 h-1 bg-white rounded-full"></span>
               </span>
             )}
           </button>
@@ -818,7 +818,7 @@ const Dashboard = () => {
                     🗓️
                   </div>
                   <span className="text-sm font-black text-amber-200">
-                    فلترة {label} (3D)
+                    فلترة {label}
                   </span>
                 </div>
                 <button 
@@ -4802,7 +4802,7 @@ const Dashboard = () => {
                       ? 'bg-gradient-to-b from-red-600 via-rose-600 to-red-700 text-white border-red-300 shadow-[0_4px_16px_rgba(225,29,72,0.65),inset_0_1px_2px_rgba(255,255,255,0.6)] animate-pulse hover:shadow-[0_6px_22px_rgba(225,29,72,0.9)] hover:-translate-y-0.5' 
                       : 'bg-gradient-to-b from-white via-slate-50 to-slate-100 text-gray-800 border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.9)] hover:from-white hover:to-slate-200 hover:-translate-y-0.5'
                   }`}
-                  title="مركز الإشعارات والتنبيهات 🔔 (واتساب وبريد اتجاه)"
+                  title="مركز الإشعارات والتنبيهات 🔔 (واتساب و Email-Etegah)"
                 >
                   {/* 3D Bell Icon with Glow */}
                   <div className="relative flex items-center justify-center">
@@ -4811,9 +4811,7 @@ const Dashboard = () => {
                       🔔
                     </span>
                   </div>
-                  <span className={`hidden sm:inline text-xs font-black drop-shadow-sm ${isBellRed ? 'text-white' : 'text-gray-800'}`}>
-                    الإشعارات
-                  </span>
+                  
                   {totalAllNotificationsCount > 0 && (
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shadow-md animate-bounce ${
                       isBellRed 
@@ -5108,7 +5106,7 @@ const Dashboard = () => {
                     }}
                     className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white py-1.5 px-2 rounded-xl text-[11px] font-black transition shadow-sm flex items-center justify-center gap-1"
                   >
-                    <span>✉️ بريد اتجاه</span>
+                    <span>✉️ Email-Etegah</span>
                   </button>
                 </div>
               </div>
@@ -5124,10 +5122,10 @@ const Dashboard = () => {
               setMailActiveFolder('inbox');
             }}
             className="relative flex items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-white/20 shrink-0"
-            title="فتح بريد اتجاه الداخلي (Gmail)"
+            title="فتح Email-Etegah"
           >
             <Mail size={15} />
-            <span className="whitespace-nowrap">بريد اتجاه</span>
+            <span className="whitespace-nowrap font-mono">Email-Etegah</span>
             {unreadMailCount > 0 && (
               <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-md animate-pulse">
                 {unreadMailCount}
@@ -6471,10 +6469,10 @@ const Dashboard = () => {
                                 <span>{assignedEmp?.name || customer.assignedTo || 'Team Member'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
                               </span>
                             </td>
-                            <td className="p-3.5 text-center text-gray-500 text-[11px] font-mono">
+                            <td className="px-2 py-2 text-center text-gray-500 text-[11px] font-mono whitespace-nowrap">
                               {customer.assignedAt?.toDate ? customer.assignedAt.toDate().toLocaleDateString('ar-EG') : (customer.createdAt?.toDate ? customer.createdAt.toDate().toLocaleDateString('ar-EG') : '—')}
                             </td>
-                            <td className="p-3.5 text-center text-xs text-amber-900 font-mono font-bold bg-amber-50/40" dir="ltr">
+                            <td className="px-2 py-2 text-center text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
                             <td className="p-3.5 text-center">
@@ -6979,7 +6977,7 @@ const Dashboard = () => {
                             label: 'تاريخ Last Comment'
                           })}
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
                           {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7082,8 +7080,8 @@ const Dashboard = () => {
                                 );
                               })()}
                             </td>
-                            <td className="p-4 text-xs text-gray-500 font-mono" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
-                            <td className="p-4 text-xs text-amber-900 font-mono font-bold bg-amber-50/40 text-center" dir="ltr">
+                            <td className="px-2 py-2 text-[11px] text-gray-500 font-mono text-center whitespace-nowrap" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                            <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                               {getLastCommentDate(customer)}
                             </td>
                             <td className="p-4 text-sm">
@@ -7119,7 +7117,7 @@ const Dashboard = () => {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
+                            <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
                               {(isAdmin || isCoordinator || isLeader) ? (
                                 <select 
                                   value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7167,7 +7165,7 @@ const Dashboard = () => {
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     }
                                   }}
-                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                 >
                                   {isLeader ? (
                                     <>
@@ -7701,7 +7699,7 @@ const Dashboard = () => {
                             label: 'تاريخ Last Comment'
                           })}
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7827,8 +7825,8 @@ const Dashboard = () => {
                                     );
                                   })()}
                                 </td>
-                                <td className="p-4 text-xs text-gray-500 font-mono" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
-                                <td className="p-4 text-xs text-amber-900 font-mono font-bold bg-amber-50/40 text-center" dir="ltr">
+                                <td className="px-2 py-2 text-[11px] text-gray-500 font-mono text-center whitespace-nowrap" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                            <td className="px-2 py-2 text-[11px] text-amber-900 font-mono font-bold bg-amber-50/40 text-center whitespace-nowrap" dir="ltr">
                                   {getLastCommentDate(customer)}
                                 </td>
                                 <td className="p-4 text-sm">
@@ -7864,7 +7862,7 @@ const Dashboard = () => {
                                     </button>
                                   </div>
                                 </td>
-                                <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
+                                <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
                                   {(isAdmin || isCoordinator || isLeader) ? (
                                     <select 
                                       value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
@@ -7910,7 +7908,7 @@ const Dashboard = () => {
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
                                       }}
-                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8447,7 +8445,7 @@ const Dashboard = () => {
                         <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
                           <th className="p-3.5">اسم العميل</th>
                           <th className="p-3.5 text-center">رقم الهاتف</th>
-                          <th className="p-3.5 text-center min-w-[320px]">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center min-w-[280px]">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
                           {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
@@ -8519,7 +8517,7 @@ const Dashboard = () => {
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
-                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
+                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8920,12 +8918,12 @@ const Dashboard = () => {
                       )}
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
-                    <td className="p-4 text-sm text-gray-600 font-medium min-w-[320px] text-center">
+                    <td className="p-4 text-sm text-gray-600 font-medium min-w-[280px] text-center">
                       {(isAdmin || isCoordinator || isLeader) ? (
                         <select 
                           value={customer.assignedToUid || ""}
                           onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
-                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
+                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                         >
                           <option value="" disabled>-- سحب أو تعيين --</option>
                           {isLeader ? (
@@ -9026,7 +9024,7 @@ const Dashboard = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[320px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[280px] text-center">الموظف المسؤول</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm text-center">الإجراءات والواتساب</th>
                         </tr>
                       </thead>
@@ -9609,7 +9607,7 @@ const Dashboard = () => {
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[320px]">الموظف المسؤول ومضاف بواسطة</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[280px]">الموظف المسؤول ومضاف بواسطة</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -9839,7 +9837,7 @@ const Dashboard = () => {
                                       toast.success(`تم إسناد العميل إلى (${targetEmp?.name || 'الموظف'}) وظهوره في كارت CRM الخاص به بنجاح ✓`);
                                     }
                                   }}
-                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[310px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
+                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[270px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
                                 >
                                   {isLeader ? (
                                     <>
@@ -13240,7 +13238,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                      <span>✉️ بريد اتجاه الداخلي</span>
+                      <span>✉️ Email-Etegah</span>
                       <span className="text-[10px] font-bold bg-purple-900/80 text-purple-200 border border-purple-400/30 px-2 py-0.5 rounded-full">
                         {isAdmin ? '👑 Admin' : isCoordinator ? '📋 Coordinator' : isLeader ? '👑 Leader' : '👤 Agent'}
                       </span>
