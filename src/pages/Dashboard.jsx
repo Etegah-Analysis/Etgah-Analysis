@@ -341,6 +341,22 @@ const Dashboard = () => {
   const [empLeadsEmpFilter, setEmpLeadsEmpFilter] = useState('all');
   const [empLeadsStatusFilter, setEmpLeadsStatusFilter] = useState('all');
   const [empLeadsDateFrom, setEmpLeadsDateFrom] = useState('');
+  const [empCommentDateFrom, setEmpCommentDateFrom] = useState('');
+  const [empCommentDateTo, setEmpCommentDateTo] = useState('');
+  const [openEmpRegDatePop, setOpenEmpRegDatePop] = useState(false);
+  const [openEmpCommentDatePop, setOpenEmpCommentDatePop] = useState(false);
+
+  const [crmCommentDateFrom, setCrmCommentDateFrom] = useState('');
+  const [crmCommentDateTo, setCrmCommentDateTo] = useState('');
+  const [openCrmRegDatePop, setOpenCrmRegDatePop] = useState(false);
+  const [openCrmCommentDatePop, setOpenCrmCommentDatePop] = useState(false);
+
+  const [teamRegDateFrom, setTeamRegDateFrom] = useState('');
+  const [teamRegDateTo, setTeamRegDateTo] = useState('');
+  const [teamCommentDateFrom, setTeamCommentDateFrom] = useState('');
+  const [teamCommentDateTo, setTeamCommentDateTo] = useState('');
+  const [openTeamRegDatePop, setOpenTeamRegDatePop] = useState(false);
+  const [openTeamCommentDatePop, setOpenTeamCommentDatePop] = useState(false);
   const [empLeadsDateTo, setEmpLeadsDateTo] = useState('');
   const [empLeadsSortOrder, setEmpLeadsSortOrder] = useState('desc');
 
@@ -415,11 +431,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     setCurrentPageLeads(1);
-  }, [selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, tableSearch, leadsSortOrder]);
+  }, [selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, crmCommentDateFrom, crmCommentDateTo, tableSearch, leadsSortOrder]);
 
   useEffect(() => {
     setCurrentPageEmpLeads(1);
-  }, [empLeadsEmpFilter, empLeadsStatusFilter, empLeadsDateFrom, empLeadsDateTo, tableSearch, empLeadsSortOrder]);
+  }, [empLeadsEmpFilter, empLeadsStatusFilter, empLeadsDateFrom, empLeadsDateTo, empCommentDateFrom, empCommentDateTo, tableSearch, empLeadsSortOrder]);
 
   useEffect(() => {
     setCurrentPageCustomers(1);
@@ -437,6 +453,43 @@ const Dashboard = () => {
   const [trialDateForNotes, setTrialDateForNotes] = useState('');
   const [previousStatusForNotes, setPreviousStatusForNotes] = useState('unassigned');
   const [isStatusChangeMandatory, setIsStatusChangeMandatory] = useState(false);
+
+  // Timestamp extractors for 3D Date Filtering
+  const getClientRegTimestamp = (customer) => {
+    if (!customer) return null;
+    const d = customer.createdAt || customer.assignedAt || customer.updatedAt;
+    if (!d) return null;
+    if (d.toDate) return d.toDate();
+    const p = new Date(d);
+    if (!isNaN(p.getTime())) return p;
+    return null;
+  };
+
+  const getLastCommentTimestamp = (customer) => {
+    if (!customer) return null;
+    if (customer.lastCommentAt) {
+      const d = customer.lastCommentAt;
+      if (d.toDate) return d.toDate();
+      const p = new Date(d);
+      if (!isNaN(p.getTime())) return p;
+    }
+    if (customer.notesHistory && customer.notesHistory.length > 0) {
+      const lastNote = customer.notesHistory[customer.notesHistory.length - 1];
+      if (lastNote && lastNote.createdAt) {
+        const d = lastNote.createdAt;
+        if (d.toDate) return d.toDate();
+        const p = new Date(d);
+        if (!isNaN(p.getTime())) return p;
+      }
+    }
+    if (customer.notes && typeof customer.notes === 'string' && customer.notes.trim() && (customer.updatedAt || customer.createdAt)) {
+      const d = customer.updatedAt || customer.createdAt;
+      if (d.toDate) return d.toDate();
+      const p = new Date(d);
+      if (!isNaN(p.getTime())) return p;
+    }
+    return null;
+  };
 
   const getLastCommentDate = (customer) => {
     if (!customer) return '—';
@@ -555,6 +608,260 @@ const Dashboard = () => {
       return customer.addedBy;
     }
     return null;
+  };
+
+  // 3D Dual Calendar Filter Component (Registration Date & Last Comment Date)
+  const renderDual3DCalendarWidget = ({
+    regFrom,
+    setRegFrom,
+    regTo,
+    setRegTo,
+    openRegPop,
+    setOpenRegPop,
+    commentFrom,
+    setCommentFrom,
+    commentTo,
+    setCommentTo,
+    openCommentPop,
+    setOpenCommentPop
+  }) => {
+    return (
+      <div className="relative flex flex-col gap-1 select-none z-30">
+        {/* Row 1: Registration Date 3D Button */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => { setOpenRegPop(!openRegPop); setOpenCommentPop(false); }}
+            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.45)] active:scale-95 border cursor-pointer ${
+              (regFrom || regTo)
+                ? 'bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 text-white border-purple-300 ring-2 ring-purple-400/50'
+                : 'bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-purple-200 border-purple-500/40 hover:border-purple-300'
+            }`}
+            title="تصفية بحسب تاريخ تسجيل العميل (من - إلى)"
+          >
+            {/* 3D Calendar Graphic */}
+            <div className="w-5 h-5 rounded-md bg-gradient-to-b from-indigo-500 to-purple-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-indigo-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+              </div>
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[8px] font-black text-purple-950 font-mono rounded-b-xs">
+                📅
+              </div>
+            </div>
+            <div className="flex flex-col text-right leading-none">
+              <span className="text-[10px] font-black text-purple-100">تاريخ تسجيل العميل</span>
+              <span className="text-[9px] text-purple-300 font-mono mt-0.5" dir="ltr">
+                {(regFrom || regTo) ? `${regFrom || 'Start'} ➔ ${regTo || 'End'}` : 'تصفية 3D (من - إلى)'}
+              </span>
+            </div>
+            {(regFrom || regTo) ? (
+              <span
+                onClick={(e) => { e.stopPropagation(); setRegFrom(''); setRegTo(''); }}
+                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm mr-1 cursor-pointer"
+                title="مسح تصفية تاريخ التسجيل"
+              >
+                ✕
+              </span>
+            ) : (
+              <span className="text-purple-400 text-[10px] mr-0.5">▼</span>
+            )}
+          </button>
+
+          {/* Popover Dropdown for Registration Date */}
+          {openRegPop && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setOpenRegPop(false)}></div>
+              <div className="absolute top-full right-0 mt-1.5 z-50 bg-slate-900/95 backdrop-blur-xl border border-purple-500/50 rounded-2xl p-3 shadow-[0_12px_36px_rgba(0,0,0,0.6)] text-white w-64 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-purple-500/30 pb-1.5 mb-2">
+                  <span className="text-xs font-black text-purple-200 flex items-center gap-1">
+                    <span>📅</span> فلترة تاريخ تسجيل العميل
+                  </span>
+                  <button onClick={() => setOpenRegPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">✕</button>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-purple-300 mb-0.5">من تاريخ (Start):</label>
+                    <input
+                      type="date"
+                      value={regFrom}
+                      onChange={(e) => setRegFrom(e.target.value)}
+                      className="w-full bg-slate-800 border border-purple-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-purple-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-purple-300 mb-0.5">إلى تاريخ (End):</label>
+                    <input
+                      type="date"
+                      value={regTo}
+                      onChange={(e) => setRegTo(e.target.value)}
+                      className="w-full bg-slate-800 border border-purple-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-purple-300"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-2.5 pt-1.5 border-t border-purple-500/20 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = new Date().toISOString().slice(0, 10);
+                      setRegFrom(t);
+                      setRegTo(t);
+                    }}
+                    className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded px-1.5 py-0.5 text-purple-200 font-bold transition cursor-pointer"
+                  >
+                    اليوم
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const past = new Date(now.getTime() - 7 * 86400000);
+                      setRegFrom(past.toISOString().slice(0, 10));
+                      setRegTo(now.toISOString().slice(0, 10));
+                    }}
+                    className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded px-1.5 py-0.5 text-purple-200 font-bold transition cursor-pointer"
+                  >
+                    7 أيام
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setRegFrom(''); setRegTo(''); }}
+                    className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded px-2 py-0.5 text-rose-300 font-bold transition cursor-pointer"
+                    title="مسح"
+                  >
+                    مسح
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenRegPop(false)}
+                  className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-1 rounded-lg text-xs transition shadow-md cursor-pointer"
+                >
+                  تطبيق الفلتر ✓
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Row 2: Last Comment Date 3D Button (تحت بعض) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => { setOpenCommentPop(!openCommentPop); setOpenRegPop(false); }}
+            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.45)] active:scale-95 border cursor-pointer ${
+              (commentFrom || commentTo)
+                ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white border-amber-300 ring-2 ring-amber-400/50'
+                : 'bg-gradient-to-r from-slate-900 via-amber-950/80 to-slate-900 text-amber-200 border-amber-500/40 hover:border-amber-300'
+            }`}
+            title="تصفية بحسب تاريخ آخر كومنت للعميل (من - إلى)"
+          >
+            {/* 3D Calendar Graphic */}
+            <div className="w-5 h-5 rounded-md bg-gradient-to-b from-amber-500 to-orange-700 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
+              <div className="w-full bg-amber-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+                <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
+              </div>
+              <div className="bg-white w-full flex-1 flex items-center justify-center text-[8px] font-black text-amber-950 font-mono rounded-b-xs">
+                🗓️
+              </div>
+            </div>
+            <div className="flex flex-col text-right leading-none">
+              <span className="text-[10px] font-black text-amber-100">تاريخ Last Comment</span>
+              <span className="text-[9px] text-amber-300 font-mono mt-0.5" dir="ltr">
+                {(commentFrom || commentTo) ? `${commentFrom || 'Start'} ➔ ${commentTo || 'End'}` : 'تصفية 3D (من - إلى)'}
+              </span>
+            </div>
+            {(commentFrom || commentTo) ? (
+              <span
+                onClick={(e) => { e.stopPropagation(); setCommentFrom(''); setCommentTo(''); }}
+                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm mr-1 cursor-pointer"
+                title="مسح تصفية تاريخ آخر كومنت"
+              >
+                ✕
+              </span>
+            ) : (
+              <span className="text-amber-400 text-[10px] mr-0.5">▼</span>
+            )}
+          </button>
+
+          {/* Popover Dropdown for Last Comment Date */}
+          {openCommentPop && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setOpenCommentPop(false)}></div>
+              <div className="absolute top-full right-0 mt-1.5 z-50 bg-slate-900/95 backdrop-blur-xl border border-amber-500/50 rounded-2xl p-3 shadow-[0_12px_36px_rgba(0,0,0,0.6)] text-white w-64 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-amber-500/30 pb-1.5 mb-2">
+                  <span className="text-xs font-black text-amber-200 flex items-center gap-1">
+                    <span>🗓️</span> فلترة تاريخ آخر كومنت
+                  </span>
+                  <button onClick={() => setOpenCommentPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">✕</button>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-300 mb-0.5">من تاريخ (Start):</label>
+                    <input
+                      type="date"
+                      value={commentFrom}
+                      onChange={(e) => setCommentFrom(e.target.value)}
+                      className="w-full bg-slate-800 border border-amber-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-amber-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-300 mb-0.5">إلى تاريخ (End):</label>
+                    <input
+                      type="date"
+                      value={commentTo}
+                      onChange={(e) => setCommentTo(e.target.value)}
+                      className="w-full bg-slate-800 border border-amber-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-amber-300"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-2.5 pt-1.5 border-t border-amber-500/20 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = new Date().toISOString().slice(0, 10);
+                      setCommentFrom(t);
+                      setCommentTo(t);
+                    }}
+                    className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded px-1.5 py-0.5 text-amber-200 font-bold transition cursor-pointer"
+                  >
+                    اليوم
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const past = new Date(now.getTime() - 7 * 86400000);
+                      setCommentFrom(past.toISOString().slice(0, 10));
+                      setCommentTo(now.toISOString().slice(0, 10));
+                    }}
+                    className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded px-1.5 py-0.5 text-amber-200 font-bold transition cursor-pointer"
+                  >
+                    7 أيام
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCommentFrom(''); setCommentTo(''); }}
+                    className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded px-2 py-0.5 text-rose-300 font-bold transition cursor-pointer"
+                    title="مسح"
+                  >
+                    مسح
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenCommentPop(false)}
+                  className="w-full mt-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-1 rounded-lg text-xs transition shadow-md cursor-pointer"
+                >
+                  تطبيق الفلتر ✓
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // English Job Title Helper
@@ -5880,6 +6187,30 @@ const Dashboard = () => {
               if (currentStatus !== crmStatusFilter) return false;
             }
 
+            // Dual 3D Date Filter: Registration / Assignment Date
+            if (teamRegDateFrom) {
+              const fromTime = new Date(teamRegDateFrom).setHours(0, 0, 0, 0);
+              const regTime = getClientRegTimestamp(c)?.getTime();
+              if (!regTime || regTime < fromTime) return false;
+            }
+            if (teamRegDateTo) {
+              const toTime = new Date(teamRegDateTo).setHours(23, 59, 59, 999);
+              const regTime = getClientRegTimestamp(c)?.getTime();
+              if (!regTime || regTime > toTime) return false;
+            }
+
+            // Dual 3D Date Filter: Last Comment Date
+            if (teamCommentDateFrom) {
+              const fromTime = new Date(teamCommentDateFrom).setHours(0, 0, 0, 0);
+              const commTime = getLastCommentTimestamp(c)?.getTime();
+              if (!commTime || commTime < fromTime) return false;
+            }
+            if (teamCommentDateTo) {
+              const toTime = new Date(teamCommentDateTo).setHours(23, 59, 59, 999);
+              const commTime = getLastCommentTimestamp(c)?.getTime();
+              if (!commTime || commTime > toTime) return false;
+            }
+
             if (tableSearch.trim()) {
               const term = tableSearch.trim().toLowerCase();
               const matchPhone = c.phoneNumber?.includes(term);
@@ -5958,13 +6289,13 @@ const Dashboard = () => {
               <div className="px-6 py-3.5 bg-slate-900/90 border-b border-purple-500/20 flex flex-wrap justify-between items-center gap-3">
                 {/* Employee Filter */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-purple-200">🔍 فلترة بحسب عضو الفريق:</span>
+                  <span className="text-xs font-bold text-purple-200">🔍 Filter by Team Member:</span>
                   <select 
                     value={teamTrackingEmpFilter} 
                     onChange={(e) => setTeamTrackingEmpFilter(e.target.value)}
                     className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
                   >
-                    <option value="all">👥 جميع أعضاء الفريق</option>
+                    <option value="all">👥 All Team Members</option>
                     {myTeamMembers.map(emp => (
                       <option key={emp.uid} value={emp.uid}>
                         👤 {emp.name}
@@ -6010,6 +6341,21 @@ const Dashboard = () => {
                   })()}
                 </div>
 
+                {renderDual3DCalendarWidget({
+                    regFrom: teamRegDateFrom,
+                    setRegFrom: setTeamRegDateFrom,
+                    regTo: teamRegDateTo,
+                    setRegTo: setTeamRegDateTo,
+                    openRegPop: openTeamRegDatePop,
+                    setOpenRegPop: setOpenTeamRegDatePop,
+                    commentFrom: teamCommentDateFrom,
+                    setCommentFrom: setTeamCommentDateFrom,
+                    commentTo: teamCommentDateTo,
+                    setCommentTo: setTeamCommentDateTo,
+                    openCommentPop: openTeamCommentDatePop,
+                    setOpenCommentPop: setOpenTeamCommentDatePop
+                  })}
+
                 {/* Search Box & Sort */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative">
@@ -6040,7 +6386,7 @@ const Dashboard = () => {
                       </th>
                       <th className="p-3.5">الرقم</th>
                       <th className="p-3.5">اسم العميل</th>
-                      <th className="p-3.5">عضو الفريق الحالي</th>
+                      <th className="p-3.5">Team Member</th>
                       <th className="p-3.5 text-center">تاريخ الإسناد</th>
                       <th className="p-3.5 text-center text-amber-300">تاريخ Last Comment</th>
                       <th className="p-3.5 text-center">حالة المتابعة (CRM)</th>
@@ -6086,7 +6432,7 @@ const Dashboard = () => {
                             <td className="p-3.5">
                               <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shadow-sm">
                                 <span>👤</span>
-                                <span>{assignedEmp?.name || customer.assignedTo || 'عضو بالفريق'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
+                                <span>{assignedEmp?.name || customer.assignedTo || 'Team Member'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
                               </span>
                             </td>
                             <td className="p-3.5 text-center text-gray-500 text-[11px] font-mono">
@@ -6399,50 +6745,20 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* Modern Glassmorphic Dark-Pill Date Range Selector (Zero Ugly Desktop Placeholder) */}
-                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full px-3 py-1 text-xs font-black shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 transition-all">
-                      <span className="flex items-center gap-1 text-purple-200 font-black text-[11px] shrink-0">
-                        📅 التاريخ:
-                      </span>
-                      
-                      {/* From Date Box */}
-                      <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 hover:bg-white/15 transition min-w-[105px] justify-between cursor-pointer">
-                        <span className="text-[10px] text-purple-200 font-bold shrink-0">من</span>
-                        {!dateFromFilter && (
-                          <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>
-                        )}
-                        <input 
-                          type="date" 
-                          value={dateFromFilter}
-                          onChange={(e) => setDateFromFilter(e.target.value)}
-                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateFromFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
-                        />
-                      </div>
-
-                      {/* To Date Box */}
-                      <div className="relative flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 hover:bg-white/15 transition min-w-[105px] justify-between cursor-pointer">
-                        <span className="text-[10px] text-purple-200 font-bold shrink-0">إلى</span>
-                        {!dateToFilter && (
-                          <span className="text-[11px] text-purple-300 font-mono font-bold">--/--/----</span>
-                        )}
-                        <input 
-                          type="date" 
-                          value={dateToFilter}
-                          onChange={(e) => setDateToFilter(e.target.value)}
-                          className={`bg-transparent text-[11px] text-white font-mono outline-none cursor-pointer font-bold border-none ${!dateToFilter ? 'opacity-0 absolute inset-0 w-full h-full' : 'w-[95px]'}`}
-                        />
-                      </div>
-
-                      {(dateFromFilter || dateToFilter) && (
-                        <button 
-                          onClick={() => { setDateFromFilter(''); setDateToFilter(''); }}
-                          className="bg-rose-500 hover:bg-rose-600 text-white font-black rounded-full w-4 h-4 flex items-center justify-center text-[9px] transition shadow-md cursor-pointer shrink-0 mr-0.5"
-                          title="إلغاء فلتر التاريخ"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                    {renderDual3DCalendarWidget({
+                      regFrom: dateFromFilter,
+                      setRegFrom: setDateFromFilter,
+                      regTo: dateToFilter,
+                      setRegTo: setDateToFilter,
+                      openRegPop: openCrmRegDatePop,
+                      setOpenRegPop: setOpenCrmRegDatePop,
+                      commentFrom: crmCommentDateFrom,
+                      setCommentFrom: setCrmCommentDateFrom,
+                      commentTo: crmCommentDateTo,
+                      setCommentTo: setCrmCommentDateTo,
+                      openCommentPop: openCrmCommentDatePop,
+                      setOpenCommentPop: setOpenCrmCommentDatePop
+                    })}
 
                     {/* Sort Order Selector */}
                     <select
@@ -6503,16 +6819,27 @@ const Dashboard = () => {
                   if (currentStatus !== crmStatusFilter) return false;
                 }
 
-                // Date Range Filter
+                // Dual 3D Date Filter: Registration Date
                 if (dateFromFilter) {
                   const fromTime = new Date(dateFromFilter).setHours(0, 0, 0, 0);
-                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
-                  if (itemTime > 0 && itemTime < fromTime) return false;
+                  const regTime = getClientRegTimestamp(c)?.getTime();
+                  if (!regTime || regTime < fromTime) return false;
                 }
                 if (dateToFilter) {
                   const toTime = new Date(dateToFilter).setHours(23, 59, 59, 999);
-                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
-                  if (itemTime > 0 && itemTime > toTime) return false;
+                  const regTime = getClientRegTimestamp(c)?.getTime();
+                  if (!regTime || regTime > toTime) return false;
+                }
+                // Dual 3D Date Filter: Last Comment Date
+                if (crmCommentDateFrom) {
+                  const fromTime = new Date(crmCommentDateFrom).setHours(0, 0, 0, 0);
+                  const commTime = getLastCommentTimestamp(c)?.getTime();
+                  if (!commTime || commTime < fromTime) return false;
+                }
+                if (crmCommentDateTo) {
+                  const toTime = new Date(crmCommentDateTo).setHours(23, 59, 59, 999);
+                  const commTime = getLastCommentTimestamp(c)?.getTime();
+                  if (!commTime || commTime > toTime) return false;
                 }
 
                 const search = tableSearch.trim();
@@ -6614,12 +6941,12 @@ const Dashboard = () => {
                           <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>
+                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedLeads.length === 0 ? (
-                          <tr><td colSpan={(isAdmin || isCoordinator || isLeader) ? 8 : 7} className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
+                          <tr><td colSpan={(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) ? ((isAdmin || isCoordinator || isLeader) ? 8 : 7) : ((isAdmin || isCoordinator || isLeader) ? 7 : 6)} className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
                         ) : (
                           paginatedLeads.map((customer, idx) => {
                             const currentCrmStatus = customer.crmStatus || 'unassigned';
@@ -6817,7 +7144,7 @@ const Dashboard = () => {
                                       <option value="admin">👑 الإدارة (Admin 👑)</option>
                                       {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
-                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                         </option>
                                       ))}
                                     </>
@@ -6841,6 +7168,7 @@ const Dashboard = () => {
                                 );
                               })()}
                             </td>
+                            {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && (
                             <td className="p-4 flex items-center gap-1.5 justify-center">
                               {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                 <button 
@@ -6862,6 +7190,7 @@ const Dashboard = () => {
                                 </button>
                               )}
                             </td>
+                          )}
                           </tr>
                         );
                       }))}
@@ -7146,7 +7475,7 @@ const Dashboard = () => {
                             <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
                           )}
                           <option value="all" className="bg-slate-950 text-white">
-                            {isLeader ? `👥 جميع داتا فريقي (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})`}
+                            {isLeader ? `👥 All Team Leads (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})`}
                           </option>
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
                             const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
@@ -7187,30 +7516,20 @@ const Dashboard = () => {
 
                   {/* Search, Date & Sort Controls */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <div className="flex items-center gap-1 bg-white border border-purple-200 rounded-xl px-2 py-1 shadow-sm text-xs">
-                      <span className="text-[11px] text-gray-500 font-bold">من:</span>
-                      <input 
-                        type="date" 
-                        value={empLeadsDateFrom} 
-                        onChange={(e) => setEmpLeadsDateFrom(e.target.value)}
-                        className="text-xs outline-none bg-transparent text-gray-700" 
-                      />
-                      <span className="text-[11px] text-gray-500 font-bold">إلى:</span>
-                      <input 
-                        type="date" 
-                        value={empLeadsDateTo} 
-                        onChange={(e) => setEmpLeadsDateTo(e.target.value)}
-                        className="text-xs outline-none bg-transparent text-gray-700" 
-                      />
-                      {(empLeadsDateFrom || empLeadsDateTo) && (
-                        <button 
-                          onClick={() => { setEmpLeadsDateFrom(''); setEmpLeadsDateTo(''); }}
-                          className="text-[10px] text-red-500 hover:underline font-bold mr-1"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                    {renderDual3DCalendarWidget({
+                      regFrom: empLeadsDateFrom,
+                      setRegFrom: setEmpLeadsDateFrom,
+                      regTo: empLeadsDateTo,
+                      setRegTo: setEmpLeadsDateTo,
+                      openRegPop: openEmpRegDatePop,
+                      setOpenRegPop: setOpenEmpRegDatePop,
+                      commentFrom: empCommentDateFrom,
+                      setCommentFrom: setEmpCommentDateFrom,
+                      commentTo: empCommentDateTo,
+                      setCommentTo: setEmpCommentDateTo,
+                      openCommentPop: openEmpCommentDatePop,
+                      setOpenCommentPop: setOpenEmpCommentDatePop
+                    })}
 
                     <button
                       onClick={() => setEmpLeadsSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -7276,16 +7595,27 @@ const Dashboard = () => {
                   if (currentStatus !== empLeadsStatusFilter) return false;
                 }
 
-                // Date Filter
+                // Dual 3D Date Filter: Registration Date
                 if (empLeadsDateFrom) {
                   const fromTime = new Date(empLeadsDateFrom).setHours(0, 0, 0, 0);
-                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
-                  if (itemTime > 0 && itemTime < fromTime) return false;
+                  const regTime = getClientRegTimestamp(c)?.getTime();
+                  if (!regTime || regTime < fromTime) return false;
                 }
                 if (empLeadsDateTo) {
-                const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
-                  const itemTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.updatedAt);
-                  if (itemTime > 0 && itemTime > toTime) return false;
+                  const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
+                  const regTime = getClientRegTimestamp(c)?.getTime();
+                  if (!regTime || regTime > toTime) return false;
+                }
+                // Dual 3D Date Filter: Last Comment Date
+                if (empCommentDateFrom) {
+                  const fromTime = new Date(empCommentDateFrom).setHours(0, 0, 0, 0);
+                  const commTime = getLastCommentTimestamp(c)?.getTime();
+                  if (!commTime || commTime < fromTime) return false;
+                }
+                if (empCommentDateTo) {
+                  const toTime = new Date(empCommentDateTo).setHours(23, 59, 59, 999);
+                  const commTime = getLastCommentTimestamp(c)?.getTime();
+                  if (!commTime || commTime > toTime) return false;
                 }
 
                 const search = tableSearch.trim();
@@ -7330,13 +7660,13 @@ const Dashboard = () => {
                           <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>
+                          {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedEmpLeads.length === 0 ? (
                           <tr>
-                            <td colSpan={(isAdmin || isCoordinator) ? 8 : 7} className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={isCoordinator ? 7 : (isAdmin ? 8 : 7)} className="p-10 text-center text-gray-500 font-bold">
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
@@ -7554,7 +7884,7 @@ const Dashboard = () => {
                                           <option value="admin">👑 الإدارة (Admin 👑)</option>
                                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
-                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                             </option>
                                           ))}
                                         </>
@@ -7578,38 +7908,40 @@ const Dashboard = () => {
                                     );
                                   })()}
                                 </td>
-                                <td className="p-4 text-sm text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.addedByUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid || m.uid === customer.addedByUid))) && (
-                                      <button 
-                                        onClick={() => handleTransferToWhatsapp(customer)}
-                                        className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
-                                        title="مراسلة عبر واتساب"
-                                      >
-                                        <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
-                                        <span className="text-[11px] font-black">WhatsApp</span>
-                                      </button>
-                                    )}
-                                    {isAdmin && !isLeader && (
-                                      <button 
-                                        onClick={async () => {
-                                          if (isLeader) {
-                                            toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
-                                            return;
-                                          }
-                                          if (window.confirm('هل تريد حذف هذا العميل من داتا الموظف نهائياً؟')) {
-                                            await deleteDoc(doc(db, 'employee_leads', customer.id));
-                                            toast.success('تم حذف العميل');
-                                          }
-                                        }}
-                                        className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
-                                        title="حذف العميل"
-                                      >
-                                        <Trash2 size={15} />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
+                                {!isCoordinator && (
+                                  <td className="p-4 text-sm text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.addedByUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid || m.uid === customer.addedByUid))) && (
+                                        <button 
+                                          onClick={() => handleTransferToWhatsapp(customer)}
+                                          className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
+                                          title="مراسلة عبر واتساب"
+                                        >
+                                          <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
+                                          <span className="text-[11px] font-black">WhatsApp</span>
+                                        </button>
+                                      )}
+                                      {isAdmin && !isLeader && (
+                                        <button 
+                                          onClick={async () => {
+                                            if (isLeader) {
+                                              toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+                                              return;
+                                            }
+                                            if (window.confirm('هل تريد حذف هذا العميل من داتا الموظف نهائياً؟')) {
+                                              await deleteDoc(doc(db, 'employee_leads', customer.id));
+                                              toast.success('تم حذف العميل');
+                                            }
+                                          }}
+                                          className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                                          title="حذف العميل"
+                                        >
+                                          <Trash2 size={15} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
                               </tr>
                             );
                           })
@@ -8568,7 +8900,7 @@ const Dashboard = () => {
                               <option value="admin">👑 الإدارة (Admin 👑)</option>
                               {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
-                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                 </option>
                               ))}
                             </>
@@ -8828,7 +9160,7 @@ const Dashboard = () => {
                     </th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">اسم الموظف / الكود</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">التدرج الوظيفي</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">الفريق / المشرف</th>
+                    <th className="p-4 font-semibold text-gray-600 text-sm">Team / Leader</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">بيانات الدخول (م/س)</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">أول دخول</th>
                     <th className="p-4 font-semibold text-gray-600 text-sm">آخر دخول</th>
@@ -8885,7 +9217,7 @@ const Dashboard = () => {
                             <div className="flex flex-col gap-1">
                               <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
                                 <span>👑</span>
-                                <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'فريق الليدر'}</span>
+                                <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'Leader Team'}</span>
                               </span>
                               {emp.leaderAssignedAt && (
                                 <span className="text-[10px] text-purple-700 font-mono flex items-center gap-1" title="تاريخ ووقت التعيين تحت هذا الليدر">
@@ -10176,7 +10508,7 @@ const Dashboard = () => {
                       <option value="admin">👑 الإدارة (Admin 👑)</option>
                       {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - فريق ${emp.leaderName}` : ''})
+                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                         </option>
                       ))}
                     </>
@@ -10709,7 +11041,7 @@ const Dashboard = () => {
                             <table className="w-full text-right text-xs">
                               <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
                                 <tr>
-                                  <th className="p-3">عضو الفريق</th>
+                                  <th className="p-3">Team Member</th>
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                     <div className="flex flex-col items-center leading-tight">
@@ -10973,7 +11305,7 @@ const Dashboard = () => {
                                 <thead className="bg-slate-900 text-amber-300 border-b border-slate-800">
                                   <tr>
                                     <th className="p-3">الليدر / المشرف</th>
-                                    <th className="p-3 text-center">أعضاء الفريق</th>
+                                    <th className="p-3 text-center">Team Members</th>
                                     <th className="p-3 text-center">إجمالي الداتا</th>
                                     <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                       <div className="flex flex-col items-center leading-tight">
@@ -11060,7 +11392,7 @@ const Dashboard = () => {
                               <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
                                 <tr>
                                   <th className="p-3">الموظف</th>
-                                  <th className="p-3 text-center">الفريق / الليدر</th>
+                                  <th className="p-3 text-center">Team / Leader</th>
                                   <th className="p-3 text-center">إجمالي العملاء</th>
                                   <th className="p-3 text-center bg-amber-950/40 border-x border-amber-500/20">
                                     <div className="flex flex-col items-center leading-tight">
@@ -11506,7 +11838,7 @@ const Dashboard = () => {
                           <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
                             <tr>
                               <th className="p-3">الموظف</th>
-                              <th className="p-3">الوظيفة / الفريق</th>
+                              <th className="p-3">Job / Team</th>
                               <th className="p-3 text-center text-emerald-400 font-black">مكالمات اليوم 📅</th>
                               <th className="p-3 text-center text-cyan-300 font-black">مكالمات الفترة ⏱️</th>
                               <th className="p-3 text-center text-emerald-400 font-black">🟢 تم الرد</th>
@@ -11529,7 +11861,7 @@ const Dashboard = () => {
                                 <td className="p-3">
                                   <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">
                                     {emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'}
-                                    {emp.leaderName ? ` • فريق ${emp.leaderName}` : ''}
+                                    {emp.leaderName ? ` • Team ${emp.leaderName}` : ''}
                                   </span>
                                 </td>
                                 <td className="p-3 text-center font-black text-emerald-400 text-sm">{todayCount}</td>
@@ -12230,7 +12562,7 @@ const Dashboard = () => {
                         <thead className="bg-slate-900 text-amber-300 border-b border-slate-800">
                           <tr>
                             <th className="p-3">الليدر</th>
-                            <th className="p-3 text-center">أعضاء الفريق</th>
+                            <th className="p-3 text-center">Team Members</th>
                             <th className="p-3 text-center">🎯 Leads CRM</th>
                             <th className="p-3 text-center">📁 داتا الموظف</th>
                             <th className="p-3 text-center">💬 واتساب مخصص</th>
