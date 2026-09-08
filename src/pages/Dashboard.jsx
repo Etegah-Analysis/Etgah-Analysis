@@ -1492,13 +1492,34 @@ const Dashboard = () => {
     prevUnreadEmailsMapRef.current = newMap;
   }, [internalEmails, unreadEmails, myUid, isAdmin]);
 
-  // Real-time listener for Call Logs
+  // Real-time listener for Call Logs with auto-healing of stale "calling" records
   useEffect(() => {
     const q = query(collection(db, 'call_logs'), orderBy('calledAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
       const logs = [];
+      const now = Date.now();
       snapshot.forEach((docSnap) => {
-        logs.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        const callTimeMs = data.calledAt?.toMillis ? data.calledAt.toMillis() : (data.timestampMillis || 0);
+        
+        // Auto-heal stale calling logs older than 45 seconds (or with 0 duration and no live session)
+        if (data.status === 'calling' && callTimeMs > 0 && (now - callTimeMs > 45000)) {
+          const healedStatus = (data.durationSeconds > 0) ? 'answered' : 'no_answer';
+          const healedDuration = (data.durationSeconds > 0) ? formatCallDuration(data.durationSeconds) : 'لم يرد 📵';
+          updateDoc(docSnap.ref, {
+            status: healedStatus,
+            durationFormatted: healedDuration
+          }).catch(() => {});
+          
+          logs.push({ 
+            id: docSnap.id, 
+            ...data, 
+            status: healedStatus,
+            durationFormatted: healedDuration
+          });
+        } else {
+          logs.push({ id: docSnap.id, ...data });
+        }
       });
       setCallLogs(logs);
     }, (err) => {
@@ -1562,18 +1583,7 @@ const Dashboard = () => {
       };
     }
 
-    // 2. In-Progress / Calling live detection
-    if (rawStatus === 'calling' || rawStatus === 'ringing' || rawStatus === 'in_progress') {
-      return {
-        status: 'calling',
-        label: '📲 جاري الاتصال',
-        enLabel: 'Calling...',
-        fullLabel: '📲 Calling (جاري الاتصال)',
-        badge: 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse'
-      };
-    }
-
-    // 3. Answered detection: must have real talk duration > 0 OR formatted with actual time (not 00:00)
+    // 2. Answered detection: must have real talk duration > 0 OR formatted with actual time (not 00:00)
     const hasRealDuration = durationSec > 0 || 
       (formatted.includes('دقيقة') && !formatted.startsWith('0:00')) || 
       (formatted.includes('ثانية') && formatted !== '0 ثانية' && formatted !== '00:00');
@@ -1588,6 +1598,24 @@ const Dashboard = () => {
       };
     }
 
+    // 3. In-Progress / Calling live detection:
+    // ONLY true if this is the active live call session right now, OR created in the last 45 seconds!
+    if (rawStatus === 'calling' || rawStatus === 'ringing' || rawStatus === 'in_progress') {
+      const isLiveSession = activeCallSession && activeCallSession.callDocId === log.id;
+      const callTimeMs = log.calledAt?.toMillis ? log.calledAt.toMillis() : (log.timestampMillis || 0);
+      const isVeryRecent = callTimeMs > 0 && (Date.now() - callTimeMs < 45000);
+
+      if (isLiveSession || isVeryRecent) {
+        return {
+          status: 'calling',
+          label: '📲 جاري الاتصال',
+          enLabel: 'Calling...',
+          fullLabel: '📲 Calling (جاري الاتصال)',
+          badge: 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse'
+        };
+      }
+    }
+
     // 4. Default: No Answer (0 duration, hung up during ringing, or timeout)
     return {
       status: 'no_answer',
@@ -1598,19 +1626,15 @@ const Dashboard = () => {
     };
   };
 
-  // Active Call Session Live Timer & Auto-lifecycle Effect (Auto-Answer & Auto-No-Answer)
+  // Active Call Session Live Timer & Auto-lifecycle Effect
   useEffect(() => {
     let interval = null;
     if (activeCallSession) {
       interval = setInterval(() => {
         setActiveCallTimer(prev => {
           const next = prev + 1;
-          // Auto-Answer transition after 4 seconds of ringing -> automatically start talk duration
-          if (next === 4 && activeCallSession.phase === 'ringing') {
-            setActiveCallSession(curr => curr ? { ...curr, phase: 'connected' } : null);
-          }
-          // Auto-timeout if no response after 35 seconds of ringing
-          if (next >= 35 && activeCallSession.phase === 'ringing') {
+          // Auto-timeout after 45 seconds of calling if not finalized
+          if (next >= 45) {
             handleFinishCallSession('no_answer');
           }
           return next;
@@ -12017,9 +12041,11 @@ const Dashboard = () => {
                                     </span>
                                   </td>
                                   <td className="p-3 text-center font-mono font-bold text-cyan-300">
-                                    {log.durationFormatted && log.durationFormatted !== '00:00' 
-                                      ? log.durationFormatted 
-                                      : (log.durationSeconds > 0 ? formatCallDuration(log.durationSeconds) : isBusy ? 'مشغول 🔴' : 'لم يرد 📵')}
+                                    {outcome.status === 'calling' 
+                                      ? '📲 جاري الرنين...' 
+                                      : (log.durationFormatted && log.durationFormatted !== '00:00' 
+                                          ? log.durationFormatted 
+                                          : (log.durationSeconds > 0 ? formatCallDuration(log.durationSeconds) : isBusy ? 'مشغول 🔴' : 'لم يرد 📵'))}
                                   </td>
                                   <td className="p-3 text-center">
                                     <span className="bg-purple-900/40 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -13927,40 +13953,37 @@ const Dashboard = () => {
                 )}
               </div>
 
-              {/* Automated End Buttons based on live call phase */}
-              <div className="pt-1">
-                {isRinging ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleFinishCallSession('busy')}
-                      className="bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/50 font-black py-2.5 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="توثيق أن الخط مشغول"
-                    >
-                      <span>🔴</span>
-                      <span>خط مشغول</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleFinishCallSession('no_answer')}
-                      className="bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-500/50 font-black py-2.5 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="إنهاء المكالمة: لم يرد العميل"
-                    >
-                      <PhoneCall size={13} className="rotate-[135deg]" />
-                      <span>لم يرد / إلغاء</span>
-                    </button>
-                  </div>
-                ) : (
+              {/* Automated End Buttons: All options always available */}
+              <div className="pt-1 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleFinishCallSession('answered')}
+                  className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-emerald-300/40"
+                  title="إنهاء وتوثيق المكالمة: تم الرد"
+                >
+                  <PhoneCall size={14} className="rotate-[135deg]" />
+                  <span>إنهاء وتوثيق المكالمة (تم الرد 🟢)</span>
+                </button>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleFinishCallSession('answered')}
-                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-emerald-300/40"
-                    title="إنهاء وتوثيق المكالمة تلقائياً بمدة التحدث الفعلية"
+                    onClick={() => handleFinishCallSession('no_answer')}
+                    className="bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-500/50 font-black py-2 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="إنهاء المكالمة: لم يرد العميل"
                   >
-                    <PhoneCall size={14} className="rotate-[135deg]" />
-                    <span>إنهاء وتوثيق المكالمة تلقائياً (تم الرد 🟢)</span>
+                    <PhoneCall size={12} className="rotate-[135deg]" />
+                    <span>لم يرد 📵</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => handleFinishCallSession('busy')}
+                    className="bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/50 font-black py-2 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="توثيق أن الخط مشغول"
+                  >
+                    <span>🔴</span>
+                    <span>خط مشغول</span>
+                  </button>
+                </div>
               </div>
             </div>
           );

@@ -570,7 +570,7 @@ function InboxContent() {
       if (currentUser) {
         const callerName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
-        await addDoc(collection(db, 'call_logs'), {
+        const docRef = await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
           customerId: customer?.id || activeChat?.id || '',
           customerName: customer?.name || activeChat?.name || 'عميل',
@@ -589,6 +589,19 @@ function InboxContent() {
           durationSeconds: 0,
           durationFormatted: '00:00'
         });
+
+        // Auto-finalize after 45 seconds if no response
+        setTimeout(async () => {
+          try {
+            const snap = await getDoc(docRef);
+            if (snap.exists() && snap.data()?.status === 'calling') {
+              await updateDoc(docRef, {
+                status: 'no_answer',
+                durationFormatted: 'لم يرد 📵'
+              });
+            }
+          } catch (e) {}
+        }, 45000);
       }
     } catch (err) {
       console.error('Error logging call event in Inbox:', err);
