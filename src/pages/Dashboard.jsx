@@ -610,36 +610,30 @@ const Dashboard = () => {
     return null;
   };
 
-  // 3D Dual Calendar Filter Component (Registration Date & Last Comment Date)
-  const renderDual3DCalendarWidget = ({
+  // 3D Column Header Filter Component for Registration Date
+  const renderColHeaderRegDate3D = ({
     regFrom,
     setRegFrom,
     regTo,
     setRegTo,
-    openRegPop,
-    setOpenRegPop,
-    commentFrom,
-    setCommentFrom,
-    commentTo,
-    setCommentTo,
-    openCommentPop,
-    setOpenCommentPop
+    openPop,
+    setOpenPop,
+    label = 'تاريخ تسجيل العميل'
   }) => {
     return (
-      <div className="relative flex flex-col gap-1 select-none z-30">
-        {/* Row 1: Registration Date 3D Button */}
-        <div className="relative">
+      <th className="p-3 font-bold text-purple-900 text-sm select-none min-w-[175px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
-            onClick={() => { setOpenRegPop(!openRegPop); setOpenCommentPop(false); }}
-            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.45)] active:scale-95 border cursor-pointer ${
+            onClick={(e) => { e.stopPropagation(); setOpenPop(true); }}
+            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_3px_10px_rgba(0,0,0,0.25)] hover:shadow-[0_5px_15px_rgba(0,0,0,0.35)] active:scale-95 border cursor-pointer ${
               (regFrom || regTo)
                 ? 'bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 text-white border-purple-300 ring-2 ring-purple-400/50'
                 : 'bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-purple-200 border-purple-500/40 hover:border-purple-300'
             }`}
-            title="تصفية بحسب تاريخ تسجيل العميل (من - إلى)"
+            title={`فلترة ${label} (من - إلى)`}
           >
-            {/* 3D Calendar Graphic */}
             <div className="w-5 h-5 rounded-md bg-gradient-to-b from-indigo-500 to-purple-800 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
               <div className="w-full bg-indigo-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
                 <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
@@ -649,114 +643,123 @@ const Dashboard = () => {
                 📅
               </div>
             </div>
-            <div className="flex flex-col text-right leading-none">
-              <span className="text-[10px] font-black text-purple-100">تاريخ تسجيل العميل</span>
-              <span className="text-[9px] text-purple-300 font-mono mt-0.5" dir="ltr">
-                {(regFrom || regTo) ? `${regFrom || 'Start'} ➔ ${regTo || 'End'}` : 'تصفية 3D (من - إلى)'}
-              </span>
-            </div>
+            <span className="text-[10px] font-mono whitespace-nowrap" dir="ltr">
+              {(regFrom || regTo) ? `${regFrom || 'Start'} ➔ ${regTo || 'End'}` : 'فلترة 3D'}
+            </span>
             {(regFrom || regTo) ? (
               <span
                 onClick={(e) => { e.stopPropagation(); setRegFrom(''); setRegTo(''); }}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm mr-1 cursor-pointer"
-                title="مسح تصفية تاريخ التسجيل"
+                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm cursor-pointer mr-0.5"
+                title="مسح التصفية"
               >
                 ✕
               </span>
             ) : (
-              <span className="text-purple-400 text-[10px] mr-0.5">▼</span>
+              <span className="text-purple-400 text-[9px]">▼</span>
             )}
           </button>
-
-          {/* Popover Dropdown for Registration Date */}
-          {openRegPop && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setOpenRegPop(false)}></div>
-              <div className="absolute top-full right-0 mt-1.5 z-50 bg-slate-900/95 backdrop-blur-xl border border-purple-500/50 rounded-2xl p-3 shadow-[0_12px_36px_rgba(0,0,0,0.6)] text-white w-64 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex items-center justify-between border-b border-purple-500/30 pb-1.5 mb-2">
-                  <span className="text-xs font-black text-purple-200 flex items-center gap-1">
-                    <span>📅</span> فلترة تاريخ تسجيل العميل
-                  </span>
-                  <button onClick={() => setOpenRegPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">✕</button>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-purple-300 mb-0.5">من تاريخ (Start):</label>
-                    <input
-                      type="date"
-                      value={regFrom}
-                      onChange={(e) => setRegFrom(e.target.value)}
-                      className="w-full bg-slate-800 border border-purple-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-purple-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-purple-300 mb-0.5">إلى تاريخ (End):</label>
-                    <input
-                      type="date"
-                      value={regTo}
-                      onChange={(e) => setRegTo(e.target.value)}
-                      className="w-full bg-slate-800 border border-purple-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-purple-300"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 mt-2.5 pt-1.5 border-t border-purple-500/20 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const t = new Date().toISOString().slice(0, 10);
-                      setRegFrom(t);
-                      setRegTo(t);
-                    }}
-                    className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded px-1.5 py-0.5 text-purple-200 font-bold transition cursor-pointer"
-                  >
-                    اليوم
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const now = new Date();
-                      const past = new Date(now.getTime() - 7 * 86400000);
-                      setRegFrom(past.toISOString().slice(0, 10));
-                      setRegTo(now.toISOString().slice(0, 10));
-                    }}
-                    className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded px-1.5 py-0.5 text-purple-200 font-bold transition cursor-pointer"
-                  >
-                    7 أيام
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setRegFrom(''); setRegTo(''); }}
-                    className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded px-2 py-0.5 text-rose-300 font-bold transition cursor-pointer"
-                    title="مسح"
-                  >
-                    مسح
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOpenRegPop(false)}
-                  className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-1 rounded-lg text-xs transition shadow-md cursor-pointer"
-                >
-                  تطبيق الفلتر ✓
-                </button>
-              </div>
-            </>
-          )}
         </div>
 
-        {/* Row 2: Last Comment Date 3D Button (تحت بعض) */}
-        <div className="relative">
+        {openPop && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 text-right" onClick={() => setOpenPop(false)}>
+            <div className="bg-slate-900 border border-purple-500/50 rounded-2xl p-4 shadow-2xl text-white w-80 max-w-[95vw] animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-purple-500/30 pb-2 mb-3">
+                <span className="text-sm font-black text-purple-200 flex items-center gap-1.5">
+                  <span>📅</span> فلترة {label} (3D)
+                </span>
+                <button onClick={() => setOpenPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer p-1">✕</button>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-purple-300 mb-1">من تاريخ (Start Date):</label>
+                  <input
+                    type="date"
+                    value={regFrom}
+                    onChange={(e) => setRegFrom(e.target.value)}
+                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-purple-300 mb-1">إلى تاريخ (End Date):</label>
+                  <input
+                    type="date"
+                    value={regTo}
+                    onChange={(e) => setRegTo(e.target.value)}
+                    className="w-full bg-slate-800 border border-purple-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-400"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-purple-500/20 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = new Date().toISOString().slice(0, 10);
+                    setRegFrom(t);
+                    setRegTo(t);
+                  }}
+                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-1.5 text-purple-200 font-bold transition cursor-pointer"
+                >
+                  اليوم
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const past = new Date(now.getTime() - 7 * 86400000);
+                    setRegFrom(past.toISOString().slice(0, 10));
+                    setRegTo(now.toISOString().slice(0, 10));
+                  }}
+                  className="flex-1 bg-purple-950 hover:bg-purple-800 border border-purple-500/40 rounded-lg py-1.5 text-purple-200 font-bold transition cursor-pointer"
+                >
+                  7 أيام
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setRegFrom(''); setRegTo(''); }}
+                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-2.5 py-1.5 text-rose-300 font-bold transition cursor-pointer"
+                  title="مسح التصفية"
+                >
+                  مسح
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenPop(false)}
+                className="w-full mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-2 rounded-xl text-xs transition shadow-lg cursor-pointer"
+              >
+                تطبيق الفلتر ✓
+              </button>
+            </div>
+          </div>
+        )}
+      </th>
+    );
+  };
+
+  // 3D Column Header Filter Component for Last Comment Date
+  const renderColHeaderCommentDate3D = ({
+    commentFrom,
+    setCommentFrom,
+    commentTo,
+    setCommentTo,
+    openPop,
+    setOpenPop,
+    label = 'تاريخ Last Comment'
+  }) => {
+    return (
+      <th className="p-3 font-bold text-amber-900 text-sm select-none min-w-[175px] text-center">
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-xs sm:text-sm font-black whitespace-nowrap">{label}</span>
           <button
             type="button"
-            onClick={() => { setOpenCommentPop(!openCommentPop); setOpenRegPop(false); }}
-            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.45)] active:scale-95 border cursor-pointer ${
+            onClick={(e) => { e.stopPropagation(); setOpenPop(true); }}
+            className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-[0_3px_10px_rgba(0,0,0,0.25)] hover:shadow-[0_5px_15px_rgba(0,0,0,0.35)] active:scale-95 border cursor-pointer ${
               (commentFrom || commentTo)
                 ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white border-amber-300 ring-2 ring-amber-400/50'
                 : 'bg-gradient-to-r from-slate-900 via-amber-950/80 to-slate-900 text-amber-200 border-amber-500/40 hover:border-amber-300'
             }`}
-            title="تصفية بحسب تاريخ آخر كومنت للعميل (من - إلى)"
+            title={`فلترة ${label} (من - إلى)`}
           >
-            {/* 3D Calendar Graphic */}
             <div className="w-5 h-5 rounded-md bg-gradient-to-b from-amber-500 to-orange-700 p-0.5 shadow-md flex flex-col items-center justify-between border border-white/40 shrink-0 transform group-hover:rotate-6 transition-transform">
               <div className="w-full bg-amber-700 h-1 rounded-t-xs flex justify-around items-center px-0.5">
                 <span className="w-0.5 h-0.5 bg-white rounded-full"></span>
@@ -766,104 +769,98 @@ const Dashboard = () => {
                 🗓️
               </div>
             </div>
-            <div className="flex flex-col text-right leading-none">
-              <span className="text-[10px] font-black text-amber-100">تاريخ Last Comment</span>
-              <span className="text-[9px] text-amber-300 font-mono mt-0.5" dir="ltr">
-                {(commentFrom || commentTo) ? `${commentFrom || 'Start'} ➔ ${commentTo || 'End'}` : 'تصفية 3D (من - إلى)'}
-              </span>
-            </div>
+            <span className="text-[10px] font-mono whitespace-nowrap" dir="ltr">
+              {(commentFrom || commentTo) ? `${commentFrom || 'Start'} ➔ ${commentTo || 'End'}` : 'فلترة 3D'}
+            </span>
             {(commentFrom || commentTo) ? (
               <span
                 onClick={(e) => { e.stopPropagation(); setCommentFrom(''); setCommentTo(''); }}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm mr-1 cursor-pointer"
-                title="مسح تصفية تاريخ آخر كومنت"
+                className="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-sm cursor-pointer mr-0.5"
+                title="مسح التصفية"
               >
                 ✕
               </span>
             ) : (
-              <span className="text-amber-400 text-[10px] mr-0.5">▼</span>
+              <span className="text-amber-400 text-[9px]">▼</span>
             )}
           </button>
+        </div>
 
-          {/* Popover Dropdown for Last Comment Date */}
-          {openCommentPop && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setOpenCommentPop(false)}></div>
-              <div className="absolute top-full right-0 mt-1.5 z-50 bg-slate-900/95 backdrop-blur-xl border border-amber-500/50 rounded-2xl p-3 shadow-[0_12px_36px_rgba(0,0,0,0.6)] text-white w-64 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex items-center justify-between border-b border-amber-500/30 pb-1.5 mb-2">
-                  <span className="text-xs font-black text-amber-200 flex items-center gap-1">
-                    <span>🗓️</span> فلترة تاريخ آخر كومنت
-                  </span>
-                  <button onClick={() => setOpenCommentPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">✕</button>
+        {openPop && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 text-right" onClick={() => setOpenPop(false)}>
+            <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-4 shadow-2xl text-white w-80 max-w-[95vw] animate-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
+                <span className="text-sm font-black text-amber-200 flex items-center gap-1.5">
+                  <span>🗓️</span> فلترة {label} (3D)
+                </span>
+                <button onClick={() => setOpenPop(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer p-1">✕</button>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1">من تاريخ (Start Date):</label>
+                  <input
+                    type="date"
+                    value={commentFrom}
+                    onChange={(e) => setCommentFrom(e.target.value)}
+                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-amber-300 mb-0.5">من تاريخ (Start):</label>
-                    <input
-                      type="date"
-                      value={commentFrom}
-                      onChange={(e) => setCommentFrom(e.target.value)}
-                      className="w-full bg-slate-800 border border-amber-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-amber-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-amber-300 mb-0.5">إلى تاريخ (End):</label>
-                    <input
-                      type="date"
-                      value={commentTo}
-                      onChange={(e) => setCommentTo(e.target.value)}
-                      className="w-full bg-slate-800 border border-amber-400/40 rounded-lg px-2 py-1 text-xs text-white font-mono font-bold outline-none focus:border-amber-300"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1">إلى تاريخ (End Date):</label>
+                  <input
+                    type="date"
+                    value={commentTo}
+                    onChange={(e) => setCommentTo(e.target.value)}
+                    className="w-full bg-slate-800 border border-amber-400/40 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-400"
+                  />
                 </div>
-                <div className="flex items-center gap-1 mt-2.5 pt-1.5 border-t border-amber-500/20 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const t = new Date().toISOString().slice(0, 10);
-                      setCommentFrom(t);
-                      setCommentTo(t);
-                    }}
-                    className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded px-1.5 py-0.5 text-amber-200 font-bold transition cursor-pointer"
-                  >
-                    اليوم
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const now = new Date();
-                      const past = new Date(now.getTime() - 7 * 86400000);
-                      setCommentFrom(past.toISOString().slice(0, 10));
-                      setCommentTo(now.toISOString().slice(0, 10));
-                    }}
-                    className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded px-1.5 py-0.5 text-amber-200 font-bold transition cursor-pointer"
-                  >
-                    7 أيام
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setCommentFrom(''); setCommentTo(''); }}
-                    className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded px-2 py-0.5 text-rose-300 font-bold transition cursor-pointer"
-                    title="مسح"
-                  >
-                    مسح
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-amber-500/20 text-xs">
                 <button
                   type="button"
-                  onClick={() => setOpenCommentPop(false)}
-                  className="w-full mt-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-1 rounded-lg text-xs transition shadow-md cursor-pointer"
+                  onClick={() => {
+                    const t = new Date().toISOString().slice(0, 10);
+                    setCommentFrom(t);
+                    setCommentTo(t);
+                  }}
+                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-1.5 text-amber-200 font-bold transition cursor-pointer"
                 >
-                  تطبيق الفلتر ✓
+                  اليوم
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const past = new Date(now.getTime() - 7 * 86400000);
+                    setCommentFrom(past.toISOString().slice(0, 10));
+                    setCommentTo(now.toISOString().slice(0, 10));
+                  }}
+                  className="flex-1 bg-amber-950 hover:bg-amber-800 border border-amber-500/40 rounded-lg py-1.5 text-amber-200 font-bold transition cursor-pointer"
+                >
+                  7 أيام
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCommentFrom(''); setCommentTo(''); }}
+                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 rounded-lg px-2.5 py-1.5 text-rose-300 font-bold transition cursor-pointer"
+                  title="مسح التصفية"
+                >
+                  مسح
                 </button>
               </div>
-            </>
-          )}
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => setOpenPop(false)}
+                className="w-full mt-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-2 rounded-xl text-xs transition shadow-lg cursor-pointer"
+              >
+                تطبيق الفلتر ✓
+              </button>
+            </div>
+          </div>
+        )}
+      </th>
     );
   };
-
   // English Job Title Helper
   const getJobTitleEnglish = (title) => {
     if (!title) return 'Agent';
@@ -6341,20 +6338,7 @@ const Dashboard = () => {
                   })()}
                 </div>
 
-                {renderDual3DCalendarWidget({
-                    regFrom: teamRegDateFrom,
-                    setRegFrom: setTeamRegDateFrom,
-                    regTo: teamRegDateTo,
-                    setRegTo: setTeamRegDateTo,
-                    openRegPop: openTeamRegDatePop,
-                    setOpenRegPop: setOpenTeamRegDatePop,
-                    commentFrom: teamCommentDateFrom,
-                    setCommentFrom: setTeamCommentDateFrom,
-                    commentTo: teamCommentDateTo,
-                    setCommentTo: setTeamCommentDateTo,
-                    openCommentPop: openTeamCommentDatePop,
-                    setOpenCommentPop: setOpenTeamCommentDatePop
-                  })}
+                
 
                 {/* Search Box & Sort */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -6387,8 +6371,24 @@ const Dashboard = () => {
                       <th className="p-3.5">الرقم</th>
                       <th className="p-3.5">اسم العميل</th>
                       <th className="p-3.5">Team Member</th>
-                      <th className="p-3.5 text-center">تاريخ الإسناد</th>
-                      <th className="p-3.5 text-center text-amber-300">تاريخ Last Comment</th>
+                      {renderColHeaderRegDate3D({
+                        regFrom: teamRegDateFrom,
+                        setRegFrom: setTeamRegDateFrom,
+                        regTo: teamRegDateTo,
+                        setRegTo: setTeamRegDateTo,
+                        openPop: openTeamRegDatePop,
+                        setOpenPop: setOpenTeamRegDatePop,
+                        label: 'تاريخ الإسناد'
+                      })}
+                      {renderColHeaderCommentDate3D({
+                        commentFrom: teamCommentDateFrom,
+                        setCommentFrom: setTeamCommentDateFrom,
+                        commentTo: teamCommentDateTo,
+                        setCommentTo: setTeamCommentDateTo,
+                        openPop: openTeamCommentDatePop,
+                        setOpenPop: setOpenTeamCommentDatePop,
+                        label: 'تاريخ Last Comment'
+                      })}
                       <th className="p-3.5 text-center">حالة المتابعة (CRM)</th>
                       <th className="p-3.5 text-center">إجراء السحب والواتساب</th>
                     </tr>
@@ -6745,20 +6745,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {renderDual3DCalendarWidget({
-                      regFrom: dateFromFilter,
-                      setRegFrom: setDateFromFilter,
-                      regTo: dateToFilter,
-                      setRegTo: setDateToFilter,
-                      openRegPop: openCrmRegDatePop,
-                      setOpenRegPop: setOpenCrmRegDatePop,
-                      commentFrom: crmCommentDateFrom,
-                      setCommentFrom: setCrmCommentDateFrom,
-                      commentTo: crmCommentDateTo,
-                      setCommentTo: setCrmCommentDateTo,
-                      openCommentPop: openCrmCommentDatePop,
-                      setOpenCommentPop: setOpenCrmCommentDatePop
-                    })}
+                    
 
                     {/* Sort Order Selector */}
                     <select
@@ -6937,10 +6924,26 @@ const Dashboard = () => {
                           )}
                           <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm">تاريخ تسجيل العميل</th>
-                          <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
+                          {renderColHeaderRegDate3D({
+                            regFrom: dateFromFilter,
+                            setRegFrom: setDateFromFilter,
+                            regTo: dateToFilter,
+                            setRegTo: setDateToFilter,
+                            openPop: openCrmRegDatePop,
+                            setOpenPop: setOpenCrmRegDatePop,
+                            label: 'تاريخ تسجيل العميل'
+                          })}
+                          {renderColHeaderCommentDate3D({
+                            commentFrom: crmCommentDateFrom,
+                            setCommentFrom: setCrmCommentDateFrom,
+                            commentTo: crmCommentDateTo,
+                            setCommentTo: setCrmCommentDateTo,
+                            openPop: openCrmCommentDatePop,
+                            setOpenPop: setOpenCrmCommentDatePop,
+                            label: 'تاريخ Last Comment'
+                          })}
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
                           {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7128,7 +7131,7 @@ const Dashboard = () => {
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     }
                                   }}
-                                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-purple-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                                  dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                 >
                                   {isLeader ? (
                                     <>
@@ -7516,20 +7519,7 @@ const Dashboard = () => {
 
                   {/* Search, Date & Sort Controls */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    {renderDual3DCalendarWidget({
-                      regFrom: empLeadsDateFrom,
-                      setRegFrom: setEmpLeadsDateFrom,
-                      regTo: empLeadsDateTo,
-                      setRegTo: setEmpLeadsDateTo,
-                      openRegPop: openEmpRegDatePop,
-                      setOpenRegPop: setOpenEmpRegDatePop,
-                      commentFrom: empCommentDateFrom,
-                      setCommentFrom: setEmpCommentDateFrom,
-                      commentTo: empCommentDateTo,
-                      setCommentTo: setEmpCommentDateTo,
-                      openCommentPop: openEmpCommentDatePop,
-                      setOpenCommentPop: setOpenEmpCommentDatePop
-                    })}
+                    
 
                     <button
                       onClick={() => setEmpLeadsSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -7656,10 +7646,26 @@ const Dashboard = () => {
                           )}
                           <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm">تاريخ تسجيل العميل</th>
-                          <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
+                          {renderColHeaderRegDate3D({
+                            regFrom: empLeadsDateFrom,
+                            setRegFrom: setEmpLeadsDateFrom,
+                            regTo: empLeadsDateTo,
+                            setRegTo: setEmpLeadsDateTo,
+                            openPop: openEmpRegDatePop,
+                            setOpenPop: setOpenEmpRegDatePop,
+                            label: 'تاريخ تسجيل العميل'
+                          })}
+                          {renderColHeaderCommentDate3D({
+                            commentFrom: empCommentDateFrom,
+                            setCommentFrom: setEmpCommentDateFrom,
+                            commentTo: empCommentDateTo,
+                            setCommentTo: setEmpCommentDateTo,
+                            openPop: openEmpCommentDatePop,
+                            setOpenPop: setOpenEmpCommentDatePop,
+                            label: 'تاريخ Last Comment'
+                          })}
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>}
                         </tr>
                       </thead>
@@ -7868,7 +7874,7 @@ const Dashboard = () => {
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
                                       }}
-                                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-purple-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                                      dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-purple-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8405,7 +8411,7 @@ const Dashboard = () => {
                         <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
                           <th className="p-3.5">اسم العميل</th>
                           <th className="p-3.5 text-center">رقم الهاتف</th>
-                          <th className="p-3.5 text-center">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center min-w-[210px]">الموظف المسؤول</th>
                           <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center">فترة الاشتراك</th>
                           {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
@@ -8477,7 +8483,7 @@ const Dashboard = () => {
                                           toast.success(`تم إسناد العميل إلى ${targetEmp?.name}`);
                                         }
                                       }}
-                                      className="border border-emerald-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
+                                      dir="rtl" className="border border-emerald-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-emerald-500 bg-white shadow-xs cursor-pointer mb-1"
                                     >
                                       {isLeader ? (
                                         <>
@@ -8883,7 +8889,7 @@ const Dashboard = () => {
                         <select 
                           value={customer.assignedToUid || ""}
                           onChange={(e) => handleAssignCustomer(customer.id, e.target.value)}
-                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 w-full focus:outline-none focus:border-blue-500 bg-white/70 shadow-sm cursor-pointer mb-1"
+                          dir="rtl" className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-blue-500 bg-white/90 shadow-sm cursor-pointer mb-1"
                         >
                           <option value="" disabled>-- سحب أو تعيين --</option>
                           {isLeader ? (
@@ -8984,7 +8990,7 @@ const Dashboard = () => {
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm">الموظف المسؤول</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[210px] text-center">الموظف المسؤول</th>
                           <th className="p-4 font-semibold text-gray-600 text-sm text-center">الإجراءات والواتساب</th>
                         </tr>
                       </thead>
@@ -9567,7 +9573,7 @@ const Dashboard = () => {
                     <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
                     <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">الموظف المسؤول ومضاف بواسطة</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[220px]">الموظف المسؤول ومضاف بواسطة</th>
                     <th 
                       className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -9797,7 +9803,7 @@ const Dashboard = () => {
                                       toast.success(`تم إسناد العميل إلى (${targetEmp?.name || 'الموظف'}) وظهوره في كارت CRM الخاص به بنجاح ✓`);
                                     }
                                   }}
-                                  className="border border-indigo-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
+                                  dir="rtl" className="border border-indigo-200 rounded-lg px-3 py-1 text-xs font-bold text-gray-800 w-full min-w-[205px] focus:outline-none focus:border-indigo-500 bg-white shadow-xs cursor-pointer"
                                 >
                                   {isLeader ? (
                                     <>
