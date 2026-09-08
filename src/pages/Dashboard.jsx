@@ -435,6 +435,25 @@ const Dashboard = () => {
   const [newNoteText, setNewNoteText] = useState('');
   const [selectedStatusForNotes, setSelectedStatusForNotes] = useState('interested');
   const [trialDateForNotes, setTrialDateForNotes] = useState('');
+  const [previousStatusForNotes, setPreviousStatusForNotes] = useState('unassigned');
+  const [isStatusChangeMandatory, setIsStatusChangeMandatory] = useState(false);
+
+  const getLastCommentDate = (customer) => {
+    if (!customer) return '—';
+    if (customer.lastCommentAt) {
+      return formatDate(customer.lastCommentAt);
+    }
+    if (customer.notesHistory && customer.notesHistory.length > 0) {
+      const lastNote = customer.notesHistory[customer.notesHistory.length - 1];
+      if (lastNote && lastNote.createdAt) {
+        return formatDate(lastNote.createdAt);
+      }
+    }
+    if (customer.notes && typeof customer.notes === 'string' && customer.notes.trim() && (customer.updatedAt || customer.createdAt)) {
+      return formatDate(customer.updatedAt || customer.createdAt);
+    }
+    return '—';
+  };
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
@@ -2840,6 +2859,20 @@ const Dashboard = () => {
     const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
     setSelectedCustomerForNotes({ ...customer, isLeadCrm, isEmployeeLead: isEmpLead });
     setSelectedStatusForNotes(customer.crmStatus || 'unassigned');
+    setPreviousStatusForNotes(customer.crmStatus || 'unassigned');
+    setIsStatusChangeMandatory(false);
+    setTrialDateForNotes(customer.trialStartDate || '');
+    setModalCustomerName(customer.name || '');
+    setNewNoteText('');
+    setIsNotesModalOpen(true);
+  };
+
+  const handleRequestStatusChangeWithComment = (customer, newStatus, isLeadCrm = false) => {
+    const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
+    setSelectedCustomerForNotes({ ...customer, isLeadCrm, isEmployeeLead: isEmpLead });
+    setSelectedStatusForNotes(newStatus);
+    setPreviousStatusForNotes(customer.crmStatus || 'unassigned');
+    setIsStatusChangeMandatory(true);
     setTrialDateForNotes(customer.trialStartDate || '');
     setModalCustomerName(customer.name || '');
     setNewNoteText('');
@@ -2848,6 +2881,13 @@ const Dashboard = () => {
 
   const handleSaveCustomerNotesAndStatus = async () => {
     if (!selectedCustomerForNotes) return;
+
+    const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
+    if ((isStatusChangeMandatory || isChangingStatus) && !newNoteText.trim()) {
+      toast.error('⚠️ كتابة التعليق إجبارية لاختيار الحالة وتحويل العميل!');
+      return;
+    }
+
     try {
       const updatePayload = {
         crmStatus: selectedStatusForNotes,
@@ -2869,15 +2909,20 @@ const Dashboard = () => {
           id: Date.now().toString(),
           text: newNoteText.trim(),
           author: authorName,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
         };
         updatePayload.notesHistory = arrayUnion(noteObj);
+        updatePayload.lastCommentAt = serverTimestamp();
+        updatePayload.lastCommentText = newNoteText.trim();
+        updatePayload.notes = newNoteText.trim();
       }
 
       const targetColl = determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
-      toast.success('تم حفظ التغييرات والاسم والملاحظات بنجاح');
+      toast.success(isChangingStatus ? 'تم تحويل حالة العميل وتوثيق التعليق بنجاح 🎯' : 'تم حفظ التغييرات والملاحظات بنجاح');
       setIsNotesModalOpen(false);
+      setIsStatusChangeMandatory(false);
       setNewNoteText('');
     } catch (err) {
       console.error(err);
@@ -5910,41 +5955,50 @@ const Dashboard = () => {
                     onChange={(e) => setTeamTrackingEmpFilter(e.target.value)}
                     className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
                   >
-                    {(() => {
-                      const allTeamLeads = leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase()));
-                      const allTeamTotal = allTeamLeads.length;
-                      const allTeamPending = allTeamLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.crmStatus === 'pending').length;
-                      return (
-                        <option value="all">👥 جميع أعضاء الفريق (إجمالي: {allTeamTotal} | انتظار: {allTeamPending})</option>
-                      );
-                    })()}
-                    {myTeamMembers.map(emp => {
-                      const empLeads = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
-                      const totalCount = empLeads.length;
-                      const pendingCount = empLeads.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.crmStatus === 'pending').length;
-                      return (
-                        <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} (إجمالي: {totalCount} | انتظار: {pendingCount})
-                        </option>
-                      );
-                    })}
+                    <option value="all">👥 جميع أعضاء الفريق</option>
+                    {myTeamMembers.map(emp => (
+                      <option key={emp.uid} value={emp.uid}>
+                        👤 {emp.name}
+                      </option>
+                    ))}
                   </select>
 
-                  {/* Status Filter */}
-                  <select 
-                    value={crmStatusFilter} 
-                    onChange={(e) => setCrmStatusFilter(e.target.value)}
-                    className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
-                  >
-                    <option value="all">🏷️ All Statuses (جميع الحالات)</option>
-                    <option value="unassigned">⏳ Pending (في الانتظار)</option>
-                    <option value="call_back">📞 Call Back (معاودة اتصال)</option>
-                    <option value="started_trial">🚀 Started Trial (بدأ تجربة)</option>
-                    <option value="subscribed">🎉 Subscribed (تم الاشتراك)</option>
-                    <option value="interested">🌟 Interested (مهتم)</option>
-                    <option value="no_answer">📵 No Answer (لم يرد)</option>
-                    <option value="not_interested">❌ Not Interested (غير مهتم)</option>
-                  </select>
+                  {/* Status Filter with dynamic counts per status */}
+                  {(() => {
+                    const pool = leadsCrm.filter(c => {
+                      if (teamTrackingEmpFilter === 'all') {
+                        return myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase());
+                      }
+                      const empObj = myTeamMembers.find(m => m.uid === teamTrackingEmpFilter);
+                      return c.assignedToUid === teamTrackingEmpFilter || (empObj?.email && c.assignedTo?.toLowerCase() === empObj.email.toLowerCase());
+                    });
+                    const statusCounts = {
+                      all: pool.length,
+                      unassigned: pool.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.crmStatus === 'pending' || c.crmStatus === 'assigned').length,
+                      call_back: pool.filter(c => c.crmStatus === 'call_back').length,
+                      started_trial: pool.filter(c => c.crmStatus === 'started_trial').length,
+                      subscribed: pool.filter(c => c.crmStatus === 'subscribed').length,
+                      interested: pool.filter(c => c.crmStatus === 'interested').length,
+                      no_answer: pool.filter(c => c.crmStatus === 'no_answer').length,
+                      not_interested: pool.filter(c => c.crmStatus === 'not_interested').length
+                    };
+                    return (
+                      <select 
+                        value={crmStatusFilter} 
+                        onChange={(e) => setCrmStatusFilter(e.target.value)}
+                        className="bg-slate-800 text-white border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        <option value="all">🏷️ All Statuses (جميع الحالات) ({statusCounts.all})</option>
+                        <option value="unassigned">⏳ Pending (في الانتظار) ({statusCounts.unassigned})</option>
+                        <option value="call_back">📞 Call Back (معاودة اتصال) ({statusCounts.call_back})</option>
+                        <option value="started_trial">🚀 Started Trial (بدأ تجربة) ({statusCounts.started_trial})</option>
+                        <option value="subscribed">🎉 Subscribed (تم الاشتراك) ({statusCounts.subscribed})</option>
+                        <option value="interested">🌟 Interested (مهتم) ({statusCounts.interested})</option>
+                        <option value="no_answer">📵 No Answer (لم يرد) ({statusCounts.no_answer})</option>
+                        <option value="not_interested">❌ Not Interested (غير مهتم) ({statusCounts.not_interested})</option>
+                      </select>
+                    );
+                  })()}
                 </div>
 
                 {/* Search Box & Sort */}
@@ -5979,15 +6033,15 @@ const Dashboard = () => {
                       <th className="p-3.5">اسم العميل</th>
                       <th className="p-3.5">عضو الفريق الحالي</th>
                       <th className="p-3.5 text-center">تاريخ الإسناد</th>
-                      <th className="p-3.5 text-center">حالة المتابعة</th>
-                      <th className="p-3.5 text-center">التقرير والملاحظات</th>
-                      <th className="p-3.5 text-center">إجراء السحب</th>
+                      <th className="p-3.5 text-center text-amber-300">تاريخ Last Comment</th>
+                      <th className="p-3.5 text-center">حالة المتابعة (CRM)</th>
+                      <th className="p-3.5 text-center">إجراء السحب والواتساب</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white/90 text-gray-800">
                     {paginatedTeamLeads.length === 0 ? (
                       <tr>
-                        <td colSpan="8" className="p-8 text-center text-gray-500">
+                        <td colSpan="9" className="p-8 text-center text-gray-500">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <Users size={36} className="text-gray-300" />
                             <p className="font-bold text-sm">لا يوجد عملاء مخصصين لأعضاء فريقك حالياً تحت هذا الفلتر.</p>
@@ -6029,28 +6083,33 @@ const Dashboard = () => {
                             <td className="p-3.5 text-center text-gray-500 text-[11px] font-mono">
                               {customer.assignedAt?.toDate ? customer.assignedAt.toDate().toLocaleDateString('ar-EG') : (customer.createdAt?.toDate ? customer.createdAt.toDate().toLocaleDateString('ar-EG') : '—')}
                             </td>
+                            <td className="p-3.5 text-center text-xs text-amber-900 font-mono font-bold bg-amber-50/40" dir="ltr">
+                              {getLastCommentDate(customer)}
+                            </td>
                             <td className="p-3.5 text-center">
-                              {(() => {
-                                const st = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned';
-                                const info = CRM_STATUS_MAP[st] || CRM_STATUS_MAP.unassigned;
-                                return (
-                                  <span className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-bold leading-tight shadow-xs ${info.bg}`}>
-                                    <span>{info.label}</span>
-                                    <span className="text-[9px] opacity-80 font-medium">{info.arLabel}</span>
-                                  </span>
-                                );
-                              })()}
+                              <div className="flex flex-col items-center justify-center gap-1.5">
+                                {(() => {
+                                  const st = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned';
+                                  const info = CRM_STATUS_MAP[st] || CRM_STATUS_MAP.unassigned;
+                                  return (
+                                    <span className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-bold leading-tight shadow-xs ${info.bg}`}>
+                                      <span>{info.label}</span>
+                                      <span className="text-[9px] opacity-80 font-medium">{info.arLabel}</span>
+                                    </span>
+                                  );
+                                })()}
+                                <button 
+                                  onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
+                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  title="Comment"
+                                >
+                                  <FileText size={12} className="text-amber-700" />
+                                  <span>Comment {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : (customer.notes ? '📝' : '')}</span>
+                                </button>
+                              </div>
                             </td>
                             <td className="p-3.5 text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                <button 
-                                  onClick={() => openNotesModal(customer)}
-                                  className="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                                  title="Comment"
-                                >
-                                  <FileText size={13} />
-                                  <span>Comment {customer.notes ? '📝' : ''}</span>
-                                </button>
                                 <button 
                                   onClick={() => handleTransferToWhatsapp(customer)}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
@@ -6543,7 +6602,8 @@ const Dashboard = () => {
                           )}
                           <th className="p-4 font-bold text-purple-900 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">اسم العميل ومصدر الداتا</th>
-                          <th className="p-4 font-bold text-purple-900 text-sm">تاريخ الاستيراد</th>
+                          <th className="p-4 font-bold text-purple-900 text-sm">تاريخ تسجيل العميل</th>
+                          <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-900 text-sm">الموظف المسؤول</th>
                           <th className="p-4 font-bold text-purple-900 text-sm text-center">الإجراءات</th>
@@ -6551,7 +6611,7 @@ const Dashboard = () => {
                       </thead>
                       <tbody>
                         {paginatedLeads.length === 0 ? (
-                          <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
+                          <tr><td colSpan={(isAdmin || isCoordinator || isLeader) ? 8 : 7} className="p-8 text-center text-gray-500 font-bold">لا يوجد عملاء مطابقين للبحث أو التصفية في قسم Leads CRM.</td></tr>
                         ) : (
                           paginatedLeads.map((customer, idx) => {
                             const currentCrmStatus = customer.crmStatus || 'unassigned';
@@ -6648,19 +6708,16 @@ const Dashboard = () => {
                                 );
                               })()}
                             </td>
-                            <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                            <td className="p-4 text-xs text-gray-500 font-mono" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                            <td className="p-4 text-xs text-amber-900 font-mono font-bold bg-amber-50/40 text-center" dir="ltr">
+                              {getLastCommentDate(customer)}
+                            </td>
                             <td className="p-4 text-sm">
-                              <div className="flex flex-col gap-1">
+                              <div className="flex flex-col gap-1.5 items-center">
                                 <select 
                                   value={currentCrmStatus}
-                                  onChange={async (e) => {
-                                    const newStatus = e.target.value;
-                                    try {
-                                      await updateDoc(doc(db, 'leads_crm', customer.id), { crmStatus: newStatus, updatedAt: serverTimestamp() });
-                                      toast.success('تم تحديث حالة العميل');
-                                    } catch (err) { toast.error('خطأ في تحديث الحالة'); }
-                                  }}
-                                  className={`text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
+                                  onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, true)}
+                                  className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
                                 >
                                   <option value="unassigned">⏳ Pending (في الانتظار)</option>
                                   <option value="call_back">📞 Call Back (معاودة اتصال)</option>
@@ -6674,6 +6731,19 @@ const Dashboard = () => {
                                 {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
                                   <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 التجربة: {customer.trialStartDate}</span>
                                 )}
+                                <button 
+                                  onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
+                                  className="w-full bg-amber-100/90 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                                  title="Comment"
+                                >
+                                  <FileText size={13} className="text-amber-700" />
+                                  <span>Comment</span>
+                                  {customer.notesHistory?.length > 0 && (
+                                    <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                      {customer.notesHistory.length}
+                                    </span>
+                                  )}
+                                </button>
                               </div>
                             </td>
                             <td className="p-4 text-sm text-gray-600 font-medium">
@@ -6765,13 +6835,6 @@ const Dashboard = () => {
                               })()}
                             </td>
                             <td className="p-4 flex items-center gap-1.5 justify-center">
-                              <button 
-                                onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
-                                className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm cursor-pointer"
-                                title="Comment"
-                              >
-                                <FileText size={14} className="ml-1" /> Comment
-                              </button>
                               {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                 <button 
                                   onClick={() => handleTransferToWhatsapp(customer)}
@@ -7268,7 +7331,8 @@ const Dashboard = () => {
                           )}
                           <th className="p-4 font-bold text-purple-950 text-sm">رقم الهاتف</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">اسم العميل وتفاصيل الإضافة</th>
-                          <th className="p-4 font-bold text-purple-950 text-sm">تاريخ الإضافة</th>
+                          <th className="p-4 font-bold text-purple-950 text-sm">تاريخ تسجيل العميل</th>
+                          <th className="p-4 font-bold text-amber-900 text-sm">تاريخ Last Comment</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">حالة المتابعة (CRM)</th>
                           <th className="p-4 font-bold text-purple-950 text-sm">الموظف المسؤول</th>
                           <th className="p-4 font-bold text-purple-950 text-sm text-center">الإجراءات</th>
@@ -7277,7 +7341,7 @@ const Dashboard = () => {
                       <tbody>
                         {paginatedEmpLeads.length === 0 ? (
                           <tr>
-                            <td colSpan={(isAdmin || isCoordinator) ? 7 : 6} className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={(isAdmin || isCoordinator) ? 8 : 7} className="p-10 text-center text-gray-500 font-bold">
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
@@ -7396,19 +7460,16 @@ const Dashboard = () => {
                                     );
                                   })()}
                                 </td>
-                                <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                                <td className="p-4 text-xs text-gray-500 font-mono" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
+                                <td className="p-4 text-xs text-amber-900 font-mono font-bold bg-amber-50/40 text-center" dir="ltr">
+                                  {getLastCommentDate(customer)}
+                                </td>
                                 <td className="p-4 text-sm">
-                                  <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-1.5 items-center">
                                     <select 
                                       value={currentCrmStatus}
-                                      onChange={async (e) => {
-                                        const newStatus = e.target.value;
-                                        try {
-                                          await updateDoc(doc(db, 'employee_leads', customer.id), { crmStatus: newStatus, updatedAt: serverTimestamp() });
-                                          toast.success('تم تحديث حالة العميل');
-                                        } catch (err) { toast.error('خطأ في تحديث الحالة'); }
-                                      }}
-                                      className={`text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
+                                      onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, false)}
+                                      className={`w-full text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center ${statusInfo.bg}`}
                                     >
                                       <option value="unassigned">⏳ Pending (في الانتظار)</option>
                                       <option value="call_back">📞 Call Back (معاودة اتصال)</option>
@@ -7422,6 +7483,19 @@ const Dashboard = () => {
                                     {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
                                       <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 التجربة: {customer.trialStartDate}</span>
                                     )}
+                                    <button 
+                                      onClick={() => handleOpenNotesModal(customer, false)}
+                                      className="w-full bg-amber-100/90 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                                      title="Comment"
+                                    >
+                                      <FileText size={13} className="text-amber-700" />
+                                      <span>Comment</span>
+                                      {customer.notesHistory?.length > 0 && (
+                                        <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                          {customer.notesHistory.length}
+                                        </span>
+                                      )}
+                                    </button>
                                   </div>
                                 </td>
                                 <td className="p-4 text-sm text-gray-600 font-medium">
@@ -7512,14 +7586,6 @@ const Dashboard = () => {
                                 </td>
                                 <td className="p-4 text-sm text-center">
                                   <div className="flex items-center justify-center gap-1.5">
-                                    <button 
-                                      onClick={() => handleOpenNotesModal(customer, false)}
-                                      className="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                                      title="Comment"
-                                    >
-                                      <FileText size={13} />
-                                      <span>Comment {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : ''}</span>
-                                    </button>
                                     {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.addedByUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid || m.uid === customer.addedByUid))) && (
                                       <button 
                                         onClick={() => handleTransferToWhatsapp(customer)}
@@ -10170,10 +10236,17 @@ const Dashboard = () => {
                 <X size={24} />
               </button>
 
-              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
                 <FileText className="text-amber-600" size={24} />
                 <span>تقرير وملاحظات العميل</span>
               </h2>
+
+              {isStatusChangeMandatory && (
+                <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black mb-3 flex items-center gap-2 shadow-sm animate-pulse">
+                  <span className="text-base">⚠️</span>
+                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label} ({CRM_STATUS_MAP[selectedStatusForNotes]?.arLabel})</span></span>
+                </div>
+              )}
 
               <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
                 <div>
@@ -10260,8 +10333,10 @@ const Dashboard = () => {
                             <div className="flex justify-between items-center text-[10px] text-gray-400">
                               <span className="font-bold text-blue-600">👤 {authorDisplay}</span>
                               <div className="flex items-center gap-2">
-                                {!isNoteByAdmin && note.createdAt && (
-                                  <span dir="ltr">{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
+                                {note.createdAt && (
+                                  <span className="text-[11px] text-gray-500 font-mono font-bold" dir="ltr">
+                                    📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
                                 )}
                                 {isAdmin && (
                                   <button 
