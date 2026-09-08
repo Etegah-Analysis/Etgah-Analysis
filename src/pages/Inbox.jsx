@@ -372,7 +372,6 @@ function InboxContent() {
 
       // Strict Membership Check for all employees (Coordinator, Leader, Agent)
       const isMember = 
-        data.adminMandatory === true ||
         (myUid && (membersList.includes(myUid) || membersList.includes(myEmail))) || 
         (myEmpUid && (membersList.includes(myEmpUid) || membersList.includes(myEmpEmail))) ||
         (impersonatedUid && (membersList.includes(impersonatedUid) || membersList.includes(impersonatedEmail))) ||
@@ -995,7 +994,7 @@ function InboxContent() {
         const emp = employees.find(e => e.uid === uid);
         return emp && emp.role !== 'admin' && !adminEmails.includes(emp.email?.toLowerCase());
       });
-      const finalMembers = Array.from(new Set(['admin', ...nonAdminUids]));
+      const finalMembers = Array.from(new Set(['admin', ...nonAdminUids, currentUser.uid]));
 
       const groupDoc = {
         name: newGroupName.trim(),
