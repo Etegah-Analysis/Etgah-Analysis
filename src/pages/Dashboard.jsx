@@ -2137,13 +2137,13 @@ const Dashboard = () => {
 
     if (type === 'leads_crm') {
       setSelectedEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
-      setCrmStatusFilter('unassigned');
+      setCrmStatusFilter('all');
     } else if (type === 'team_leads_tracking') {
       setTeamTrackingEmpFilter('all');
       setCrmStatusFilter('all');
     } else if (type === 'employee_leads') {
       setEmpLeadsEmpFilter('all');
-      setEmpLeadsStatusFilter('unassigned');
+      setEmpLeadsStatusFilter('all');
     } else if (type === 'subscribed_clients') {
       setSubscribedEmpFilter('all');
     } else if (type === 'customers') {
@@ -3464,11 +3464,17 @@ const Dashboard = () => {
   const handleSaveCustomerNotesAndStatus = async () => {
     if (!selectedCustomerForNotes) return;
 
-    const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
-    if ((isStatusChangeMandatory || isChangingStatus) && !newNoteText.trim() && (!selectedCustomerForNotes.notesHistory || selectedCustomerForNotes.notesHistory.length === 0)) {
-      toast.error('⚠️ كتابة التعليق إجبارية لاختيار الحالة وتحويل العميل!');
+    const hasNewNote = Boolean(newNoteText.trim());
+    const originalName = (selectedCustomerForNotes.name || '').trim();
+    const newName = modalCustomerName.trim();
+    const hasNameChanged = Boolean(newName && newName !== originalName);
+
+    if (!hasNewNote && !hasNameChanged) {
+      toast.error('⚠️ يرجى كتابة ملاحظة جديدة أو تعديل اسم العميل أولاً لحفظ التعديلات!');
       return;
     }
+
+    const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
 
     try {
       const updatePayload = {
@@ -7312,7 +7318,7 @@ const Dashboard = () => {
                           })}
                           <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
                           <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-bold text-purple-900 text-xs text-center">الإجراءات</th>}
+                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-bold text-purple-900 text-xs text-center">WhatsApp</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -7812,7 +7818,10 @@ const Dashboard = () => {
                 ? (isLeader
                     ? (empLeadsEmpFilter === 'all'
                         ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))
-                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                        : (empLeadsEmpFilter === currentUser?.uid
+                            ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || (currentEmpUser?.name && c.addedBy === currentEmpUser.name))
+                            : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                          )
                       )
                     : employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
                   )
@@ -7849,6 +7858,20 @@ const Dashboard = () => {
                           <option value="all" className="bg-slate-950 text-white">
                             {isLeader ? `👥 All Team Leads (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})`}
                           </option>
+                          {isLeader && (() => {
+                            const leaderCount = employeeLeads.filter(c => 
+                              c.assignedToUid === currentUser?.uid || 
+                              c.addedByUid === currentUser?.uid || 
+                              (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || 
+                              (currentEmpUser?.name && c.addedBy === currentEmpUser.name)
+                            ).length;
+                            const leaderName = currentEmpUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'الليدر';
+                            return (
+                              <option value={currentUser?.uid} className="bg-slate-950 text-white">
+                                👤 {leaderName} (داتاي) ({leaderCount.toLocaleString()} عميل)
+                              </option>
+                            );
+                          })()}
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
                             const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
                             return (
@@ -7927,6 +7950,10 @@ const Dashboard = () => {
                       const matchesSelf = c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid;
                       const matchesTeam = myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
                       if (!matchesSelf && !matchesTeam) return false;
+                    } else if (empLeadsEmpFilter === currentUser?.uid) {
+                      const matchesAssigned = c.assignedToUid === currentUser?.uid || (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
+                      const matchesAdded = c.addedByUid === currentUser?.uid || (currentEmpUser?.name && c.addedBy === currentEmpUser.name);
+                      if (!matchesAssigned && !matchesAdded) return false;
                     } else {
                       const emp = employees.find(e => e.uid === empLeadsEmpFilter);
                       const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
@@ -8035,7 +8062,7 @@ const Dashboard = () => {
                           })}
                           <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
                           <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-950 text-xs text-center">الإجراءات</th>}
+                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-950 text-xs text-center">WhatsApp</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -9371,7 +9398,7 @@ const Dashboard = () => {
                             </div>
                           </th>
                           <th className="p-4 font-semibold text-gray-600 text-sm min-w-[230px] text-center">الموظف المسؤول</th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm text-center">الإجراءات والواتساب</th>
+                          <th className="p-4 font-semibold text-gray-600 text-sm text-center">WhatsApp</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -9966,7 +9993,7 @@ const Dashboard = () => {
                         </span>
                       </div>
                     </th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">إجراءات</th>
+                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">WhatsApp</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -11013,163 +11040,105 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
-                {/* CRM Status Picker (Leads CRM & Employee Leads) */}
-                {(selectedCustomerForNotes?.isLeadCrm || selectedCustomerForNotes?.isEmployeeLead || selectedCustomerForNotes?.collectionName === 'leads_crm' || selectedCustomerForNotes?.collectionName === 'employee_leads' || selectedCustomerForNotes?.crmStatus) && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
-                    {isCoordinator ? (
-                      <div className="w-full p-2 border rounded-xl text-xs font-black text-gray-800 bg-gray-50 flex items-center justify-between">
-                        <span>{CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ Waiting'}</span>
-                      </div>
-                    ) : (
-                      <select 
-                        value={selectedStatusForNotes}
-                        onChange={(e) => {
-                        setSelectedStatusForNotes(e.target.value);
-                        if (e.target.value !== previousStatusForNotes) {
-                          setIsStatusChangeMandatory(true);
-                        }
-                      }}
-                        className="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
-                      >
-                        <option value="unassigned">⏳ Waiting</option>
-                        <option value="call_back">📞 Call Back</option>
-                        <option value="interested">⭐ Interested</option>
-                        <option value="not_interested">🚫 Not Interested</option>
-                        <option value="no_answer">📵 No Answer</option>
-                        <option value="started_trial">🚀 Demo</option>
-                        <option value="subscribed">💎 Paid</option>
-                      </select>
-                    )}
+              {/* Notes History Timeline (Scrollable area) */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-[140px] max-h-[38vh]">
+                <label className="block text-xs font-bold text-gray-700 mb-1 sticky top-0 bg-white py-0.5 z-10">سجل الملاحظات والتقارير السابقة:</label>
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
+                  {(() => {
+                    const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
+                    if (validNotes.length === 0) {
+                      return (
+                        <div className="py-5 text-center text-gray-400 text-xs space-y-1">
+                          <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
+                          <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
+                          <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
+                        </div>
+                      );
+                    }
+                    return [...validNotes].reverse().map((note, i) => {
+                      const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
+                      const isNoteByLeader = note.author && note.author.includes('ليدر');
+                      const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
+                      const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+                      const isAuthor = (note.authorEmail && note.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                                       (note.authorUid && note.authorUid === currentUser?.uid);
+                      const canDelete = isCurrentUserAdmin || isAuthor;
 
-                    {/* Trial Start Date if Status is started_trial */}
-                    {selectedStatusForNotes === 'started_trial' && (
-                      <div className="bg-cyan-50 p-2.5 rounded-xl border border-cyan-200 mt-2">
-                        <label className="block text-xs font-bold text-cyan-800 mb-1 flex items-center gap-1">
-                          <Calendar size={14} /> تاريخ بدء Demo:
-                        </label>
-                        {isCoordinator ? (
-                          <div className="w-full p-1.5 border border-cyan-200 rounded-lg text-xs font-black text-cyan-900 bg-white">
-                            {trialDateForNotes || 'غير محدد'}
-                          </div>
-                        ) : (
-                          <input 
-                            type="date"
-                            data-empty={!trialDateForNotes}
-                            value={trialDateForNotes}
-                            onChange={(e) => setTrialDateForNotes(e.target.value)}
-                            onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                            className={`w-full p-1.5 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer text-center ${!trialDateForNotes ? 'text-transparent empty-date' : 'text-slate-800'}`}
-                            dir="ltr"
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes History Timeline */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">سجل الملاحظات والتقارير السابقة:</label>
-                  <div className="max-h-44 sm:max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
-                    {(() => {
-                      const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
-                      if (validNotes.length === 0) {
-                        return (
-                          <div className="py-5 text-center text-gray-400 text-xs space-y-1">
-                            <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
-                            <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
-                            <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
-                          </div>
-                        );
-                      }
-                      return [...validNotes].reverse().map((note, i) => {
-                        const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
-                        const isNoteByLeader = note.author && note.author.includes('ليدر');
-                        const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
-                        const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
-                        const isAuthor = (note.authorEmail && note.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
-                                         (note.authorUid && note.authorUid === currentUser?.uid);
-                        const canDelete = isCurrentUserAdmin || isAuthor;
-
-                        return (
-                          <div key={note.id || i} className="bg-white p-2.5 rounded-xl border border-gray-200 text-xs space-y-1 relative group hover:border-amber-300 hover:shadow-xs transition">
-                            <div className="flex justify-between items-center text-[10px] text-gray-500 pb-1 border-b border-gray-100">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`font-bold flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${
-                                  isNoteByAdmin 
-                                    ? 'bg-amber-100 text-amber-900 border border-amber-300' 
-                                    : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
-                                }`}>
-                                  👤 {authorDisplay}
+                      return (
+                        <div key={note.id || i} className="bg-white p-2.5 rounded-xl border border-gray-200 text-xs space-y-1 relative group hover:border-amber-300 hover:shadow-xs transition">
+                          <div className="flex justify-between items-center text-[10px] text-gray-500 pb-1 border-b border-gray-100">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`font-bold flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${
+                                isNoteByAdmin 
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                  : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
+                              }`}>
+                                👤 {authorDisplay}
+                              </span>
+                              {note.statusLabel && (
+                                <span className="bg-gray-100 text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                  {note.statusLabel}
                                 </span>
-                                {note.statusLabel && (
-                                  <span className="bg-gray-100 text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded text-[9px] font-bold">
-                                    {note.statusLabel}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {note.createdAt && (
-                                  <span className="text-[10px] text-gray-400 font-mono font-bold" dir="ltr">
-                                    📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                                {canDelete && (
-                                  <button 
-                                    onClick={() => handleDeleteSingleNote(note, selectedCustomerForNotes.notesHistory.length - 1 - i)}
-                                    className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition cursor-pointer"
-                                    title={isCurrentUserAdmin ? "حذف التعليق نهائياً (إدارة)" : "حذف تعليقي"}
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                )}
-                              </div>
+                              )}
                             </div>
-                            <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">{note.text}</p>
+                            <div className="flex items-center gap-2">
+                              {note.createdAt && (
+                                <span className="text-[10px] text-gray-400 font-mono font-bold" dir="ltr">
+                                  📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                              {canDelete && (
+                                <button 
+                                  onClick={() => handleDeleteSingleNote(note, selectedCustomerForNotes.notesHistory.length - 1 - i)}
+                                  className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition cursor-pointer"
+                                  title={isCurrentUserAdmin ? "حذف التعليق نهائياً (إدارة)" : "حذف تعليقي"}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        );
-                      });
-                    })()}
-                  </div>
+                          <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">{note.text}</p>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
-
-
-
-                {/* Add New Note (Hidden for Coordinator) */}
-                {!isCoordinator && (
-                  <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/90 space-y-2">
-                    <label className="block text-xs font-bold text-gray-700 mb-1">إضافة ملاحظة / تقرير جديد:</label>
-                    <textarea 
-                      rows={2}
-                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
-                      value={newNoteText}
-                      onChange={(e) => setNewNoteText(e.target.value)}
-                      className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
-                    />
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="button"
-                        disabled={isAddingComment || !newNoteText.trim()}
-                        onClick={handleAddSingleCommentOnly}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
-                          newNoteText.trim() && !isAddingComment
-                            ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        }`}
-                        title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
-                      >
-                        <Plus size={14} />
-                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
+              {/* Add New Note - Fixed / Pinned at Bottom (Hidden for Coordinator) */}
+              {!isCoordinator && (
+                <div className="bg-amber-50/70 p-2.5 sm:p-3 rounded-xl border border-amber-200/90 space-y-2 mt-3 shrink-0 shadow-xs">
+                  <label className="block text-xs font-bold text-gray-700">إضافة ملاحظة / تقرير جديد:</label>
+                  <textarea 
+                    rows={2}
+                    placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
+                  />
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      disabled={isAddingComment || !newNoteText.trim()}
+                      onClick={handleAddSingleCommentOnly}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
+                        newNoteText.trim() && !isAddingComment
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                      title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
+                    >
+                      <Plus size={14} />
+                      <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Footer Buttons - Fixed at Bottom */}
               {!isCoordinator ? (
-                <div className="flex items-center gap-2 mt-4 pt-2.5 border-t border-gray-100">
+                <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-gray-100 shrink-0">
                   <button 
                     onClick={handleSaveCustomerNotesAndStatus}
                     className="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5"
@@ -11188,7 +11157,7 @@ const Dashboard = () => {
               ) : (
                 <button 
                   onClick={() => setIsNotesModalOpen(false)}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition mt-4 shadow-md text-xs cursor-pointer"
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition mt-3 shadow-md text-xs cursor-pointer shrink-0"
                 >
                   إغلاق النافذة ✕
                 </button>
