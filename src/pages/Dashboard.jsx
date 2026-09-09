@@ -309,6 +309,104 @@ const extractCleanCustomerName = (raw) => {
   return result;
 };
 
+
+/**
+ * استخراج الاسم الإنجليزي تلقائياً للموظف (آيجنت أو ليدر)
+ */
+export const getEnglishDisplayName = (empUser, fallback = 'Agent') => {
+  if (!empUser) return fallback;
+  if (empUser.nameEn && empUser.nameEn.trim()) return empUser.nameEn.trim();
+  if (empUser.englishName && empUser.englishName.trim()) return empUser.englishName.trim();
+  
+  const rawName = (empUser.name || '').trim();
+  if (rawName && /^[a-zA-Z\s\.\-_]+$/.test(rawName)) {
+    return rawName.split(' ')[0];
+  }
+
+  const arabicMap = {
+    'عمرو': 'Amr', 'عمرو داتاي': 'Amr', 'عمرو داتا': 'Amr', 'احمد': 'Ahmed', 'أحمد': 'Ahmed',
+    'محمد': 'Mohamed', 'محمود': 'Mahmoud', 'مصطفى': 'Moustafa', 'مصطفي': 'Moustafa',
+    'سارة': 'Sara', 'ساره': 'Sara', 'منى': 'Mona', 'مني': 'Mona', 'نور': 'Nour',
+    'ياسمين': 'Yasmin', 'مريم': 'Mariam', 'خالد': 'Khaled', 'علي': 'Ali', 'على': 'Ali',
+    'عمر': 'Omar', 'حسين': 'Hussein', 'حسن': 'Hassan', 'إبراهيم': 'Ibrahim', 'ابراهيم': 'Ibrahim',
+    'طارق': 'Tarek', 'وليد': 'Waleed', 'كريم': 'Karim', 'زياد': 'Ziad', 'عبدالله': 'Abdallah',
+    'عبد الله': 'Abdallah', 'عبدالرحمن': 'Abdelrahman', 'عبد الرحمن': 'Abdelrahman',
+    'يوسف': 'Youssef', 'ماجد': 'Maged', 'هاني': 'Hany', 'هاني داتاي': 'Hany', 'هيثم': 'Haitham',
+    'رنا': 'Rana', 'شهد': 'Shahd', 'ندى': 'Nada', 'ندي': 'Nada', 'آية': 'Aya', 'اية': 'Aya',
+    'إيمان': 'Eman', 'ايمان': 'Eman', 'رانيا': 'Rania', 'دينا': 'Dina', 'هدير': 'Hadeer'
+  };
+
+  const firstName = rawName.split(' ')[0];
+  if (arabicMap[firstName]) return arabicMap[firstName];
+  if (arabicMap[rawName]) return arabicMap[rawName];
+
+  if (empUser.username && /^[a-zA-Z]/.test(empUser.username)) {
+    const cleanUser = empUser.username.split('@')[0].replace(/[^a-zA-Z]/g, '');
+    if (cleanUser) return cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1);
+  }
+  if (empUser.email && /^[a-zA-Z]/.test(empUser.email)) {
+    const cleanMail = empUser.email.split('@')[0].replace(/[^a-zA-Z]/g, '');
+    if (cleanMail) return cleanMail.charAt(0).toUpperCase() + cleanMail.slice(1);
+  }
+
+  return rawName || fallback;
+};
+
+/**
+ * التحقق من رقم الجوال السعودي وحظر أي رقم غير سعودي
+ * واستخراج النواة الأساسية (5XXXXXXXX) لمنع التكرار
+ */
+export const normalizeAndValidateSaudiPhone = (rawPhone) => {
+  if (!rawPhone) return { valid: false, reason: 'empty' };
+
+  let s = String(rawPhone).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  s = s.replace(/[^0-9]/g, '');
+
+  if (s.startsWith('009665') && s.length === 14) {
+    s = s.substring(2);
+  }
+
+  if (s.startsWith('9665') && s.length === 12) {
+    const core = s.substring(3);
+    return { valid: true, core, phoneE164: '+' + s, phoneDb: s };
+  }
+
+  if (s.startsWith('05') && s.length === 10) {
+    const core = s.substring(1);
+    return { valid: true, core, phoneE164: '+966' + core, phoneDb: '966' + core };
+  }
+
+  if (s.startsWith('5') && s.length === 9) {
+    const core = s;
+    return { valid: true, core, phoneE164: '+966' + core, phoneDb: '966' + core };
+  }
+
+  return { valid: false, reason: 'non_saudi' };
+};
+
+/**
+ * فحص هل العميل موجود مسبقاً في النظام عبر النواة الأساسية للرقم (5XXXXXXXX)
+ * يمنع التكرار حتى لو كان مسجلاً سابقاً بـ 966 والجديد بـ 05 أو 5 والعكس
+ */
+export const checkIsDuplicateSaudiLead = (corePhone, existingListA = [], existingListB = [], existingListC = []) => {
+  if (!corePhone || corePhone.length !== 9) return false;
+
+  const checkItem = (item) => {
+    const raw = item?.phoneNumber || item?.phone || item?.id || '';
+    const digits = String(raw).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^0-9]/g, '');
+    if (digits.length >= 9) {
+      const existingCore = digits.slice(-9);
+      if (existingCore === corePhone) return true;
+    }
+    return false;
+  };
+
+  if (existingListA && existingListA.some(checkItem)) return true;
+  if (existingListB && existingListB.some(checkItem)) return true;
+  if (existingListC && existingListC.some(checkItem)) return true;
+  return false;
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics'); // 'analytics', 'leads_crm', 'customers' or 'employees'
