@@ -3161,23 +3161,40 @@ const Dashboard = () => {
     }
   };
 
-  const determineCustomerCollection = (customerOrId) => {
-    const id = typeof customerOrId === 'string' ? customerOrId : customerOrId?.id;
-    if (typeof customerOrId === 'object' && customerOrId?.collectionName) {
-      return customerOrId.collectionName;
+  const resolveTargetCollection = (customer, targetCollOrFlag = null) => {
+    if (typeof targetCollOrFlag === 'string' && targetCollOrFlag) {
+      return targetCollOrFlag;
     }
-    if (employeeLeads.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isEmployeeLead)) {
-      return 'employee_leads';
-    }
-    if (leadsCrm.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isLeadCrm)) {
+    if (targetCollOrFlag === true) {
       return 'leads_crm';
     }
-    if (visitors.some(v => v.id === id) || (typeof customerOrId === 'object' && customerOrId?.isVisitor)) {
-      return 'visitor_customers';
+    if (typeof customer === 'object' && customer?.collectionName) {
+      return customer.collectionName;
     }
-    if (recycleBin.some(r => r.id === id)) {
-      return 'recycle_bin';
+    if (customer?.isLeadCrm) return 'leads_crm';
+    if (customer?.isEmployeeLead) return 'employee_leads';
+    if (customer?.isVisitor) return 'visitor_customers';
+    const id = typeof customer === 'string' ? customer : customer?.id;
+    if (leadsCrm.some(l => l.id === id)) return 'leads_crm';
+    if (employeeLeads.some(l => l.id === id)) return 'employee_leads';
+    if (visitors.some(v => v.id === id)) return 'visitor_customers';
+    if (recycleBin.some(r => r.id === id)) return 'recycle_bin';
+    return 'بيانات_تسجيل_العملاء';
+  };
+
+  const determineCustomerCollection = (customerOrId) => {
+    if (!customerOrId) return 'بيانات_تسجيل_العملاء';
+    if (typeof customerOrId === 'object') {
+      if (customerOrId.collectionName) return customerOrId.collectionName;
+      if (customerOrId.isLeadCrm) return 'leads_crm';
+      if (customerOrId.isEmployeeLead) return 'employee_leads';
+      if (customerOrId.isVisitor) return 'visitor_customers';
     }
+    const id = typeof customerOrId === 'string' ? customerOrId : customerOrId?.id;
+    if (leadsCrm.some(l => l.id === id)) return 'leads_crm';
+    if (employeeLeads.some(l => l.id === id)) return 'employee_leads';
+    if (visitors.some(v => v.id === id)) return 'visitor_customers';
+    if (recycleBin.some(r => r.id === id)) return 'recycle_bin';
     return 'بيانات_تسجيل_العملاء';
   };
 
@@ -3251,11 +3268,12 @@ const Dashboard = () => {
     }
   };
 
-  const handleOpenNotesModal = (customer, isLeadCrm = false) => {
-    const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
-    const isLead = isLeadCrm || leadsCrm.some(l => l.id === customer.id) || customer.isLeadCrm;
-    const isVis = visitors.some(v => v.id === customer.id) || customer.isVisitor;
-    const targetColl = customer.collectionName || (isEmpLead ? 'employee_leads' : (isLead ? 'leads_crm' : (isVis ? 'visitor_customers' : 'بيانات_تسجيل_العملاء')));
+  const handleOpenNotesModal = (customer, targetCollOrFlag = null) => {
+    const targetColl = resolveTargetCollection(customer, targetCollOrFlag);
+    const isLead = targetColl === 'leads_crm';
+    const isEmpLead = targetColl === 'employee_leads';
+    const isVis = targetColl === 'visitor_customers';
+
     setSelectedCustomerForNotes({ 
       ...customer, 
       isLeadCrm: isLead, 
@@ -3272,11 +3290,12 @@ const Dashboard = () => {
     setIsNotesModalOpen(true);
   };
 
-  const handleRequestStatusChangeWithComment = (customer, newStatus, isLeadCrm = false) => {
-    const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
-    const isLead = isLeadCrm || leadsCrm.some(l => l.id === customer.id) || customer.isLeadCrm;
-    const isVis = visitors.some(v => v.id === customer.id) || customer.isVisitor;
-    const targetColl = customer.collectionName || (isEmpLead ? 'employee_leads' : (isLead ? 'leads_crm' : (isVis ? 'visitor_customers' : 'بيانات_تسجيل_العملاء')));
+  const handleRequestStatusChangeWithComment = (customer, newStatus, targetCollOrFlag = null) => {
+    const targetColl = resolveTargetCollection(customer, targetCollOrFlag);
+    const isLead = targetColl === 'leads_crm';
+    const isEmpLead = targetColl === 'employee_leads';
+    const isVis = targetColl === 'visitor_customers';
+
     setSelectedCustomerForNotes({ 
       ...customer, 
       isLeadCrm: isLead, 
@@ -3331,16 +3350,14 @@ const Dashboard = () => {
         lastCommentAt: serverTimestamp(),
         lastCommentText: newNoteText.trim(),
         notes: newNoteText.trim(),
+        crmStatus: selectedStatusForNotes,
         updatedAt: serverTimestamp()
       };
 
-      // If status changed or is mandatory, also commit status change along with the comment
-      const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
-      if (isChangingStatus || isStatusChangeMandatory) {
-        updatePayload.crmStatus = selectedStatusForNotes;
-        setPreviousStatusForNotes(selectedStatusForNotes);
-        setIsStatusChangeMandatory(false);
+      if (selectedStatusForNotes !== 'unassigned') {
+        updatePayload.status = 'assigned';
       }
+
       if (selectedStatusForNotes === 'started_trial' && trialDateForNotes) {
         updatePayload.trialStartDate = trialDateForNotes;
       }
@@ -3348,8 +3365,48 @@ const Dashboard = () => {
         updatePayload.name = modalCustomerName.trim();
       }
 
-      const targetColl = determineCustomerCollection(selectedCustomerForNotes);
+      const targetColl = selectedCustomerForNotes.collectionName || determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
+
+      // Sync across both collections if this lead exists in both leads_crm and employee_leads
+      if (targetColl === 'leads_crm' && employeeLeads.some(e => e.id === selectedCustomerForNotes.id)) {
+        updateDoc(doc(db, 'employee_leads', selectedCustomerForNotes.id), {
+          crmStatus: selectedStatusForNotes,
+          notesHistory: arrayUnion(noteObj),
+          lastCommentAt: serverTimestamp(),
+          lastCommentText: newNoteText.trim(),
+          updatedAt: serverTimestamp()
+        }).catch(() => {});
+      } else if (targetColl === 'employee_leads' && leadsCrm.some(l => l.id === selectedCustomerForNotes.id)) {
+        updateDoc(doc(db, 'leads_crm', selectedCustomerForNotes.id), {
+          crmStatus: selectedStatusForNotes,
+          notesHistory: arrayUnion(noteObj),
+          lastCommentAt: serverTimestamp(),
+          lastCommentText: newNoteText.trim(),
+          updatedAt: serverTimestamp()
+        }).catch(() => {});
+      }
+
+      // Optimistic local state update so the customer instantly moves/disappears from old filter
+      const updatedLocalItem = {
+        ...selectedCustomerForNotes,
+        name: modalCustomerName.trim() || selectedCustomerForNotes.name,
+        crmStatus: selectedStatusForNotes,
+        trialStartDate: selectedStatusForNotes === 'started_trial' ? trialDateForNotes : selectedCustomerForNotes.trialStartDate,
+        notesHistory: [...(selectedCustomerForNotes.notesHistory || []), noteObj],
+        lastCommentText: newNoteText.trim(),
+        updatedAt: new Date()
+      };
+
+      if (targetColl === 'leads_crm') {
+        setLeadsCrm(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      } else if (targetColl === 'employee_leads') {
+        setEmployeeLeads(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      } else if (targetColl === 'visitor_customers') {
+        setVisitors(prev => prev.map(v => v.id === selectedCustomerForNotes.id ? { ...v, ...updatedLocalItem } : v));
+      } else {
+        setCustomers(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      }
 
       // Update local modal state immediately so the comment appears in history instantly
       setSelectedCustomerForNotes(prev => ({
@@ -3360,8 +3417,10 @@ const Dashboard = () => {
         notesHistory: [...(prev.notesHistory || []), noteObj]
       }));
 
+      setPreviousStatusForNotes(selectedStatusForNotes);
+      setIsStatusChangeMandatory(false);
       setNewNoteText('');
-      toast.success('تمت إضافة التعليق بنجاح للسجل ✅');
+      toast.success('تمت إضافة التعليق وتحديث حالة العميل بنجاح ✅');
     } catch (err) {
       console.error('Error adding comment:', err);
       toast.error('حدث خطأ أثناء إضافة التعليق');
@@ -3385,6 +3444,10 @@ const Dashboard = () => {
         updatedAt: serverTimestamp()
       };
 
+      if (selectedStatusForNotes !== 'unassigned') {
+        updatePayload.status = 'assigned';
+      }
+
       if (modalCustomerName.trim() && modalCustomerName.trim() !== selectedCustomerForNotes.name) {
         updatePayload.name = modalCustomerName.trim();
       }
@@ -3393,6 +3456,7 @@ const Dashboard = () => {
         updatePayload.trialStartDate = trialDateForNotes;
       }
 
+      let newNoteObj = null;
       if (newNoteText.trim()) {
         const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
         let authorName = 'الموظف';
@@ -3405,7 +3469,7 @@ const Dashboard = () => {
           const empName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName || currentUser?.email?.split('@')[0];
           authorName = empName || 'الموظف';
         }
-        const noteObj = {
+        newNoteObj = {
           id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
           text: newNoteText.trim(),
           author: authorName,
@@ -3415,14 +3479,61 @@ const Dashboard = () => {
           createdAt: new Date().toISOString(),
           statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
         };
-        updatePayload.notesHistory = arrayUnion(noteObj);
+        updatePayload.notesHistory = arrayUnion(newNoteObj);
         updatePayload.lastCommentAt = serverTimestamp();
         updatePayload.lastCommentText = newNoteText.trim();
         updatePayload.notes = newNoteText.trim();
       }
 
-      const targetColl = determineCustomerCollection(selectedCustomerForNotes);
+      const targetColl = selectedCustomerForNotes.collectionName || determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
+
+      // Sync across both collections if this lead exists in both leads_crm and employee_leads
+      if (targetColl === 'leads_crm' && employeeLeads.some(e => e.id === selectedCustomerForNotes.id)) {
+        const syncPayload = {
+          crmStatus: selectedStatusForNotes,
+          updatedAt: serverTimestamp()
+        };
+        if (newNoteObj) {
+          syncPayload.notesHistory = arrayUnion(newNoteObj);
+          syncPayload.lastCommentAt = serverTimestamp();
+          syncPayload.lastCommentText = newNoteText.trim();
+        }
+        updateDoc(doc(db, 'employee_leads', selectedCustomerForNotes.id), syncPayload).catch(() => {});
+      } else if (targetColl === 'employee_leads' && leadsCrm.some(l => l.id === selectedCustomerForNotes.id)) {
+        const syncPayload = {
+          crmStatus: selectedStatusForNotes,
+          updatedAt: serverTimestamp()
+        };
+        if (newNoteObj) {
+          syncPayload.notesHistory = arrayUnion(newNoteObj);
+          syncPayload.lastCommentAt = serverTimestamp();
+          syncPayload.lastCommentText = newNoteText.trim();
+        }
+        updateDoc(doc(db, 'leads_crm', selectedCustomerForNotes.id), syncPayload).catch(() => {});
+      }
+
+      // Optimistic local state update so the customer instantly moves/disappears from old filter
+      const updatedLocalItem = {
+        ...selectedCustomerForNotes,
+        name: modalCustomerName.trim() || selectedCustomerForNotes.name,
+        crmStatus: selectedStatusForNotes,
+        trialStartDate: selectedStatusForNotes === 'started_trial' ? trialDateForNotes : selectedCustomerForNotes.trialStartDate,
+        notesHistory: newNoteObj ? [...(selectedCustomerForNotes.notesHistory || []), newNoteObj] : selectedCustomerForNotes.notesHistory,
+        lastCommentText: newNoteText.trim() || selectedCustomerForNotes.lastCommentText,
+        updatedAt: new Date()
+      };
+
+      if (targetColl === 'leads_crm') {
+        setLeadsCrm(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      } else if (targetColl === 'employee_leads') {
+        setEmployeeLeads(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      } else if (targetColl === 'visitor_customers') {
+        setVisitors(prev => prev.map(v => v.id === selectedCustomerForNotes.id ? { ...v, ...updatedLocalItem } : v));
+      } else {
+        setCustomers(prev => prev.map(c => c.id === selectedCustomerForNotes.id ? { ...c, ...updatedLocalItem } : c));
+      }
+
       toast.success(isChangingStatus ? 'تم تحويل حالة العميل وحفظ البيانات بنجاح ✅' : 'تم حفظ التغييرات بنجاح ✅');
       setIsNotesModalOpen(false);
       setIsStatusChangeMandatory(false);
@@ -6665,7 +6776,7 @@ const Dashboard = () => {
                                   );
                                 })()}
                                 <button 
-                                  onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
+                                  onClick={() => handleOpenNotesModal(customer, 'leads_crm')}
                                   className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                                   title="Comment"
                                 >
@@ -7271,7 +7382,7 @@ const Dashboard = () => {
                               <div className="flex flex-col gap-1.5 items-center">
                                 <select 
                                   value={currentCrmStatus}
-                                  onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, true)}
+                                  onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, 'leads_crm')}
                                   dir="rtl"
                                   className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                 >
@@ -7287,7 +7398,7 @@ const Dashboard = () => {
                                   <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>
                                 )}
                                 <button 
-                                  onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
+                                  onClick={() => handleOpenNotesModal(customer, 'leads_crm')}
                                   className="w-full bg-amber-100/90 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
                                   title="Comment"
                                 >
@@ -8017,7 +8128,7 @@ const Dashboard = () => {
                                   <div className="flex flex-col gap-1.5 items-center">
                                     <select 
                                       value={currentCrmStatus}
-                                      onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, false)}
+                                      onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, 'employee_leads')}
                                       dir="rtl"
                                       className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                     >
@@ -8033,7 +8144,7 @@ const Dashboard = () => {
                                       <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>
                                     )}
                                     <button 
-                                      onClick={() => handleOpenNotesModal(customer, false)}
+                                      onClick={() => handleOpenNotesModal(customer, 'employee_leads')}
                                       className="w-full bg-amber-100/90 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
                                       title="Comment"
                                     >
@@ -8855,7 +8966,7 @@ const Dashboard = () => {
 
                                     {/* Comment Button */}
                                     <button 
-                                      onClick={() => handleOpenNotesModal(customer)}
+                                      onClick={() => handleOpenNotesModal(customer, 'بيانات_تسجيل_العملاء')}
                                       className="bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold px-2.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1 shadow-xs cursor-pointer"
                                       title="عرض وإضافة ملاحظات وتقارير العميل"
                                     >
@@ -9155,7 +9266,7 @@ const Dashboard = () => {
                     </td>
                     <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                       <button 
-                        onClick={() => handleOpenNotesModal(customer)}
+                        onClick={() => handleOpenNotesModal(customer, 'بيانات_تسجيل_العملاء')}
                         className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 whitespace-nowrap shadow-sm cursor-pointer"
                         title="Comment"
                       >
@@ -10085,7 +10196,7 @@ const Dashboard = () => {
                                 </button>
                               )}
                               <button 
-                                onClick={() => handleOpenNotesModal(visitor._raw || visitor)}
+                                onClick={() => handleOpenNotesModal(visitor._raw || visitor, 'visitor_customers')}
                                 className="bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold px-2 py-1.5 rounded-xl text-xs transition flex items-center gap-1 shadow-xs cursor-pointer"
                                 title="عرض وإضافة ملاحظات وتقرير العميل"
                               >
@@ -10819,7 +10930,7 @@ const Dashboard = () => {
 
               <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
                 {/* CRM Status Picker (Leads CRM & Employee Leads) */}
-                {(selectedCustomerForNotes?.isLeadCrm || selectedCustomerForNotes?.isEmployeeLead || selectedCustomerForNotes?.crmStatus) && (
+                {(selectedCustomerForNotes?.isLeadCrm || selectedCustomerForNotes?.isEmployeeLead || selectedCustomerForNotes?.collectionName === 'leads_crm' || selectedCustomerForNotes?.collectionName === 'employee_leads' || selectedCustomerForNotes?.crmStatus) && (
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
                     {isCoordinator ? (
@@ -10829,7 +10940,12 @@ const Dashboard = () => {
                     ) : (
                       <select 
                         value={selectedStatusForNotes}
-                        onChange={(e) => setSelectedStatusForNotes(e.target.value)}
+                        onChange={(e) => {
+                        setSelectedStatusForNotes(e.target.value);
+                        if (e.target.value !== previousStatusForNotes) {
+                          setIsStatusChangeMandatory(true);
+                        }
+                      }}
                         className="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
                       >
                         <option value="unassigned">⏳ Waiting</option>
