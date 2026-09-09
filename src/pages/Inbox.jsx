@@ -2076,10 +2076,10 @@ function InboxContent() {
                 <button 
                   onClick={handleLogout} 
                   className="flex items-center gap-0.5 text-gray-300 hover:text-red-400 transition text-[10px] font-bold bg-white/10 hover:bg-white/20 px-1.5 py-0.2 rounded-md border border-white/10 shrink-0 cursor-pointer" 
-                  title="تسجيل الخروج"
+                  title="Logout"
                 >
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_3px_#22c55e]"></div>
-                  <span>خروج</span>
+                  <span className="font-bold">Logout</span>
                 </button>
               </div>
             </div>

@@ -5483,10 +5483,10 @@ const Dashboard = () => {
           <button 
             onClick={handleLogout}
             className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 cursor-pointer shadow-sm active:scale-95 shrink-0"
-            title="تسجيل الخروج من الحساب"
+            title="Logout"
           >
             <LogOut size={15} />
-            <span className="whitespace-nowrap">خروج</span>
+            <span className="whitespace-nowrap font-bold">Logout</span>
           </button>
         </div>
       </header>
@@ -6624,44 +6624,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* زر سحب جميع عملاء الصفحة الحالية المعروضة دفعة واحدة */}
-                  {paginatedTeamLeads.length > 0 && (
-                    <button 
-                      onClick={() => handlePullCurrentPage(paginatedTeamLeads)}
-                      className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer border border-amber-300/40"
-                      title="سحب جميع عملاء هذه الصفحة المعروضة حالياً دفعة واحدة وإعادتهم إلى Leads CRM الخاص بك"
-                    >
-                      <ArrowDownLeft size={16} />
-                      <span>📥 سحب عملاء الصفحة ({paginatedTeamLeads.length})</span>
-                    </button>
-                  )}
 
-                  {selectedTeamTrackingLeads.length > 0 && (
-                    <>
-                      <button 
-                        onClick={handleBulkPullLeads}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ring-2 ring-emerald-300 animate-pulse"
-                        title="سحب جميع العملاء المحددين وإعادتهم إلى Leads CRM الخاص بك"
-                      >
-                        <ArrowDownLeft size={16} />
-                        <span>📥 سحب المحددين ({selectedTeamTrackingLeads.length})</span>
-                      </button>
-
-                      <button 
-                        onClick={() => {
-                          setSelectedLeadsCrm(selectedTeamTrackingLeads);
-                          setIsAssignModalOpen(true);
-                        }}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ring-2 ring-purple-300"
-                        title="توزيع العملاء المحددين دفعة واحدة إلى أحد أفراد الفريق"
-                      >
-                        <UserCheck2 size={15} />
-                        <span>⚖️ توزيع المحددين ({selectedTeamTrackingLeads.length})</span>
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
 
               {/* Filter Bar */}
@@ -6727,8 +6690,38 @@ const Dashboard = () => {
 
                 
 
-                {/* Search Box & Sort */}
+                {/* Search Box & Conditional Bulk Actions (Image 3 Location) */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* يظهر زر السحب فقط بشرط تحديد عميلين أو أكثر أو تحديد الصفحة بالكامل من الـ Checkbox */}
+                  {selectedTeamTrackingLeads.length > 0 && (
+                    <>
+                      <button 
+                        onClick={handleBulkPullLeads}
+                        className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer border border-amber-300/40 animate-pulse"
+                        title="سحب جميع العملاء المحددين وإعادتهم إلى داتاي الخاصة بك"
+                      >
+                        <ArrowDownLeft size={15} />
+                        <span>
+                          {isPageAllSelected 
+                            ? `سحب عملاء الصفحة (${selectedTeamTrackingLeads.length})` 
+                            : `سحب العملاء المحددين (${selectedTeamTrackingLeads.length})`}
+                        </span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setSelectedLeadsCrm(selectedTeamTrackingLeads);
+                          setIsAssignModalOpen(true);
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ring-2 ring-purple-300"
+                        title="توزيع العملاء المحددين دفعة واحدة إلى أحد أفراد الفريق"
+                      >
+                        <UserCheck2 size={14} />
+                        <span>⚖️ توزيع (${selectedTeamTrackingLeads.length})</span>
+                      </button>
+                    </>
+                  )}
+
                   <div className="relative">
                     <input 
                       type="text" 
@@ -10969,7 +10962,7 @@ const Dashboard = () => {
                 </div>
               )}
 
-              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-1.5">
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
                 <div>
                   <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل:</label>
                   {isCoordinator ? (
@@ -10990,6 +10983,51 @@ const Dashboard = () => {
                   <span>📱</span>
                   <span>{selectedCustomerForNotes.phoneNumber}</span>
                 </p>
+
+                {/* جهة التوزيع والتعيين مرتبة وموضوعة مباشرة تحت رقم العميل */}
+                <div className="bg-purple-50/90 p-2.5 rounded-xl border border-purple-200/90 space-y-1.5 mt-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-purple-200/60">
+                    <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
+                      <UserCheck size={14} className="text-purple-600" />
+                      <span>جهة التوزيع والتعيين:</span>
+                    </label>
+                    {(() => {
+                      const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
+                      return (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                          {assigner ? `مضاف بواسطة: ${assigner}` : '👑 الإدارة'}
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
+                      selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
+                        <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between font-bold text-gray-800">
+                            <span className="text-purple-800">{log.from} ➔ {log.to}</span>
+                            <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
+                              {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
+                            <span>بواسطة: {log.assignedBy}</span>
+                            <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[10px] text-gray-500 font-medium py-1 text-center bg-white/60 rounded-lg">
+                        {selectedCustomerForNotes.assignedAt ? (
+                          <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
+                        ) : (
+                          <span>تم التعيين مباشرة عبر النظام.</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
@@ -11110,50 +11148,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Assignment & Distributor Information */}
-                <div className="bg-purple-50/70 p-2.5 rounded-xl border border-purple-200/80 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-purple-200/60">
-                    <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
-                      <UserCheck size={14} className="text-purple-600" />
-                      <span>جهة التوزيع والتعيين:</span>
-                    </label>
-                    {(() => {
-                      const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
-                      return (
-                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                          {assigner ? `مضاف بواسطة: ${assigner}` : '👑 الإدارة'}
-                        </span>
-                      );
-                    })()}
-                  </div>
 
-                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
-                    {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
-                      selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
-                        <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
-                          <div className="flex items-center justify-between font-bold text-gray-800">
-                            <span className="text-purple-800">{log.from} ➔ {log.to}</span>
-                            <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
-                              {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
-                            <span>بواسطة: {log.assignedBy}</span>
-                            <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[10px] text-gray-500 font-medium py-1 text-center bg-white/60 rounded-lg">
-                        {selectedCustomerForNotes.assignedAt ? (
-                          <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
-                        ) : (
-                          <span>تم التعيين مباشرة عبر النظام.</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
 
                 {/* Add New Note (Hidden for Coordinator) */}
                 {!isCoordinator && (
