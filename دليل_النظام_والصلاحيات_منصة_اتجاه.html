@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>دليل النظام والصلاحيات الشامل - منصة اتجاه التحليل الذكي</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+    
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+    
+    * {
+      box-sizing: border-box;
+      font-family: 'Cairo', sans-serif;
+    }
+    
+    body {
+      background-color: #ffffff;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .cover-page {
+      height: 250mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #090e1a 0%, #1e1b4b 50%, #0f172a 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 40px;
+      page-break-after: always;
+      position: relative;
+    }
+
+    .logo-badge {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: #0284c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      margin-bottom: 25px;
+      box-shadow: 0 0 40px rgba(14, 165, 233, 0.5);
+      border: 4px solid #38bdf8;
+    }
+
+    .cover-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #38bdf8;
+      margin: 0 0 10px 0;
+    }
+
+    .cover-subtitle {
+      font-size: 18px;
+      font-weight: 700;
+      color: #cbd5e1;
+      margin-bottom: 25px;
+    }
+
+    .company-tag {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #e2e8f0;
+      margin-bottom: 40px;
+    }
+
+    .meta-box {
+      background: rgba(0,0,0,0.4);
+      padding: 15px 30px;
+      border-radius: 10px;
+      border-right: 4px solid #38bdf8;
+      text-align: right;
+      width: 100%;
+      max-width: 400px;
+      font-size: 12px;
+    }
+
+    .section {
+      page-break-inside: avoid;
+      margin-bottom: 25px;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-top: 25px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0369a1;
+      margin-top: 15px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin: 0 0 10px 0;
+      text-align: justify;
+    }
+
+    ul, ol {
+      margin: 0 0 15px 0;
+      padding-right: 20px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 12px;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      text-align: right;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .badge-admin { background: #fee2e2; color: #991b1b; }
+    .badge-emp { background: #e0e7ff; color: #3730a3; }
+    .badge-both { background: #dcfce7; color: #166534; }
+
+    .highlight-box {
+      background: #f0f9ff;
+      border-right: 4px solid #0284c7;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin: 15px 0;
+      font-size: 12px;
+    }
+
+    .security-box {
+      background: #faf5ff;
+      border-right: 4px solid #9333ea;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin: 15px 0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div class="logo-badge">📊</div>
+    <h1 class="cover-title">منصة اتجاه التحليل الذكي</h1>
+    <div class="cover-subtitle">دليل النظام الشامل، الصلاحيات، وهيكلية العمل (CRM & WhatsApp API)</div>
+    <div class="company-tag">مجموعة اتجاه التحليل الذكي لخدمات الأعمال</div>
+    <div class="meta-box">
+      <div><strong>إصدار الوثيقة:</strong> الإصدار 2.5 الشامل</div>
+      <div><strong>تاريخ التوثيق:</strong> أغسطس 2026</div>
+      <div><strong>حالة النظام:</strong> مباشر وشغال في الإنتاج (Production 🟢)</div>
+      <div><strong>النطاق الرسمي:</strong> whatsapp.etegah-analysis.com</div>
+    </div>
+  </div>
+
+  <!-- Content Section 1 -->
+  <div class="section">
+    <h2>1️⃣ نبذة عامة عن المنظومة</h2>
+    <p>
+      تم بناء منصة <strong>اتجاه التحليل الذكي</strong> كنظام سحابي متكامل يجمع بين إدارة علاقات العملاء (Leads CRM) ونظام المراسلات الفورية والتسويق عبر WhatsApp Cloud API، لتوفير بيئة عمل متكاملة وآمنة تماماً للمدراء وموظفي المبيعات وخدمة العملاء.
+    </p>
+    <div class="highlight-box">
+      <strong>الهدف الأساسي:</strong> استقبال وتنظيم آلاف العملاء والـ Leads، وتوزيعهم بذكاء وعدالة على الموظفين، مع تمكين الموظفين من متابعة العملاء والتواصل معهم فورياً، تحت مظلة رقابية وأمنية تمنع تسريب البيانات تماماً.
+    </div>
+  </div>
+
+  <!-- Content Section 2: Roles & Permissions -->
+  <div class="section">
+    <h2>2️⃣ جدول الصلاحيات الشامل (الأدمن vs الموظف)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">الوظيفة / الإجراء</th>
+          <th style="width: 20%; text-align: center;">👑 الأدمن (Admin)</th>
+          <th style="width: 20%; text-align: center;">👤 الموظف (Agent/Leader)</th>
+          <th style="width: 25%;">التفاصيل والصلاحية</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>رؤية قاعدة بيانات العملاء (Leads CRM)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">كامل الداتا (15,400+)</span></td>
+          <td style="text-align:center;"><span class="badge badge-emp">العملاء المخصصين له فقط</span></td>
+          <td>الموظف لا يرى أي عميل لم يُعيّن له لحماية الخصوصية.</td>
+        </tr>
+        <tr>
+          <td><strong>استيراد الداتا (Excel / Sheets / PDF)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">متاح بالكامل</span></td>
+          <td style="text-align:center;">❌ غير متاح</td>
+          <td>استيراد كميات ضخمة من ملفات vtiger وإكسيل وجوجل شيت.</td>
+        </tr>
+        <tr>
+          <td><strong>تنظيف الأسماء التلقائي (🧹 زر التنظيف)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">متاح بنقرة واحدة</span></td>
+          <td style="text-align:center;">❌ غير متاح</td>
+          <td>حذف تواريخ وملاحظات وأسماء الموظفين من نصوص الأسماء.</td>
+        </tr>
+        <tr>
+          <td><strong>توزيع العملاء (تلقائي / يدوي)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">تحكم كامل</span></td>
+          <td style="text-align:center;">❌ غير متاح</td>
+          <td>توزيع كميات محددة على موظفين محددين بنسب متساوية.</td>
+        </tr>
+        <tr>
+          <td><strong>تعديل حالة العميل والملاحظات</strong></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح</span></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح لعملائه</span></td>
+          <td>تغيير الحالة (مهتم، بدأ تجربة، اشترك، لم يرد) وتدوين ملاحظة.</td>
+        </tr>
+        <tr>
+          <td><strong>التنقل المباشر بين الصفحات (Page Jump)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح</span></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح</span></td>
+          <td>كتابة رقم الصفحة والانتقال الفوري إليها.</td>
+        </tr>
+        <tr>
+          <td><strong>إدارة حسابات الموظفين</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">إضافة / تعديل / حذف</span></td>
+          <td style="text-align:center;">❌ غير متاح</td>
+          <td>تعديل كلمات المرور، الصلاحيات، وحذف الحسابات.</td>
+        </tr>
+        <tr>
+          <td><strong>تحليلات الأداء (Leads CRM Analysis)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-admin">إحصائيات كل الفريق</span></td>
+          <td style="text-align:center;"><span class="badge badge-emp">إحصائياته الشخصية فقط</span></td>
+          <td>معدل إغلاق الصفقات وسرعة الرد ونسب التحويل.</td>
+        </tr>
+        <tr>
+          <td><strong>نظام حماية لقطات الشاشة (Anti-Screenshot)</strong></td>
+          <td style="text-align:center;">مستثنى (حرية كاملة)</td>
+          <td style="text-align:center;"><span class="badge badge-admin">مفعّل بصرامة 🛡️</span></td>
+          <td>تعتيم الشاشة عند فتح Snipping Tool وعلامة مائية باسمه.</td>
+        </tr>
+        <tr>
+          <td><strong>مراسلة الواتساب (Inbox & Campaigns)</strong></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح</span></td>
+          <td style="text-align:center;"><span class="badge badge-both">متاح لعملائه</span></td>
+          <td>إرسال رسائل فردية وقوالب تسويقية بالرقم الرسمي.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Content Section 3: All Executed Features -->
+  <div class="section" style="page-break-before: always;">
+    <h2>3️⃣ جميع ما تم بناؤه وتطويره في النظام</h2>
+    
+    <h3>1. محرك تنظيف الأسماء الذكي (Smart Name Cleaner):</h3>
+    <ul>
+      <li>خوارزمية ذكية تقوم باستخراج اسم العميل الحقيقي الصافي وفصل أي ملاحظات للمكالمات (مثل: "مش عارف التداول قفل السكه وانا بشرحله")، والتواريخ، وأسماء الموظفين الإنجليزية، ومعرفات النظام.</li>
+      <li>تحديث جماعي وفائق السرعة (Batch Updates) لقاعدة البيانات لآلاف السجلات بضغطة زر.</li>
+      <li>إخفاء شارات المصدر المشوشة من واجهة الجدول ليظهر اسم العميل بنقاء تام.</li>
+    </ul>
+
+    <h3>2. الترقيم المتقدم والتنقل الفوري (Pagination & Direct Jump):</h3>
+    <ul>
+      <li>شريط ترقيم ديناميكي يعرض عدد العملاء الإجمالي وتقسيمهم إلى 20 عميل في الصفحة.</li>
+      <li>خانة إدخال رقم الصفحة (مثال: <code>صفحة: [ 50 ] / 774</code>) مع زر "انتقال" ودعم زر Enter من لوحة المفاتيح.</li>
+    </ul>
+
+    <h3>3. منظومة الحماية والأمان العسكري للبيانات (Anti-Leak & Security):</h3>
+    <div class="security-box">
+      <ul>
+        <li><strong>العلامة المائية الديناميكية (Watermark):</strong> طباعة اسم الموظف وإيميله وتاريخ اليوم بشكل شفاف مكرر في خلفية الشاشة لردع أي تصوير بكاميرا خارجية أو سكرين شوت.</li>
+        <li><strong>درع التعتيم عند أدوات القص (Blur on Snipping Tool):</strong> تعتيم وتغطية الشاشة بدرع أسود فور محاولة استخدام اختصار <code>Win+Shift+S</code> أو فتح أداة القص أو مغادرة النافذة.</li>
+        <li><strong>حظر الطباعة والنسخ (Anti-Print & Anti-Copy):</strong> منع نسخ أرقام العملاء كـ نصوص، وتعطيل أمر الطباعة <code>Ctrl+P</code> لتفريغ أي صفحة يتم محاولة طباعتها كـ PDF.</li>
+      </ul>
+    </div>
+
+    <h3>4. نظام النسخ الاحتياطي اللحظي (Firebase Real-Time Backup):</h3>
+    <ul>
+      <li>سكريبت نسخ احتياطي محلي <code>backup_firebase.mjs</code> يعمل في الخلفية ويحفظ نسخاً JSON فورية لكل مجموعات البيانات الـ 7 لضمان عدم ضياع أي عميل أبداً.</li>
+    </ul>
+
+    <h3>5. الربط السحابي مع WhatsApp Cloud API:</h3>
+    <ul>
+      <li>تجهيز وإعداد الحساب التجاري السحابي الرسمي لشركة اتجاه التحليل الذكي على Meta Developers.</li>
+      <li>ربط قنوات الإرسال المباشرة والرسائل التفاعلية.</li>
+    </ul>
+  </div>
+
+  <!-- Content Section 4: Daily Operating Guide -->
+  <div class="section">
+    <h2>4️⃣ دليل التشغيل اليومي السريع</h2>
+    <ol>
+      <li><strong>استيراد العملاء:</strong> يضغط الأدمن على زر <em>"📥 استيراد Leads CRM"</em> ويرفع ملف الإكسيل أو رابط الشيت، فيقوم النظام بتنظيف الأسماء وتخزينها.</li>
+      <li><strong>توزيع المهام:</strong> يضغط الأدمن على <em>"⚡ توزيع العملاء"</em> ويحدد كمية الأرقام والموظفين المستهدفين للتوزيع العادل.</li>
+      <li><strong>متابعة الموظف:</strong> يدخل الموظف بحسابه الخاص، يجد عملاءه فقط، يضغط على أيقونة الواتساب للمراسلة الفورية، ويحدث حالة العميل (مهتم / اشترك / لم يرد).</li>
+      <li><strong>لوحة تحليلات المدير:</strong> يفتح الأدمن نافذة <em>"📊 Leads CRM Analysis"</em> لمشاهدة نسب إغلاق الصفقات وترتيب الموظفين حسب الإنجاز اليومي والشهري.</li>
+    </ol>
+  </div>
+
+</body>
+</html>

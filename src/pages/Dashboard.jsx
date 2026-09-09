@@ -6508,9 +6508,9 @@ const Dashboard = () => {
                       <Upload className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Added Leads</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Team Leads
+                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
@@ -8028,13 +8028,16 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                    <span>📁 Team Added Leads</span>
+                    <span>📁 {isAgent ? 'Added Leads' : 'Team Added Leads'}</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                      {isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Team Leads` : isLeader ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Team Leads`}
+                      {isAgent 
+                        ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads`
+                        : (isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads`)
+                      }
                     </span>
                   </h2>
                   <p className="text-xs text-purple-200 mt-0.5 font-medium">
-                    متابعة وإدارة العملاء والبيانات المضافة يدوياً بواسطة أعضاء الفريق ومراجعة تفاصيلها
+                    {isAgent ? 'متابعة وإدارة العملاء والبيانات المضافة ومراجعة تفاصيلها' : 'متابعة وإدارة العملاء والبيانات المضافة يدوياً بواسطة أعضاء الفريق ومراجعة تفاصيلها'}
                   </p>
                 </div>
               </div>
@@ -8208,18 +8211,19 @@ const Dashboard = () => {
                               (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || 
                               (currentEmpUser?.name && c.addedBy === currentEmpUser.name)
                             ).length;
-                            const leaderName = currentEmpUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'الليدر';
+                            const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
                             return (
                               <option value={currentUser?.uid} className="bg-slate-950 text-white">
-                                👑 Leader: {leaderName} ({leaderCount.toLocaleString()} Leads)
+                                👑 {leaderDisplayName} ({leaderCount.toLocaleString()} Leads)
                               </option>
                             );
                           })()}
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
                             const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
+                            const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-950 text-white">
-                                👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
+                                👤 {empDisplayName} ({count.toLocaleString()} Leads)
                               </option>
                             );
                           })}
@@ -9559,13 +9563,24 @@ const Dashboard = () => {
                         onChange={(e) => setSelectedEmpFilter(e.target.value)}
                         className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
                       >
-                        <option value="all" className="bg-slate-900 text-white">👥 أعضاء فريقي ({scopedCustomerPool.length} Leads)</option>
-                        <option value={currentUser?.uid} className="bg-slate-900 text-white">👤 داتاي الخاصة ({scopedCustomerPool.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} Leads)</option>
+                        <option value="all" className="bg-slate-900 text-white">
+                          👥 All Team Members ({scopedCustomerPool.length.toLocaleString()} Leads)
+                        </option>
+                        {(() => {
+                          const leaderCount = scopedCustomerPool.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length;
+                          const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
+                          return (
+                            <option value={currentUser?.uid} className="bg-slate-900 text-white">
+                              👑 {leaderDisplayName} ({leaderCount.toLocaleString()} Leads)
+                            </option>
+                          );
+                        })()}
                         {myTeamMembers.map(emp => {
                           const count = scopedCustomerPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
+                          const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
                           return (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              👤 {emp.name} — ({count} Leads)
+                              👤 {empDisplayName} ({count.toLocaleString()} Leads)
                             </option>
                           );
                         })}
@@ -10001,7 +10016,7 @@ const Dashboard = () => {
                           <div className="flex items-center gap-2">
                             {emp.isActive === false && <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" title="موقوف"></span>}
                             {emp.isActive !== false && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="نشط"></span>}
-                            <span>{emp.name}</span>
+                            <span>{emp.username || emp.name}</span>
                             {emp.empCode && (
                               <span className="bg-gray-100 text-gray-700 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-200" dir="ltr">
                                 #{emp.empCode}
@@ -10017,6 +10032,10 @@ const Dashboard = () => {
                           ) : emp.jobTitle === 'Coordinator' ? (
                             <span className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
                               📋 Coordinator
+                            </span>
+                          ) : emp.jobTitle === 'Customer Service' ? (
+                            <span className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                              🎧 Customer Service
                             </span>
                           ) : (
                             <span className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
@@ -10864,15 +10883,16 @@ const Dashboard = () => {
 
               <form onSubmit={handleAddEmployee} className="space-y-4" autoComplete="off">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
                   <input 
                     type="text" 
                     required
-                    autoComplete="off"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-                    value={newEmpName}
-                    onChange={(e) => setNewEmpName(e.target.value)}
-                    placeholder="مثال: أحمد محمد"
+                    autoComplete="new-username"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
+                    value={newEmpUsername}
+                    onChange={(e) => setNewEmpUsername(e.target.value)}
+                    placeholder="مثال: ahmed"
+                    dir="ltr"
                   />
                 </div>
                 <div>
@@ -10895,6 +10915,7 @@ const Dashboard = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-bold"
                   >
                     <option value="Agent">Agent</option>
+                    <option value="Customer Service">Customer Service</option>
                     <option value="Leader">Leader</option>
                     <option value="Coordinator">Coordinator</option>
                   </select>
@@ -10917,16 +10938,14 @@ const Dashboard = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
                   <input 
                     type="text" 
-                    required
-                    autoComplete="new-username"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
-                    value={newEmpUsername}
-                    onChange={(e) => setNewEmpUsername(e.target.value)}
-                    placeholder="مثال: ahmed"
-                    dir="ltr"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                    value={newEmpName}
+                    onChange={(e) => setNewEmpName(e.target.value)}
+                    placeholder="مثال: أحمد محمد"
                   />
                 </div>
                 <div>
@@ -10979,13 +10998,14 @@ const Dashboard = () => {
 
               <form onSubmit={handleEditEmployee} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
                   <input 
                     type="text" 
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                    value={editEmpName}
-                    onChange={(e) => setEditEmpName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-left"
+                    value={editEmpUsername}
+                    onChange={(e) => setEditEmpUsername(e.target.value)}
+                    dir="ltr"
                   />
                 </div>
                 <div>
@@ -11007,6 +11027,7 @@ const Dashboard = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-bold"
                   >
                     <option value="Agent">Agent</option>
+                    <option value="Customer Service">Customer Service</option>
                     <option value="Leader">Leader</option>
                     <option value="Coordinator">Coordinator</option>
                   </select>
@@ -11029,14 +11050,12 @@ const Dashboard = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
                   <input 
                     type="text" 
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-left"
-                    value={editEmpUsername}
-                    onChange={(e) => setEditEmpUsername(e.target.value)}
-                    dir="ltr"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    value={editEmpName}
+                    onChange={(e) => setEditEmpName(e.target.value)}
                   />
                 </div>
                 <div>
@@ -11454,7 +11473,7 @@ const Dashboard = () => {
                 {/* سجل الملاحظات والتقارير السابقة */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-gray-700">سجل الملاحظات والتقارير السابقة:</label>
-                  <div className="border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
+                  <div className="border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2 max-h-[260px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300">
                     {(() => {
                       const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
                       if (validNotes.length === 0) {

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>دليل الأكواد البرمجية الكامل - منصة اتجاه التحليل الذكي</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Cairo', sans-serif; background: #ffffff; color: #1e293b; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
+    .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: #0f172a; color: white; border-radius: 12px; padding: 40px; page-break-after: always; }
+    h1 { font-size: 28px; color: #38bdf8; margin-bottom: 10px; }
+    h2 { font-size: 16px; color: #0284c7; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-top: 20px; }
+    pre { background: #0f172a; color: #f8fafc; padding: 12px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 10px; direction: ltr; text-align: left; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .file-title { font-weight: bold; color: #475569; margin-top: 15px; margin-bottom: 5px; direction: ltr; text-align: left; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div style="font-size: 40px; margin-bottom: 20px;">💻</div>
+    <h1>دليل الأكواد البرمجية والهندسة التقنية</h1>
+    <div style="font-size: 16px; color: #94a3b8; margin-bottom: 30px;">منصة اتجاه التحليل الذكي (CRM & WhatsApp API Architecture)</div>
+    <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 20px; font-weight: bold;">
+      مجموعة اتجاه التحليل الذكي لخدمات الأعمال
+    </div>
+  </div>
+
+  <h2>1️⃣ البنية المعمارية للمشروع (Project Structure)</h2>
+  <pre>
+etegah-whatsapp-api/
+├── src/
+│   ├── pages/
+│   │   ├── Dashboard.jsx       # لوحة التحكم الرئيسية وإدارة Leads CRM والصلاحيات
+│   │   ├── Inbox.jsx           # صندوق المحادثات والشات المباشر مع العملاء
+│   │   └── Login.jsx           # شاشة تسجيل الدخول والتحقق الآمن
+│   ├── firebase.js             # إعدادات وتهيئة Firebase Firestore & Auth
+│   ├── index.css               # التنسيقات وتأثيرات الحماية والأمان (Anti-Print)
+│   └── App.jsx                 # موجه المسارات والروابط
+├── api/
+│   ├── sendMessage.js          # خادم إرسال رسائل WhatsApp Cloud API
+│   ├── receiveMessage.js       # خادم استقبال الـ Webhook الواردة
+│   └── verifyOtp.js            # خادم التحقق من الرموز
+├── backup_firebase.mjs         # سكريبت النسخ الاحتياطي اللحظي
+└── index.html                  # ملف الـ HTML الأساسي وتوثيق النطاقات
+  </pre>
+
+  <h2>2️⃣ كود خوارزمية تنظيف الأسماء الذكية (extractCleanCustomerName)</h2>
+  <pre>
+const extractCleanCustomerName = (raw) => {
+  if (!raw || typeof raw !== 'string') return 'عميل جديد';
+  let text = String(raw).trim();
+  if (!text || text === 'null' || text === 'undefined') return 'عميل جديد';
+  
+  // 1. Remove English keywords and status labels
+  text = text.replace(/\b(Lost Lead|Hot Lead|Cold Lead|Contacted|None|Assigned To|Lead Status|First Name|Last Name|Primary Phone|Mobile Phone|Phone|Email|Notes|Description|vtiger|crm)\b/gi, ' ');
+  
+  // 2. Remove English words / usernames / code tokens (e.g. Ahmed.Abbas, faten.fayez, Ssdidpxo)
+  text = text.replace(/[a-zA-Z0-9_.-]*[a-zA-Z][a-zA-Z0-9_.-]*/g, ' ');
+  
+  // 3. Remove date patterns (e.g. 22-07-2026, 2026-07-22)
+  text = text.replace(/(?:\d{1,4}[-/.])?\d{1,2}[-/.]\d{2,4}/g, ' ');
+  text = text.replace(/\b(202[0-9]|201[0-9]|203[0-9])\b/g, ' ');
+  text = text.replace(/o-\d{2}-\d{2}/gi, ' ');
+  
+  // 4. Remove common call log notes, phone operator phrases
+  const callJunkPhrases = [
+    /مش عارف التداول/g, /مش عارف/g, /قفل السكه/g, /قفلت السكه/g, /قفل الخط/g, /قفلت الخط/g,
+    /وانا بشرحله/g, /بشرحله/g, /شكرا و?قفلت?/g, /شكراً و?قفلت?/g, /شكرا/g, /شكراً/g,
+    /غير مهتم/g, /مش مهتم/g, /رصد/g, /لا يرد/g, /لم يرد/g, /مغلق/g, /غير متاح/g,
+    /الرقم غير صحيح/g, /مستخرج من نص/g, /عميل جديد/g
+  ];
+  for (const phrase of callJunkPhrases) {
+    text = text.replace(phrase, ' ');
+  }
+  
+  // 5. Remove unwanted punctuation, symbols, brackets, dashes
+  text = text.replace(/[\[\]\(\)\{\}\<\>\-\_:\;\,\.\|\*\#\@\+\=\\\/\?\!\~\"\']/g, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+  
+  if (!text || text.length < 2 || /^[\d\s]+$/.test(text)) {
+    return 'عميل جديد';
+  }
+  return text;
+};
+  </pre>
+
+  <h2>3️⃣ كود الحماية ومنع أخذ لقطات الشاشة (Anti-Screenshot & Watermark)</h2>
+  <pre>
+// Hook for Anti-Screenshot and Blur Protection
+useEffect(() => {
+  if (isAdmin) return; // Admin has unrestricted access
+
+  const handleBlur = () => setIsWindowBlurred(true);
+  const handleFocus = () => setIsWindowBlurred(false);
+  const handleVisibilityChange = () => {
+    setIsWindowBlurred(document.visibilityState === 'hidden');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'PrintScreen' || e.keyCode === 44) {
+      setIsWindowBlurred(true);
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText('');
+      setTimeout(() => setIsWindowBlurred(false), 2500);
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's')) {
+      e.preventDefault();
+    }
+  };
+
+  window.addEventListener('blur', handleBlur);
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('keydown', handleKeyDown);
+
+  return () => {
+    window.removeEventListener('blur', handleBlur);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('keydown', handleKeyDown);
+  };
+}, [isAdmin]);
+  </pre>
+
+  <h2>4️⃣ كود إعداد وربط Firebase Firestore & Auth (src/firebase.js)</h2>
+  <pre>
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, where, updateDoc, setDoc, getDoc, serverTimestamp, onSnapshot, arrayUnion, writeBatch } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
+import { getStorage } from "firebase/storage";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBKb_V-mc6_T8Ik33Lcwe18hxTdK6M7UXo",
+  authDomain: "etegah-dafe5.firebaseapp.com",
+  projectId: "etegah-dafe5",
+  storageBucket: "etegah-dafe5.firebasestorage.app",
+  messagingSenderId: "754580123107",
+  appId: "1:754580123107:web:20a5454b787fa0965d84d6"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const storage = getStorage(app);
+  </pre>
+</body>
+</html>
