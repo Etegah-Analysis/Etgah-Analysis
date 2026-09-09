@@ -5951,7 +5951,7 @@ const Dashboard = () => {
                   <Users className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover border border-amber-300/60 shrink-0" /><span>Total System Leads</span></p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
@@ -5969,11 +5969,9 @@ const Dashboard = () => {
                   <Clock className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ Total Pending Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[9px] sm:text-[10px] text-purple-300 font-bold block mt-0.5 leading-tight" dir="rtl">
-                    (واتساب + CRM + داتا الموظف)
-                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-purple-300 font-bold block mt-0.5 leading-tight" dir="ltr">(WhatsApp + CRM + Added Leads)</span>
                 </div>
               </div>
 
@@ -6018,7 +6016,7 @@ const Dashboard = () => {
                   <Globe className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Website Visitors (OTP)</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
                 </div>
               </div>
@@ -6032,7 +6030,7 @@ const Dashboard = () => {
                   <Trash2 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">سلة المهملات</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🗑️ Recycle Bin</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{recycleBin.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -6106,10 +6104,10 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
                   </span>
                 </div>
               </div>
@@ -6161,7 +6159,7 @@ const Dashboard = () => {
                   <Users className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words" title="إجمالي عدد العملاء على السيستم">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover border border-amber-300/60 shrink-0" /><span>Total System Leads</span></p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
@@ -6179,11 +6177,9 @@ const Dashboard = () => {
                   <Clock className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ Total Pending Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (واتساب + CRM + داتا الموظف)
-                  </span>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="ltr">(WhatsApp + CRM + Added Leads)</span>
                 </div>
               </div>
 
@@ -6215,7 +6211,7 @@ const Dashboard = () => {
                   <Globe className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Website Visitors (OTP)</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (تحويل وتوزيع للموظفين)
@@ -6293,10 +6289,10 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
+                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
                   </span>
                 </div>
               </div>
@@ -6474,10 +6470,10 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                        {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل)
+                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
                       </span>
                     </div>
                   </div>
@@ -6634,10 +6630,10 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
+                        {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل)
+                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
                       </span>
                     </div>
                   </div>
@@ -6764,7 +6760,7 @@ const Dashboard = () => {
                       { key: 'all', label: 'الكل 📊', count: totalSentAll },
                       { key: 'crm_sheet', label: '🎯 حملات شيت CRM', count: crmSheetMsgs.length },
                       { key: 'excel_import', label: '📁 حملات إكسيل الواتساب', count: excelMsgs.length },
-                      { key: 'direct', label: '💬 قوالب المحادثات', count: directMsgs.length },
+                      { key: 'direct', label: '💬 Marketing Messages المحادثات', count: directMsgs.length },
                     ].map(tab => (
                       <button
                         key={tab.key}
@@ -10170,7 +10166,7 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="text-lg font-black text-amber-300">عملاء الزوار (مسجلي الدخول بالموقع)</h2>
+                <h2 className="text-lg font-black text-amber-300">🌐 Website Visitors (OTP)</h2>
                 <p className="text-xs text-purple-200 mt-0.5">هؤلاء العملاء سجلوا دخولهم عبر الموقع الإلكتروني فقط</p>
               </div>
               <div className="flex items-center gap-3">
@@ -10268,7 +10264,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                    <span>كارت عملاء الزوار والموقع (OTP & WhatsApp)</span>
+                    <span>🌐 Website Visitors (OTP & WhatsApp)</span>
                   </h2>
                   <p className="text-xs text-purple-200 mt-0.5">مسجلو الموقع عبر OTP ومحادثات الواتساب المباشرة • التعيين يوجه العميل فوراً لكارت Leads CRM للموظف</p>
                 </div>
@@ -10738,7 +10734,7 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-col sm:flex-row justify-between items-center gap-4">
               <h2 className="text-lg font-black text-white flex items-center">
-                <Trash2 className="mr-2 text-amber-400" size={22} /> سلة المهملات
+                <Trash2 className="mr-2 text-amber-400" size={22} /> <span>Recycle Bin</span>
               </h2>
               <div className="flex space-x-2 space-x-reverse">
                 <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>الكل</button>
@@ -13297,7 +13293,7 @@ const Dashboard = () => {
                 {/* Total Big Badge */}
                 <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 p-5 rounded-2xl border border-blue-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
                   <div>
-                    <span className="text-xs text-blue-300 font-bold block mb-1">إجمالي عدد العملاء على السيستم بالكامل:</span>
+                    <span className="text-xs text-blue-300 font-bold block mb-1 flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 rounded-full object-cover border border-amber-300/60" /> Total System Leads:</span>
                     <span className="text-3xl sm:text-4xl font-black text-cyan-300">
                       {(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()} عميل
                     </span>
