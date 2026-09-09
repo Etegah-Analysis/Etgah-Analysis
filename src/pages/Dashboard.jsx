@@ -5557,45 +5557,45 @@ const Dashboard = () => {
               {/* Card 1: Dedicated Leads CRM */}
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <FileSpreadsheet className="text-purple-300" size={28} />
+                  <FileSpreadsheet className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
 
               {/* Card 2: Employee Added Data */}
               <div 
                 onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Upload className="text-purple-300" size={28} />
+                  <Upload className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()}</h3>
                 </div>
               </div>
 
               {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
               <div 
                 onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Award className="text-purple-300" size={28} />
+                  <Award className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{allSubscribedClients.length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (اشتراكات مؤكدة)
                   </span>
                 </div>
@@ -5607,15 +5607,15 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsSystemTotalClientsModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Users className="text-blue-400" size={28} />
+                  <Users className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🌐 إجمالي عدد العملاء على السيستم</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
               
@@ -5625,16 +5625,16 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsPendingClientsModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Clock className="text-red-400" size={28} />
+                  <Clock className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[9px] sm:text-[10px] text-purple-300/90 font-medium block mt-0.5 leading-tight" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
+                  <span className="text-[9px] sm:text-[10px] text-purple-300 font-bold block mt-0.5 leading-tight" dir="rtl">
                     (واتساب + CRM + داتا الموظف)
                   </span>
                 </div>
@@ -5643,16 +5643,16 @@ const Dashboard = () => {
               {/* Card 6: Website WhatsApp Leads */}
               <div 
                 onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-emerald-400" size={28} />
+                  <Globe className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (رسائل وتسجيلات الموقع)
                   </span>
                 </div>
@@ -5661,42 +5661,42 @@ const Dashboard = () => {
               {/* Card 7: Employees Count */}
               <div 
                 onClick={(e) => handleCardClick(e, 'employees', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-green-400 scale-105 shadow-[0_8px_25px_rgba(34,197,94,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <UserCheck className="text-emerald-400" size={28} />
+                  <UserCheck className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">إجمالي الموظفين</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">إجمالي الموظفين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
                 </div>
               </div>
 
               {/* Card 8: Visitors */}
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-indigo-400" size={28} />
+                  <Globe className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
                 </div>
               </div>
               
               {/* Card 9: Recycle Bin */}
               <div 
                 onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'recycle_bin' ? 'border-red-400 scale-105 shadow-[0_8px_25px_rgba(239,68,68,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'recycle_bin' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Trash2 className="text-rose-400" size={28} />
+                  <Trash2 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">سلة المهملات</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{recycleBin.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">سلة المهملات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{recycleBin.length.toLocaleString()}</h3>
                 </div>
               </div>
             </div>
@@ -5718,18 +5718,18 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsLeadsAnalysisModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <BarChart3 className="text-cyan-300" size={28} />
+                  <BarChart3 className="text-amber-300" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
                   </span>
                 </div>
@@ -5741,18 +5741,18 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsCallsAnalysisModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                  <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (إجمالي مكالمات السيستم)
                   </span>
                 </div>
@@ -5761,17 +5761,17 @@ const Dashboard = () => {
               {/* Card 12: Campaigns */}
               <div 
                 onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <BarChart3 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
                   </span>
                 </div>
@@ -5785,29 +5785,29 @@ const Dashboard = () => {
               {/* Card 1: Dedicated Leads CRM */}
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <FileSpreadsheet className="text-purple-300" size={28} />
+                  <FileSpreadsheet className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{leadsCrm.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
 
               {/* Card 2: Employee Added Data */}
               <div 
                 onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Upload className="text-purple-300" size={28} />
+                  <Upload className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()}</h3>
                 </div>
               </div>
 
@@ -5817,15 +5817,15 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsSystemTotalClientsModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Users className="text-blue-400" size={28} />
+                  <Users className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words" title="إجمالي عدد العملاء على السيستم">🌐 إجمالي عدد العملاء على السيستم</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words" title="إجمالي عدد العملاء على السيستم">🌐 إجمالي عدد العملاء على السيستم</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
               
@@ -5835,16 +5835,16 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsPendingClientsModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/30 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Clock className="text-red-400" size={28} />
+                  <Clock className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ عملاء الانتظار (شامل)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (واتساب + CRM + داتا الموظف)
                   </span>
                 </div>
@@ -5853,16 +5853,16 @@ const Dashboard = () => {
               {/* Card 6: Website WhatsApp Leads */}
               <div 
                 onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-emerald-400" size={28} />
+                  <Globe className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (رسائل وتسجيلات الموقع)
                   </span>
                 </div>
@@ -5871,16 +5871,16 @@ const Dashboard = () => {
               {/* Card 7: Visitors (عملاء الزوار والموقع) */}
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-indigo-400 scale-105 shadow-[0_8px_25px_rgba(99,102,241,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-indigo-400" size={28} />
+                  <Globe className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">{whatsappVisitorsCount.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء الزوار</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (تحويل وتوزيع للموظفين)
                   </span>
                 </div>
@@ -5904,18 +5904,18 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsLeadsAnalysisModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] p-3.5 sm:p-5 md:p-6 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <BarChart3 className="text-cyan-300" size={28} />
+                  <BarChart3 className="text-amber-300" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
                   </span>
                 </div>
@@ -5927,18 +5927,18 @@ const Dashboard = () => {
                   e.stopPropagation();
                   setIsCallsAnalysisModalOpen(true);
                 }}
-                className="bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                  <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (تحليل شامل للإدارة والمنسق)
                   </span>
                 </div>
@@ -5947,18 +5947,18 @@ const Dashboard = () => {
               {/* Card 10: Campaign Performance (أداء الحملات) */}
               <div 
                 onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/30 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <BarChart3 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-cyan-300">
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
-                  <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل واتساب)
                   </span>
                 </div>
@@ -5978,15 +5978,15 @@ const Dashboard = () => {
                   {/* Leader Card 1: Leads CRM (Personal Leads) */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض جدول Leads CRM الخاص بك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <FileSpreadsheet className="text-purple-300" size={28} />
+                      <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                       </h3>
                     </div>
@@ -5995,15 +5995,15 @@ const Dashboard = () => {
                   {/* Leader Card 2: Employee Added Data */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Upload className="text-purple-300" size={28} />
+                      <Upload className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
                       </h3>
                     </div>
@@ -6012,7 +6012,7 @@ const Dashboard = () => {
                   {/* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لمتابعة عملاء فريقك وسحب الداتا"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6034,16 +6034,16 @@ const Dashboard = () => {
                   {/* Leader Card 4: Subscribed Clients */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Award className="text-purple-300" size={28} />
+                      <Award className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
-                      <h3 className="text-2xl font-black text-cyan-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                      <h3 className="text-2xl font-black text-amber-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مشتركي الفريق)
                       </span>
                     </div>
@@ -6052,15 +6052,15 @@ const Dashboard = () => {
                   {/* Leader Card 5: Website WhatsApp Leads */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Globe className="text-emerald-400" size={28} />
+                      <Globe className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
                       </h3>
                     </div>
@@ -6084,18 +6084,18 @@ const Dashboard = () => {
                       e.stopPropagation();
                       setIsLeadsAnalysisModalOpen(true);
                     }}
-                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <BarChart3 className="text-cyan-300" size={28} />
+                      <BarChart3 className="text-amber-300" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                      <h3 className="text-xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                      <h3 className="text-xl font-black text-amber-300">
                         {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا تقييم الفريق)
                       </span>
                     </div>
@@ -6107,18 +6107,18 @@ const Dashboard = () => {
                       e.stopPropagation();
                       setIsCallsAnalysisModalOpen(true);
                     }}
-                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                      <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
-                      <h3 className="text-xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                      <h3 className="text-xl font-black text-amber-300">
                         {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مكالمات الفريق)
                       </span>
                     </div>
@@ -6127,7 +6127,7 @@ const Dashboard = () => {
                   {/* Leader Card 8: Campaign Performance (أداء الحملات) */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900/90 via-purple-950/90 to-slate-900/90 backdrop-blur-xl rounded-2xl shadow-[0_6px_20px_rgba(112,26,117,0.35)] p-5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-amber-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6159,15 +6159,15 @@ const Dashboard = () => {
                   {/* Agent Card 1: Leads CRM */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <FileSpreadsheet className="text-purple-300" size={28} />
+                      <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                       </h3>
                     </div>
@@ -6176,15 +6176,15 @@ const Dashboard = () => {
                   {/* Agent Card 2: Employee Added Data */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Upload className="text-purple-300" size={28} />
+                      <Upload className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                       </h3>
                     </div>
@@ -6193,16 +6193,16 @@ const Dashboard = () => {
                   {/* Agent Card 3: Subscribed Clients */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Award className="text-purple-300" size={28} />
+                      <Award className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
-                      <h3 className="text-2xl font-black text-cyan-300">{agentSubscribedClients.length.toLocaleString()}</h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                      <h3 className="text-2xl font-black text-amber-300">{agentSubscribedClients.length.toLocaleString()}</h3>
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مشتركي الخاصين)
                       </span>
                     </div>
@@ -6211,15 +6211,15 @@ const Dashboard = () => {
                   {/* Agent Card 4: Website WhatsApp Leads */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-purple-400 scale-105 shadow-[0_8px_25px_rgba(168,85,247,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Globe className="text-emerald-400" size={28} />
+                      <Globe className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
                       </h3>
                     </div>
@@ -6243,18 +6243,18 @@ const Dashboard = () => {
                       e.stopPropagation();
                       setIsLeadsAnalysisModalOpen(true);
                     }}
-                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-purple-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <BarChart3 className="text-cyan-300" size={28} />
+                      <BarChart3 className="text-amber-300" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا التقييم الخاصة بي)
                       </span>
                     </div>
@@ -6266,18 +6266,18 @@ const Dashboard = () => {
                       e.stopPropagation();
                       setIsCallsAnalysisModalOpen(true);
                     }}
-                    className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-purple-400/40 hover:border-cyan-300 hover:scale-105 flex items-center cursor-pointer transition-all transform"
+                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                      <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
-                      <h3 className="text-xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                      <h3 className="text-xl font-black text-amber-300">
                         {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مكالماتي الخاصة)
                       </span>
                     </div>
@@ -6286,18 +6286,18 @@ const Dashboard = () => {
                   {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
-                    className={`bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(79,70,229,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)]' : 'border-purple-400/40 hover:border-purple-300 hover:scale-105'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <BarChart3 className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-purple-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
-                      <h3 className="text-2xl font-black text-cyan-300">
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                      <h3 className="text-2xl font-black text-amber-300">
                         {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                       </h3>
-                      <span className="text-[10px] text-purple-300/90 font-medium block mt-0.5" dir="rtl">
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} شيت CRM • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} إكسيل)
                       </span>
                     </div>
