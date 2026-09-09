@@ -599,16 +599,20 @@ const Dashboard = () => {
   // Helper to extract the assigner/distributor for any lead
   const getLeadAssignerDisplay = (customer) => {
     if (!customer) return null;
-    if (customer.assignedBy) return customer.assignedBy;
-    if (customer.assignmentHistory && customer.assignmentHistory.length > 0) {
+    let res = null;
+    if (customer.assignedBy) res = customer.assignedBy;
+    else if (customer.assignmentHistory && customer.assignmentHistory.length > 0) {
       const last = customer.assignmentHistory[customer.assignmentHistory.length - 1];
-      if (last?.assignedBy) return last.assignedBy;
-    }
-    if (customer.addedBy) {
+      if (last?.assignedBy) res = last.assignedBy;
+    } else if (customer.addedBy) {
       if (isAdminIdentifier(customer.addedBy)) return '👑 الإدارة';
-      return customer.addedBy;
+      res = customer.addedBy;
     }
-    return null;
+    if (!res) return null;
+    return String(res)
+      .replace(/إضافة واستيراد داتا بواسطة\s*/g, '')
+      .replace(/[()]/g, '')
+      .trim();
   };
 
   // Column Header Filter Component for Registration Date (Compact, Pure Icon, React Portal Modal)
@@ -623,7 +627,7 @@ const Dashboard = () => {
   }) => {
     const isFiltered = Boolean(regFrom || regTo);
     return (
-      <th className="px-2 py-1.5 font-bold text-purple-900 text-xs select-none min-w-[100px] text-center">
+      <th className="px-2 py-1.5 font-extrabold text-amber-300 text-xs select-none min-w-[100px] text-center">
         <div className="flex flex-col items-center justify-center gap-1">
           <span className="text-[11px] font-black whitespace-nowrap">{label}</span>
           <button
@@ -773,7 +777,7 @@ const Dashboard = () => {
   }) => {
     const isFiltered = Boolean(commentFrom || commentTo);
     return (
-      <th className="px-2 py-1.5 font-bold text-amber-900 text-xs select-none min-w-[100px] text-center">
+      <th className="px-2 py-1.5 font-extrabold text-amber-300 text-xs select-none min-w-[100px] text-center">
         <div className="flex flex-col items-center justify-center gap-1">
           <span className="text-[11px] font-black whitespace-nowrap">{label}</span>
           <button
@@ -2889,7 +2893,7 @@ const Dashboard = () => {
             docData.assignedAt = serverTimestamp();
             docData.status = 'assigned';
             docData.crmStatus = 'unassigned';
-            const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `إضافة واستيراد داتا بواسطة (${empName})`);
+            const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `👤 ${empName}`);
             docData.assignmentHistory = [logObj];
           } else {
             // Admin or Coordinator
@@ -5118,7 +5122,7 @@ const Dashboard = () => {
 
       {/* Header - Fixed & Floating on scroll smoothly across all devices */}
       <header 
-        className="sticky top-0 z-20 bg-white/95 backdrop-blur-md shadow-md border-b border-gray-200/90 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
+        className="sticky top-0 z-20 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white shadow-xl border-b border-purple-500/30 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-3 transition-all duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar on mobile / Brand + User info */}
@@ -5138,28 +5142,24 @@ const Dashboard = () => {
                 </span>
               )}
             </div>
-            <h1 className="text-sm sm:text-base md:text-xl font-black text-gray-800 flex items-center gap-1.5 whitespace-nowrap">
-              <span>Etegah</span>
-              <span className={`text-[11px] sm:text-xs px-2 py-0.5 rounded-full font-black shadow-sm border ${
-                isAdmin 
-                  ? 'text-primary bg-primary/10 border-emerald-300' 
-                  : 'text-purple-700 bg-purple-100 border-purple-300'
-              }`}>
+            <h1 className="text-sm sm:text-base md:text-xl font-black flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-amber-300 font-black tracking-wide drop-shadow-[0_2px_10px_rgba(251,191,36,0.3)]">Etegah</span>
+              <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-black shadow-sm border bg-amber-500/20 text-amber-300 border-amber-400/40">
                 CRM
               </span>
             </h1>
           </div>
 
-          {/* User Badge - Visible & Clean on Mobile & Desktop */}
-          <div className="flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200 shadow-sm shrink-0">
+          {/* User Badge - Royal Theme */}
+          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-amber-400/30 shadow-inner shrink-0">
             <div className="relative group shrink-0 hidden sm:block">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-[2px] opacity-70"></div>
               <img src="/logo.jpg" alt="Logo" className="relative w-4 h-4 rounded-full object-cover border border-amber-300" />
             </div>
-            <span className="text-[11px] sm:text-xs font-black text-gray-800 truncate max-w-[90px] sm:max-w-[130px]">
+            <span className="text-[11px] sm:text-xs font-black text-amber-200 truncate max-w-[90px] sm:max-w-[130px]">
               {isAdmin ? 'الإدارة' : (employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || 'موظف')}
             </span>
-            <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+            <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
               {isAdmin ? '👑 Admin' : (() => {
                 const emp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
                 const r = emp?.jobTitle || emp?.role || 'Agent';
@@ -5185,7 +5185,7 @@ const Dashboard = () => {
                   className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
                     isBellRed 
                       ? 'bg-gradient-to-b from-red-600 via-rose-600 to-red-700 text-white border-red-300 shadow-[0_4px_16px_rgba(225,29,72,0.65),inset_0_1px_2px_rgba(255,255,255,0.6)] animate-pulse hover:shadow-[0_6px_22px_rgba(225,29,72,0.9)] hover:-translate-y-0.5' 
-                      : 'bg-gradient-to-b from-white via-slate-50 to-slate-100 text-gray-800 border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_2px_rgba(255,255,255,0.9)] hover:from-white hover:to-slate-200 hover:-translate-y-0.5'
+                      : 'bg-white/10 hover:bg-white/20 text-amber-200 border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:-translate-y-0.5'
                   }`}
                   title="مركز الإشعارات والتنبيهات 🔔 (واتساب و Email-Etegah)"
                 >
@@ -5201,7 +5201,7 @@ const Dashboard = () => {
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shadow-md animate-bounce ${
                       isBellRed 
                         ? 'bg-white text-red-700 border-red-200 shadow-[0_2px_8px_rgba(225,29,72,0.8)]' 
-                        : 'bg-gradient-to-b from-gray-700 to-gray-900 text-white border-white/80'
+                        : 'bg-amber-400 text-slate-950 border-amber-300 font-black'
                     }`}>
                       {totalAllNotificationsCount}
                     </span>
@@ -5506,7 +5506,7 @@ const Dashboard = () => {
               setIsMailModalOpen(true);
               setMailActiveFolder('inbox');
             }}
-            className="relative flex items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-white/20 shrink-0"
+            className="relative flex items-center bg-purple-900/80 hover:bg-purple-800 text-amber-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-purple-400/40 shrink-0"
             title="فتح Email-Etegah"
           >
             <Mail size={15} />
@@ -5522,7 +5522,7 @@ const Dashboard = () => {
           {isAdmin && (
             <button 
               onClick={openAddEmployeeModal}
-              className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm font-bold text-xs gap-1 cursor-pointer active:scale-95 shrink-0"
+              className="flex items-center bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm font-black text-xs gap-1 cursor-pointer active:scale-95 shrink-0 border border-amber-300/40"
               title="إضافة موظف جديد"
             >
               <UserPlus size={15} />
@@ -5540,7 +5540,7 @@ const Dashboard = () => {
               }
               navigate('/inbox', { state: { impersonatedEmp } });
             }}
-            className="flex items-center bg-slate-900 hover:bg-black text-white px-2.5 sm:px-3.5 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-gray-700 shrink-0"
+            className="flex items-center bg-slate-950/90 hover:bg-black text-emerald-300 px-2.5 sm:px-3.5 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 border border-purple-500/40 shrink-0"
             title="الانتقال إلى محادثات واتساب"
           >
             <span className="whitespace-nowrap">WhatsApp Chat</span>
@@ -5550,7 +5550,7 @@ const Dashboard = () => {
           {/* تسجيل الخروج */}
           <button 
             onClick={handleLogout}
-            className="flex items-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 cursor-pointer shadow-sm active:scale-95 shrink-0"
+            className="flex items-center bg-rose-950/60 hover:bg-rose-900 text-rose-200 border border-rose-500/40 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 cursor-pointer shadow-sm active:scale-95 shrink-0"
             title="Logout"
           >
             <LogOut size={15} />
@@ -6540,18 +6540,18 @@ const Dashboard = () => {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-right border-collapse">
-                  <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                    <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30 text-xs">
-                      <th className="p-3.5 font-bold">اسم القالب / الرسالة</th>
-                      <th className="p-3.5 font-bold text-center">نوع الحملة ومصدرها</th>
-                      <th className="p-3.5 font-bold">الموظف المُرسل</th>
-                      <th className="p-3.5 font-bold text-center">إجمالي الإرسال</th>
-                      <th className="p-3.5 font-bold text-blue-700 text-center bg-blue-50/50">مرة واحدة 📩</th>
-                      <th className="p-3.5 font-bold text-purple-700 text-center bg-purple-50/50">مرتين 📩📩</th>
-                      <th className="p-3.5 font-bold text-amber-700 text-center bg-amber-50/50">3+ مرات 📩🔥</th>
-                      <th className="p-3.5 font-bold text-emerald-700 text-center">تم التسليم (✔️✔️)</th>
-                      <th className="p-3.5 font-bold text-cyan-700 text-center">تم الفتح (✔️✔️)</th>
-                      <th className="p-3.5 font-bold text-gray-700 text-center">معدل الفتح</th>
+                  <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                    <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 text-xs font-extrabold">
+                      <th className="p-3.5 font-extrabold text-amber-300">اسم القالب / الرسالة</th>
+                      <th className="p-3.5 font-extrabold text-amber-300 text-center">نوع الحملة ومصدرها</th>
+                      <th className="p-3.5 font-extrabold text-amber-300">الموظف المُرسل</th>
+                      <th className="p-3.5 font-extrabold text-amber-300 text-center">إجمالي الإرسال</th>
+                      <th className="p-3.5 font-extrabold text-blue-400 text-center">مرة واحدة 📩</th>
+                      <th className="p-3.5 font-extrabold text-purple-300 text-center">مرتين 📩📩</th>
+                      <th className="p-3.5 font-extrabold text-amber-300 text-center">3+ مرات 📩🔥</th>
+                      <th className="p-3.5 font-extrabold text-emerald-400 text-center">تم التسليم (✔️✔️)</th>
+                      <th className="p-3.5 font-extrabold text-cyan-300 text-center">تم الفتح (✔️✔️)</th>
+                      <th className="p-3.5 font-extrabold text-amber-200 text-center">معدل الفتح</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -6780,19 +6780,19 @@ const Dashboard = () => {
               {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                    <tr>
+                  <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                    <tr className="text-amber-300 font-extrabold">
                       <th className="p-3.5 text-center w-12">
                         <input 
                           type="checkbox" 
                           checked={isPageAllSelected}
                           onChange={() => toggleAllTeamTracking(paginatedTeamLeads)}
-                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 cursor-pointer"
                         />
                       </th>
-                      <th className="p-3.5">الرقم</th>
-                      <th className="p-3.5">اسم العميل</th>
-                      <th className="p-3.5">Team Member</th>
+                      <th className="p-3.5 font-extrabold text-amber-300">الرقم</th>
+                      <th className="p-3.5 font-extrabold text-amber-300">اسم العميل</th>
+                      <th className="p-3.5 font-extrabold text-amber-300">Team Member</th>
                       {renderColHeaderRegDate3D({
                         regFrom: teamRegDateFrom,
                         setRegFrom: setTeamRegDateFrom,
@@ -6811,8 +6811,8 @@ const Dashboard = () => {
                         setOpenPop: setOpenTeamCommentDatePop,
                         label: 'تاريخ Last Comment'
                       })}
-                      <th className="p-3.5 text-center min-w-[150px]">حالة المتابعة (CRM)</th>
-                      <th className="p-3.5 text-center min-w-[90px]">WhatsApp</th>
+                      <th className="p-3.5 text-center min-w-[150px] font-extrabold text-amber-300">حالة المتابعة (CRM)</th>
+                      <th className="p-3.5 text-center min-w-[90px] font-extrabold text-amber-300">WhatsApp</th>
                       <th className="p-3.5 text-center min-w-[150px]">
                         {selectedTeamTrackingLeads.length > 0 ? (
                           <button 
@@ -6993,7 +6993,7 @@ const Dashboard = () => {
                   <FileSpreadsheet className="text-amber-400" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                     <span>🎯 Leads CRM</span>
                     {(isAdmin || isCoordinator) && (
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
@@ -7362,20 +7362,20 @@ const Dashboard = () => {
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                      <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
                           {(isAdmin || isCoordinator || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
                                 checked={isPageSelected} 
                                 onChange={() => toggleAllLeadsCrm(paginatedLeads)} 
-                                className="w-4 h-4 text-purple-600 rounded cursor-pointer accent-purple-600" 
+                                className="w-4 h-4 text-amber-500 rounded cursor-pointer accent-amber-500" 
                               />
                             </th>
                           )}
-                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs whitespace-nowrap">رقم الهاتف</th>
-                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs">اسم العميل ومصدر الداتا</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs whitespace-nowrap">رقم الهاتف</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs">اسم العميل ومصدر الداتا</th>
                           {renderColHeaderRegDate3D({
                             regFrom: dateFromFilter,
                             setRegFrom: setDateFromFilter,
@@ -7394,9 +7394,9 @@ const Dashboard = () => {
                             setOpenPop: setOpenCrmCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
-                          <th className="px-3 py-2.5 font-bold text-purple-900 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-bold text-purple-900 text-xs text-center">WhatsApp</th>}
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
+                          {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -7479,18 +7479,14 @@ const Dashboard = () => {
                                 </div>
                               )}
                               {(() => {
-                                const isAdderAdmin = !customer.addedBy || isAdminIdentifier(customer.addedBy);
-                                const adderName = isAdderAdmin ? 'الإدارة' : sanitizeDisplayName(customer.addedBy);
+                                const showSource = (isAdmin || isCoordinator) && customer.source;
                                 return (
                                   <div className="flex flex-wrap items-center gap-1 mt-1">
-                                    {!isAdderAdmin && customer.source && (
+                                    {showSource && (
                                       <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold border border-purple-200">
                                         📦 {customer.source}
                                       </span>
                                     )}
-                                    <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
-                                      👤 مضاف بواسطة: {adderName}
-                                    </span>
                                     {customer.notesHistory && customer.notesHistory.length > 0 && (
                                       <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
                                     )}
@@ -7769,7 +7765,7 @@ const Dashboard = () => {
                   <Upload className="text-amber-400" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                     <span>📁 {isLeader ? 'Team Added Leads' : 'داتا مضافة بواسطة الموظف'}</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                       {isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Leads` : isLeader ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid).length.toLocaleString()} My Leads`}
@@ -7802,7 +7798,7 @@ const Dashboard = () => {
                   onClick={() => setIsImportModalOpen(true)}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                 >
-                  <FileSpreadsheet size={14} /> 📥 إضافة واستيراد داتا جديدة
+                  <FileSpreadsheet size={14} /> 📥 استيراد داتا جديدة
                 </button>
                 {isAdmin && (
                   <>
@@ -8110,20 +8106,20 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                      <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
                           {(isAdmin || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
                                 checked={isPageSelected} 
                                 onChange={() => toggleAllEmployeeLeads(paginatedEmpLeads)} 
-                                className="w-4 h-4 text-purple-600 rounded cursor-pointer accent-purple-600" 
+                                className="w-4 h-4 text-amber-500 rounded cursor-pointer accent-amber-500" 
                               />
                             </th>
                           )}
-                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs whitespace-nowrap">رقم الهاتف</th>
-                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs">اسم العميل وتفاصيل الإضافة</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs whitespace-nowrap">رقم الهاتف</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs">اسم العميل وتفاصيل الإضافة</th>
                           {renderColHeaderRegDate3D({
                             regFrom: empLeadsDateFrom,
                             setRegFrom: setEmpLeadsDateFrom,
@@ -8142,11 +8138,11 @@ const Dashboard = () => {
                             setOpenPop: setOpenEmpCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
-                          <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-200 text-xs text-center">WhatsApp</th>}
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
+                          {!isCoordinator && <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>}
                           {(isAdmin || isLeader) && (
-                            <th className="px-3 py-2.5 font-bold text-purple-200 text-xs text-center min-w-[150px]">
+                            <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center min-w-[150px]">
                               {selectedEmployeeLeads.length > 0 ? (
                                 <button 
                                   onClick={handleBulkPullEmployeeLeads}
@@ -8260,27 +8256,13 @@ const Dashboard = () => {
                                     </div>
                                   )}
                                   {(() => {
-                                    const isAdderAdmin = !customer.addedBy || isAdminIdentifier(customer.addedBy);
-                                    const adderName = isAdderAdmin ? 'الإدارة' : sanitizeDisplayName(customer.addedBy);
-                                    const isWhatsapp = customer.source?.includes('WhatsApp') || customer.source?.includes('واتساب');
+                                    const showSource = (isAdmin || isCoordinator) && customer.source;
                                     return (
                                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                        {isWhatsapp ? (
-                                          <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md font-extrabold border border-emerald-300 shadow-2xs flex items-center gap-1">
-                                            <span>💬</span>
-                                            <span>واتساب بواسطة: {adderName}</span>
+                                        {showSource && (
+                                          <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
+                                            📦 {customer.source}
                                           </span>
-                                        ) : (
-                                          <>
-                                            {!isAdderAdmin && customer.source && (
-                                              <span className="text-[10px] bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded font-bold border border-purple-200">
-                                                📦 {customer.source}
-                                              </span>
-                                            )}
-                                            <span className="text-[10px] bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded font-bold border border-indigo-200" title={`تمت الإضافة بواسطة: ${adderName}`}>
-                                              👤 مضاف بواسطة: {adderName}
-                                            </span>
-                                          </>
                                         )}
                                         {customer.notesHistory && customer.notesHistory.length > 0 && (
                                           <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
@@ -8582,7 +8564,7 @@ const Dashboard = () => {
                   <Award className="text-amber-400" size={26} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                     <span>🎉 Paid Clients (إدارة وتفاصيل الاشتراكات)</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                       {isAdmin || isCoordinator ? `${allSubscribedClients.length.toLocaleString()} Paid` : isLeader ? `${leaderSubscribedClients.length.toLocaleString()} Team Paid` : `${agentSubscribedClients.length.toLocaleString()} My Paid`}
@@ -8926,15 +8908,15 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                        <tr className="bg-slate-900 text-purple-200 text-xs border-b border-purple-500/30">
-                          <th className="p-3.5">اسم العميل</th>
-                          <th className="p-3.5 text-center">رقم الهاتف</th>
-                          <th className="p-3.5 text-center min-w-[230px]">الموظف المسؤول</th>
-                          <th className="p-3.5 text-center">نوع الخدمة / الباقة</th>
-                          <th className="p-3.5 text-center">فترة الاشتراك</th>
-                          {(isAdmin || isCoordinator) && <th className="p-3.5 text-center">حالة الدفع والمبلغ</th>}
-                          <th className="p-3.5 text-center">الإجراءات وتفاصيل الاشتراك</th>
+                      <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-amber-300 text-xs border-b border-purple-500/30 font-extrabold">
+                          <th className="p-3.5 font-extrabold text-amber-300">اسم العميل</th>
+                          <th className="p-3.5 text-center font-extrabold text-amber-300">رقم الهاتف</th>
+                          <th className="p-3.5 text-center min-w-[230px] font-extrabold text-amber-300">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center font-extrabold text-amber-300">نوع الخدمة / الباقة</th>
+                          <th className="p-3.5 text-center font-extrabold text-amber-300">فترة الاشتراك</th>
+                          {(isAdmin || isCoordinator) && <th className="p-3.5 text-center font-extrabold text-amber-300">حالة الدفع والمبلغ</th>}
+                          <th className="p-3.5 text-center font-extrabold text-amber-300">الإجراءات وتفاصيل الاشتراك</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
@@ -9392,15 +9374,11 @@ const Dashboard = () => {
                         </span>
                         <span className="font-extrabold text-gray-900">{customer.name || 'عميل مسجل'}</span>
                       </div>
-                      {customer.addedBy && customer.addedBy !== 'WhatsApp Webhook' && (() => {
-                        const isAdderAdmin = adminEmails.includes(customer.addedBy?.toLowerCase()) || customer.addedBy === 'admin' || customer.addedBy?.includes('gmail') || customer.addedBy?.includes('الإدارة') || customer.addedBy?.includes('الرئيسي');
-                        const adderName = isAdderAdmin ? 'الإدارة' : (employees.find(e => e.email === customer.addedBy)?.name || customer.addedBy?.split('@')[0]);
-                        return (
-                          <span className="inline-block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-1">
-                            مضاف بواسطة: {adderName}
-                          </span>
-                        );
-                      })()}
+                      {(isAdmin || isCoordinator) && customer.source && (
+                        <span className="inline-block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-1 font-bold">
+                          📦 {customer.source}
+                        </span>
+                      )}
                       {customer.notesHistory && customer.notesHistory.length > 0 && (
                         <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات مضافة</span>
                       )}
@@ -9494,32 +9472,32 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                      <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
                           <th className="p-4 w-12 text-center">
                             <input 
                               type="checkbox" 
                               checked={isCustPageSelected} 
                               onChange={() => toggleAllCustomers(paginatedCust)} 
-                              className="w-4 h-4 text-primary rounded cursor-pointer accent-blue-600" 
+                              className="w-4 h-4 text-amber-500 rounded cursor-pointer accent-amber-500" 
                             />
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm">اسم العميل</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs">رقم الهاتف</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs">اسم العميل</th>
                           <th 
-                            className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 transition select-none"
+                            className="p-4 font-extrabold text-amber-300 text-xs cursor-pointer hover:bg-white/5 transition select-none"
                             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                             title="انقر للتغيير بين الأحدث والأقدم"
                           >
                             <div className="flex items-center gap-1.5">
                               <span>التاريخ والوقت</span>
-                              <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-primary/20">
+                              <span className="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-400/40">
                                 {sortOrder === 'desc' ? '⬇️ الأحدث أولاً' : '⬆️ الأقدم أولاً'}
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm min-w-[230px] text-center">الموظف المسؤول</th>
-                          <th className="p-4 font-semibold text-gray-600 text-sm text-center">WhatsApp</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -9641,7 +9619,7 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-black text-white">قائمة الموظفين وإدارة الصلاحيات</h2>
+                <h2 className="text-lg font-black text-amber-300">قائمة الموظفين وإدارة الصلاحيات</h2>
 
                 {/* Admin Master Emergency System Lock Button */}
                 {isAdmin && (
@@ -9687,18 +9665,18 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 font-extrabold text-xs">
                     <th className="p-4 w-12 text-center">
-                      <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-primary rounded" />
+                      <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-amber-500 rounded accent-amber-500" />
                     </th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">اسم الموظف / الكود</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">التدرج الوظيفي</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">Team / Leader</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">بيانات الدخول (م/س)</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">أول دخول</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">آخر دخول</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm text-center">التحكم</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">اسم الموظف / الكود</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">التدرج الوظيفي</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">Team / Leader</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">بيانات الدخول (م/س)</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">أول دخول</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">آخر دخول</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center">التحكم</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -9860,7 +9838,7 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="text-lg font-black text-white">عملاء الزوار (مسجلي الدخول بالموقع)</h2>
+                <h2 className="text-lg font-black text-amber-300">عملاء الزوار (مسجلي الدخول بالموقع)</h2>
                 <p className="text-xs text-purple-200 mt-0.5">هؤلاء العملاء سجلوا دخولهم عبر الموقع الإلكتروني فقط</p>
               </div>
               <div className="flex items-center gap-3">
@@ -9883,16 +9861,16 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 font-extrabold text-xs">
                     <th className="p-4 w-12 text-center">
-                      <input type="checkbox" checked={selectedVisitors.length > 0 && selectedVisitors.length === visitors.length} onChange={toggleAllVisitors} className="w-4 h-4 text-primary rounded" />
+                      <input type="checkbox" checked={selectedVisitors.length > 0 && selectedVisitors.length === visitors.length} onChange={toggleAllVisitors} className="w-4 h-4 text-amber-500 rounded accent-amber-500" />
                     </th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">اسم الزائر</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">رقم الهاتف</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">البريد الإلكتروني</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">تاريخ التسجيل</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">إجراء</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">اسم الزائر</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">رقم الهاتف</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">البريد الإلكتروني</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">تاريخ التسجيل</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">إجراء</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -9957,7 +9935,7 @@ const Dashboard = () => {
                   <Globe size={22} className="text-amber-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                     <span>كارت عملاء الزوار والموقع (OTP & WhatsApp)</span>
                   </h2>
                   <p className="text-xs text-purple-200 mt-0.5">مسجلو الموقع عبر OTP ومحادثات الواتساب المباشرة • التعيين يوجه العميل فوراً لكارت Leads CRM للموظف</p>
@@ -10084,8 +10062,8 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 font-extrabold text-xs">
                     {(isAdmin || isCoordinator || isLeader) && (
                       <th className="p-4 w-12 text-center">
                         <input 
@@ -10103,23 +10081,23 @@ const Dashboard = () => {
                         />
                       </th>
                     )}
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">الاسم ورقم الهاتف</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">المصدر</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm">حالة المتابعة</th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center min-w-[230px]">الموظف المسؤول ومضاف بواسطة</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">الاسم ورقم الهاتف</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">المصدر</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">حالة المتابعة</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center min-w-[230px]">الموظف المسؤول</th>
                     <th 
-                      className="p-4 font-semibold text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100/50 transition select-none"
+                      className="p-4 font-extrabold text-amber-300 text-xs cursor-pointer hover:bg-white/5 transition select-none"
                       onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                       title="انقر للتغيير بين الأحدث والأقدم"
                     >
                       <div className="flex items-center gap-1.5">
                         <span>التاريخ والوقت</span>
-                        <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-indigo-200">
+                        <span className="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-400/40">
                           {sortOrder === 'desc' ? '⬇️ الأحدث' : '⬆️ الأقدم'}
                         </span>
                       </div>
                     </th>
-                    <th className="p-4 font-semibold text-indigo-700 text-sm text-center">WhatsApp</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -10458,20 +10436,20 @@ const Dashboard = () => {
 
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
-                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 font-extrabold text-xs">
                     <th className="p-4 w-12">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 text-red-600 rounded border-red-300 focus:ring-red-500 cursor-pointer"
+                        className="w-4 h-4 text-amber-500 rounded border-amber-400 focus:ring-amber-500 cursor-pointer"
                         onChange={toggleAllRecycleItems}
                         checked={selectedRecycleItems.length === recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length && recycleBin.filter(item => rbFilter === 'all' || item.type === rbFilter).length > 0}
                       />
                     </th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">النوع</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">بيانات العنصر</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm">تاريخ الحذف</th>
-                    <th className="p-4 font-semibold text-gray-600 text-sm text-center">التحكم</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">النوع</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">بيانات العنصر</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">تاريخ الحذف</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center">التحكم</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-red-50">
@@ -10808,7 +10786,7 @@ const Dashboard = () => {
               <div className="mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <Upload className="text-emerald-600" size={26} />
-                  <span>📁 إضافة واستيراد داتا مضافة بواسطة الموظف</span>
+                  <span>📁 داتا مضافة بواسطة الموظف</span>
                 </h2>
                 <p className="text-xs text-gray-500 font-medium mt-1">
                   {!isAdmin && !isCoordinator ? (
@@ -11077,219 +11055,222 @@ const Dashboard = () => {
         {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
         {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && document.body && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsNotesModalOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition p-1 rounded-lg hover:bg-gray-100 cursor-pointer z-10"
                 title="إغلاق"
               >
                 <X size={22} />
               </button>
 
-              <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 flex items-center gap-2 shrink-0">
                 <FileText className="text-amber-600" size={22} />
                 <span>تقرير وملاحظات العميل</span>
               </h2>
 
-              {isStatusChangeMandatory && (
-                <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black mb-3 flex items-center gap-2 shadow-sm animate-pulse">
-                  <span className="text-base">⚠️</span>
-                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes}</span></span>
-                </div>
-              )}
-
-              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل:</label>
-                  {isCoordinator ? (
-                    <div className="w-full px-3 py-1.5 border border-amber-200 rounded-lg text-xs font-black text-gray-800 bg-white shadow-sm">
-                      {modalCustomerName || selectedCustomerForNotes.name || 'عميل جديد'}
-                    </div>
-                  ) : (
-                    <input 
-                      type="text" 
-                      value={modalCustomerName}
-                      onChange={(e) => setModalCustomerName(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-600 bg-white shadow-sm"
-                      placeholder="اسم العميل..."
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-gray-600 font-mono font-bold flex items-center gap-1.5 pt-0.5" dir="ltr">
-                  <span>📱</span>
-                  <span>{selectedCustomerForNotes.phoneNumber}</span>
-                </p>
-
-                {/* جهة التوزيع والتعيين مرتبة وموضوعة مباشرة تحت رقم العميل */}
-                <div className="bg-purple-50/90 p-2.5 rounded-xl border border-purple-200/90 space-y-1.5 mt-1">
-                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-purple-200/60">
-                    <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
-                      <UserCheck size={14} className="text-purple-600" />
-                      <span>جهة التوزيع والتعيين:</span>
-                    </label>
-                    {(() => {
-                      const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
-                      return (
-                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                          {assigner ? `مضاف بواسطة: ${assigner}` : '👑 الإدارة'}
-                        </span>
-                      );
-                    })()}
+              {/* Scrollable Container containing the entire page flow */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-3.5">
+                {isStatusChangeMandatory && (
+                  <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm animate-pulse">
+                    <span className="text-base">⚠️</span>
+                    <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes}</span></span>
                   </div>
+                )}
 
-                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
-                    {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
-                      selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
-                        <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
-                          <div className="flex items-center justify-between font-bold text-gray-800">
-                            <span className="text-purple-800">{log.from} ➔ {log.to}</span>
-                            <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
-                              {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
-                            <span>بواسطة: {log.assignedBy}</span>
-                            <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[10px] text-gray-500 font-medium py-1 text-center bg-white/60 rounded-lg">
-                        {selectedCustomerForNotes.assignedAt ? (
-                          <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
-                        ) : (
-                          <span>تم التعيين مباشرة عبر النظام.</span>
-                        )}
+                <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 space-y-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل:</label>
+                    {isCoordinator ? (
+                      <div className="w-full px-3 py-1.5 border border-amber-200 rounded-lg text-xs font-black text-gray-800 bg-white shadow-sm">
+                        {modalCustomerName || selectedCustomerForNotes.name || 'عميل جديد'}
                       </div>
+                    ) : (
+                      <input 
+                        type="text" 
+                        value={modalCustomerName}
+                        onChange={(e) => setModalCustomerName(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-600 bg-white shadow-sm"
+                        placeholder="اسم العميل..."
+                      />
                     )}
                   </div>
-                </div>
-              </div>
+                  <p className="text-xs text-gray-600 font-mono font-bold flex items-center gap-1.5 pt-0.5" dir="ltr">
+                    <span>📱</span>
+                    <span>{selectedCustomerForNotes.phoneNumber}</span>
+                  </p>
 
-              {/* Notes History Timeline (Scrollable area) */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-[140px] max-h-[38vh]">
-                <label className="block text-xs font-bold text-gray-700 mb-1 sticky top-0 bg-white py-0.5 z-10">سجل الملاحظات والتقارير السابقة:</label>
-                <div className="border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
-                  {(() => {
-                    const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
-                    if (validNotes.length === 0) {
-                      return (
-                        <div className="py-5 text-center text-gray-400 text-xs space-y-1">
-                          <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
-                          <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
-                          <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
-                        </div>
-                      );
-                    }
-                    return [...validNotes].reverse().map((note, i) => {
-                      const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
-                      const isNoteByLeader = note.author && note.author.includes('ليدر');
-                      const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
-                      const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
-                      const isAuthor = (note.authorEmail && note.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
-                                       (note.authorUid && note.authorUid === currentUser?.uid);
-                      const canDelete = isCurrentUserAdmin || isAuthor;
+                  {/* جهة التوزيع والتعيين مرتبة وموضوعة مباشرة تحت رقم العميل */}
+                  <div className="bg-purple-50/90 p-2.5 rounded-xl border border-purple-200/90 space-y-1.5 mt-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-purple-200/60">
+                      <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
+                        <UserCheck size={14} className="text-purple-600" />
+                        <span>جهة التوزيع والتعيين:</span>
+                      </label>
+                      {(() => {
+                        const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
+                        return (
+                          <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            {assigner ? (assigner.includes('الإدارة') ? assigner : `👤 ${assigner}`) : '👑 الإدارة'}
+                          </span>
+                        );
+                      })()}
+                    </div>
 
-                      return (
-                        <div key={note.id || i} className="bg-white p-3 rounded-xl border border-gray-200/90 shadow-xs hover:border-purple-300 transition-all space-y-2">
-                          <div className="flex justify-between items-center text-[10px] pb-2 border-b border-gray-100">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`font-bold flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] ${
-                                isNoteByAdmin 
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300' 
-                                  : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
-                              }`}>
-                                👤 {authorDisplay}
+                    <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                      {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
+                        selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
+                          <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between font-bold text-gray-800">
+                              <span className="text-purple-800">{log.from} ➔ {log.to}</span>
+                              <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
+                                {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </span>
-                              {note.statusLabel && (
-                                <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
-                                  {note.statusLabel}
-                                </span>
-                              )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {note.createdAt && (
-                                <span className="text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200 font-mono font-bold" dir="ltr">
-                                  📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                              {canDelete && (
-                                <button 
-                                  onClick={() => handleDeleteSingleNote(note, selectedCustomerForNotes.notesHistory.length - 1 - i)}
-                                  className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition cursor-pointer"
-                                  title={isCurrentUserAdmin ? "حذف التعليق نهائياً (إدارة)" : "حذف تعليقي"}
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
+                            <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
+                              <span>بواسطة: {String(log.assignedBy || '').replace(/إضافة واستيراد داتا بواسطة\s*/g, '').replace(/[()]/g, '').trim() || 'الإدارة'}</span>
+                              <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
                             </div>
                           </div>
-                          <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/60 text-gray-800 text-xs font-semibold leading-relaxed whitespace-pre-wrap">
-                            {note.text}
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-[10px] text-gray-500 font-medium py-1 text-center bg-white/60 rounded-lg">
+                          {selectedCustomerForNotes.assignedAt ? (
+                            <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
+                          ) : (
+                            <span>تم التعيين مباشرة عبر النظام.</span>
+                          )}
                         </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              {/* Add New Note - Fixed / Pinned at Bottom (Hidden for Coordinator) */}
-              {!isCoordinator && (
-                <div className="bg-amber-50/70 p-2.5 sm:p-3 rounded-xl border border-amber-200/90 space-y-2 mt-3 shrink-0 shadow-xs">
-                  <label className="block text-xs font-bold text-gray-700">إضافة ملاحظة / تقرير جديد:</label>
-                  <textarea 
-                    rows={2}
-                    placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
-                    value={newNoteText}
-                    onChange={(e) => setNewNoteText(e.target.value)}
-                    className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
-                  />
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      disabled={isAddingComment || !newNoteText.trim()}
-                      onClick={handleAddSingleCommentOnly}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
-                        newNoteText.trim() && !isAddingComment
-                          ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                      title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
-                    >
-                      <Plus size={14} />
-                      <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
-                    </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Modal Footer Buttons - Fixed at Bottom */}
-              {!isCoordinator ? (
-                <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-gray-100 shrink-0">
-                  <button 
-                    onClick={handleSaveCustomerNotesAndStatus}
-                    className="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <Save size={16} />
-                    <span>حفظ التعديلات وإغلاق</span>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setIsNotesModalOpen(false)}
-                    className="px-4 py-2.5 border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition text-xs cursor-pointer"
-                  >
-                    إلغاء ✕
-                  </button>
+                {/* سجل الملاحظات والتقارير السابقة */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700">سجل الملاحظات والتقارير السابقة:</label>
+                  <div className="border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
+                    {(() => {
+                      const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
+                      if (validNotes.length === 0) {
+                        return (
+                          <div className="py-5 text-center text-gray-400 text-xs space-y-1">
+                            <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
+                            <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
+                            <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
+                          </div>
+                        );
+                      }
+                      return [...validNotes].reverse().map((note, i) => {
+                        const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
+                        const isNoteByLeader = note.author && note.author.includes('ليدر');
+                        const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
+                        const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+                        const isAuthor = (note.authorEmail && note.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                                         (note.authorUid && note.authorUid === currentUser?.uid);
+                        const canDelete = isCurrentUserAdmin || isAuthor;
+
+                        return (
+                          <div key={note.id || i} className="bg-white p-3 rounded-xl border border-gray-200/90 shadow-xs hover:border-purple-300 transition-all space-y-2">
+                            <div className="flex justify-between items-center text-[10px] pb-2 border-b border-gray-100">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`font-bold flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] ${
+                                  isNoteByAdmin 
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                    : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
+                                }`}>
+                                  👤 {authorDisplay}
+                                </span>
+                                {note.statusLabel && (
+                                  <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
+                                    {note.statusLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {note.createdAt && (
+                                  <span className="text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200 font-mono font-bold" dir="ltr">
+                                    📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                                {canDelete && (
+                                  <button 
+                                    onClick={() => handleDeleteSingleNote(note, selectedCustomerForNotes.notesHistory.length - 1 - i)}
+                                    className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition cursor-pointer"
+                                    title={isCurrentUserAdmin ? "حذف التعليق نهائياً (إدارة)" : "حذف تعليقي"}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/60 text-gray-800 text-xs font-semibold leading-relaxed whitespace-pre-wrap">
+                              {note.text}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
-              ) : (
-                <button 
-                  onClick={() => setIsNotesModalOpen(false)}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition mt-3 shadow-md text-xs cursor-pointer shrink-0"
-                >
-                  إغلاق النافذة ✕
-                </button>
-              )}
+
+                {/* Add New Note - Directly UNDER Notes History inside the page */}
+                {!isCoordinator && (
+                  <div className="bg-amber-50/70 p-2.5 sm:p-3 rounded-xl border border-amber-200/90 space-y-2 shadow-xs">
+                    <label className="block text-xs font-bold text-gray-700">إضافة ملاحظة / تقرير جديد:</label>
+                    <textarea 
+                      rows={2}
+                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
+                    />
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        disabled={isAddingComment || !newNoteText.trim()}
+                        onClick={handleAddSingleCommentOnly}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
+                          newNoteText.trim() && !isAddingComment
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
+                      >
+                        <Plus size={14} />
+                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Modal Action Buttons - Directly UNDER Add New Note inside the page */}
+                {!isCoordinator ? (
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100 pb-1">
+                    <button 
+                      onClick={handleSaveCustomerNotesAndStatus}
+                      className="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Save size={16} />
+                      <span>حفظ التعديلات وإغلاق</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setIsNotesModalOpen(false)}
+                      className="px-4 py-2.5 border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition text-xs cursor-pointer"
+                    >
+                      إلغاء ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setIsNotesModalOpen(false)}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md text-xs cursor-pointer"
+                  >
+                    إغلاق النافذة ✕
+                  </button>
+                )}
+              </div>
             </div>
           </div>, document.body
         )}
