@@ -3163,11 +3163,20 @@ const Dashboard = () => {
 
   const determineCustomerCollection = (customerOrId) => {
     const id = typeof customerOrId === 'string' ? customerOrId : customerOrId?.id;
+    if (typeof customerOrId === 'object' && customerOrId?.collectionName) {
+      return customerOrId.collectionName;
+    }
     if (employeeLeads.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isEmployeeLead)) {
       return 'employee_leads';
     }
     if (leadsCrm.some(l => l.id === id) || (typeof customerOrId === 'object' && customerOrId?.isLeadCrm)) {
       return 'leads_crm';
+    }
+    if (visitors.some(v => v.id === id) || (typeof customerOrId === 'object' && customerOrId?.isVisitor)) {
+      return 'visitor_customers';
+    }
+    if (recycleBin.some(r => r.id === id)) {
+      return 'recycle_bin';
     }
     return 'بيانات_تسجيل_العملاء';
   };
@@ -3220,6 +3229,7 @@ const Dashboard = () => {
   const [editingLeadId, setEditingLeadId] = useState(null);
   const [editingLeadName, setEditingLeadName] = useState('');
   const [modalCustomerName, setModalCustomerName] = useState('');
+  const [isAddingComment, setIsAddingComment] = useState(false);
 
   const handleSaveLeadName = async (leadId) => {
     if (!editingLeadName.trim()) {
@@ -3243,7 +3253,16 @@ const Dashboard = () => {
 
   const handleOpenNotesModal = (customer, isLeadCrm = false) => {
     const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
-    setSelectedCustomerForNotes({ ...customer, isLeadCrm, isEmployeeLead: isEmpLead });
+    const isLead = isLeadCrm || leadsCrm.some(l => l.id === customer.id) || customer.isLeadCrm;
+    const isVis = visitors.some(v => v.id === customer.id) || customer.isVisitor;
+    const targetColl = customer.collectionName || (isEmpLead ? 'employee_leads' : (isLead ? 'leads_crm' : (isVis ? 'visitor_customers' : 'بيانات_تسجيل_العملاء')));
+    setSelectedCustomerForNotes({ 
+      ...customer, 
+      isLeadCrm: isLead, 
+      isEmployeeLead: isEmpLead, 
+      isVisitor: isVis,
+      collectionName: targetColl
+    });
     setSelectedStatusForNotes(customer.crmStatus || 'unassigned');
     setPreviousStatusForNotes(customer.crmStatus || 'unassigned');
     setIsStatusChangeMandatory(false);
@@ -3255,7 +3274,16 @@ const Dashboard = () => {
 
   const handleRequestStatusChangeWithComment = (customer, newStatus, isLeadCrm = false) => {
     const isEmpLead = employeeLeads.some(l => l.id === customer.id) || customer.isEmployeeLead;
-    setSelectedCustomerForNotes({ ...customer, isLeadCrm, isEmployeeLead: isEmpLead });
+    const isLead = isLeadCrm || leadsCrm.some(l => l.id === customer.id) || customer.isLeadCrm;
+    const isVis = visitors.some(v => v.id === customer.id) || customer.isVisitor;
+    const targetColl = customer.collectionName || (isEmpLead ? 'employee_leads' : (isLead ? 'leads_crm' : (isVis ? 'visitor_customers' : 'بيانات_تسجيل_العملاء')));
+    setSelectedCustomerForNotes({ 
+      ...customer, 
+      isLeadCrm: isLead, 
+      isEmployeeLead: isEmpLead, 
+      isVisitor: isVis,
+      collectionName: targetColl
+    });
     setSelectedStatusForNotes(newStatus);
     setPreviousStatusForNotes(customer.crmStatus || 'unassigned');
     setIsStatusChangeMandatory(true);
@@ -3265,11 +3293,88 @@ const Dashboard = () => {
     setIsNotesModalOpen(true);
   };
 
+  // Dedicated function to add unlimited comments without closing the modal
+  const handleAddSingleCommentOnly = async () => {
+    if (!selectedCustomerForNotes) return;
+    if (!newNoteText.trim()) {
+      toast.error('يرجى كتابة نص الملاحظة أو التعليق أولاً!');
+      return;
+    }
+
+    try {
+      setIsAddingComment(true);
+      const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+      let authorName = 'الموظف';
+      if (isCurrentUserAdmin) {
+        authorName = '👑 الإدارة';
+      } else if (isLeader) {
+        const leaderName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName || currentUser?.email?.split('@')[0];
+        authorName = `⭐ ليدر: ${leaderName || 'قائد فريق'}`;
+      } else {
+        const empName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName || currentUser?.email?.split('@')[0];
+        authorName = empName || 'الموظف';
+      }
+
+      const noteObj = {
+        id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+        text: newNoteText.trim(),
+        author: authorName,
+        authorEmail: currentUser?.email || '',
+        authorUid: currentUser?.uid || '',
+        role: isCurrentUserAdmin ? 'admin' : (isLeader ? 'leader' : 'agent'),
+        createdAt: new Date().toISOString(),
+        statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
+      };
+
+      const updatePayload = {
+        notesHistory: arrayUnion(noteObj),
+        lastCommentAt: serverTimestamp(),
+        lastCommentText: newNoteText.trim(),
+        notes: newNoteText.trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      // If status changed or is mandatory, also commit status change along with the comment
+      const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
+      if (isChangingStatus || isStatusChangeMandatory) {
+        updatePayload.crmStatus = selectedStatusForNotes;
+        setPreviousStatusForNotes(selectedStatusForNotes);
+        setIsStatusChangeMandatory(false);
+      }
+      if (selectedStatusForNotes === 'started_trial' && trialDateForNotes) {
+        updatePayload.trialStartDate = trialDateForNotes;
+      }
+      if (modalCustomerName.trim() && modalCustomerName.trim() !== selectedCustomerForNotes.name) {
+        updatePayload.name = modalCustomerName.trim();
+      }
+
+      const targetColl = determineCustomerCollection(selectedCustomerForNotes);
+      await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
+
+      // Update local modal state immediately so the comment appears in history instantly
+      setSelectedCustomerForNotes(prev => ({
+        ...prev,
+        name: modalCustomerName.trim() || prev.name,
+        crmStatus: selectedStatusForNotes,
+        trialStartDate: selectedStatusForNotes === 'started_trial' ? trialDateForNotes : prev.trialStartDate,
+        notesHistory: [...(prev.notesHistory || []), noteObj]
+      }));
+
+      setNewNoteText('');
+      toast.success('تمت إضافة التعليق بنجاح للسجل ✅');
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      toast.error('حدث خطأ أثناء إضافة التعليق');
+    } finally {
+      setIsAddingComment(false);
+    }
+  };
+
   const handleSaveCustomerNotesAndStatus = async () => {
     if (!selectedCustomerForNotes) return;
 
     const isChangingStatus = selectedStatusForNotes !== previousStatusForNotes;
-    if ((isStatusChangeMandatory || isChangingStatus) && !newNoteText.trim()) {
+    if ((isStatusChangeMandatory || isChangingStatus) && !newNoteText.trim() && (!selectedCustomerForNotes.notesHistory || selectedCustomerForNotes.notesHistory.length === 0)) {
       toast.error('⚠️ كتابة التعليق إجبارية لاختيار الحالة وتحويل العميل!');
       return;
     }
@@ -3290,11 +3395,23 @@ const Dashboard = () => {
 
       if (newNoteText.trim()) {
         const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
-        const authorName = isCurrentUserAdmin ? '👑 الإدارة' : (employees.find(e => e.email === currentUser?.email)?.name || currentUser?.email?.split('@')[0] || 'الموظف');
+        let authorName = 'الموظف';
+        if (isCurrentUserAdmin) {
+          authorName = '👑 الإدارة';
+        } else if (isLeader) {
+          const leaderName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName || currentUser?.email?.split('@')[0];
+          authorName = `⭐ ليدر: ${leaderName || 'قائد فريق'}`;
+        } else {
+          const empName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName || currentUser?.email?.split('@')[0];
+          authorName = empName || 'الموظف';
+        }
         const noteObj = {
-          id: Date.now().toString(),
+          id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
           text: newNoteText.trim(),
           author: authorName,
+          authorEmail: currentUser?.email || '',
+          authorUid: currentUser?.uid || '',
+          role: isCurrentUserAdmin ? 'admin' : (isLeader ? 'leader' : 'agent'),
           createdAt: new Date().toISOString(),
           statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
         };
@@ -3306,7 +3423,7 @@ const Dashboard = () => {
 
       const targetColl = determineCustomerCollection(selectedCustomerForNotes);
       await updateDoc(doc(db, targetColl, selectedCustomerForNotes.id), updatePayload);
-      toast.success(isChangingStatus ? 'تم تحويل حالة العميل وتوثيق التعليق بنجاح 🎯' : 'تم حفظ التغييرات والملاحظات بنجاح');
+      toast.success(isChangingStatus ? 'تم تحويل حالة العميل وحفظ البيانات بنجاح ✅' : 'تم حفظ التغييرات بنجاح ✅');
       setIsNotesModalOpen(false);
       setIsStatusChangeMandatory(false);
       setNewNoteText('');
@@ -3317,8 +3434,15 @@ const Dashboard = () => {
   };
 
   const handleDeleteSingleNote = async (noteItem, noteIndex) => {
-    if (!isAdmin || !selectedCustomerForNotes) return;
-    if (!window.confirm('هل أنت متأكد من مسح هذه الملاحظة نهائياً من التقرير؟')) return;
+    if (!selectedCustomerForNotes) return;
+    const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+    const isAuthor = (noteItem.authorEmail && noteItem.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                     (noteItem.authorUid && noteItem.authorUid === currentUser?.uid);
+    if (!isCurrentUserAdmin && !isAuthor) {
+      toast.error('عذراً، يمكنك فقط حذف التعليقات التي قمت بكتابتها');
+      return;
+    }
+    if (!window.confirm('هل أنت متأكد من مسح هذه الملاحظة نهائياً من التاريخ؟')) return;
     try {
       const currentNotes = selectedCustomerForNotes.notesHistory || [];
       const updatedNotes = currentNotes.filter((n, idx) => (n.id ? n.id !== noteItem.id : idx !== noteIndex));
@@ -6542,11 +6666,16 @@ const Dashboard = () => {
                                 })()}
                                 <button 
                                   onClick={() => handleOpenNotesModal({ ...customer, isLeadCrm: true })}
-                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                                   title="Comment"
                                 >
                                   <FileText size={12} className="text-amber-700" />
-                                  <span>Comment {customer.notesHistory?.length ? `(${customer.notesHistory.length})` : (customer.notes ? '📝' : '')}</span>
+                                  <span>Comment</span>
+                                  {customer.notesHistory?.length > 0 && (
+                                    <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                      {customer.notesHistory.length}
+                                    </span>
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -9027,10 +9156,16 @@ const Dashboard = () => {
                     <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                       <button 
                         onClick={() => handleOpenNotesModal(customer)}
-                        className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center whitespace-nowrap shadow-sm cursor-pointer"
+                        className="bg-amber-100 text-amber-800 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 whitespace-nowrap shadow-sm cursor-pointer"
                         title="Comment"
                       >
-                        <FileText size={14} className="ml-1" /> Comment
+                        <FileText size={13} className="text-amber-700" />
+                        <span>Comment</span>
+                        {customer.notesHistory?.length > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                            {customer.notesHistory.length}
+                          </span>
+                        )}
                       </button>
                       {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) && (
                         <button 
@@ -9952,10 +10087,15 @@ const Dashboard = () => {
                               <button 
                                 onClick={() => handleOpenNotesModal(visitor._raw || visitor)}
                                 className="bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold px-2 py-1.5 rounded-xl text-xs transition flex items-center gap-1 shadow-xs cursor-pointer"
-                                title="عرض وإضافة ملاحظات وتقارير العميل"
+                                title="عرض وإضافة ملاحظات وتقرير العميل"
                               >
                                 <FileText size={12} className="text-amber-700" />
                                 <span>Comment</span>
+                                {(visitor.notesHistory?.length > 0 || visitor._raw?.notesHistory?.length > 0) && (
+                                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                    {visitor.notesHistory?.length || visitor._raw?.notesHistory?.length}
+                                  </span>
+                                )}
                               </button>
                               {isAdmin && (
                                 <button
@@ -10630,30 +10770,36 @@ const Dashboard = () => {
           </div>, document.body
         )}
 
-        {/* Modal 3: Customer Report, Timeline Notes & Trial Date */}
+        {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
         {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && document.body && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative max-h-[84vh] my-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setIsNotesModalOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
+                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+                title="إغلاق"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
 
-              <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <FileText className="text-amber-600" size={24} />
-                <span>تقرير وملاحظات العميل</span>
-              </h2>
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <FileText className="text-amber-600" size={22} />
+                  <span>تقرير وملاحظات العميل</span>
+                </h2>
+                <span className="text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-2xs">
+                  عدد مفتوح من التعليقات 💬
+                </span>
+              </div>
 
               {isStatusChangeMandatory && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black mb-3 flex items-center gap-2 shadow-sm animate-pulse">
                   <span className="text-base">⚠️</span>
-                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label}</span></span>
+                  <span>كتابة التعليق إجبارية لتأكيد تحويل العميل إلى حالة: <span className="underline decoration-amber-600 font-extrabold">{CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes}</span></span>
                 </div>
               )}
 
-              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-2">
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80 mb-3 space-y-1.5">
                 <div>
                   <label className="block text-[11px] font-bold text-amber-900 mb-1">اسم العميل:</label>
                   {isCoordinator ? (
@@ -10670,44 +10816,45 @@ const Dashboard = () => {
                     />
                   )}
                 </div>
-                <p className="text-xs text-gray-500 font-mono font-bold" dir="ltr">📱 {selectedCustomerForNotes.phoneNumber}</p>
+                <p className="text-xs text-gray-600 font-mono font-bold flex items-center gap-1.5 pt-0.5" dir="ltr">
+                  <span>📱</span>
+                  <span>{selectedCustomerForNotes.phoneNumber}</span>
+                </p>
               </div>
 
-              <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-                {/* CRM Status Picker (Leads CRM Only) */}
-                {selectedCustomerForNotes?.isLeadCrm && (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
-                      {isCoordinator ? (
-                        <div className="w-full p-2.5 border rounded-xl text-xs font-black text-gray-800 bg-gray-50 flex items-center justify-between">
-                          <span>{CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ Waiting'}</span>
-                        </div>
-                      ) : (
-                        <select 
-                          value={selectedStatusForNotes}
-                          onChange={(e) => setSelectedStatusForNotes(e.target.value)}
-                          className="w-full p-2.5 border rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
-                        >
-                          <option value="unassigned">⏳ Waiting</option>
-                          <option value="call_back">📞 Call Back</option>
-                          <option value="interested">🌟 Interested</option>
-                          <option value="not_interested">❌ Not Interested</option>
-                          <option value="no_answer">📵 No Answer</option>
-                          <option value="started_trial">🚀 Demo</option>
-                          <option value="subscribed">🎉 Paid</option>
-                        </select>
-                      )}
-                    </div>
+              <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
+                {/* CRM Status Picker (Leads CRM & Employee Leads) */}
+                {(selectedCustomerForNotes?.isLeadCrm || selectedCustomerForNotes?.isEmployeeLead || selectedCustomerForNotes?.crmStatus) && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">حالة العميل (CRM Status):</label>
+                    {isCoordinator ? (
+                      <div className="w-full p-2 border rounded-xl text-xs font-black text-gray-800 bg-gray-50 flex items-center justify-between">
+                        <span>{CRM_STATUS_MAP[selectedStatusForNotes]?.label || '⏳ Waiting'}</span>
+                      </div>
+                    ) : (
+                      <select 
+                        value={selectedStatusForNotes}
+                        onChange={(e) => setSelectedStatusForNotes(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-amber-500 bg-white cursor-pointer"
+                      >
+                        <option value="unassigned">⏳ Waiting</option>
+                        <option value="call_back">📞 Call Back</option>
+                        <option value="interested">⭐ Interested</option>
+                        <option value="not_interested">🚫 Not Interested</option>
+                        <option value="no_answer">📵 No Answer</option>
+                        <option value="started_trial">🚀 Demo</option>
+                        <option value="subscribed">💎 Paid</option>
+                      </select>
+                    )}
 
                     {/* Trial Start Date if Status is started_trial */}
                     {selectedStatusForNotes === 'started_trial' && (
-                      <div className="bg-cyan-50 p-3 rounded-xl border border-cyan-200">
+                      <div className="bg-cyan-50 p-2.5 rounded-xl border border-cyan-200 mt-2">
                         <label className="block text-xs font-bold text-cyan-800 mb-1 flex items-center gap-1">
                           <Calendar size={14} /> تاريخ بدء Demo:
                         </label>
                         {isCoordinator ? (
-                          <div className="w-full p-2 border border-cyan-200 rounded-lg text-xs font-black text-cyan-900 bg-white">
+                          <div className="w-full p-1.5 border border-cyan-200 rounded-lg text-xs font-black text-cyan-900 bg-white">
                             {trialDateForNotes || 'غير محدد'}
                           </div>
                         ) : (
@@ -10717,90 +10864,118 @@ const Dashboard = () => {
                             value={trialDateForNotes}
                             onChange={(e) => setTrialDateForNotes(e.target.value)}
                             onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                            className={`w-full p-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer text-center ${!trialDateForNotes ? 'text-transparent empty-date' : 'text-slate-800'}`}
+                            className={`w-full p-1.5 border border-cyan-300 rounded-lg text-xs font-bold bg-white outline-none cursor-pointer text-center ${!trialDateForNotes ? 'text-transparent empty-date' : 'text-slate-800'}`}
                             dir="ltr"
                           />
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {/* Notes History Timeline */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">سجل الملاحظات والتقارير السابقة:</label>
-                  <div className="max-h-40 overflow-y-auto border rounded-xl p-3 bg-gray-50 space-y-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-amber-600" />
+                      <span>سجل الملاحظات والتقارير ({selectedCustomerForNotes.notesHistory?.length || 0}):</span>
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-semibold">الأحدث أولاً ⬇️</span>
+                  </div>
+                  <div className="max-h-44 sm:max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
                     {selectedCustomerForNotes.notesHistory && selectedCustomerForNotes.notesHistory.length > 0 ? (
-                      selectedCustomerForNotes.notesHistory.map((note, i) => {
+                      [...selectedCustomerForNotes.notesHistory].reverse().map((note, i) => {
                         const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
+                        const isNoteByLeader = note.author && note.author.includes('ليدر');
                         const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
+                        const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
+                        const isAuthor = (note.authorEmail && note.authorEmail.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                                         (note.authorUid && note.authorUid === currentUser?.uid);
+                        const canDelete = isCurrentUserAdmin || isAuthor;
 
                         return (
-                          <div key={note.id || i} className="bg-white p-2.5 rounded-lg border text-xs space-y-1 relative group hover:border-amber-300 transition shadow-sm">
-                            <div className="flex justify-between items-center text-[10px] text-gray-400">
-                              <span className="font-bold text-blue-600">👤 {authorDisplay}</span>
+                          <div key={note.id || i} className="bg-white p-2.5 rounded-xl border border-gray-200 text-xs space-y-1 relative group hover:border-amber-300 hover:shadow-xs transition">
+                            <div className="flex justify-between items-center text-[10px] text-gray-500 pb-1 border-b border-gray-100">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`font-bold flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${
+                                  isNoteByAdmin 
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                    : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
+                                }`}>
+                                  👤 {authorDisplay}
+                                </span>
+                                {note.statusLabel && (
+                                  <span className="bg-gray-100 text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                    {note.statusLabel}
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2">
                                 {note.createdAt && (
-                                  <span className="text-[11px] text-gray-500 font-mono font-bold" dir="ltr">
+                                  <span className="text-[10px] text-gray-400 font-mono font-bold" dir="ltr">
                                     📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 )}
-                                {isAdmin && (
+                                {canDelete && (
                                   <button 
-                                    onClick={() => handleDeleteSingleNote(note, i)}
-                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded transition cursor-pointer"
-                                    title="مسح هذه الملاحظة نهائياً من التقرير (خاص بالأدمن)"
+                                    onClick={() => handleDeleteSingleNote(note, selectedCustomerForNotes.notesHistory.length - 1 - i)}
+                                    className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition cursor-pointer"
+                                    title={isCurrentUserAdmin ? "حذف التعليق نهائياً (إدارة)" : "حذف تعليقي"}
                                   >
                                     <Trash2 size={13} />
                                   </button>
                                 )}
                               </div>
                             </div>
-                            <p className="text-gray-800 font-medium whitespace-pre-wrap">{note.text}</p>
+                            <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">{note.text}</p>
                           </div>
                         );
                       })
                     ) : (
-                      <p className="text-xs text-gray-400 text-center py-4">لا يوجد ملاحظات مسجلة بعد لهذا العميل.</p>
+                      <div className="py-5 text-center text-gray-400 text-xs space-y-1">
+                        <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
+                        <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
+                        <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
+                      </div>
                     )}
                   </div>
                 </div>
 
                 {/* Assignment & Distributor Information */}
-                <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-200/80 space-y-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1.5 border-b border-purple-200/60">
+                <div className="bg-purple-50/70 p-2.5 rounded-xl border border-purple-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-purple-200/60">
                     <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
-                      <UserCheck size={15} className="text-purple-600" />
-                      <span>🔄 جهة التوزيع والتعيين:</span>
+                      <UserCheck size={14} className="text-purple-600" />
+                      <span>جهة التوزيع والتعيين:</span>
                     </label>
                     {(() => {
                       const assigner = getLeadAssignerDisplay(selectedCustomerForNotes);
                       return (
-                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
                           {assigner ? `مضاف بواسطة: ${assigner}` : '👑 الإدارة'}
                         </span>
                       );
                     })()}
                   </div>
 
-                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
                     {selectedCustomerForNotes.assignmentHistory && selectedCustomerForNotes.assignmentHistory.length > 0 ? (
                       selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
-                        <div key={log.id || idx} className="bg-white p-2 rounded-lg border border-purple-100 shadow-sm text-[11px] flex flex-col gap-0.5">
+                        <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
                           <div className="flex items-center justify-between font-bold text-gray-800">
                             <span className="text-purple-800">{log.from} ➔ {log.to}</span>
                             <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
                               {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <div className="text-[10px] text-gray-500 font-semibold flex justify-between items-center">
+                          <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
                             <span>بواسطة: {log.assignedBy}</span>
                             <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="text-[11px] text-gray-500 font-medium py-1.5 text-center bg-white/60 rounded-lg">
+                      <div className="text-[10px] text-gray-500 font-medium py-1 text-center bg-white/60 rounded-lg">
                         {selectedCustomerForNotes.assignedAt ? (
                           <span>تاريخ التنسيب: <strong className="font-mono" dir="ltr">{formatDate(selectedCustomerForNotes.assignedAt)}</strong> (المسند إليه: {selectedCustomerForNotes.assignedTo || 'الموظف'})</span>
                         ) : (
@@ -10813,32 +10988,64 @@ const Dashboard = () => {
 
                 {/* Add New Note (Hidden for Coordinator) */}
                 {!isCoordinator && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">إضافة ملاحظة / تقرير جديد:</label>
+                  <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                        <Plus size={14} className="text-amber-700" />
+                        <span>إضافة تعليق جديد (عدد غير محدود):</span>
+                      </label>
+                      <span className="text-[10px] text-amber-700 font-bold">سجّل أي عدد من الملاحظات</span>
+                    </div>
                     <textarea 
-                      rows={3}
-                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
+                      rows={2}
+                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار أو الملاحظة هنا... ثم اضغط 'إضافة التعليق'"
                       value={newNoteText}
                       onChange={(e) => setNewNoteText(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-amber-500"
+                      className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
                     />
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        disabled={isAddingComment || !newNoteText.trim()}
+                        onClick={handleAddSingleCommentOnly}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
+                          newNoteText.trim() && !isAddingComment
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
+                      >
+                        <Plus size={14} />
+                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق للسجل'}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
               {!isCoordinator ? (
-                <button 
-                  onClick={handleSaveCustomerNotesAndStatus}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm cursor-pointer"
-                >
-                  💾 حفظ التغييرات والملاحظة
-                </button>
+                <div className="flex items-center gap-2 mt-4 pt-2.5 border-t border-gray-100">
+                  <button 
+                    onClick={handleSaveCustomerNotesAndStatus}
+                    className="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Save size={16} />
+                    <span>حفظ التعديلات وإغلاق</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setIsNotesModalOpen(false)}
+                    className="px-4 py-2.5 border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition text-xs cursor-pointer"
+                  >
+                    إلغاء ✕
+                  </button>
+                </div>
               ) : (
                 <button 
                   onClick={() => setIsNotesModalOpen(false)}
                   className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl transition mt-4 shadow-md text-xs cursor-pointer"
                 >
-                  إغلاق التقرير ✕
+                  إغلاق النافذة ✕
                 </button>
               )}
             </div>
