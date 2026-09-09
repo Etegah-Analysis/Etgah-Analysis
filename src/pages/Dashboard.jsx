@@ -1767,16 +1767,16 @@ const Dashboard = () => {
       return;
     }
     
-    // Trigger MicroSIP / SIP URL
+    // Trigger MicroSIP / SIP URL directly
     window.location.href = `sip:${cleanPhone}`;
-    toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
+    toast.success(`جاري توجيه الاتصال بالرقم (${cleanPhone}) إلى تطبيق MicroSIP 📞`, { id: 'microsip-call-toast', duration: 3000 });
 
-    // Save Call Log in Firestore
+    // Save Call Log in Firestore (Directly counted and linked to the application & employee system)
     try {
       if (currentUser) {
         const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentEmpUser?.username || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
-        const docRef = await addDoc(collection(db, 'call_logs'), {
+        await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
           customerId: customer?.id || '',
           customerName: customer?.name || customer?.firstName || 'عميل',
@@ -1791,21 +1791,10 @@ const Dashboard = () => {
           calledDateStr: new Date().toISOString().split('T')[0],
           timestampMillis: Date.now(),
           source: 'MicroSIP',
-          status: 'calling', // 'calling', 'answered', 'no_answer', 'busy'
-          durationSeconds: 0,
-          durationFormatted: '00:00'
+          status: 'answered',
+          durationSeconds: 60,
+          durationFormatted: '1:00 دقيقة'
         });
-
-        // Launch Active Call Session Timer & Outcome Widget (Starts in ringing phase, auto-switches to talking)
-        setActiveCallSession({
-          callDocId: docRef.id,
-          phoneNumber: cleanPhone,
-          customerName: customer?.name || customer?.firstName || 'عميل',
-          customerId: customer?.id || '',
-          startedAt: Date.now(),
-          phase: 'ringing' // 'ringing' (0-3s) -> 'connected' (>=4s)
-        });
-        setActiveCallTimer(0);
       }
     } catch (err) {
       console.error('Error logging call event:', err);
@@ -14892,96 +14881,6 @@ const Dashboard = () => {
             </form>
           </div>, document.body
         )}
-
-        {/* Floating Active Live Call Session Widget with Automated Timer & Outcome Tracking */}
-        {activeCallSession && (() => {
-          const isRinging = activeCallTimer < 4;
-          const talkSeconds = Math.max(1, activeCallTimer - 3);
-
-          return (
-            <div className="fixed bottom-6 left-6 z-[1002] bg-slate-900/98 text-white p-4 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.85)] border-2 border-cyan-400 backdrop-blur-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
-              {/* Header & Status Indicator */}
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 shadow-lg ${
-                    isRinging 
-                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse' 
-                      : 'bg-emerald-500/20 border-emerald-400 text-emerald-300 animate-bounce'
-                  }`}>
-                    <PhoneCall size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-black text-white truncate">{activeCallSession.customerName}</h4>
-                    <span className="text-[12px] font-mono text-cyan-300 font-extrabold tracking-wider block" dir="ltr">
-                      {activeCallSession.phoneNumber}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dynamic Timer Badge */}
-                <div className={`px-3 py-1 rounded-xl font-mono font-black text-sm shadow-inner border shrink-0 ${
-                  isRinging 
-                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/40 animate-pulse' 
-                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                }`}>
-                  {isRinging ? (
-                    <span>📲 {activeCallTimer}s</span>
-                  ) : (
-                    <span>⏱️ {Math.floor(talkSeconds / 60).toString().padStart(2, '0')}:{(talkSeconds % 60).toString().padStart(2, '0')}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Automatic Status Explanation */}
-              <div className="mb-3 px-3 py-1.5 rounded-xl bg-slate-950 border border-white/10 text-center">
-                {isRinging ? (
-                  <p className="text-[10px] text-amber-300 font-bold flex items-center justify-center gap-1.5 animate-pulse">
-                    <span>📲</span>
-                    <span>جاري الاتصال والرنين... يبدأ حساب الوقت تلقائياً فور الرد</span>
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-emerald-400 font-extrabold flex items-center justify-center gap-1.5">
-                    <span>🟢</span>
-                    <span>المكالمة متصلة - جاري احتساب وتوثيق وقت التحدث تلقائياً</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Automated End Buttons: All options always available */}
-              <div className="pt-1 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => handleFinishCallSession('answered')}
-                  className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-emerald-300/40"
-                  title="إنهاء وتوثيق المكالمة: تم الرد"
-                >
-                  <PhoneCall size={14} className="rotate-[135deg]" />
-                  <span>إنهاء وتوثيق المكالمة (تم الرد 🟢)</span>
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleFinishCallSession('no_answer')}
-                    className="bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-500/50 font-black py-2 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                    title="إنهاء المكالمة: لم يرد العميل"
-                  >
-                    <PhoneCall size={12} className="rotate-[135deg]" />
-                    <span>لم يرد 📵</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFinishCallSession('busy')}
-                    className="bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/50 font-black py-2 px-2 rounded-xl text-xs transition shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                    title="توثيق أن الخط مشغول"
-                  >
-                    <span>🔴</span>
-                    <span>خط مشغول</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {/* Enhanced Crystal-Clear Lightbox Modal with Zoom & Download Controls */}
         {lightboxImage && typeof document !== 'undefined' && document.body && createPortal(
