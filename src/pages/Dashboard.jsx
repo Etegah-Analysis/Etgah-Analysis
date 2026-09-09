@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import EmployeePermissionsModal from '../components/EmployeePermissionsModal';
 import { hasPermission } from '../config/permissionsConfig';
+import { setGlobalNotificationAlert } from '../utils/notificationBadge';
 
 // Error Boundary to catch React runtime crashes and show error instead of white screen
 class DashboardErrorBoundary extends React.Component {
@@ -2470,6 +2471,11 @@ const Dashboard = () => {
   }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent]);
 
   const totalAllNotificationsCount = (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
+
+  // تحديث شارة التبويب (Favicon) وعنوان المتصفح تلقائياً عند وصول أو تغير التنبيهات لكافة الموظفين
+  useEffect(() => {
+    setGlobalNotificationAlert(totalAllNotificationsCount, 'CRM WhatsApp Etegah');
+  }, [totalAllNotificationsCount]);
 
   // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
 
@@ -5024,6 +5030,11 @@ const Dashboard = () => {
                 alt="Logo 3D" 
                 className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-emerald-300 shadow-md" 
               />
+              {totalAllNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-full text-[9px] font-black flex items-center justify-center border-2 border-white animate-bounce shadow-md z-10">
+                  {totalAllNotificationsCount > 99 ? '99+' : totalAllNotificationsCount}
+                </span>
+              )}
             </div>
             <h1 className="text-sm sm:text-base md:text-xl font-black text-gray-800 flex items-center gap-1.5 whitespace-nowrap">
               <span>Etegah</span>

@@ -1,3 +1,4 @@
+import { setGlobalNotificationAlert } from '../utils/notificationBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -77,9 +78,7 @@ function InboxContent() {
   const [isDirectModalOpen, setIsDirectModalOpen] = useState(false);
   const [directSearchTerm, setDirectSearchTerm] = useState('');
 
-  React.useEffect(() => {
-    document.title = 'CRM WhatsApp Etegah';
-  }, []);
+
   const messagesContainerRef = useRef(null);
   const isFirstLoad = useRef(true);
   const previousUnreadCounts = useRef({});
@@ -393,6 +392,24 @@ function InboxContent() {
       }
     }
   }, [location.state, internalGroups]);
+
+  // حساب إجمالي تنبيهات الواتساب غير المقروءة والجروبات للموظف الحالي
+  const totalInboxUnread = React.useMemo(() => {
+    const customerUnread = (chats || []).reduce((sum, c) => sum + (Number(c.unread) || 0), 0);
+    const groupUnread = (internalGroups || []).filter(g => {
+      if (!g.lastMessage) return false;
+      const isMe = g.lastMessageSenderUid === currentUser?.uid || (isAdmin && (g.lastMessageSenderUid === 'admin' || g.lastMessageSenderUid === currentUser?.uid));
+      if (isMe) return false;
+      const isReadByMe = g.readBy?.includes(currentUser?.uid) || (isAdmin && g.readBy?.includes('admin'));
+      return !isReadByMe;
+    }).length;
+    return customerUnread + groupUnread;
+  }, [chats, internalGroups, currentUser, isAdmin]);
+
+  // تحديث شارة التبويب (Favicon) وعنوان الصفحة تلقائياً لكافة الموظفين
+  useEffect(() => {
+    setGlobalNotificationAlert(totalInboxUnread, 'CRM WhatsApp Etegah');
+  }, [totalInboxUnread]);
 
   // Global ESC Key Handler to close modals, image previews, emoji pickers, or active chats
   useEffect(() => {
@@ -2031,6 +2048,11 @@ function InboxContent() {
                 alt="Etegah Logo" 
                 className="relative w-8 h-8 rounded-full object-cover border border-cyan-300 shadow-[0_2px_8px_rgba(6,182,212,0.5)] shrink-0" 
               />
+              {totalInboxUnread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-full text-[9px] font-black flex items-center justify-center border-2 border-white animate-bounce shadow-md z-10">
+                  {totalInboxUnread > 99 ? '99+' : totalInboxUnread}
+                </span>
+              )}
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 flex-wrap">
@@ -2119,6 +2141,11 @@ function InboxContent() {
             >
               <BarChart3 size={13} className="text-slate-950" />
               <span className="font-black text-[11px]">Leads CRM 🎯</span>
+              {totalInboxUnread > 0 && (
+                <span className="min-w-4 h-4 px-1 bg-red-600 text-white rounded-full text-[9px] font-black flex items-center justify-center border border-white shadow-xs animate-pulse">
+                  {totalInboxUnread > 99 ? '99+' : totalInboxUnread}
+                </span>
+              )}
             </button>
           </div>
         </div>
