@@ -110,6 +110,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
     if (key === 'admin') return 'مدير النظام (Admin)';
     if (key === 'coordinator') return 'منسق عام للإدارة (Coordinator)';
     if (key === 'leader') return 'قائد فريق مبيعات (Leader)';
+    if (key === 'customer_service') return 'خدمة العملاء (Customer Service)';
     return 'مسؤول مبيعات (Agent)';
   }
 

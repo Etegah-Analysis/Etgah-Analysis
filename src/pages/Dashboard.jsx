@@ -1018,6 +1018,7 @@ const Dashboard = () => {
     const t = String(title).trim().toLowerCase();
     if (t === 'leader' || t === 'ليدر') return 'Leader 👑';
     if (t === 'coordinator' || t === 'منسق للإدارة' || t === 'منسق' || t === 'منسق إدارة') return 'Coordinator';
+    if (t === 'customer service' || t === 'خدمة العملاء' || t.includes('customer service')) return 'Customer Service 🎧';
     if (t === 'admin' || t === 'أدمن' || t === 'إدارة') return 'Admin 👑';
     return 'Agent';
   };
@@ -1105,10 +1106,11 @@ const Dashboard = () => {
   const currentUser = effectiveUser;
   const isAdmin = realIsAdmin && !impersonatedEmp;
   const currentEmpUser = effectiveEmpUser;
-  const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
-  const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
-  const isAgent = !isAdmin && !isCoordinator && !isLeader;
-  const myTeamMembers = employees.filter(e => e.leaderUid === currentUser?.uid);
+  const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || (currentEmpUser?.role === 'coordinator' && (!currentEmpUser?.jobTitle || currentEmpUser?.jobTitle === 'Coordinator')));
+  const isCustomerService = !isAdmin && (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.jobTitle === 'خدمة العملاء' || currentEmpUser?.role === 'customer_service');
+  const isLeader = !isAdmin && !isCustomerService && !isCoordinator && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || (currentEmpUser?.role === 'leader' && (!currentEmpUser?.jobTitle || currentEmpUser?.jobTitle === 'Leader')));
+  const isAgent = !isAdmin && !isCoordinator && !isLeader && !isCustomerService;
+  const myTeamMembers = isLeader ? employees.filter(e => e.leaderUid === currentUser?.uid) : [];
   const isAllowedToManageLeads = isAdmin || hasPermission(currentEmpUser, 'canReassignLeads') || (isCoordinator || isLeader);
   const myUid = isAdmin ? 'admin' : (effectiveUser?.uid || currentUser?.uid || '');
   const myEmail = effectiveUser?.email?.toLowerCase() || currentUser?.email?.toLowerCase() || '';
@@ -4093,6 +4095,14 @@ const Dashboard = () => {
       const newLeaderUid = leaderObj ? leaderObj.uid : '';
       const isLeaderChanged = currentLeaderUid !== newLeaderUid;
 
+      const normalizedRole = editEmpJobTitle === 'Leader' 
+        ? 'leader' 
+        : editEmpJobTitle === 'Coordinator' 
+          ? 'coordinator' 
+          : editEmpJobTitle === 'Customer Service' 
+            ? 'customer_service' 
+            : 'employee';
+
       const updateData = { 
         password: editEmpPassword,
         name: editEmpName,
@@ -4100,6 +4110,7 @@ const Dashboard = () => {
         email: emailToCreate,
         empCode: editEmpCode || '',
         jobTitle: editEmpJobTitle || 'Agent',
+        role: normalizedRole,
         leaderUid: newLeaderUid,
         leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : ''
       };
@@ -5919,10 +5930,11 @@ const Dashboard = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{allSubscribedClients.length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (اشتراكات مؤكدة)
-                  </span>
+                  <div className="mt-1">
+                    <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                      {allSubscribedClients.length.toLocaleString()} Paid
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -6367,10 +6379,11 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                      <h3 className="text-2xl font-black text-amber-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (مشتركي الفريق)
-                      </span>
+                      <div className="mt-1">
+                        <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                          {leaderSubscribedClients.length.toLocaleString()} Paid
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -6491,7 +6504,7 @@ const Dashboard = () => {
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Agent')}</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, isCustomerService ? 'Customer Service' : 'Agent')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
                       </h3>
@@ -6526,10 +6539,11 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                      <h3 className="text-2xl font-black text-amber-300">{agentSubscribedClients.length.toLocaleString()}</h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (مشتركي الخاصين)
-                      </span>
+                      <div className="mt-1">
+                        <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                          {agentSubscribedClients.length.toLocaleString()} Paid
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -7749,9 +7763,7 @@ const Dashboard = () => {
                                         📦 {customer.source}
                                       </span>
                                     )}
-                                    {customer.notesHistory && customer.notesHistory.length > 0 && (
-                                      <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
-                                    )}
+                                    
                                   </div>
                                 );
                               })()}
@@ -8533,9 +8545,7 @@ const Dashboard = () => {
                                             📦 {customer.source}
                                           </span>
                                         )}
-                                        {customer.notesHistory && customer.notesHistory.length > 0 && (
-                                          <span className="text-[10px] text-blue-600 font-bold">📝 {customer.notesHistory.length} ملاحظات</span>
-                                        )}
+                                        
                                       </div>
                                     );
                                   })()}
@@ -9698,9 +9708,7 @@ const Dashboard = () => {
                           📦 {customer.source}
                         </span>
                       )}
-                      {customer.notesHistory && customer.notesHistory.length > 0 && (
-                        <span className="block text-[10px] text-blue-600 font-bold mt-0.5">📝 {customer.notesHistory.length} ملاحظات مضافة</span>
-                      )}
+                      
                     </td>
                     <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">

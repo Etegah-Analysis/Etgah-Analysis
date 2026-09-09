@@ -255,12 +255,13 @@ export const SYSTEM_PERMISSIONS = [
 // Helper: Get normalized role key for an employee
 export function getEmployeeRoleKey(emp) {
   if (!emp) return 'agent';
-  const role = (emp.role || '').toLowerCase();
   const title = (emp.jobTitle || '').toLowerCase();
+  const role = (emp.role || '').toLowerCase();
 
   if (role === 'admin' || title === 'admin' || title === 'مدير' || title === 'إدارة') return 'admin';
-  if (role === 'coordinator' || title === 'coordinator' || title.includes('منسق')) return 'coordinator';
-  if (role === 'leader' || title === 'leader' || title.includes('ليدر')) return 'leader';
+  if (title === 'coordinator' || title.includes('منسق') || role === 'coordinator') return 'coordinator';
+  if (title === 'customer service' || title.includes('خدمة') || role === 'customer_service') return 'customer_service';
+  if (title === 'leader' || title.includes('ليدر') || role === 'leader') return 'leader';
   return 'agent';
 }
 
