@@ -3246,18 +3246,10 @@ const Dashboard = () => {
       
       window.open(waUrl, '_blank');
 
-      const noteObj = {
-        id: Date.now().toString(),
-        text: '🟢 تم فتح محادثة الواتساب المباشرة وتحويل العميل',
-        author: currentUser?.email || 'الأدمن',
-        createdAt: new Date().toISOString()
-      };
-
       const targetColl = determineCustomerCollection(customer);
       await updateDoc(doc(db, targetColl, customer.id), {
         transferredToWhatsapp: true,
         transferredAt: serverTimestamp(),
-        notesHistory: arrayUnion(noteObj),
         updatedAt: serverTimestamp()
       });
 
@@ -6690,38 +6682,8 @@ const Dashboard = () => {
 
                 
 
-                {/* Search Box & Conditional Bulk Actions (Image 3 Location) */}
+                {/* Search Box */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* يظهر زر السحب فقط بشرط تحديد عميلين أو أكثر أو تحديد الصفحة بالكامل من الـ Checkbox */}
-                  {selectedTeamTrackingLeads.length > 0 && (
-                    <>
-                      <button 
-                        onClick={handleBulkPullLeads}
-                        className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer border border-amber-300/40 animate-pulse"
-                        title="سحب جميع العملاء المحددين وإعادتهم إلى داتاي الخاصة بك"
-                      >
-                        <ArrowDownLeft size={15} />
-                        <span>
-                          {isPageAllSelected 
-                            ? `سحب عملاء الصفحة (${selectedTeamTrackingLeads.length})` 
-                            : `سحب العملاء المحددين (${selectedTeamTrackingLeads.length})`}
-                        </span>
-                      </button>
-
-                      <button 
-                        onClick={() => {
-                          setSelectedLeadsCrm(selectedTeamTrackingLeads);
-                          setIsAssignModalOpen(true);
-                        }}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ring-2 ring-purple-300"
-                        title="توزيع العملاء المحددين دفعة واحدة إلى أحد أفراد الفريق"
-                      >
-                        <UserCheck2 size={14} />
-                        <span>⚖️ توزيع (${selectedTeamTrackingLeads.length})</span>
-                      </button>
-                    </>
-                  )}
-
                   <div className="relative">
                     <input 
                       type="text" 
@@ -6770,7 +6732,25 @@ const Dashboard = () => {
                         label: 'تاريخ Last Comment'
                       })}
                       <th className="p-3.5 text-center min-w-[150px]">حالة المتابعة (CRM)</th>
-                      <th className="p-3.5 text-center">إجراء السحب والواتساب</th>
+                      <th className="p-3.5 text-center min-w-[90px]">WhatsApp</th>
+                      <th className="p-3.5 text-center min-w-[150px]">
+                        {selectedTeamTrackingLeads.length > 0 ? (
+                          <button 
+                            onClick={handleBulkPullLeads}
+                            className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 mx-auto shadow-md active:scale-95 cursor-pointer border border-amber-300/40 animate-pulse whitespace-nowrap"
+                            title="سحب جميع العملاء المحددين وإعادتهم إلى Leads CRM الخاص بك"
+                          >
+                            <ArrowDownLeft size={14} />
+                            <span>
+                              {isPageAllSelected 
+                                ? `سحب عملاء الصفحة (${selectedTeamTrackingLeads.length})` 
+                                : `سحب المحددين (${selectedTeamTrackingLeads.length})`}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-purple-300 font-bold whitespace-nowrap">سحب العميل</span>
+                        )}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white/90 text-gray-800">
@@ -6839,11 +6819,14 @@ const Dashboard = () => {
                                 >
                                   <FileText size={12} className="text-amber-700" />
                                   <span>Comment</span>
-                                  {customer.notesHistory?.length > 0 && (
-                                    <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
-                                      {customer.notesHistory.length}
-                                    </span>
-                                  )}
+                                  {(() => {
+                                    const cCount = (customer.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة')).length;
+                                    return cCount > 0 ? (
+                                      <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[9px] font-black flex items-center justify-center">
+                                        {cCount}
+                                      </span>
+                                    ) : null;
+                                  })()}
                                 </button>
                               </div>
                             </td>
@@ -11090,8 +11073,18 @@ const Dashboard = () => {
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">سجل الملاحظات والتقارير السابقة:</label>
                   <div className="max-h-44 sm:max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
-                    {selectedCustomerForNotes.notesHistory && selectedCustomerForNotes.notesHistory.length > 0 ? (
-                      [...selectedCustomerForNotes.notesHistory].reverse().map((note, i) => {
+                    {(() => {
+                      const validNotes = (selectedCustomerForNotes.notesHistory || []).filter(n => !n.text?.includes('تم فتح محادثة الواتساب المباشرة'));
+                      if (validNotes.length === 0) {
+                        return (
+                          <div className="py-5 text-center text-gray-400 text-xs space-y-1">
+                            <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
+                            <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
+                            <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
+                          </div>
+                        );
+                      }
+                      return [...validNotes].reverse().map((note, i) => {
                         const isNoteByAdmin = !note.author || isAdminIdentifier(note.author);
                         const isNoteByLeader = note.author && note.author.includes('ليدر');
                         const authorDisplay = isNoteByAdmin ? '👑 الإدارة' : sanitizeDisplayName(note.author);
@@ -11137,14 +11130,8 @@ const Dashboard = () => {
                             <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">{note.text}</p>
                           </div>
                         );
-                      })
-                    ) : (
-                      <div className="py-5 text-center text-gray-400 text-xs space-y-1">
-                        <MessageSquare size={22} className="mx-auto opacity-30 text-gray-500" />
-                        <p>لا توجد ملاحظات مسجلة بعد لهذا العميل.</p>
-                        <p className="text-[10px] text-gray-400">يمكنك كتابة أول تعليق أدناه وإضافته مباشرة.</p>
-                      </div>
-                    )}
+                      });
+                    })()}
                   </div>
                 </div>
 
