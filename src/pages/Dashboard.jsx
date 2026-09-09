@@ -10782,15 +10782,10 @@ const Dashboard = () => {
                 <X size={22} />
               </button>
 
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-                <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <FileText className="text-amber-600" size={22} />
-                  <span>تقرير وملاحظات العميل</span>
-                </h2>
-                <span className="text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-2xs">
-                  عدد مفتوح من التعليقات 💬
-                </span>
-              </div>
+              <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <FileText className="text-amber-600" size={22} />
+                <span>تقرير وملاحظات العميل</span>
+              </h2>
 
               {isStatusChangeMandatory && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 px-3 py-2 rounded-xl text-xs font-black mb-3 flex items-center gap-2 shadow-sm animate-pulse">
@@ -10875,13 +10870,7 @@ const Dashboard = () => {
 
                 {/* Notes History Timeline */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                      <MessageSquare size={14} className="text-amber-600" />
-                      <span>سجل الملاحظات والتقارير ({selectedCustomerForNotes.notesHistory?.length || 0}):</span>
-                    </label>
-                    <span className="text-[10px] text-gray-400 font-semibold">الأحدث أولاً ⬇️</span>
-                  </div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">سجل الملاحظات والتقارير السابقة:</label>
                   <div className="max-h-44 sm:max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2.5 bg-slate-50/70 space-y-2">
                     {selectedCustomerForNotes.notesHistory && selectedCustomerForNotes.notesHistory.length > 0 ? (
                       [...selectedCustomerForNotes.notesHistory].reverse().map((note, i) => {
@@ -10989,16 +10978,10 @@ const Dashboard = () => {
                 {/* Add New Note (Hidden for Coordinator) */}
                 {!isCoordinator && (
                   <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/90 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-                        <Plus size={14} className="text-amber-700" />
-                        <span>إضافة تعليق جديد (عدد غير محدود):</span>
-                      </label>
-                      <span className="text-[10px] text-amber-700 font-bold">سجّل أي عدد من الملاحظات</span>
-                    </div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">إضافة ملاحظة / تقرير جديد:</label>
                     <textarea 
                       rows={2}
-                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار أو الملاحظة هنا... ثم اضغط 'إضافة التعليق'"
+                      placeholder="اكتب تفاصيل المكالمة أو الاستفسار الملاحظ هنا..."
                       value={newNoteText}
                       onChange={(e) => setNewNoteText(e.target.value)}
                       className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
@@ -11016,7 +10999,7 @@ const Dashboard = () => {
                         title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
                       >
                         <Plus size={14} />
-                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق للسجل'}</span>
+                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
                       </button>
                     </div>
                   </div>
