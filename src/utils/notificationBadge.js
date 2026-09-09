@@ -180,3 +180,129 @@ export function setGlobalNotificationAlert(count, baseTitle = 'WhatsApp Etegah')
   updateFaviconBadge(count);
   updateTabTitle(count, baseTitle);
 }
+
+
+/**
+ * طلب إذن إشعارات النظام (Windows / Mac / Android / iOS) تلقائياً
+ */
+export async function requestSystemNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      return permission;
+    }
+    return Notification.permission;
+  } catch (err) {
+    console.warn('Notification permission error:', err);
+    return 'error';
+  }
+}
+
+/**
+ * تشغيل صوت تنبيه رقيق واحترافي باستخدام Web Audio API دون الحاجة لتحميل ملفات خارجية
+ */
+export function playNotificationChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // نغمة تنبيه ثنائية أنيقة (E6 -> A6)
+    const now = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1318.51, now); // E6
+    osc1.frequency.setValueAtTime(1760.00, now + 0.12); // A6
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(659.25, now);
+    osc2.frequency.setValueAtTime(880.00, now + 0.12);
+
+    gainNode.gain.setValueAtTime(0.2, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.5);
+    osc2.stop(now + 0.5);
+  } catch (e) {
+    // Audio autoplay might be blocked before first user interaction
+  }
+}
+
+/**
+ * إطلاق إشعار نظام حقيقي على شاشة اللابتوب أو الكمبيوتر أو الموبايل
+ * @param {Object} options خيارات الإشعار
+ * @param {string} options.title عنوان الإشعار
+ * @param {string} options.body نص وتفاصيل الإشعار
+ * @param {string} [options.icon] مسار الشعار
+ * @param {string} [options.url] الرابط للتركيز عند النقر
+ */
+export async function triggerNativeNotification({ title = '🔔 منصة اتجاه', body = 'وصلك تنبيه جديد', icon = '/logo.jpg', url = '/dashboard' } = {}) {
+  if (typeof window === 'undefined') return;
+
+  // 1. تشغيل صوت التنبيه
+  playNotificationChime();
+
+  // 2. التحقق من إذن الإشعارات
+  if (!('Notification' in window)) return;
+  
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    perm = await requestSystemNotificationPermission();
+  }
+
+  if (perm !== 'granted') return;
+
+  try {
+    // محاولة الإرسال عبر Service Worker لدعم الهواتف والخلفية
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, {
+          body,
+          icon,
+          badge: icon,
+          vibrate: [200, 100, 200],
+          tag: 'etegah-system-alert-' + Date.now(),
+          renotify: true,
+          data: { url }
+        });
+        return;
+      }
+    }
+
+    // إرسال الإشعار المباشر لسطح المكتب
+    const notif = new Notification(title, {
+      body,
+      icon,
+      badge: icon,
+      silent: false,
+      tag: 'etegah-system-alert-' + Date.now()
+    });
+
+    notif.onclick = () => {
+      window.focus();
+      if (window.location.pathname !== url && url) {
+        window.location.href = url;
+      }
+      notif.close();
+    };
+  } catch (err) {
+    console.warn('Native notification error:', err);
+  }
+}

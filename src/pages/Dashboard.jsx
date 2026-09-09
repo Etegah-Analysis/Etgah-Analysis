@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import EmployeePermissionsModal from '../components/EmployeePermissionsModal';
 import { hasPermission } from '../config/permissionsConfig';
-import { setGlobalNotificationAlert } from '../utils/notificationBadge';
+import { setGlobalNotificationAlert, requestSystemNotificationPermission, triggerNativeNotification, playNotificationChime } from '../utils/notificationBadge';
 
 // Error Boundary to catch React runtime crashes and show error instead of white screen
 class DashboardErrorBoundary extends React.Component {
@@ -2479,10 +2479,58 @@ const Dashboard = () => {
 
   const totalAllNotificationsCount = (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
 
-  // تحديث شارة التبويب (Favicon) وعنوان المتصفح تلقائياً عند وصول أو تغير التنبيهات لكافة الموظفين
+  const prevTotalNotifsRef = useRef(totalAllNotificationsCount);
+  const prevUnreadChatsRef = useRef(unreadWhatsAppChats?.length || 0);
+  const prevUnreadEmailsRef = useRef(unreadEmails?.length || 0);
+  const prevExpiringRef = useRef(expiringSubscriptions?.length || 0);
+  const isInitialNotifMount = useRef(true);
+
+  // طلب إذن إشعارات النظام تلقائياً على سطح المكتب والموبايل
+  useEffect(() => {
+    requestSystemNotificationPermission();
+  }, []);
+
+  // تحديث شارة التبويب (Favicon) وإطلاق إشعار نظام حقيقي على شاشة اللابتوب والموبايل بصوت التنبيه
   useEffect(() => {
     setGlobalNotificationAlert(totalAllNotificationsCount, 'CRM WhatsApp Etegah');
-  }, [totalAllNotificationsCount]);
+
+    if (isInitialNotifMount.current) {
+      isInitialNotifMount.current = false;
+      prevTotalNotifsRef.current = totalAllNotificationsCount;
+      prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
+      prevUnreadEmailsRef.current = unreadEmails?.length || 0;
+      prevExpiringRef.current = expiringSubscriptions?.length || 0;
+      return;
+    }
+
+    if (totalAllNotificationsCount > prevTotalNotifsRef.current) {
+      let bodyText = 'وصلك تنبيه جديد في النظام 🔔';
+      let notifUrl = '/dashboard';
+
+      if ((unreadWhatsAppChats?.length || 0) > prevUnreadChatsRef.current) {
+        bodyText = 'وصلتك رسائل واتساب جديدة غير مقروءة 💬';
+        notifUrl = '/inbox';
+      } else if ((unreadEmails?.length || 0) > prevUnreadEmailsRef.current) {
+        bodyText = 'وصلك بريد داخلي جديد في Email-Etegah 📬';
+        notifUrl = '/dashboard';
+      } else if ((expiringSubscriptions?.length || 0) > prevExpiringRef.current) {
+        bodyText = 'تنبيه: توجد اشتراكات عملاء قريبة الانتهاء بحاجة للمتابعة ⏰';
+        notifUrl = '/dashboard';
+      }
+
+      triggerNativeNotification({
+        title: '🔔 تنبيه جديد - منصة اتجاه',
+        body: bodyText,
+        icon: '/logo.jpg',
+        url: notifUrl
+      });
+    }
+
+    prevTotalNotifsRef.current = totalAllNotificationsCount;
+    prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
+    prevUnreadEmailsRef.current = unreadEmails?.length || 0;
+    prevExpiringRef.current = expiringSubscriptions?.length || 0;
+  }, [totalAllNotificationsCount, unreadWhatsAppChats?.length, unreadEmails?.length, expiringSubscriptions?.length]);
 
   // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
 
@@ -2547,7 +2595,12 @@ const Dashboard = () => {
         const ws = wb.Sheets[wsName];
         const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-        const parsed = data.map((row) => {
+        const parsed = [];
+        const seenInBatch = new Set();
+        let duplicateCount = 0;
+        let nonSaudiCount = 0;
+
+        data.forEach((row) => {
           const getVal = (keys) => {
             const rowKeys = Object.keys(row);
             for (const k of keys) {
@@ -2586,13 +2639,38 @@ const Dashboard = () => {
             if (!phone && vals[1]) phone = String(vals[1]).trim();
           }
 
+          if (!phone && !name) return;
+
+          // الفحص السعودي الصارم: حظر أي رقم غير سعودي لا يبدأ بـ 966 أو 05 أو 5
+          const saudiCheck = normalizeAndValidateSaudiPhone(phone);
+          if (!saudiCheck.valid) {
+            nonSaudiCount++;
+            return;
+          }
+
+          // منع التكرار الذكي: فحص النواة 5XXXXXXXX مع كامل قاعدة البيانات بالسيستم
+          if (seenInBatch.has(saudiCheck.core) || checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+            duplicateCount++;
+            return;
+          }
+
+          seenInBatch.add(saudiCheck.core);
           const email = getVal(['Email', 'email', 'E-mail', 'الايميل', 'البريد', 'البريد الالكتروني']);
           const notes = getVal(['Notes', 'notes', 'Note', 'Description', 'ملاحظات', 'الملاحظات', 'تفاصيل']);
-          return { name: name || 'عميل جديد', phone: String(phone).trim(), email: String(email).trim(), notes: String(notes).trim() };
-        }).filter(item => item.phone || item.name);
+          parsed.push({ 
+            name: name || 'عميل جديد', 
+            phone: saudiCheck.phoneE164, 
+            phoneDb: saudiCheck.phoneDb,
+            email: String(email).trim(), 
+            notes: String(notes).trim() 
+          });
+        });
 
         setImportRows(parsed);
-        toast.success(`تم قراءة ${parsed.length} عميل من الملف`);
+        let msg = `تمت قراءة وفحص ${parsed.length} عميل سعودي جديد بنجاح 🎯`;
+        if (duplicateCount > 0) msg += ` (تم استبعاد ${duplicateCount} مكرر مسجل مسبقاً)`;
+        if (nonSaudiCount > 0) msg += ` (تم حظر ${nonSaudiCount} رقم غير سعودي)`;
+        toast.success(msg, { duration: 6000 });
       } catch (err) {
         console.error(err);
         toast.error('حدث خطأ في قراءة ملف Excel');
@@ -2621,7 +2699,12 @@ const Dashboard = () => {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-      const parsed = data.map((row) => {
+      const parsed = [];
+      const seenInBatch = new Set();
+      let duplicateCount = 0;
+      let nonSaudiCount = 0;
+
+      data.forEach((row) => {
           const getVal = (keys) => {
             const rowKeys = Object.keys(row);
             for (const k of keys) {
@@ -2660,13 +2743,38 @@ const Dashboard = () => {
             if (!phone && vals[1]) phone = String(vals[1]).trim();
           }
 
+          if (!phone && !name) return;
+
+          // الفحص السعودي الصارم
+          const saudiCheck = normalizeAndValidateSaudiPhone(phone);
+          if (!saudiCheck.valid) {
+            nonSaudiCount++;
+            return;
+          }
+
+          // منع التكرار الذكي
+          if (seenInBatch.has(saudiCheck.core) || checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+            duplicateCount++;
+            return;
+          }
+
+          seenInBatch.add(saudiCheck.core);
           const email = getVal(['Email', 'email', 'E-mail', 'الايميل', 'البريد', 'البريد الالكتروني']);
           const notes = getVal(['Notes', 'notes', 'Note', 'Description', 'ملاحظات', 'الملاحظات', 'تفاصيل']);
-          return { name: name || 'عميل جديد', phone: String(phone).trim(), email: String(email).trim(), notes: String(notes).trim() };
-        }).filter(item => item.phone || item.name);
+          parsed.push({ 
+            name: name || 'عميل جديد', 
+            phone: saudiCheck.phoneE164, 
+            phoneDb: saudiCheck.phoneDb,
+            email: String(email).trim(), 
+            notes: String(notes).trim() 
+          });
+        });
 
       setImportRows(parsed);
-      toast.success(`تم جلب ${parsed.length} عميل من Google Sheet`);
+      let msg = `تم جلب وفحص ${parsed.length} عميل سعودي جديد من Google Sheet 🎯`;
+      if (duplicateCount > 0) msg += ` (تم استبعاد ${duplicateCount} مكرر مسجل مسبقاً)`;
+      if (nonSaudiCount > 0) msg += ` (تم حظر ${nonSaudiCount} رقم غير سعودي)`;
+      toast.success(msg, { duration: 6000 });
     } catch (err) {
       console.error(err);
       toast.error('فشل جلب البيانات من Google Sheet. يرجى التأكد من أن الشيت متاح للعموم (Public).');
@@ -2680,7 +2788,9 @@ const Dashboard = () => {
     const textContent = rawImportText.trim();
     const lines = textContent.split('\n');
     const parsed = [];
-    const seenPhones = new Set();
+    const seenInBatch = new Set();
+    let duplicateCount = 0;
+    let nonSaudiCount = 0;
 
     lines.forEach(line => {
       const text = line.trim();
@@ -2689,27 +2799,43 @@ const Dashboard = () => {
       const phoneMatches = text.match(/(?:\+?\d{1,4}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}/g);
       if (phoneMatches) {
         phoneMatches.forEach(rawMatch => {
-          const rawPhone = rawMatch.replace(/[\s\-\(\)]/g, '');
-          if (rawPhone.length >= 8 && !seenPhones.has(rawPhone)) {
-            seenPhones.add(rawPhone);
-            const rawNamePart = text.replace(rawMatch, '').replace(/[,\t:;|\-\[\]]/g, '').trim();
-            const cleanName = extractCleanCustomerName(rawNamePart);
-            parsed.push({
-              name: cleanName || 'عميل جديد',
-              phone: rawPhone,
-              email: '',
-              notes: text !== rawMatch ? text : ''
-            });
+          const saudiCheck = normalizeAndValidateSaudiPhone(rawMatch);
+          if (!saudiCheck.valid) {
+            nonSaudiCount++;
+            return;
           }
+
+          if (seenInBatch.has(saudiCheck.core) || checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+            duplicateCount++;
+            return;
+          }
+
+          seenInBatch.add(saudiCheck.core);
+          const rawNamePart = text.replace(rawMatch, '').replace(/[,\t:;|\-\[\]]/g, '').trim();
+          const cleanName = extractCleanCustomerName(rawNamePart);
+          parsed.push({
+            name: cleanName || 'عميل جديد',
+            phone: saudiCheck.phoneE164,
+            phoneDb: saudiCheck.phoneDb,
+            email: '',
+            notes: text !== rawMatch ? text : ''
+          });
         });
       }
     });
 
     setImportRows(parsed);
     if (parsed.length > 0) {
-      toast.success(`تم استخراج ${parsed.length} عميل من النص بنجاح 🎯`);
+      let msg = `تم استخراج وفحص ${parsed.length} عميل سعودي جديد بنجاح 🎯`;
+      if (duplicateCount > 0) msg += ` (تم استبعاد ${duplicateCount} مكرر مسجل مسبقاً)`;
+      if (nonSaudiCount > 0) msg += ` (تم حظر ${nonSaudiCount} رقم غير سعودي)`;
+      toast.success(msg, { duration: 6000 });
     } else {
-      toast.error('لم يتم العثور على أرقام هواتف صالحة في النص المدخل');
+      if (duplicateCount > 0 || nonSaudiCount > 0) {
+        toast.error(`لم يتم استخراج عملاء جدد: ${duplicateCount > 0 ? `(${duplicateCount} مكررين مسجلين مسبقاً)` : ''} ${nonSaudiCount > 0 ? `(${nonSaudiCount} أرقام غير سعودية محظورة)` : ''}`, { duration: 5000 });
+      } else {
+        toast.error('لم يتم العثور على أرقام هواتف سعودية صالحة تبدأ بـ 05 أو 5 أو 966');
+      }
     }
   };
 
@@ -2719,15 +2845,30 @@ const Dashboard = () => {
       toast.error('يرجى إدخال رقم الهاتف أو اسم العميل على الأقل');
       return;
     }
+
+    // الفحص السعودي الصارم: حظر أي رقم غير سعودي
+    const saudiCheck = normalizeAndValidateSaudiPhone(manualPhone.trim());
+    if (!saudiCheck.valid) {
+      toast.error('⚠️ يُحظر إدخال أرقام غير سعودية! يجب أن يبدأ الرقم بـ 05 أو 5 أو 966 ويكون رقماً سعودياً صحيحاً 🇸🇦');
+      return;
+    }
+
+    // منع التكرار الذكي: فحص النواة 5XXXXXXXX في السجلات السابقة وقائمة المعاينة
+    if (checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads) || importRows.some(r => normalizeAndValidateSaudiPhone(r.phone)?.core === saudiCheck.core)) {
+      toast.error(`⚠️ هذا العميل مسجل مسبقاً في النظام برقم (${saudiCheck.phoneE164})! لن يتم تكراره.`);
+      return;
+    }
+
     const cleanName = extractCleanCustomerName(manualName.trim());
     const newRow = {
       name: cleanName || 'عميل جديد',
-      phone: manualPhone.trim(),
+      phone: saudiCheck.phoneE164,
+      phoneDb: saudiCheck.phoneDb,
       email: '',
       notes: manualNotes.trim()
     };
     setImportRows(prev => [newRow, ...prev]);
-    toast.success(`تمت إضافة (${newRow.name}) إلى قائمة المعاينة 📋`);
+    toast.success(`تمت إضافة (${newRow.name}) إلى قائمة المعاينة بنجاح 📋`);
     setManualName('');
     setManualPhone('');
     setManualNotes('');
@@ -2739,17 +2880,23 @@ const Dashboard = () => {
       toast.error('يرجى إدخال رقم الهاتف أو اسم العميل على الأقل');
       return;
     }
-    const cleanName = extractCleanCustomerName(manualName.trim()) || 'عميل جديد';
-    let cleanPhone = manualPhone.replace(/[^0-9+]/g, '');
-    if (cleanPhone && !cleanPhone.startsWith('+')) {
-      cleanPhone = `+${cleanPhone}`;
-    }
-    if (!cleanPhone) {
-      toast.error('يرجى إدخال رقم هاتف صالح');
+
+    // الفحص السعودي الصارم: حظر أي رقم غير سعودي
+    const saudiCheck = normalizeAndValidateSaudiPhone(manualPhone.trim());
+    if (!saudiCheck.valid) {
+      toast.error('⚠️ يُحظر تسجيل أرقام غير سعودية! يجب أن يبدأ الرقم بـ 05 أو 5 أو 966 ويكون رقماً سعودياً صحيحاً 🇸🇦');
       return;
     }
 
-    const docId = cleanPhone.replace(/[^0-9]/g, '');
+    // منع التكرار الذكي: فحص النواة 5XXXXXXXX مع كامل قاعدة بيانات المنصة
+    if (checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+      toast.error(`⚠️ هذا العميل مسجل مسبقاً في النظام برقم (${saudiCheck.phoneE164})! لن يتم تكراره.`);
+      return;
+    }
+
+    const cleanName = extractCleanCustomerName(manualName.trim()) || 'عميل جديد';
+    const cleanPhone = saudiCheck.phoneE164;
+    const docId = saudiCheck.phoneDb;
     const isCurrentUserAdmin = isAdmin || adminEmails.includes(currentUser?.email?.toLowerCase());
     const empUser = employees.find(emp => emp.email?.toLowerCase() === currentUser?.email?.toLowerCase());
     const empName = isCurrentUserAdmin ? 'الإدارة' : (empUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
@@ -2860,11 +3007,21 @@ const Dashboard = () => {
       const empRole = isAdmin ? 'Admin' : (isCoordinator ? 'Coordinator' : (isLeader ? 'Leader' : 'Agent'));
 
       let savedCount = 0;
+      let skippedCount = 0;
       for (const item of importRows) {
-        let cleanPhone = item.phone.replace(/[^0-9+]/g, '');
-        if (!cleanPhone.startsWith('+')) cleanPhone = `+${cleanPhone}`;
+        const saudiCheck = normalizeAndValidateSaudiPhone(item.phone);
+        if (!saudiCheck.valid) {
+          skippedCount++;
+          continue;
+        }
 
-        const crmDocId = cleanPhone.replace(/[^0-9]/g, '');
+        // فحص التكرار مع قاعدة البيانات
+        if (checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+          skippedCount++;
+          continue;
+        }
+
+        const crmDocId = saudiCheck.phoneDb;
         const crmRef = doc(db, 'employee_leads', crmDocId);
         const crmSnap = await getDoc(crmRef);
 
@@ -2872,7 +3029,7 @@ const Dashboard = () => {
 
         if (!crmSnap.exists()) {
           const docData = {
-            phoneNumber: cleanPhone,
+            phoneNumber: saudiCheck.phoneE164,
             name: item.name || 'عميل جديد',
             email: item.email || '',
             notes: item.notes || '',
@@ -2887,7 +3044,6 @@ const Dashboard = () => {
           };
 
           if (isPersonal) {
-            // Automatically assigned to this Agent or Leader
             docData.assignedTo = currentUser.email;
             docData.assignedToUid = currentUser.uid;
             docData.assignedAt = serverTimestamp();
@@ -2896,7 +3052,6 @@ const Dashboard = () => {
             const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `👤 ${empName}`);
             docData.assignmentHistory = [logObj];
           } else {
-            // Admin or Coordinator
             docData.assignedTo = 'الإدارة';
             docData.assignedToUid = 'admin';
             docData.status = 'unassigned';
@@ -2905,13 +3060,15 @@ const Dashboard = () => {
 
           await setDoc(crmRef, docData);
           savedCount++;
+        } else {
+          skippedCount++;
         }
       }
-      const skippedCount = importRows.length - savedCount;
+      
       if (skippedCount > 0) {
-        toast.success(`تم حفظ ${savedCount} عميل جديد في (داتا مضافة بواسطة الموظف) وتخطي ${skippedCount} مكرر`);
+        toast.success(`تم حفظ ${savedCount} عميل جديد في (Team Added Leads) وتخطي ${skippedCount} مكرر مسجل مسبقاً 🎯`);
       } else {
-        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (داتا مضافة بواسطة الموظف) 🚀`);
+        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (Team Added Leads) 🚀`);
       }
       setIsImportModalOpen(false);
       setImportRows([]);
@@ -5649,7 +5806,7 @@ const Dashboard = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
 
@@ -5720,7 +5877,7 @@ const Dashboard = () => {
                   <Globe className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (رسائل وتسجيلات الموقع)
@@ -5797,7 +5954,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
@@ -5837,7 +5994,7 @@ const Dashboard = () => {
                   <BarChart3 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
@@ -5876,8 +6033,8 @@ const Dashboard = () => {
                   <Upload className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()}</h3>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
 
@@ -5930,7 +6087,7 @@ const Dashboard = () => {
                   <Globe className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (رسائل وتسجيلات الموقع)
@@ -5983,7 +6140,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
@@ -6024,7 +6181,7 @@ const Dashboard = () => {
                   <BarChart3 className="text-amber-400" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                   </h3>
@@ -6055,9 +6212,9 @@ const Dashboard = () => {
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {currentEmpUser?.name || currentUser?.displayName || 'Leader'}</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
@@ -6072,9 +6229,9 @@ const Dashboard = () => {
                       <Upload className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} عميل
+                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads
                       </h3>
                     </div>
                   </div>
@@ -6090,13 +6247,13 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">
-                        👥 Leader {currentEmpUser?.name || ''} Team CRM Data
+                        👥 Team Leader {getEnglishDisplayName(currentEmpUser, 'Leader')} CRM Data
                       </p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {myTeamMembers.length} موظف
                       </h3>
                       <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
-                        ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} عميل بالتيم)
+                        ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} Leads in Team)
                       </span>
                     </div>
                   </div>
@@ -6129,7 +6286,7 @@ const Dashboard = () => {
                       <Globe className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
                       </h3>
@@ -6163,7 +6320,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
-                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا تقييم الفريق)
@@ -6204,7 +6361,7 @@ const Dashboard = () => {
                       <BarChart3 className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                       </h3>
@@ -6236,9 +6393,9 @@ const Dashboard = () => {
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Agent')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
@@ -6253,9 +6410,9 @@ const Dashboard = () => {
                       <Upload className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
+                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Team Leads
                       </h3>
                     </div>
                   </div>
@@ -6288,7 +6445,7 @@ const Dashboard = () => {
                       <Globe className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">عملاء واتساب الموقع (Website)</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
                       </h3>
@@ -6322,7 +6479,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">عميل</span>
+                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا التقييم الخاصة بي)
@@ -6363,7 +6520,7 @@ const Dashboard = () => {
                       <BarChart3 className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">أداء الحملات 📢</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} قوالب
                       </h3>
@@ -6685,13 +6842,13 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-white flex items-center gap-2">
-                      <span>🔄 متابعة عملاء التيم (Team Leads Tracking)</span>
+                      <span>👥 Team Leader {getEnglishDisplayName(currentEmpUser, 'Leader')} CRM Data</span>
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {teamLeadsPool.length.toLocaleString()} Leads
                       </span>
                     </h2>
                     <p className="text-xs text-purple-200 font-medium">
-                      متابعة داتا عملاء فريقك وسحبها فوراً إلى Leads CRM الخاص بك
+                      متابعة وتوزيع عملاء الفريق ومراقبة أداء الموظفين ونسب الإنجاز والمتابعات
                     </p>
                   </div>
                 </div>
@@ -6994,13 +7151,20 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                    <span>🎯 Leads CRM</span>
-                    {(isAdmin || isCoordinator) && (
+                    <span>{isAdmin || isCoordinator ? '🎯 Leads CRM' : isLeader ? `🎯 Leads CRM - ${getEnglishDisplayName(currentEmpUser, 'Leader')}` : `🎯 Leads CRM - ${getEnglishDisplayName(currentEmpUser, 'Agent')}`}</span>
+                    {(isAdmin || isCoordinator) ? (
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {leadsCrm.length.toLocaleString()} Leads
                       </span>
+                    ) : (
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
+                      </span>
                     )}
                   </h2>
+                  <p className="text-xs text-purple-200 mt-0.5 font-medium">
+                    إدارة ومتابعة العملاء المحتملين والتواصل المباشر وتسجيل الملاحظات ومراحل البيع
+                  </p>
                 </div>
               </div>
 
@@ -7766,11 +7930,14 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                    <span>📁 {isLeader ? 'Team Added Leads' : 'داتا مضافة بواسطة الموظف'}</span>
+                    <span>📁 Team Added Leads</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                      {isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Leads` : isLeader ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid).length.toLocaleString()} My Leads`}
+                      {isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Team Leads` : isLeader ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Team Leads`}
                     </span>
                   </h2>
+                  <p className="text-xs text-purple-200 mt-0.5 font-medium">
+                    متابعة وإدارة العملاء والبيانات المضافة يدوياً بواسطة أعضاء الفريق ومراجعة تفاصيلها
+                  </p>
                 </div>
               </div>
 
@@ -9227,47 +9394,86 @@ const Dashboard = () => {
         )}
 
         {/* Customers Tab */}
-        {activeTab === 'customers' && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-black text-white flex items-center gap-2">
-                  <span>{customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
-                   customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
-                   'إجمالي قائمة العملاء المسجلين بالنظام'}</span>
-                  <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                    {customers.length.toLocaleString()} Leads
-                  </span>
-                </h2>
-                {selectedEmpFilter && selectedEmpFilter !== 'all' && (
-                  <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 animate-fade-in border border-purple-400/40">
-                    👤 {selectedEmpFilter === 'unassigned' ? 'في الانتظار' : (employees.find(e => e.uid === selectedEmpFilter)?.name || 'الموظف المختار')}
-                  </span>
-                )}
-              </div>
+        {activeTab === 'customers' && (() => {
+          // حوكمة الداتا: عند الآيجنت عملاؤه فقط، عند الليدر عملاء فريقه فقط، وعند الإدارة والمنسق الجميع
+          const scopedCustomerPool = (isAdmin || isCoordinator)
+            ? customers
+            : (isLeader
+                ? customers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase()))
+                : customers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
+              );
 
-              <div className="flex items-center gap-3 flex-wrap flex-1 max-w-xl justify-end">
-                {/* Employee Filter Selector */}
-                <div className="relative min-w-[260px]">
-                  <select
-                    value={selectedEmpFilter}
-                    onChange={(e) => setSelectedEmpFilter(e.target.value)}
-                    className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
-                  >
-                    <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({customers.length} عميل)</option>
-                    {customerFilter !== 'manual' && (
-                      <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} عميل)</option>
-                    )}
-                    {employees.map(emp => {
-                      const count = customers.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
-                      return (
-                        <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                          {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.name}`} — ({count} عميل)
-                        </option>
-                      );
-                    })}
-                  </select>
+          return (
+            <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div>
+                    <h2 className="text-lg font-black text-white flex items-center gap-2">
+                      <span>{customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
+                       customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
+                       '🌐 Data website by whatsapp'}</span>
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {scopedCustomerPool.length.toLocaleString()} Leads
+                      </span>
+                    </h2>
+                    <p className="text-xs text-purple-200 mt-0.5 font-medium">
+                      {customerFilter === 'manual' ? 'متابعة وتحديث بيانات وملاحظات العملاء المضافين يدوياً بالنظام' :
+                       customerFilter === 'unassigned' ? 'متابعة قائمة العملاء غير المعينين وتوزيعهم على موظفي الفريق' :
+                       'سجل واستقبال العملاء الواردين من الموقع الإلكتروني عبر محادثات الواتساب والتواصل الفوري'}
+                    </p>
+                  </div>
+                  {selectedEmpFilter && selectedEmpFilter !== 'all' && (
+                    <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 animate-fade-in border border-purple-400/40">
+                      👤 {selectedEmpFilter === 'unassigned' ? 'في الانتظار' : (employees.find(e => e.uid === selectedEmpFilter)?.name || 'الموظف المختار')}
+                    </span>
+                  )}
                 </div>
+
+                <div className="flex items-center gap-3 flex-wrap flex-1 max-w-xl justify-end">
+                  {/* فلتر الموظفين: يظهر فقط للإدارة والمنسق بالكامل، وللليدر يظهر أعضاء فريقه فقط، ويختفي تماماً عن الآيجنت */}
+                  {(isAdmin || isCoordinator) && (
+                    <div className="relative min-w-[260px]">
+                      <select
+                        value={selectedEmpFilter}
+                        onChange={(e) => setSelectedEmpFilter(e.target.value)}
+                        className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
+                      >
+                        <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({customers.length} Leads)</option>
+                        {customerFilter !== 'manual' && (
+                          <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} Leads)</option>
+                        )}
+                        {employees.map(emp => {
+                          const count = customers.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
+                          return (
+                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                              {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.name}`} — ({count} Leads)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  {isLeader && (
+                    <div className="relative min-w-[220px]">
+                      <select
+                        value={selectedEmpFilter}
+                        onChange={(e) => setSelectedEmpFilter(e.target.value)}
+                        className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
+                      >
+                        <option value="all" className="bg-slate-900 text-white">👥 أعضاء فريقي ({scopedCustomerPool.length} Leads)</option>
+                        <option value={currentUser?.uid} className="bg-slate-900 text-white">👤 داتاي الخاصة ({scopedCustomerPool.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} Leads)</option>
+                        {myTeamMembers.map(emp => {
+                          const count = scopedCustomerPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
+                          return (
+                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                              👤 {emp.name} — ({count} Leads)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
 
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[170px]">
@@ -9290,8 +9496,8 @@ const Dashboard = () => {
             </div>
             {/* Customers Tab Table */}
             {(() => {
-              const filtered = customers.filter(c => {
-                const matchesFilter = customerFilter === 'all' || (customerFilter === 'unassigned' && c.status === 'unassigned') || (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+              const filtered = scopedCustomerPool.filter(c => {
+                const matchesFilter = customerFilter === 'all' || (customerFilter === 'website' && (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy)) || (customerFilter === 'unassigned' && c.status === 'unassigned') || (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
                 if (!matchesFilter) return false;
 
                 // Filter by selected employee dropdown
@@ -9612,7 +9818,8 @@ const Dashboard = () => {
               );
             })()}
           </div>
-        )}
+        );
+      })()}
 
         {/* Employees Tab */}
         {activeTab === 'employees' && (
