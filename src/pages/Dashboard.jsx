@@ -3099,15 +3099,18 @@ const Dashboard = () => {
 
   const handleSaveImportedLeads = async () => {
     if (importRows.length === 0) return;
-    setImportLoading(true);
     try {
       const isPersonal = !isAdmin && !isCoordinator;
       const empUser = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
       const empName = isAdmin ? '👑 الإدارة' : (empUser?.name || currentUser?.email?.split('@')[0] || 'موظف');
       const empRole = isAdmin ? 'Admin' : (isCoordinator ? 'Coordinator' : (isLeader ? 'Leader' : 'Agent'));
+      const sourceLabel = importTab === 'gsheet' ? 'رابط Google Sheet' : importTab === 'text' ? 'نص / سكرين شوت' : importTab === 'manual' ? 'إضافة يدوية' : 'ملف Excel / CSV';
 
-      let savedCount = 0;
+      const existingEmpLeadIds = new Set(employeeLeads.map(l => l.id));
+      const seenCoresInBatch = new Set();
+      const docsToSave = [];
       let skippedCount = 0;
+
       for (const item of importRows) {
         const saudiCheck = normalizeAndValidateSaudiPhone(item.phone);
         if (!saudiCheck.valid) {
@@ -3115,61 +3118,63 @@ const Dashboard = () => {
           continue;
         }
 
-        // فحص التكرار مع قاعدة البيانات
-        if (checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
+        // فحص التكرار الذكي مع قاعدة البيانات والنواة المكررة في نفس الدفعة
+        if (seenCoresInBatch.has(saudiCheck.core) || checkIsDuplicateSaudiLead(saudiCheck.core, leadsCrm, customers, employeeLeads)) {
           skippedCount++;
           continue;
         }
 
         const crmDocId = saudiCheck.phoneDb;
-        const crmRef = doc(db, 'employee_leads', crmDocId);
-        const crmSnap = await getDoc(crmRef);
-
-        const sourceLabel = importTab === 'gsheet' ? 'رابط Google Sheet' : importTab === 'text' ? 'نص / سكرين شوت' : importTab === 'manual' ? 'إضافة يدوية' : 'ملف Excel / CSV';
-
-        if (!crmSnap.exists()) {
-          const docData = {
-            phoneNumber: saudiCheck.phoneE164,
-            name: item.name || 'عميل جديد',
-            email: item.email || '',
-            notes: item.notes || '',
-            source: sourceLabel,
-            assignedSender: 'campaigns',
-            addedBy: empName,
-            addedByUid: currentUser?.uid || '',
-            addedByRole: empRole,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            unread: 0
-          };
-
-          if (isPersonal) {
-            docData.assignedTo = currentUser.email;
-            docData.assignedToUid = currentUser.uid;
-            docData.assignedAt = serverTimestamp();
-            docData.status = 'assigned';
-            docData.crmStatus = 'unassigned';
-            const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `👤 ${empName}`);
-            docData.assignmentHistory = [logObj];
-          } else {
-            docData.assignedTo = 'الإدارة';
-            docData.assignedToUid = 'admin';
-            docData.status = 'unassigned';
-            docData.crmStatus = 'unassigned';
-          }
-
-          await setDoc(crmRef, docData);
-          savedCount++;
-        } else {
+        if (existingEmpLeadIds.has(crmDocId)) {
           skippedCount++;
+          continue;
         }
+
+        seenCoresInBatch.add(saudiCheck.core);
+        existingEmpLeadIds.add(crmDocId);
+
+        const docData = {
+          id: crmDocId,
+          phoneNumber: saudiCheck.phoneE164,
+          name: item.name || 'عميل جديد',
+          email: item.email || '',
+          notes: item.notes || '',
+          source: sourceLabel,
+          assignedSender: 'campaigns',
+          addedBy: empName,
+          addedByUid: currentUser?.uid || '',
+          addedByRole: empRole,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          unread: 0
+        };
+
+        if (isPersonal) {
+          docData.assignedTo = currentUser.email;
+          docData.assignedToUid = currentUser.uid;
+          docData.assignedAt = new Date().toISOString();
+          docData.status = 'assigned';
+          docData.crmStatus = 'unassigned';
+          const logObj = createAssignmentLog('إضافة ذاتية', `👤 ${empName}`, `👤 ${empName}`);
+          docData.assignmentHistory = [logObj];
+        } else {
+          docData.assignedTo = 'الإدارة';
+          docData.assignedToUid = 'admin';
+          docData.status = 'unassigned';
+          docData.crmStatus = 'unassigned';
+        }
+
+        docsToSave.push(docData);
       }
-      
-      if (skippedCount > 0) {
-        toast.success(`تم حفظ ${savedCount} عميل جديد في (Team Added Leads) وتخطي ${skippedCount} مكرر مسجل مسبقاً 🎯`);
-      } else {
-        toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (Team Added Leads) 🚀`);
+
+      const savedCount = docsToSave.length;
+
+      // 1. Instant Optimistic React State Update (0ms / في نفس اللحظة)
+      if (savedCount > 0) {
+        setEmployeeLeads(prev => [...docsToSave, ...prev]);
       }
+
+      // 2. Instant UI close and field cleanup (0ms)
       setIsImportModalOpen(false);
       setImportRows([]);
       setGsheetUrl('');
@@ -3178,11 +3183,47 @@ const Dashboard = () => {
       setManualPhone('');
       setManualNotes('');
       setActiveTab('employee_leads');
+      setImportLoading(false);
       tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+      // 3. Instant Toast feedback in the exact same second!
+      if (savedCount > 0) {
+        if (skippedCount > 0) {
+          toast.success(`تم حفظ ${savedCount} عميل جديد في (Team Added Leads) وتخطي ${skippedCount} مكرر مسجل مسبقاً 🎯`);
+        } else {
+          toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (Team Added Leads) 🚀`);
+        }
+      } else {
+        toast.error(`لم يتم حفظ أي عميل: جميع الأرقام (${skippedCount}) مسجلة مسبقاً أو غير صالحة ⚠️`);
+      }
+
+      // 4. Ultra-fast writeBatch commit in chunks of 400 in the background without freezing UI
+      if (savedCount > 0) {
+        (async () => {
+          const BATCH_SIZE = 400;
+          for (let i = 0; i < docsToSave.length; i += BATCH_SIZE) {
+            const chunk = docsToSave.slice(i, i + BATCH_SIZE);
+            const batch = writeBatch(db);
+            for (const docItem of chunk) {
+              const { id, ...dataToPersist } = docItem;
+              const ref = doc(db, 'employee_leads', id);
+              batch.set(ref, {
+                ...dataToPersist,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                assignedAt: docItem.assignedAt ? serverTimestamp() : null
+              }, { merge: true });
+            }
+            await batch.commit();
+          }
+        })().catch(err => {
+          console.error('Background batch import error:', err);
+          toast.error('حدث خطأ أثناء مزامنة الدفعة في السيرفر');
+        });
+      }
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء حفظ العملاء في (داتا مضافة بواسطة الموظف)');
-    } finally {
       setImportLoading(false);
     }
   };
@@ -3222,13 +3263,51 @@ const Dashboard = () => {
       return;
     }
 
-    setAssignLoading(true);
-    try {
-      const assignerDisplay = getAssignerDisplay();
-      const assignerRole = getAssignerRole();
-      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+    const assignerDisplay = getAssignerDisplay();
+    const assignerRole = getAssignerRole();
+    const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+    const targetIds = new Set(selectedLeadsCrm);
+    const assignedCount = targetLeads.length;
 
-      // Execute via writeBatch in chunks of 400 (Firestore maximum is 500 operations per batch)
+    // 1. Instant Optimistic React Update (0ms / في نفس اللحظة فورا)
+    setLeadsCrm(prev => prev.map(lead => {
+      if (!targetIds.has(lead.id)) return lead;
+      if (isTargetAdmin) {
+        return {
+          ...lead,
+          assignedTo: 'الإدارة',
+          assignedToUid: 'admin',
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
+          status: 'unassigned',
+          crmStatus: 'unassigned',
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        return {
+          ...lead,
+          assignedTo: emp.email,
+          assignedToUid: emp.uid,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
+          status: 'assigned',
+          crmStatus: 'unassigned',
+          updatedAt: new Date().toISOString()
+        };
+      }
+    }));
+
+    // 2. Instant UI close & selection clear & toast in 0ms!
+    setIsAssignModalOpen(false);
+    setSelectedLeadsCrm([]);
+    setSelectedTeamTrackingLeads([]);
+    setAssignLoading(false);
+    toast.success(isTargetAdmin ? `تم إرجاع ${assignedCount} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${assignedCount} عميل محدد دفعة واحدة إلى الموظف ${emp.name} بنجاح 🚀`);
+
+    // 3. Fast writeBatch execution in background without delaying user
+    (async () => {
       const BATCH_SIZE = 400;
       for (let i = 0; i < targetLeads.length; i += BATCH_SIZE) {
         const batchChunk = targetLeads.slice(i, i + BATCH_SIZE);
@@ -3236,10 +3315,10 @@ const Dashboard = () => {
 
         for (const lead of batchChunk) {
           const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+          const leadRef = doc(db, 'leads_crm', lead.id);
 
           if (isTargetAdmin) {
             const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
-            const leadRef = doc(db, 'leads_crm', lead.id);
             batch.update(leadRef, {
               assignedTo: 'الإدارة',
               assignedToUid: 'admin',
@@ -3255,7 +3334,6 @@ const Dashboard = () => {
           } else {
             const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
             const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
-            const leadRef = doc(db, 'leads_crm', lead.id);
             batch.update(leadRef, {
               assignedTo: emp.email,
               assignedToUid: emp.uid,
@@ -3264,7 +3342,7 @@ const Dashboard = () => {
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
               status: 'assigned',
-              crmStatus: 'unassigned', // Initial state is pending/unassigned so it appears in employee pending tab and Card 5!
+              crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -3272,17 +3350,10 @@ const Dashboard = () => {
         }
         await batch.commit();
       }
-
-      toast.success(isTargetAdmin ? `تم إرجاع ${targetLeads.length} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${targetLeads.length} عميل محدد دفعة واحدة إلى الموظف ${emp.name} بنجاح 🚀`);
-      setIsAssignModalOpen(false);
-      setSelectedLeadsCrm([]);
-      setSelectedTeamTrackingLeads([]);
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ أثناء توزيع العملاء');
-    } finally {
-      setAssignLoading(false);
-    }
+    })().catch(err => {
+      console.error('Background batch assignment error:', err);
+      toast.error('حدث خطأ أثناء مزامنة التوزيع في السيرفر');
+    });
   };
 
   // --- WHATSAPP DIRECT ACTION & CRM STATUS HANDLERS ---
@@ -3314,16 +3385,20 @@ const Dashboard = () => {
       const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
       const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
-      await updateDoc(doc(db, 'leads_crm', lead.id), {
+      // Instant optimistic state update
+      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', updatedAt: new Date().toISOString() } : l));
+      toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
+
+      updateDoc(doc(db, 'leads_crm', lead.id), {
         assignedTo: currentUser.email,
         assignedToUid: currentUser.uid,
         assignedAt: serverTimestamp(),
         status: 'assigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
+      }).catch(err => {
+        console.error('Error in handlePullLead:', err);
       });
-
-      toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء سحب العميل');
@@ -3335,24 +3410,52 @@ const Dashboard = () => {
     if (selectedTeamTrackingLeads.length === 0) return;
     try {
       const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-      for (const leadId of selectedTeamTrackingLeads) {
-        const lead = leadsCrm.find(l => l.id === leadId);
-        if (!lead) continue;
-        const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
-        const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
-        const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+      const pulledIds = [...selectedTeamTrackingLeads];
+      const pulledSet = new Set(pulledIds);
 
-        await updateDoc(doc(db, 'leads_crm', lead.id), {
+      // 1. Instant Optimistic React Update (0ms)
+      setLeadsCrm(prev => prev.map(l => {
+        if (!pulledSet.has(l.id)) return l;
+        return {
+          ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          assignedAt: serverTimestamp(),
           status: 'assigned',
-          updatedAt: serverTimestamp(),
-          assignmentHistory: arrayUnion(logObj)
-        });
-      }
-      toast.success(`تم سحب ${selectedTeamTrackingLeads.length} عميل بنجاح إلى Leads CRM الخاص بك 📥`);
+          updatedAt: new Date().toISOString()
+        };
+      }));
+
+      // 2. Instant UI cleanup & Toast
       setSelectedTeamTrackingLeads([]);
+      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح إلى Leads CRM الخاص بك 📥`);
+
+      // 3. Fast writeBatch in background
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < pulledIds.length; i += BATCH_SIZE) {
+          const chunk = pulledIds.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const leadId of chunk) {
+            const lead = leadsCrm.find(l => l.id === leadId);
+            const currentEmp = employees.find(e => e.uid === lead?.assignedToUid || e.email === lead?.assignedTo);
+            const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead?.assignedTo || 'الموظف');
+            const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+
+            batch.update(doc(db, 'leads_crm', leadId), {
+              assignedTo: currentUser.email,
+              assignedToUid: currentUser.uid,
+              assignedAt: serverTimestamp(),
+              status: 'assigned',
+              updatedAt: serverTimestamp(),
+              assignmentHistory: arrayUnion(logObj)
+            });
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch pull error:', err);
+        toast.error('حدث خطأ أثناء مزامنة سحب العملاء بالسيرفر');
+      });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء سحب العملاء');
@@ -3366,24 +3469,51 @@ const Dashboard = () => {
       return;
     }
     try {
-      const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-      for (const lead of pageLeads) {
-        const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
-        const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
-        const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+      const pageIds = pageLeads.map(l => l.id);
+      const pageSet = new Set(pageIds);
 
-        await updateDoc(doc(db, 'leads_crm', lead.id), {
+      // 1. Instant Optimistic React Update (0ms)
+      setLeadsCrm(prev => prev.map(l => {
+        if (!pageSet.has(l.id)) return l;
+        return {
+          ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          assignedAt: serverTimestamp(),
           status: 'assigned',
-          updatedAt: serverTimestamp(),
-          assignmentHistory: arrayUnion(logObj)
-        });
-      }
+          updatedAt: new Date().toISOString()
+        };
+      }));
+
+      // 2. Instant UI cleanup & Toast
+      setSelectedTeamTrackingLeads(prev => prev.filter(id => !pageSet.has(id)));
       toast.success(`تم سحب جميع عملاء الصفحة (${pageLeads.length} عميل) بنجاح إلى Leads CRM الخاص بك 📥`);
-      const pageIds = pageLeads.map(l => l.id);
-      setSelectedTeamTrackingLeads(prev => prev.filter(id => !pageIds.includes(id)));
+
+      // 3. Fast writeBatch in background
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < pageLeads.length; i += BATCH_SIZE) {
+          const chunk = pageLeads.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const lead of chunk) {
+            const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
+            const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
+            const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+
+            batch.update(doc(db, 'leads_crm', lead.id), {
+              assignedTo: currentUser.email,
+              assignedToUid: currentUser.uid,
+              assignedAt: serverTimestamp(),
+              status: 'assigned',
+              updatedAt: serverTimestamp(),
+              assignmentHistory: arrayUnion(logObj)
+            });
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch pull page error:', err);
+        toast.error('حدث خطأ أثناء مزامنة سحب العملاء بالسيرفر');
+      });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء سحب عملاء الصفحة');
@@ -3404,7 +3534,20 @@ const Dashboard = () => {
       const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetEmail = isAdmin ? '' : (currentUser?.email || '');
 
-      await updateDoc(doc(db, 'employee_leads', customer.id), {
+      // Instant Optimistic React Update
+      setEmployeeLeads(prev => prev.map(l => l.id === customer.id ? {
+        ...l,
+        assignedToUid: targetUid,
+        assignedTo: targetEmail,
+        assignedBy: assignerDisplay,
+        assignedByRole: assignerRole,
+        assignedByUid: assignerUid,
+        status: 'assigned',
+        updatedAt: new Date().toISOString()
+      } : l));
+      toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
+
+      updateDoc(doc(db, 'employee_leads', customer.id), {
         assignedToUid: targetUid,
         assignedTo: targetEmail,
         assignedBy: assignerDisplay,
@@ -3414,9 +3557,9 @@ const Dashboard = () => {
         status: 'assigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
+      }).catch(err => {
+        console.error('Error in handlePullEmployeeLead:', err);
       });
-
-      toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء سحب العميل');
@@ -3432,28 +3575,58 @@ const Dashboard = () => {
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetEmail = isAdmin ? '' : (currentUser?.email || '');
+      const pulledIds = [...selectedEmployeeLeads];
+      const pulledSet = new Set(pulledIds);
 
-      for (const leadId of selectedEmployeeLeads) {
-        const customer = employeeLeads.find(l => l.id === leadId);
-        if (!customer) continue;
-        const currentEmp = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo);
-        const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer.assignedTo || 'الموظف');
-        const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
-
-        await updateDoc(doc(db, 'employee_leads', customer.id), {
+      // 1. Instant Optimistic React Update (0ms)
+      setEmployeeLeads(prev => prev.map(l => {
+        if (!pulledSet.has(l.id)) return l;
+        return {
+          ...l,
           assignedToUid: targetUid,
           assignedTo: targetEmail,
           assignedBy: assignerDisplay,
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
-          assignedAt: serverTimestamp(),
           status: 'assigned',
-          updatedAt: serverTimestamp(),
-          assignmentHistory: arrayUnion(logObj)
-        });
-      }
-      toast.success(`تم سحب ${selectedEmployeeLeads.length} عميل بنجاح 📥`);
+          updatedAt: new Date().toISOString()
+        };
+      }));
+
+      // 2. Instant UI cleanup & Toast
       setSelectedEmployeeLeads([]);
+      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح 📥`);
+
+      // 3. Fast writeBatch in background
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < pulledIds.length; i += BATCH_SIZE) {
+          const chunk = pulledIds.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const leadId of chunk) {
+            const customer = employeeLeads.find(l => l.id === leadId);
+            const currentEmp = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo);
+            const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer?.assignedTo || 'الموظف');
+            const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
+
+            batch.update(doc(db, 'employee_leads', leadId), {
+              assignedToUid: targetUid,
+              assignedTo: targetEmail,
+              assignedBy: assignerDisplay,
+              assignedByRole: assignerRole,
+              assignedByUid: assignerUid,
+              assignedAt: serverTimestamp(),
+              status: 'assigned',
+              updatedAt: serverTimestamp(),
+              assignmentHistory: arrayUnion(logObj)
+            });
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch pull employee leads error:', err);
+        toast.error('حدث خطأ أثناء مزامنة سحب العملاء بالسيرفر');
+      });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء سحب العملاء');
@@ -5971,7 +6144,7 @@ const Dashboard = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ Total Pending Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[9px] sm:text-[10px] text-purple-300 font-bold block mt-0.5 leading-tight" dir="ltr">(WhatsApp + CRM + Added Leads)</span>
+                  
                 </div>
               </div>
 
@@ -5987,9 +6160,7 @@ const Dashboard = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (رسائل وتسجيلات الموقع)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6064,9 +6235,7 @@ const Dashboard = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6085,11 +6254,9 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (إجمالي مكالمات السيستم)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6106,9 +6273,7 @@ const Dashboard = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
-                  </span>
+                  
                 </div>
               </div>
             </div>
@@ -6179,7 +6344,7 @@ const Dashboard = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ Total Pending Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="ltr">(WhatsApp + CRM + Added Leads)</span>
+                  
                 </div>
               </div>
 
@@ -6195,9 +6360,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (رسائل وتسجيلات الموقع)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6248,9 +6411,7 @@ const Dashboard = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length} موزع + {employeeLeads.length} مضاف)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6269,11 +6430,9 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    (تحليل شامل للإدارة والمنسق)
-                  </span>
+                  
                 </div>
               </div>
 
@@ -6291,9 +6450,7 @@ const Dashboard = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
-                  <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                    ({templateMessages.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {templateMessages.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
-                  </span>
+                  
                 </div>
               </div>
             </div>
@@ -6450,11 +6607,9 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
-                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (مكالمات الفريق)
-                      </span>
+                      
                     </div>
                   </div>
 
@@ -6472,9 +6627,7 @@ const Dashboard = () => {
                       <h3 className="text-2xl font-black text-amber-300">
                         {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                       </h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        ({leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {leaderTeamTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
-                      </span>
+                      
                     </div>
                   </div>
                 </div>
@@ -6610,11 +6763,9 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
-                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
+                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                       </h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (مكالماتي الخاصة)
-                      </span>
+                      
                     </div>
                   </div>
 
@@ -6632,9 +6783,7 @@ const Dashboard = () => {
                       <h3 className="text-2xl font-black text-amber-300">
                         {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                       </h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        ({agentTemplateMsgs.filter(m => m.campaignSource === 'crm_sheet' || m.campaignSource === 'leads_crm' || m.campaignSource === 'employee_leads' || m.source === 'crm_sheet' || m.source === 'leads_crm' || m.source === 'employee_leads').length} CRM Sheets • {agentTemplateMsgs.filter(m => m.campaignSource === 'excel_import' || m.source === 'excel_import').length} WhatsApp Excel)
-                      </span>
+                      
                     </div>
                   </div>
                 </div>
@@ -10297,64 +10446,80 @@ const Dashboard = () => {
                         const assignerRole = getAssignerRole();
                         const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
 
-                        for (const vId of selectedVisitors) {
-                          const vObj = visitors.find(x => x.id === vId) || customers.find(x => x.id === vId);
-                          const isVisDoc = visitors.some(x => x.id === vId);
-                          const coll = isVisDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
-                          const prevEmp = employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.name || '👑 الإدارة';
-                          const logObj = createAssignmentLog(prevEmp, targetName, assignerDisplay);
+                        const assignedSet = new Set(selectedVisitors);
+                        const selectedCount = selectedVisitors.length;
+                        const vList = [...selectedVisitors];
 
-                          // 1. Update in Visitor collection
-                          await updateDoc(doc(db, coll, vId), {
-                            assignedToUid: targetUid,
-                            assignedTo: targetUid === 'admin' ? 'admin' : (targetEmp?.email || ''),
-                            assignedBy: assignerDisplay,
-                            assignedByRole: assignerRole,
-                            assignedByUid: assignerUid,
-                            assignedAt: serverTimestamp(),
-                            assignmentHistory: arrayUnion(logObj),
-                            status: targetUid === 'admin' ? 'unassigned' : 'assigned'
-                          }).catch(console.error);
-
-                          // 2. Sync to leads_crm
-                          const crmDocId = (vObj?.phone || vObj?.phoneNumber || vId).replace(/[^0-9]/g, '') || vId;
-                          if (targetUid === 'admin') {
-                            await updateDoc(doc(db, 'leads_crm', crmDocId), {
-                              assignedToUid: 'admin',
-                              assignedTo: 'الإدارة',
-                              assignedBy: assignerDisplay,
-                              assignedByRole: assignerRole,
-                              assignedByUid: assignerUid,
-                              assignedAt: serverTimestamp(),
-                              assignmentHistory: arrayUnion(logObj),
-                              status: 'unassigned'
-                            }).catch(() => {});
-                          } else {
-                            const rawPhone = vObj?.phone || vObj?.phoneNumber || '';
-                            await setDoc(doc(db, 'leads_crm', crmDocId), {
-                              phoneNumber: rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`) : '',
-                              name: vObj?.name || `${vObj?.firstName || ''} ${vObj?.lastName || ''}`.trim() || 'عميل مسجل عبر الموقع',
-                              email: vObj?.email || '',
-                              source: 'موقع الويب (OTP)',
-                              assignedTo: targetEmp?.email || '',
-                              assignedToUid: targetUid,
-                              assignedBy: assignerDisplay,
-                              assignedByRole: assignerRole,
-                              assignedByUid: assignerUid,
-                              assignedAt: serverTimestamp(),
-                              assignmentHistory: arrayUnion(logObj),
-                              status: 'assigned',
-                              crmStatus: 'unassigned',
-                              notes: vObj?.notes || '',
-                              notesHistory: vObj?.notesHistory || [],
-                              createdAt: vObj?.createdAt || serverTimestamp(),
-                              updatedAt: serverTimestamp()
-                            }, { merge: true }).catch(console.error);
-                          }
-                        }
-                        toast.success(`تم إسناد ${selectedVisitors.length} عميل إلى (${targetName}) وظهورهم في كارت CRM الخاص به بنجاح ✓`);
+                        // 1. Instant Optimistic React Update (0ms)
+                        setVisitors(prev => prev.map(v => assignedSet.has(v.id) ? { ...v, assignedToUid: targetUid, assignedTo: targetUid === 'admin' ? 'admin' : (targetEmp?.email || ''), status: targetUid === 'admin' ? 'unassigned' : 'assigned' } : v));
+                        setCustomers(prev => prev.map(c => assignedSet.has(c.id) ? { ...c, assignedToUid: targetUid, assignedTo: targetUid === 'admin' ? 'admin' : (targetEmp?.email || ''), status: targetUid === 'admin' ? 'unassigned' : 'assigned' } : c));
+                        
                         setSelectedVisitors([]);
                         e.target.value = "";
+                        toast.success(`تم إسناد ${selectedCount} عميل إلى (${targetName}) وظهورهم في كارت CRM الخاص به بنجاح ✓`);
+
+                        // 2. Fast batch execution in background
+                        (async () => {
+                          const BATCH_SIZE = 200;
+                          for (let i = 0; i < vList.length; i += BATCH_SIZE) {
+                            const chunk = vList.slice(i, i + BATCH_SIZE);
+                            const batch = writeBatch(db);
+                            for (const vId of chunk) {
+                              const vObj = visitors.find(x => x.id === vId) || customers.find(x => x.id === vId);
+                              const isVisDoc = visitors.some(x => x.id === vId);
+                              const coll = isVisDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
+                              const prevEmp = employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.name || '👑 الإدارة';
+                              const logObj = createAssignmentLog(prevEmp, targetName, assignerDisplay);
+
+                              batch.update(doc(db, coll, vId), {
+                                assignedToUid: targetUid,
+                                assignedTo: targetUid === 'admin' ? 'admin' : (targetEmp?.email || ''),
+                                assignedBy: assignerDisplay,
+                                assignedByRole: assignerRole,
+                                assignedByUid: assignerUid,
+                                assignedAt: serverTimestamp(),
+                                assignmentHistory: arrayUnion(logObj),
+                                status: targetUid === 'admin' ? 'unassigned' : 'assigned'
+                              });
+
+                              const crmDocId = (vObj?.phone || vObj?.phoneNumber || vId).replace(/[^0-9]/g, '') || vId;
+                              if (targetUid === 'admin') {
+                                batch.update(doc(db, 'leads_crm', crmDocId), {
+                                  assignedToUid: 'admin',
+                                  assignedTo: 'الإدارة',
+                                  assignedBy: assignerDisplay,
+                                  assignedByRole: assignerRole,
+                                  assignedByUid: assignerUid,
+                                  assignedAt: serverTimestamp(),
+                                  assignmentHistory: arrayUnion(logObj),
+                                  status: 'unassigned'
+                                });
+                              } else {
+                                const rawPhone = vObj?.phone || vObj?.phoneNumber || '';
+                                batch.set(doc(db, 'leads_crm', crmDocId), {
+                                  phoneNumber: rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`) : '',
+                                  name: vObj?.name || `${vObj?.firstName || ''} ${vObj?.lastName || ''}`.trim() || 'عميل مسجل عبر الموقع',
+                                  email: vObj?.email || '',
+                                  source: 'موقع الويب (OTP)',
+                                  assignedTo: targetEmp?.email || '',
+                                  assignedToUid: targetUid,
+                                  assignedBy: assignerDisplay,
+                                  assignedByRole: assignerRole,
+                                  assignedByUid: assignerUid,
+                                  assignedAt: serverTimestamp(),
+                                  assignmentHistory: arrayUnion(logObj),
+                                  status: 'assigned',
+                                  crmStatus: 'unassigned',
+                                  notes: vObj?.notes || '',
+                                  notesHistory: vObj?.notesHistory || [],
+                                  createdAt: vObj?.createdAt || serverTimestamp(),
+                                  updatedAt: serverTimestamp()
+                                }, { merge: true });
+                              }
+                            }
+                            await batch.commit();
+                          }
+                        })().catch(console.error);
                       }}
                       className="text-xs font-bold bg-white text-gray-800 border border-indigo-300 rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
                     >
