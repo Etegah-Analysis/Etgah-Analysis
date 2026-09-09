@@ -3129,6 +3129,76 @@ const Dashboard = () => {
     }
   };
 
+  // Pull Single Employee Lead to Leader or Admin
+  const handlePullEmployeeLead = async (customer) => {
+    if (!customer) return;
+    try {
+      const currentEmp = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo);
+      const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer.assignedTo || 'الموظف');
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+      const assignerRole = isAdmin ? 'admin' : 'leader';
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
+
+      const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetEmail = isAdmin ? '' : (currentUser?.email || '');
+
+      await updateDoc(doc(db, 'employee_leads', customer.id), {
+        assignedToUid: targetUid,
+        assignedTo: targetEmail,
+        assignedBy: assignerDisplay,
+        assignedByRole: assignerRole,
+        assignedByUid: assignerUid,
+        assignedAt: serverTimestamp(),
+        status: 'assigned',
+        updatedAt: serverTimestamp(),
+        assignmentHistory: arrayUnion(logObj)
+      });
+
+      toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء سحب العميل');
+    }
+  };
+
+  // Bulk Pull Employee Leads to Leader or Admin
+  const handleBulkPullEmployeeLeads = async () => {
+    if (selectedEmployeeLeads.length === 0) return;
+    try {
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+      const assignerRole = isAdmin ? 'admin' : 'leader';
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetEmail = isAdmin ? '' : (currentUser?.email || '');
+
+      for (const leadId of selectedEmployeeLeads) {
+        const customer = employeeLeads.find(l => l.id === leadId);
+        if (!customer) continue;
+        const currentEmp = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo);
+        const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer.assignedTo || 'الموظف');
+        const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
+
+        await updateDoc(doc(db, 'employee_leads', customer.id), {
+          assignedToUid: targetUid,
+          assignedTo: targetEmail,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
+          assignedAt: serverTimestamp(),
+          status: 'assigned',
+          updatedAt: serverTimestamp(),
+          assignmentHistory: arrayUnion(logObj)
+        });
+      }
+      toast.success(`تم سحب ${selectedEmployeeLeads.length} عميل بنجاح 📥`);
+      setSelectedEmployeeLeads([]);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء سحب العملاء');
+    }
+  };
+
   const toggleTeamTrackingSelection = (id) => {
     setSelectedTeamTrackingLeads(prev => prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]);
   };
@@ -5578,7 +5648,7 @@ const Dashboard = () => {
                   <Upload className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 داتا مضافة بواسطة الموظف</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -5593,7 +5663,7 @@ const Dashboard = () => {
                   <Award className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{allSubscribedClients.length.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (اشتراكات مؤكدة)
@@ -5748,7 +5818,7 @@ const Dashboard = () => {
                   <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                   </h3>
@@ -5934,7 +6004,7 @@ const Dashboard = () => {
                   <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                 </div>
                 <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                   </h3>
@@ -5985,7 +6055,7 @@ const Dashboard = () => {
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM (داتاي)</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {currentEmpUser?.name || currentUser?.displayName || 'Leader'}</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} عميل
                       </h3>
@@ -6041,7 +6111,7 @@ const Dashboard = () => {
                       <Award className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
                       <h3 className="text-2xl font-black text-amber-300">{leaderSubscribedClients.length.toLocaleString()}</h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مشتركي الفريق)
@@ -6114,7 +6184,7 @@ const Dashboard = () => {
                       <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
                         {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                       </h3>
@@ -6200,7 +6270,7 @@ const Dashboard = () => {
                       <Award className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 العملاء المشتركين</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
                       <h3 className="text-2xl font-black text-amber-300">{agentSubscribedClients.length.toLocaleString()}</h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (مشتركي الخاصين)
@@ -6273,7 +6343,7 @@ const Dashboard = () => {
                       <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 تحليل أداء المكالمات</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
                         {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">اليوم</span> / {roleFilteredCallLogs.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">تراكمي</span>
                       </h3>
@@ -6403,16 +6473,20 @@ const Dashboard = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header & KPI Summary */}
-              <div className="px-6 py-5 border-b border-gray-200/80 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50">
+              <div className="px-6 py-5 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white">
                 <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-                  <div>
-                    <h2 className="text-lg font-black text-purple-950 flex items-center gap-2">
-                      <BarChart3 className="text-purple-600" size={24} />
-                      <span>📢 تحليلات وإحصائيات أداء الحملات التسويقية</span>
-                    </h2>
-                    <p className="text-xs text-purple-800/80 font-semibold mt-0.5">
-                      مقارنة أداء حملات شيت CRM مقابل حملات إكسيل الواتساب والقوالب الفردية
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                      <BarChart3 className="text-amber-400" size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black text-white flex items-center gap-2">
+                        <span>📢 تحليلات وإحصائيات أداء الحملات التسويقية</span>
+                      </h2>
+                      <p className="text-xs text-purple-200 font-semibold mt-0.5">
+                        مقارنة أداء حملات شيت CRM مقابل حملات إكسيل الواتساب والقوالب الفردية
+                      </p>
+                    </div>
                   </div>
 
                   {/* Filter Tabs */}
@@ -6466,8 +6540,8 @@ const Dashboard = () => {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-right border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 text-xs">
+                  <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                    <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30 text-xs">
                       <th className="p-3.5 font-bold">اسم القالب / الرسالة</th>
                       <th className="p-3.5 font-bold text-center">نوع الحملة ومصدرها</th>
                       <th className="p-3.5 font-bold">الموظف المُرسل</th>
@@ -6913,17 +6987,21 @@ const Dashboard = () => {
         {/* Dedicated Leads CRM Tab */}
         {activeTab === 'leads_crm' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-purple-900 flex items-center gap-2">
-                  <FileSpreadsheet className="text-purple-600" size={24} />
-                  <span>🎯 Leads CRM</span>
-                </h2>
-                {(isAdmin || isCoordinator) && (
-                  <span className="bg-purple-200 text-purple-800 text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                    إجمالي {leadsCrm.length.toLocaleString()} عميل
-                  </span>
-                )}
+                <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                  <FileSpreadsheet className="text-amber-400" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>🎯 Leads CRM</span>
+                    {(isAdmin || isCoordinator) && (
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {leadsCrm.length.toLocaleString()} Leads
+                      </span>
+                    )}
+                  </h2>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -7284,8 +7362,8 @@ const Dashboard = () => {
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead>
-                        <tr className="bg-purple-50/80 border-b border-purple-100">
+                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                           {(isAdmin || isCoordinator || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
@@ -7685,15 +7763,19 @@ const Dashboard = () => {
         {/* Dedicated Employee Added Leads CRM Tab */}
         {activeTab === 'employee_leads' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/30 bg-purple-50/50 flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-purple-900 flex items-center gap-2">
-                  <Upload className="text-purple-600" size={24} />
-                  <span>📁 داتا مضافة بواسطة الموظف</span>
-                </h2>
-                <span className="bg-purple-200 text-purple-800 text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                  {isAdmin || isCoordinator ? `إجمالي ${employeeLeads.length.toLocaleString()} عميل` : `داتاي المرفوعة (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (isLeader && myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))).length.toLocaleString()} عميل)`}
-                </span>
+                <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                  <Upload className="text-amber-400" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>📁 {isLeader ? 'Team Added Leads' : 'داتا مضافة بواسطة الموظف'}</span>
+                    <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                      {isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Leads` : isLeader ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid).length.toLocaleString()} My Leads`}
+                    </span>
+                  </h2>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -7842,7 +7924,7 @@ const Dashboard = () => {
               };
 
               return (
-                <div className="px-6 py-3.5 bg-purple-50/30 border-b flex flex-wrap justify-between items-center gap-3">
+                <div className="px-6 py-3.5 bg-slate-900/90 border-b border-purple-500/20 flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter Dropdown for Admin, Coordinator, Leader */}
                     {(isAdmin || isCoordinator || isLeader) && (
@@ -7868,7 +7950,7 @@ const Dashboard = () => {
                             const leaderName = currentEmpUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'الليدر';
                             return (
                               <option value={currentUser?.uid} className="bg-slate-950 text-white">
-                                👤 {leaderName} (داتاي) ({leaderCount.toLocaleString()} عميل)
+                                👑 Leader: {leaderName} ({leaderCount.toLocaleString()} Leads)
                               </option>
                             );
                           })()}
@@ -8028,9 +8110,9 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead>
-                        <tr className="bg-purple-50/80 border-b border-purple-100">
-                          {isAdmin && (
+                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                          {(isAdmin || isLeader) && (
                             <th className="p-4 w-12 text-center">
                               <input 
                                 type="checkbox" 
@@ -8062,7 +8144,27 @@ const Dashboard = () => {
                           })}
                           <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
                           <th className="px-3 py-2.5 font-bold text-purple-950 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-950 text-xs text-center">WhatsApp</th>}
+                          {!isCoordinator && <th className="px-3 py-2.5 font-bold text-purple-200 text-xs text-center">WhatsApp</th>}
+                          {(isAdmin || isLeader) && (
+                            <th className="px-3 py-2.5 font-bold text-purple-200 text-xs text-center min-w-[150px]">
+                              {selectedEmployeeLeads.length > 0 ? (
+                                <button 
+                                  onClick={handleBulkPullEmployeeLeads}
+                                  className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 mx-auto shadow-md active:scale-95 cursor-pointer border border-amber-300/40 animate-pulse whitespace-nowrap"
+                                  title={isLeader ? "سحب جميع العملاء المحددين وإعادتهم إلى داتا الليدر الخاصة بك" : "سحب جميع العملاء المحددين إلى الإدارة"}
+                                >
+                                  <ArrowDownLeft size={14} />
+                                  <span>
+                                    {isPageSelected 
+                                      ? `سحب عملاء الصفحة (${selectedEmployeeLeads.length})` 
+                                      : `سحب المحددين (${selectedEmployeeLeads.length})`}
+                                  </span>
+                                </button>
+                              ) : (
+                                <span className="text-purple-300 font-bold whitespace-nowrap">سحب العميل</span>
+                              )}
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -8088,7 +8190,7 @@ const Dashboard = () => {
 
                             return (
                               <tr key={customer.id} className="hover:bg-purple-50/30 transition border-b border-gray-100/50">
-                                {isAdmin && (
+                                {(isAdmin || isLeader) && (
                                   <td className="p-4 text-center">
                                     <input 
                                       type="checkbox" 
@@ -8345,6 +8447,18 @@ const Dashboard = () => {
                                     </div>
                                   </td>
                                 )}
+                                {(isAdmin || isLeader) && (
+                                  <td className="p-3.5 text-center">
+                                    <button 
+                                      onClick={() => handlePullEmployeeLead(customer)}
+                                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 mx-auto shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                                      title={isLeader ? "سحب هذا العميل وتعيينه فوراً لنفسك كـ Leader" : "سحب هذا العميل وإعادته للإدارة"}
+                                    >
+                                      <ArrowDownLeft size={14} />
+                                      <span>سحب العميل 📥</span>
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             );
                           })
@@ -8462,15 +8576,19 @@ const Dashboard = () => {
         {/* Dedicated Subscribed Clients Tab (العملاء المشتركين) */}
         {activeTab === 'subscribed_clients' && !isCoordinator && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-black text-emerald-950 flex items-center gap-2">
-                  <Award className="text-emerald-600" size={26} />
-                  <span>🎉 العملاء المشتركين (إدارة وتفاصيل الاشتراكات)</span>
-                </h2>
-                <span className="bg-emerald-200 text-emerald-900 text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                  {isAdmin || isCoordinator ? `إجمالي ${allSubscribedClients.length.toLocaleString()} مشترك` : isLeader ? `مشتركي الفريق (${leaderSubscribedClients.length.toLocaleString()} مشترك)` : `مشتركي الخاصين (${agentSubscribedClients.length.toLocaleString()} مشترك)`}
-                </span>
+                <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                  <Award className="text-amber-400" size={26} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>🎉 Paid Clients (إدارة وتفاصيل الاشتراكات)</span>
+                    <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                      {isAdmin || isCoordinator ? `${allSubscribedClients.length.toLocaleString()} Paid` : isLeader ? `${leaderSubscribedClients.length.toLocaleString()} Team Paid` : `${agentSubscribedClients.length.toLocaleString()} My Paid`}
+                    </span>
+                  </h2>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -8808,8 +8926,8 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead>
-                        <tr className="bg-emerald-900/90 text-white text-xs border-b border-emerald-800">
+                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-purple-200 text-xs border-b border-purple-500/30">
                           <th className="p-3.5">اسم العميل</th>
                           <th className="p-3.5 text-center">رقم الهاتف</th>
                           <th className="p-3.5 text-center min-w-[230px]">الموظف المسؤول</th>
@@ -9129,15 +9247,18 @@ const Dashboard = () => {
         {/* Customers Tab */}
         {activeTab === 'customers' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-gray-800">
-                  {customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
+                <h2 className="text-lg font-black text-white flex items-center gap-2">
+                  <span>{customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
                    customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
-                   'إجمالي قائمة العملاء المسجلين بالنظام'}
+                   'إجمالي قائمة العملاء المسجلين بالنظام'}</span>
+                  <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                    {customers.length.toLocaleString()} Leads
+                  </span>
                 </h2>
                 {selectedEmpFilter && selectedEmpFilter !== 'all' && (
-                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 animate-fade-in">
+                  <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 animate-fade-in border border-purple-400/40">
                     👤 {selectedEmpFilter === 'unassigned' ? 'في الانتظار' : (employees.find(e => e.uid === selectedEmpFilter)?.name || 'الموظف المختار')}
                   </span>
                 )}
@@ -9149,16 +9270,16 @@ const Dashboard = () => {
                   <select
                     value={selectedEmpFilter}
                     onChange={(e) => setSelectedEmpFilter(e.target.value)}
-                    className="w-full bg-white text-gray-800 border border-blue-300 rounded-full py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                    className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
                   >
-                    <option value="all">👥 جميع الموظفين ({customers.length} عميل)</option>
+                    <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({customers.length} عميل)</option>
                     {customerFilter !== 'manual' && (
-                      <option value="unassigned">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} عميل)</option>
+                      <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} عميل)</option>
                     )}
                     {employees.map(emp => {
                       const count = customers.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
                       return (
-                        <option key={emp.uid} value={emp.uid}>
+                        <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                           {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.name}`} — ({count} عميل)
                         </option>
                       );
@@ -9170,9 +9291,9 @@ const Dashboard = () => {
                 <div className="relative flex-1 min-w-[170px]">
                   <input type="text" placeholder="بحث بالاسم أو الرقم..." value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
-                    className="w-full bg-gray-100 text-gray-800 placeholder-gray-400 border border-gray-200 rounded-full py-1.5 pr-8 pl-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all"
+                    className="w-full bg-slate-800 text-white placeholder-purple-300/60 border border-purple-500/40 rounded-xl py-1.5 pr-8 pl-3 text-xs focus:outline-none focus:border-amber-400 shadow-sm"
                   />
-                  <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                  <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400" size={14} />
                 </div>
               </div>
 
@@ -9373,8 +9494,8 @@ const Dashboard = () => {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
-                      <thead>
-                        <tr className="bg-gray-50 border-b">
+                      <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                        <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                           <th className="p-4 w-12 text-center">
                             <input 
                               type="checkbox" 
@@ -9518,9 +9639,9 @@ const Dashboard = () => {
         {/* Employees Tab */}
         {activeTab === 'employees' && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold text-gray-800">قائمة الموظفين وإدارة الصلاحيات</h2>
+                <h2 className="text-lg font-black text-white">قائمة الموظفين وإدارة الصلاحيات</h2>
 
                 {/* Admin Master Emergency System Lock Button */}
                 {isAdmin && (
@@ -9550,7 +9671,7 @@ const Dashboard = () => {
                 <div className="relative">
                   <input type="text" placeholder="ابحث باسم الموظف..." value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
-                    className="w-52 bg-gray-100 text-gray-800 placeholder-gray-400 border border-gray-200 rounded-full py-1.5 pr-8 pl-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all"
+                    className="w-52 bg-slate-800 text-white placeholder-purple-300/60 border border-purple-500/40 rounded-xl py-1.5 pr-8 pl-3 text-xs focus:outline-none focus:border-amber-400 transition-all"
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
@@ -9566,8 +9687,8 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
+                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                     <th className="p-4 w-12 text-center">
                       <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-primary rounded" />
                     </th>
@@ -9737,16 +9858,16 @@ const Dashboard = () => {
         {/* Visitors Tab - موقع الويب فقط */}
         {activeTab === 'visitors' && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/30 bg-white/50 flex flex-wrap justify-between items-center gap-3">
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="text-lg font-bold text-gray-800">عملاء الزوار (مسجلي الدخول بالموقع)</h2>
-                <p className="text-xs text-gray-500 mt-0.5">هؤلاء العملاء سجلوا دخولهم عبر الموقع الإلكتروني فقط</p>
+                <h2 className="text-lg font-black text-white">عملاء الزوار (مسجلي الدخول بالموقع)</h2>
+                <p className="text-xs text-purple-200 mt-0.5">هؤلاء العملاء سجلوا دخولهم عبر الموقع الإلكتروني فقط</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <input type="text" placeholder="بحث بالاسم أو الرقم..." value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
-                    className="w-52 bg-gray-100 text-gray-800 placeholder-gray-400 border border-gray-200 rounded-full py-1.5 pr-8 pl-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition-all"
+                    className="w-52 bg-slate-800 text-white placeholder-purple-300/60 border border-purple-500/40 rounded-xl py-1.5 pr-8 pl-3 text-xs focus:outline-none focus:border-amber-400 transition-all"
                   />
                   <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
@@ -9762,8 +9883,8 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
+                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                     <th className="p-4 w-12 text-center">
                       <input type="checkbox" checked={selectedVisitors.length > 0 && selectedVisitors.length === visitors.length} onChange={toggleAllVisitors} className="w-4 h-4 text-primary rounded" />
                     </th>
@@ -9830,12 +9951,17 @@ const Dashboard = () => {
         {/* WhatsApp Visitors Tab - الزوار وعملاء الموقع OTP */}
         {activeTab === 'whatsapp_visitors' && (
           <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-indigo-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/50 flex flex-wrap justify-between items-center gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-indigo-800 flex items-center gap-2">
-                  <Globe size={20} className="text-indigo-600" /> كارت عملاء الزوار والموقع (OTP & WhatsApp)
-                </h2>
-                <p className="text-xs text-indigo-600 mt-0.5">مسجلو الموقع عبر OTP ومحادثات الواتساب المباشرة • التعيين يوجه العميل فوراً لكارت Leads CRM للموظف</p>
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                  <Globe size={22} className="text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>كارت عملاء الزوار والموقع (OTP & WhatsApp)</span>
+                  </h2>
+                  <p className="text-xs text-purple-200 mt-0.5">مسجلو الموقع عبر OTP ومحادثات الواتساب المباشرة • التعيين يوجه العميل فوراً لكارت Leads CRM للموظف</p>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
@@ -9958,8 +10084,8 @@ const Dashboard = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-indigo-50/50 border-b border-indigo-100">
+                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                     {(isAdmin || isCoordinator || isLeader) && (
                       <th className="p-4 w-12 text-center">
                         <input 
@@ -10300,17 +10426,17 @@ const Dashboard = () => {
         {/* Recycle Bin Tab */}
         {activeTab === 'recycle_bin' && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-red-500/20 bg-red-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <h2 className="text-lg font-bold text-red-800 flex items-center">
-                <Trash2 className="mr-2" size={20} /> سلة المهملات
+            <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-col sm:flex-row justify-between items-center gap-4">
+              <h2 className="text-lg font-black text-white flex items-center">
+                <Trash2 className="mr-2 text-amber-400" size={22} /> سلة المهملات
               </h2>
               <div className="flex space-x-2 space-x-reverse">
-                <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'all' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>الكل</button>
-                <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'employee' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>موظفين</button>
-                <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'customer' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>عملاء</button>
-                <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'visitor' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>زوار (OTP)</button>
-                <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'email' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>✉️ إيميلات</button>
-                <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-full text-xs font-bold transition ${rbFilter === 'message' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>رسائل</button>
+                <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>الكل</button>
+                <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'employee' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>موظفين</button>
+                <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'customer' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>عملاء</button>
+                <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'visitor' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>زوار (OTP)</button>
+                <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'email' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>✉️ إيميلات</button>
+                <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'message' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>رسائل</button>
               </div>
             </div>
             
@@ -10332,8 +10458,8 @@ const Dashboard = () => {
 
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-red-50/30 border-b border-red-100">
+                <thead className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
+                  <tr className="bg-slate-900 text-purple-200 border-b border-purple-500/30">
                     <th className="p-4 w-12">
                       <input 
                         type="checkbox" 
@@ -11065,10 +11191,10 @@ const Dashboard = () => {
                       const canDelete = isCurrentUserAdmin || isAuthor;
 
                       return (
-                        <div key={note.id || i} className="bg-white p-2.5 rounded-xl border border-gray-200 text-xs space-y-1 relative group hover:border-amber-300 hover:shadow-xs transition">
-                          <div className="flex justify-between items-center text-[10px] text-gray-500 pb-1 border-b border-gray-100">
+                        <div key={note.id || i} className="bg-white p-3 rounded-xl border border-gray-200/90 shadow-xs hover:border-purple-300 transition-all space-y-2">
+                          <div className="flex justify-between items-center text-[10px] pb-2 border-b border-gray-100">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`font-bold flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${
+                              <span className={`font-bold flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] ${
                                 isNoteByAdmin 
                                   ? 'bg-amber-100 text-amber-900 border border-amber-300' 
                                   : (isNoteByLeader ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-blue-50 text-blue-800 border border-blue-200')
@@ -11076,14 +11202,14 @@ const Dashboard = () => {
                                 👤 {authorDisplay}
                               </span>
                               {note.statusLabel && (
-                                <span className="bg-gray-100 text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
                                   {note.statusLabel}
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
                               {note.createdAt && (
-                                <span className="text-[10px] text-gray-400 font-mono font-bold" dir="ltr">
+                                <span className="text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200 font-mono font-bold" dir="ltr">
                                   📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               )}
@@ -11098,7 +11224,9 @@ const Dashboard = () => {
                               )}
                             </div>
                           </div>
-                          <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">{note.text}</p>
+                          <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/60 text-gray-800 text-xs font-semibold leading-relaxed whitespace-pre-wrap">
+                            {note.text}
+                          </div>
                         </div>
                       );
                     });
@@ -11414,7 +11542,7 @@ const Dashboard = () => {
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك</span>
                             <span className="text-2xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
                             <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
-                              ({teamCrmLeads.length.toLocaleString()} موزع + {teamEmpAddedLeads.length.toLocaleString()} مضاف)
+                              ({teamCrmLeads.length.toLocaleString()} Leads CRM + {teamEmpAddedLeads.length.toLocaleString()} Team Added Leads)
                             </span>
                           </div>
 
@@ -11452,6 +11580,59 @@ const Dashboard = () => {
                                 </>
                               ) : 'لا يوجد'}
                             </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Direct Navigation to Sheets */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div 
+                            onClick={() => {
+                              setIsLeadsAnalysisModalOpen(false);
+                              setActiveTab('team_leads_tracking');
+                              setTeamTrackingEmpFilter('all');
+                              setTimeout(() => tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                            }}
+                            className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 rounded-2xl border border-amber-400/50 hover:border-amber-300 hover:scale-[1.02] transition-all cursor-pointer shadow-lg group flex items-center justify-between"
+                            title="انقر للانتقال مباشرة إلى شيت متابعة عملاء التيم"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs text-amber-200 font-black">🎯 Leads CRM (Team Leads)</span>
+                                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full font-bold group-hover:bg-amber-400 group-hover:text-slate-950 transition">
+                                  انتقال للشيت ↗
+                                </span>
+                              </div>
+                              <span className="text-2xl font-black text-amber-300">{teamCrmLeads.length.toLocaleString()} عميل</span>
+                              <p className="text-[11px] text-purple-300 mt-0.5">عملاء الفريق في CRM • انقر للفتح والسحب المباشر</p>
+                            </div>
+                            <div className="bg-white/10 p-3 rounded-full text-amber-400 group-hover:scale-110 transition">
+                              <Users size={24} />
+                            </div>
+                          </div>
+
+                          <div 
+                            onClick={() => {
+                              setIsLeadsAnalysisModalOpen(false);
+                              setActiveTab('employee_leads');
+                              setEmpLeadsEmpFilter('all');
+                              setTimeout(() => tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                            }}
+                            className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 rounded-2xl border border-amber-400/50 hover:border-amber-300 hover:scale-[1.02] transition-all cursor-pointer shadow-lg group flex items-center justify-between"
+                            title="انقر للانتقال مباشرة إلى شيت الداتا المضافة من الفريق (Team Added Leads)"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs text-amber-200 font-black">📁 Team Added Leads</span>
+                                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full font-bold group-hover:bg-amber-400 group-hover:text-slate-950 transition">
+                                  انتقال للشيت ↗
+                                </span>
+                              </div>
+                              <span className="text-2xl font-black text-amber-300">{teamEmpAddedLeads.length.toLocaleString()} عميل</span>
+                              <p className="text-[11px] text-purple-300 mt-0.5">الداتا المضافة يدوياً من الفريق • انقر للفتح والمتابعة</p>
+                            </div>
+                            <div className="bg-white/10 p-3 rounded-full text-amber-400 group-hover:scale-110 transition">
+                              <Upload size={24} />
+                            </div>
                           </div>
                         </div>
 
@@ -11519,7 +11700,7 @@ const Dashboard = () => {
                                     </td>
                                     <td className="p-3 text-center font-black">
                                       <span>{total}</span>
-                                      <span className="text-[10px] text-purple-400 block font-normal" dir="rtl">({crmCount} موزع + {addedCount} مضاف)</span>
+                                      <span className="text-[10px] text-purple-400 block font-normal" dir="rtl">({crmCount} Leads CRM + {addedCount} Team Added)</span>
                                     </td>
                                     <td className="p-3 text-center font-black text-amber-300 bg-amber-950/30 border-x border-amber-500/20 text-sm">
                                       {pending}
