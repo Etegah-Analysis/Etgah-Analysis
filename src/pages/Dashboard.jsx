@@ -2229,6 +2229,7 @@ const Dashboard = () => {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
+    const isMobile = window.innerWidth < 768;
     scrollTimeoutRef.current = setTimeout(() => {
       const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
       const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
@@ -2238,9 +2239,9 @@ const Dashboard = () => {
         const header = document.querySelector('header');
         const headerHeight = header ? header.getBoundingClientRect().height : 65;
         const targetTop = Math.max(0, container.scrollTop + (elRect.top - containerRect.top) - headerHeight - 12);
-        container.scrollTo({ top: targetTop, behavior: 'smooth' });
+        container.scrollTo({ top: targetTop, behavior: isMobile ? 'auto' : 'smooth' });
       }
-    }, 80);
+    }, isMobile ? 40 : 80);
   }, []);
 
   // Guarantee auto-scroll down to sheet whenever activeTab opens a sheet (exact laptop parity on mobile & desktop)
@@ -2270,10 +2271,11 @@ const Dashboard = () => {
     }
 
     // Dismiss open sheet, return to lightweight analytics view, and smoothly return to top
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     setActiveTab('analytics');
     const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
     if (container) {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
+      container.scrollTo({ top: 0, behavior: isMobile ? 'auto' : 'smooth' });
     }
   }, [activeTab]);
 
@@ -2283,10 +2285,11 @@ const Dashboard = () => {
     
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       setActiveTab('analytics');
       const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
       if (container) {
-        container.scrollTo({ top: 0, behavior: 'smooth' });
+        container.scrollTo({ top: 0, behavior: isMobile ? 'auto' : 'smooth' });
       }
       return;
     }
@@ -6293,7 +6296,7 @@ const Dashboard = () => {
       style={{ touchAction: 'manipulation' }}
     >
       {/* 3D Modern Gradient Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
+      <div className="fixed inset-0 z-0 pointer-events-none hidden md:block">
         <div className="absolute top-[-20%] right-[-10%] w-[70%] h-[70%] rounded-full bg-blue-600/30 blur-[120px] mix-blend-screen animate-pulse"></div>
         <div className="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-cyan-500/20 blur-[100px] mix-blend-screen"></div>
         <div className="absolute top-[20%] left-[20%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[100px] mix-blend-screen"></div>
