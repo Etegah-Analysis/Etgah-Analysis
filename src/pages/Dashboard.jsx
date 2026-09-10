@@ -2232,13 +2232,36 @@ const Dashboard = () => {
     }, 140);
   }, []);
 
+  const handleBackgroundClick = useCallback((e) => {
+    // If already on default analytics view, nothing to close
+    if (activeTab === 'analytics') return;
+
+    // Do not close if clicking inside table section, header, modal dialog, or interactive elements
+    if (
+      e.target.closest('#dashboard-table-section') ||
+      e.target.closest('header') ||
+      e.target.closest('[role="dialog"]') ||
+      e.target.closest('.modal-content') ||
+      e.target.closest('button') ||
+      e.target.closest('input') ||
+      e.target.closest('select') ||
+      e.target.closest('textarea') ||
+      e.target.closest('a')
+    ) {
+      return;
+    }
+
+    // Dismiss open sheet and return to lightweight analytics view
+    setActiveTab('analytics');
+  }, [activeTab]);
+
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && type === 'subscribed_clients') return;
     
-    // If clicking the same active card, keep it open and scroll down smoothly
-    if (activeTab === type && customerFilter === filter) {
-      scrollToTable();
+    // Toggle close if clicking the already active card or analytics
+    if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
+      setActiveTab('analytics');
       return;
     }
 
@@ -6128,6 +6151,7 @@ const Dashboard = () => {
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
       dir="rtl"
+      onClick={handleBackgroundClick}
     >
       {/* 3D Modern Gradient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
