@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2, CheckCheck } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
@@ -2239,6 +2239,44 @@ const Dashboard = () => {
     });
   };
 
+    // --- INSTANT HIGH-PRECISION MOBILE TOUCH & TAP ENGINE (0ms Response) ---
+  const touchPosRef = useRef({ startX: 0, startY: 0, startTime: 0 });
+  const lastTouchHandledRef = useRef(0);
+
+  const handleCardTouchStart = useCallback((e) => {
+    if (e.touches && e.touches[0]) {
+      touchPosRef.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        startTime: Date.now()
+      };
+    }
+  }, []);
+
+  const handleCardTouchEnd = useCallback((e, type, filter = 'all') => {
+    if (e.changedTouches && e.changedTouches[0]) {
+      const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+      const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+      const deltaTime = Date.now() - touchPosRef.current.startTime;
+
+      // Intentional tap threshold: < 12px finger jitter and < 450ms duration
+      if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+        lastTouchHandledRef.current = Date.now();
+        handleCardClick(e, type, filter);
+      }
+    }
+  }, []);
+
+  const handleCardClickSafe = useCallback((e, type, filter = 'all') => {
+    // If touch already handled this card tap within the last 400ms, suppress synthetic click to prevent double-toggle
+    if (Date.now() - lastTouchHandledRef.current < 400) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (e && e.stopPropagation) e.stopPropagation();
+      return;
+    }
+    handleCardClick(e, type, filter);
+  }, []);
+
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && type === 'subscribed_clients') return;
@@ -2719,53 +2757,570 @@ const Dashboard = () => {
     return Array.from(monthSet).filter(Boolean).sort().reverse();
   }, [allSubscribedClients]);
 
-    // Memoized employee lead counts for Leads CRM Filter Bar (avoids 300k loop iterations on render)
+  // High-performance single-pass employee lead counts for Leads CRM Filter Bar (O(N+M), ~1ms)
   const employeeLeadCounts = useMemo(() => {
     const map = {};
     if (!leadsCrm || !employees) return map;
-    employees.forEach(emp => {
-      const empMail = emp.email?.toLowerCase();
-      const empName = emp.name;
-      map[emp.uid] = leadsCrm.filter(c => 
-        c.assignedToUid === emp.uid || 
-        c.addedByUid === emp.uid || 
-        (empMail && c.assignedTo?.toLowerCase() === empMail) || 
-        (empName && c.addedBy === empName)
-      ).length;
-    });
+    const empByUid = new Map();
+    const empByMail = new Map();
+    const empByName = new Map();
+    for (let j = 0; j < employees.length; j++) {
+      const emp = employees[j];
+      map[emp.uid] = 0;
+      empByUid.set(emp.uid, emp.uid);
+      if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
+      if (emp.name) empByName.set(emp.name, emp.uid);
+    }
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
+                         (c.addedByUid && empByUid.get(c.addedByUid)) ||
+                         (c.assignedTo && empByMail.get(c.assignedTo.toLowerCase())) ||
+                         (c.addedBy && empByName.get(c.addedBy));
+      if (matchedUid && map[matchedUid] !== undefined) {
+        map[matchedUid]++;
+      }
+    }
     return map;
   }, [leadsCrm, employees]);
 
-  // Memoized employee lead counts for Employee Leads Tab
+  // High-performance single-pass employee lead counts for Employee Leads Tab (O(N+M), ~1ms)
   const empLeadsCountsByEmp = useMemo(() => {
     const map = {};
     if (!employeeLeads || !employees) return map;
-    employees.forEach(emp => {
-      const empMail = emp.email?.toLowerCase();
-      const empName = emp.name;
-      map[emp.uid] = employeeLeads.filter(c => 
-        c.assignedToUid === emp.uid || 
-        c.addedByUid === emp.uid || 
-        (empMail && c.assignedTo?.toLowerCase() === empMail) || 
-        (empName && c.addedBy === empName)
-      ).length;
-    });
+    const empByUid = new Map();
+    const empByMail = new Map();
+    const empByName = new Map();
+    for (let j = 0; j < employees.length; j++) {
+      const emp = employees[j];
+      map[emp.uid] = 0;
+      empByUid.set(emp.uid, emp.uid);
+      if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
+      if (emp.name) empByName.set(emp.name, emp.uid);
+    }
+    for (let i = 0; i < employeeLeads.length; i++) {
+      const c = employeeLeads[i];
+      const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
+                         (c.addedByUid && empByUid.get(c.addedByUid)) ||
+                         (c.assignedTo && empByMail.get(c.assignedTo.toLowerCase())) ||
+                         (c.addedBy && empByName.get(c.addedBy));
+      if (matchedUid && map[matchedUid] !== undefined) {
+        map[matchedUid]++;
+      }
+    }
     return map;
   }, [employeeLeads, employees]);
 
-  // Memoized customer counts for Customers Tab
+  // High-performance single-pass customer counts for Customers Tab (O(N+M), ~1ms)
   const customerCountsByEmp = useMemo(() => {
     const map = {};
     if (!customers || !employees) return map;
-    employees.forEach(emp => {
-      const empMail = emp.email?.toLowerCase();
-      map[emp.uid] = customers.filter(c => 
-        c.assignedToUid === emp.uid || 
-        (empMail && (c.assignedTo === emp.email || c.assignedTo?.toLowerCase() === empMail))
-      ).length;
-    });
+    const empByUid = new Map();
+    const empByMail = new Map();
+    for (let j = 0; j < employees.length; j++) {
+      const emp = employees[j];
+      map[emp.uid] = 0;
+      empByUid.set(emp.uid, emp.uid);
+      if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
+    }
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
+                         (c.assignedTo && empByMail.get(c.assignedTo.toLowerCase()));
+      if (matchedUid && map[matchedUid] !== undefined) {
+        map[matchedUid]++;
+      }
+    }
     return map;
   }, [customers, employees]);
+
+  // Memoized Admin vs Employee counts for Leads CRM (single pass)
+  const { leadsWithAdminCount, leadsWithEmployeesCount } = useMemo(() => {
+    let adminCnt = 0;
+    let empCnt = 0;
+    if (leadsCrm) {
+      for (let i = 0; i < leadsCrm.length; i++) {
+        if (isLeadWithAdmin(leadsCrm[i])) adminCnt++;
+        else empCnt++;
+      }
+    }
+    return { leadsWithAdminCount: adminCnt, leadsWithEmployeesCount: empCnt };
+  }, [leadsCrm]);
+
+  // Memoized Admin vs Employee counts for Employee Leads (single pass)
+  const { empLeadsWithAdminCount, empLeadsWithEmployeesCount } = useMemo(() => {
+    let adminCnt = 0;
+    let empCnt = 0;
+    if (employeeLeads) {
+      for (let i = 0; i < employeeLeads.length; i++) {
+        if (isLeadWithAdmin(employeeLeads[i])) adminCnt++;
+        else empCnt++;
+      }
+    }
+    return { empLeadsWithAdminCount: adminCnt, empLeadsWithEmployeesCount: empCnt };
+  }, [employeeLeads]);
+
+  // Memoized counts for Agent & Leader cards
+  const myAssignedLeadsCount = useMemo(() => {
+    if (!currentUser || !leadsCrm) return 0;
+    const myUid = currentUser.uid;
+    const myEmail = currentUser.email?.toLowerCase();
+    let count = 0;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      if (c.assignedToUid === myUid || (myEmail && c.assignedTo?.toLowerCase() === myEmail)) count++;
+    }
+    return count;
+  }, [leadsCrm, currentUser]);
+
+  const myAssignedEmpLeadsCount = useMemo(() => {
+    if (!currentUser || !employeeLeads) return 0;
+    const myUid = currentUser.uid;
+    const myEmail = currentUser.email?.toLowerCase();
+    let count = 0;
+    for (let i = 0; i < employeeLeads.length; i++) {
+      const c = employeeLeads[i];
+      if (c.assignedToUid === myUid || c.addedByUid === myUid || (myEmail && c.assignedTo?.toLowerCase() === myEmail)) count++;
+    }
+    return count;
+  }, [employeeLeads, currentUser]);
+
+  const leaderTeamLeadsCount = useMemo(() => {
+    if (!isLeader || !leadsCrm || !myTeamMembers.length) return 0;
+    const teamUids = new Set(myTeamMembers.map(m => m.uid));
+    const teamEmails = new Set(myTeamMembers.map(m => m.email?.toLowerCase()).filter(Boolean));
+    let count = 0;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      if ((c.assignedToUid && teamUids.has(c.assignedToUid)) || (c.assignedTo && teamEmails.has(c.assignedTo.toLowerCase()))) count++;
+    }
+    return count;
+  }, [isLeader, leadsCrm, myTeamMembers]);
+
+  const leaderTeamEmpLeadsCount = useMemo(() => {
+    if (!isLeader || !employeeLeads) return 0;
+    const myUid = currentUser?.uid;
+    const teamUids = new Set(myTeamMembers.map(m => m.uid));
+    let count = 0;
+    for (let i = 0; i < employeeLeads.length; i++) {
+      const c = employeeLeads[i];
+      if (c.assignedToUid === myUid || c.addedByUid === myUid || 
+          (c.assignedToUid && teamUids.has(c.assignedToUid)) || 
+          (c.addedByUid && teamUids.has(c.addedByUid))) count++;
+    }
+    return count;
+  }, [isLeader, employeeLeads, myTeamMembers, currentUser]);
+
+  const agentAnalysisCount = useMemo(() => {
+    return myAssignedLeadsCount + myAssignedEmpLeadsCount;
+  }, [myAssignedLeadsCount, myAssignedEmpLeadsCount]);
+
+  const leaderAnalysisCount = useMemo(() => {
+    if (!isLeader) return 0;
+    return leaderTeamLeadsCount + leaderTeamEmpLeadsCount;
+  }, [isLeader, leaderTeamLeadsCount, leaderTeamEmpLeadsCount]);
+
+  const totalDistributedAnalysisCount = useMemo(() => {
+    return leadsWithEmployeesCount + (employeeLeads ? employeeLeads.length : 0);
+  }, [leadsWithEmployeesCount, employeeLeads]);
+
+  // Top-Level Memoized Filter for Leads CRM Tab (Computes filtered list & status counts instantly)
+  const memoizedLeadsCrmData = useMemo(() => {
+    if (activeTab !== 'leads_crm' || !leadsCrm) {
+      return {
+        filtered: [],
+        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 }
+      };
+    }
+
+    const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'all')
+      ? employees.find(e => e.uid === selectedEmpFilter)
+      : null;
+    const targetEmpMail = targetEmp?.email?.toLowerCase();
+    const targetEmpName = targetEmp?.name;
+
+    const regFromTime = dateFromFilter ? new Date(dateFromFilter).setHours(0, 0, 0, 0) : null;
+    const regToTime = dateToFilter ? new Date(dateToFilter).setHours(23, 59, 59, 999) : null;
+    const commFromTime = crmCommentDateFrom ? new Date(crmCommentDateFrom).setHours(0, 0, 0, 0) : null;
+    const commToTime = crmCommentDateTo ? new Date(crmCommentDateTo).setHours(23, 59, 59, 999) : null;
+    const search = tableSearch.trim().toLowerCase();
+
+    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+    const scoped = [];
+
+    const isNonPrivileged = !isAdmin && !isCoordinator;
+    const currentUid = currentUser?.uid;
+    const currentMail = currentUser?.email?.toLowerCase();
+
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      let matchesScope = false;
+
+      if (isNonPrivileged) {
+        matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail));
+      } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
+        matchesScope = isLeadWithAdmin(c);
+      } else if (selectedEmpFilter === 'all') {
+        matchesScope = isLeadAssignedToEmployee(c);
+      } else if (selectedEmpFilter) {
+        matchesScope = (c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
+      } else {
+        matchesScope = true;
+      }
+
+      if (matchesScope) {
+        scoped.push(c);
+        counts.all++;
+        const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
+        else if (counts[st] !== undefined) counts[st]++;
+        else counts.unassigned++;
+      }
+    }
+
+    let filtered = scoped.filter(c => {
+      if (crmStatusFilter && crmStatusFilter !== 'all') {
+        const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        if (crmStatusFilter === 'junk_lead') {
+          if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        } else if (currentStatus !== crmStatusFilter) {
+          return false;
+        }
+      }
+
+      if (regFromTime) {
+        const regTime = getClientRegTimestamp(c)?.getTime();
+        if (!regTime || regTime < regFromTime) return false;
+      }
+      if (regToTime) {
+        const regTime = getClientRegTimestamp(c)?.getTime();
+        if (!regTime || regTime > regToTime) return false;
+      }
+      if (commFromTime) {
+        const commTime = getLastCommentTimestamp(c)?.getTime();
+        if (!commTime || commTime < commFromTime) return false;
+      }
+      if (commToTime) {
+        const commTime = getLastCommentTimestamp(c)?.getTime();
+        if (!commTime || commTime > commToTime) return false;
+      }
+
+      if (!search) return true;
+      return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
+    });
+
+    if (leadsSortOrder === 'asc') {
+      filtered = [...filtered].reverse();
+    }
+
+    return { filtered, counts };
+  }, [activeTab, leadsCrm, selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, crmCommentDateFrom, crmCommentDateTo, tableSearch, leadsSortOrder, employees, isAdmin, isCoordinator, currentUser]);
+
+  // Top-Level Memoized Filter for Employee Leads Tab
+  const memoizedEmpLeadsData = useMemo(() => {
+    if (activeTab !== 'employee_leads' || !employeeLeads) {
+      return {
+        filtered: [],
+        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 }
+      };
+    }
+
+    const targetEmp = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'unassigned' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
+      ? employees.find(e => e.uid === empLeadsEmpFilter)
+      : null;
+    const targetEmpMail = targetEmp?.email?.toLowerCase();
+    const targetEmpName = targetEmp?.name;
+
+    const regFromTime = empLeadsDateFrom ? new Date(empLeadsDateFrom).setHours(0, 0, 0, 0) : null;
+    const regToTime = empLeadsDateTo ? new Date(empLeadsDateTo).setHours(23, 59, 59, 999) : null;
+    const commFromTime = empCommentDateFrom ? new Date(empCommentDateFrom).setHours(0, 0, 0, 0) : null;
+    const commToTime = empCommentDateTo ? new Date(empCommentDateTo).setHours(23, 59, 59, 999) : null;
+    const search = tableSearch.trim().toLowerCase();
+
+    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+    const scoped = [];
+
+    const isNonPrivileged = !isAdmin && !isCoordinator;
+    const currentUid = currentUser?.uid;
+    const currentMail = currentUser?.email?.toLowerCase();
+    const currentName = currentEmpUser?.name;
+    const teamUids = new Set((myTeamMembers || []).map(m => m.uid));
+
+    for (let i = 0; i < employeeLeads.length; i++) {
+      const c = employeeLeads[i];
+      let matchesScope = false;
+
+      if (isNonPrivileged) {
+        if (isLeader) {
+          if (empLeadsEmpFilter === 'all') {
+            matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (c.assignedToUid && teamUids.has(c.assignedToUid)) || (c.addedByUid && teamUids.has(c.addedByUid)));
+          } else if (empLeadsEmpFilter === currentUid) {
+            matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail) || (currentName && c.addedBy === currentName));
+          } else {
+            matchesScope = (c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
+          }
+        } else {
+          matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail));
+        }
+      } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
+        matchesScope = isLeadWithAdmin(c);
+      } else if (empLeadsEmpFilter === 'all') {
+        matchesScope = isLeadAssignedToEmployee(c);
+      } else if (empLeadsEmpFilter) {
+        matchesScope = (c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
+      } else {
+        matchesScope = true;
+      }
+
+      if (matchesScope) {
+        scoped.push(c);
+        counts.all++;
+        const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
+        else if (counts[st] !== undefined) counts[st]++;
+        else counts.unassigned++;
+      }
+    }
+
+    let filtered = scoped.filter(c => {
+      if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
+        const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        if (empLeadsStatusFilter === 'junk_lead') {
+          if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        } else if (currentStatus !== empLeadsStatusFilter) {
+          return false;
+        }
+      }
+
+      if (regFromTime) {
+        const regTime = getClientRegTimestamp(c)?.getTime();
+        if (!regTime || regTime < regFromTime) return false;
+      }
+      if (regToTime) {
+        const regTime = getClientRegTimestamp(c)?.getTime();
+        if (!regTime || regTime > regToTime) return false;
+      }
+      if (commFromTime) {
+        const commTime = getLastCommentTimestamp(c)?.getTime();
+        if (!commTime || commTime < commFromTime) return false;
+      }
+      if (commToTime) {
+        const commTime = getLastCommentTimestamp(c)?.getTime();
+        if (!commTime || commTime > commToTime) return false;
+      }
+
+      if (!search) return true;
+      return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
+    });
+
+    if (empLeadsSortOrder === 'asc') {
+      filtered = [...filtered].reverse();
+    }
+
+    return { filtered, counts };
+  }, [activeTab, employeeLeads, empLeadsEmpFilter, empLeadsStatusFilter, empLeadsDateFrom, empLeadsDateTo, empCommentDateFrom, empCommentDateTo, tableSearch, empLeadsSortOrder, employees, isAdmin, isCoordinator, isLeader, currentUser, currentEmpUser, myTeamMembers]);
+
+  // Memoized Leads CRM Analysis Data (Calculated only when modal is open, with O(N+M) single-pass indexing)
+  const leadsAnalysisData = useMemo(() => {
+    if (!isLeadsAnalysisModalOpen || !leadsCrm) return null;
+
+    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+
+    const crmByUid = new Map();
+    const crmByMail = new Map();
+    const empAddedByUid = new Map();
+    const empAddedByMail = new Map();
+    const empAddedByName = new Map();
+
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      if (c.assignedToUid) {
+        let arr = crmByUid.get(c.assignedToUid);
+        if (!arr) { arr = []; crmByUid.set(c.assignedToUid, arr); }
+        arr.push(c);
+      }
+      if (c.assignedTo) {
+        const em = c.assignedTo.toLowerCase();
+        let arr = crmByMail.get(em);
+        if (!arr) { arr = []; crmByMail.set(em, arr); }
+        arr.push(c);
+      }
+    }
+
+    if (employeeLeads) {
+      for (let i = 0; i < employeeLeads.length; i++) {
+        const c = employeeLeads[i];
+        if (c.assignedToUid) {
+          let arr = empAddedByUid.get(c.assignedToUid);
+          if (!arr) { arr = []; empAddedByUid.set(c.assignedToUid, arr); }
+          arr.push(c);
+        }
+        if (c.addedByUid && c.addedByUid !== c.assignedToUid) {
+          let arr = empAddedByUid.get(c.addedByUid);
+          if (!arr) { arr = []; empAddedByUid.set(c.addedByUid, arr); }
+          arr.push(c);
+        }
+        if (c.assignedTo) {
+          const em = c.assignedTo.toLowerCase();
+          let arr = empAddedByMail.get(em);
+          if (!arr) { arr = []; empAddedByMail.set(em, arr); }
+          arr.push(c);
+        }
+        if (c.addedBy) {
+          let arr = empAddedByName.get(c.addedBy);
+          if (!arr) { arr = []; empAddedByName.set(c.addedBy, arr); }
+          arr.push(c);
+        }
+      }
+    }
+
+    const computeLeadStats = (leadsList) => {
+      const total = leadsList.length;
+      let subscribed = 0, trial = 0, interested = 0, callBack = 0, noAnswer = 0, notInterested = 0, pending = 0;
+      for (let i = 0; i < total; i++) {
+        const st = getStatus(leadsList[i]);
+        if (st === 'subscribed') subscribed++;
+        else if (st === 'started_trial') trial++;
+        else if (st === 'interested') interested++;
+        else if (st === 'call_back') callBack++;
+        else if (st === 'no_answer') noAnswer++;
+        else if (st === 'not_interested') notInterested++;
+        else pending++;
+      }
+      const successfulCount = subscribed + trial + interested;
+      const contactedCount = total - pending;
+      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
+      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
+      return { total, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
+    };
+
+    if (isAgent) {
+      const myUid = currentUser?.uid;
+      const myMail = currentUser?.email?.toLowerCase();
+      const empCrmLeads = (crmByUid.get(myUid) || []).concat(myMail ? (crmByMail.get(myMail) || []) : []);
+      const uniqueCrm = Array.from(new Set(empCrmLeads));
+      const empAddedLeads = (empAddedByUid.get(myUid) || []).concat(myMail ? (empAddedByMail.get(myMail) || []) : []);
+      const uniqueAdded = Array.from(new Set(empAddedLeads));
+      const empLeads = [...uniqueCrm, ...uniqueAdded];
+      const stats = computeLeadStats(empLeads);
+      return { type: 'agent', empCrmLeads: uniqueCrm, empAddedLeads: uniqueAdded, ...stats };
+    }
+
+    if (isLeader) {
+      const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)].filter(Boolean);
+      const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())].filter(Boolean);
+      const teamNames = [currentUser?.displayName, currentEmpUser?.name, ...myTeamMembers.map(e => e.name)].filter(Boolean);
+
+      const teamCrmSet = new Set();
+      teamUids.forEach(uid => (crmByUid.get(uid) || []).forEach(c => teamCrmSet.add(c)));
+      teamEmails.forEach(em => (crmByMail.get(em) || []).forEach(c => teamCrmSet.add(c)));
+      const teamCrmLeads = Array.from(teamCrmSet);
+
+      const teamAddedSet = new Set();
+      teamUids.forEach(uid => (empAddedByUid.get(uid) || []).forEach(c => teamAddedSet.add(c)));
+      teamEmails.forEach(em => (empAddedByMail.get(em) || []).forEach(c => teamAddedSet.add(c)));
+      teamNames.forEach(nm => (empAddedByName.get(nm) || []).forEach(c => teamAddedSet.add(c)));
+      const teamEmpAddedLeads = Array.from(teamAddedSet);
+
+      const teamLeads = [...teamCrmLeads, ...teamEmpAddedLeads];
+      const teamOverallStats = computeLeadStats(teamLeads);
+
+      const teamEmployeesData = [currentEmpUser, ...myTeamMembers].filter(Boolean).map(emp => {
+        const empMail = emp.email?.toLowerCase();
+        const empCrm = Array.from(new Set((crmByUid.get(emp.uid) || []).concat(empMail ? (crmByMail.get(empMail) || []) : [])));
+        const empAdded = Array.from(new Set((empAddedByUid.get(emp.uid) || []).concat(empMail ? (empAddedByMail.get(empMail) || []) : []).concat(emp.name ? (empAddedByName.get(emp.name) || []) : [])));
+        const empLeads = [...empCrm, ...empAdded];
+        const stats = computeLeadStats(empLeads);
+        return { emp, crmCount: empCrm.length, addedCount: empAdded.length, ...stats };
+      });
+      teamEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
+      const topTeamMember = teamEmployeesData.find(e => e.total > 0);
+
+      return {
+        type: 'leader',
+        teamCrmLeads,
+        teamEmpAddedLeads,
+        teamLeads,
+        totalTeamLeads: teamOverallStats.total,
+        totalTeamPending: teamOverallStats.pending,
+        totalTeamSuccessful: teamOverallStats.successfulCount,
+        totalTeamContacted: teamOverallStats.contactedCount,
+        overallTeamRate: teamOverallStats.successRate,
+        overallTeamContactRate: teamOverallStats.interactionRate,
+        teamEmployeesData,
+        topTeamMember
+      };
+    }
+
+    // Admin / Coordinator
+    let distributedCrmLeads = [];
+    for (let i = 0; i < leadsCrm.length; i++) {
+      if (isLeadAssignedToEmployee(leadsCrm[i])) distributedCrmLeads.push(leadsCrm[i]);
+    }
+    const totalDistributedLeads = distributedCrmLeads.length;
+    const totalEmpAddedLeads = employeeLeads ? employeeLeads.length : 0;
+    const totalCompanyActiveLeads = totalDistributedLeads + totalEmpAddedLeads;
+    const allCompanyActiveLeads = [...distributedCrmLeads, ...(employeeLeads || [])];
+    const companyStats = computeLeadStats(allCompanyActiveLeads);
+
+    const targetEmployees = (employees || []).filter(emp => 
+      emp.role !== 'admin' && 
+      !adminEmails.includes(emp.email?.toLowerCase()) && 
+      emp.jobTitle !== 'Coordinator' && 
+      emp.jobTitle !== 'منسق للإدارة' && 
+      emp.role !== 'coordinator'
+    );
+
+    const allEmployeesData = targetEmployees.map(emp => {
+      const empMail = emp.email?.toLowerCase();
+      const empCrm = Array.from(new Set((crmByUid.get(emp.uid) || []).concat(empMail ? (crmByMail.get(empMail) || []) : [])));
+      const empAdded = Array.from(new Set((empAddedByUid.get(emp.uid) || []).concat(empMail ? (empAddedByMail.get(empMail) || []) : []).concat(emp.name ? (empAddedByName.get(emp.name) || []) : [])));
+      const empLeads = [...empCrm, ...empAdded];
+      const stats = computeLeadStats(empLeads);
+      return { emp, crmCount: empCrm.length, addedCount: empAdded.length, ...stats };
+    });
+    allEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
+    const topEmp = allEmployeesData.find(e => e.total > 0);
+
+    const leadersList = (employees || []).filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin');
+    const leadersTeamData = leadersList.map(leader => {
+      const teamMembers = (employees || []).filter(e => e.leaderUid === leader.uid);
+      const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
+      const teamEmails = [leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase())].filter(Boolean);
+      const teamNames = [leader.name, ...teamMembers.map(e => e.name)].filter(Boolean);
+
+      const teamCrmSet = new Set();
+      teamUids.forEach(uid => (crmByUid.get(uid) || []).forEach(c => teamCrmSet.add(c)));
+      teamEmails.forEach(em => (crmByMail.get(em) || []).forEach(c => teamCrmSet.add(c)));
+
+      const teamAddedSet = new Set();
+      teamUids.forEach(uid => (empAddedByUid.get(uid) || []).forEach(c => teamAddedSet.add(c)));
+      teamEmails.forEach(em => (empAddedByMail.get(em) || []).forEach(c => teamAddedSet.add(c)));
+      teamNames.forEach(nm => (empAddedByName.get(nm) || []).forEach(c => teamAddedSet.add(c)));
+
+      const teamLeads = [...Array.from(teamCrmSet), ...Array.from(teamAddedSet)];
+      const stats = computeLeadStats(teamLeads);
+      return { leader, teamMembers, crmCount: teamCrmSet.size, addedCount: teamAddedSet.size, ...stats };
+    });
+    leadersTeamData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
+
+    return {
+      type: 'admin',
+      distributedCrmLeads,
+      totalDistributedLeads,
+      totalEmpAddedLeads,
+      totalCompanyActiveLeads,
+      allCompanyActiveLeads,
+      totalCompanySuccessful: companyStats.successfulCount,
+      totalCompanyContacted: companyStats.contactedCount,
+      overallCompanyRate: companyStats.successRate,
+      overallCompanyContactRate: companyStats.interactionRate,
+      allEmployeesData,
+      topEmp,
+      leadersList,
+      leadersTeamData
+    };
+  }, [isLeadsAnalysisModalOpen, leadsCrm, employeeLeads, employees, currentUser, currentEmpUser, myTeamMembers, isAdmin, isLeader, isCoordinator, isAgent, adminEmails]);
 
   // Memoized subscribed client counts for Subscribed Clients Tab
   const subscribedCountsByEmp = useMemo(() => {
@@ -5616,7 +6171,7 @@ const Dashboard = () => {
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
       dir="rtl"
-      onClick={(e) => handleCardClick(e, 'analytics', 'all')}
+      onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'analytics', 'all')} onClick={(e) => handleCardClickSafe(e, 'analytics', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
     >
       {/* 3D Modern Gradient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -6164,7 +6719,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
-                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6178,7 +6733,7 @@ const Dashboard = () => {
 
               {/* Card 2: Employee Added Data */}
               <div 
-                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
@@ -6193,7 +6748,7 @@ const Dashboard = () => {
 
               {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
               <div 
-                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
               >
@@ -6249,7 +6804,7 @@ const Dashboard = () => {
 
               {/* Card 6: Website WhatsApp Leads */}
               <div 
-                onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
@@ -6265,7 +6820,7 @@ const Dashboard = () => {
 
               {/* Card 8: Visitors */}
               <div 
-                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'whatsapp_visitors', 'all')} onClick={(e) => handleCardClickSafe(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6279,7 +6834,7 @@ const Dashboard = () => {
               
               {/* Card 7: Employees Count */}
               <div 
-                onClick={(e) => handleCardClick(e, 'employees', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employees', 'all')} onClick={(e) => handleCardClickSafe(e, 'employees', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6293,7 +6848,7 @@ const Dashboard = () => {
 
               {/* Card 9: Recycle Bin */}
               <div 
-                onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'recycle_bin', 'all')} onClick={(e) => handleCardClickSafe(e, 'recycle_bin', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'recycle_bin' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6319,10 +6874,30 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {/* Card 10: Leads CRM Analysis */}
               <div 
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => {
+                  if (e.changedTouches && e.changedTouches[0]) {
+                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+                    const deltaTime = Date.now() - touchPosRef.current.startTime;
+                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+                      lastTouchHandledRef.current = Date.now();
+                      if (e.preventDefault) e.preventDefault();
+                      if (e.stopPropagation) e.stopPropagation();
+                      setIsLeadsAnalysisModalOpen(true);
+                    }
+                  }
+                }}
                 onClick={(e) => {
+                  if (Date.now() - lastTouchHandledRef.current < 400) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    return;
+                  }
                   e.stopPropagation();
                   setIsLeadsAnalysisModalOpen(true);
                 }}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
               >
@@ -6332,7 +6907,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                    {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
                   
                 </div>
@@ -6340,10 +6915,30 @@ const Dashboard = () => {
 
               {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
               <div 
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => {
+                  if (e.changedTouches && e.changedTouches[0]) {
+                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+                    const deltaTime = Date.now() - touchPosRef.current.startTime;
+                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+                      lastTouchHandledRef.current = Date.now();
+                      if (e.preventDefault) e.preventDefault();
+                      if (e.stopPropagation) e.stopPropagation();
+                      setIsCallsAnalysisModalOpen(true);
+                    }
+                  }
+                }}
                 onClick={(e) => {
+                  if (Date.now() - lastTouchHandledRef.current < 400) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    return;
+                  }
                   e.stopPropagation();
                   setIsCallsAnalysisModalOpen(true);
                 }}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -6361,7 +6956,7 @@ const Dashboard = () => {
 
               {/* Card 12: Campaigns */}
               <div 
-                onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6383,7 +6978,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
-                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6397,7 +6992,7 @@ const Dashboard = () => {
 
               {/* Card 2: Employee Added Data */}
               <div 
-                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
@@ -6449,7 +7044,7 @@ const Dashboard = () => {
 
               {/* Card 6: Website WhatsApp Leads */}
               <div 
-                onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
@@ -6465,7 +7060,7 @@ const Dashboard = () => {
 
               {/* Card 7: Visitors (عملاء الزوار والموقع) */}
               <div 
-                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'whatsapp_visitors', 'all')} onClick={(e) => handleCardClickSafe(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
               >
@@ -6495,10 +7090,30 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Card 8: Leads CRM Analysis */}
               <div 
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => {
+                  if (e.changedTouches && e.changedTouches[0]) {
+                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+                    const deltaTime = Date.now() - touchPosRef.current.startTime;
+                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+                      lastTouchHandledRef.current = Date.now();
+                      if (e.preventDefault) e.preventDefault();
+                      if (e.stopPropagation) e.stopPropagation();
+                      setIsLeadsAnalysisModalOpen(true);
+                    }
+                  }
+                }}
                 onClick={(e) => {
+                  if (Date.now() - lastTouchHandledRef.current < 400) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    return;
+                  }
                   e.stopPropagation();
                   setIsLeadsAnalysisModalOpen(true);
                 }}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
               >
@@ -6508,7 +7123,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {(leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length + employeeLeads.length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                    {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
                   
                 </div>
@@ -6516,10 +7131,30 @@ const Dashboard = () => {
 
               {/* Card 9: Call Performance Analytics */}
               <div 
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => {
+                  if (e.changedTouches && e.changedTouches[0]) {
+                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+                    const deltaTime = Date.now() - touchPosRef.current.startTime;
+                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+                      lastTouchHandledRef.current = Date.now();
+                      if (e.preventDefault) e.preventDefault();
+                      if (e.stopPropagation) e.stopPropagation();
+                      setIsCallsAnalysisModalOpen(true);
+                    }
+                  }
+                }}
                 onClick={(e) => {
+                  if (Date.now() - lastTouchHandledRef.current < 400) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    return;
+                  }
                   e.stopPropagation();
                   setIsCallsAnalysisModalOpen(true);
                 }}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -6537,7 +7172,7 @@ const Dashboard = () => {
 
               {/* Card 10: Campaign Performance (أداء الحملات) */}
               <div 
-                onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
               >
@@ -6566,7 +7201,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
                   {/* Leader Card 1: Leads CRM (Personal Leads) */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض جدول Leads CRM الخاص بك"
                   >
@@ -6576,14 +7211,14 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
+                        {myAssignedLeadsCount.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
 
                   {/* Leader Card 2: Employee Added Data */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
@@ -6593,14 +7228,14 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads
+                        {leaderTeamEmpLeadsCount.toLocaleString()} Team Leads
                       </h3>
                     </div>
                   </div>
 
                   {/* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'team_leads_tracking', 'all')} onClick={(e) => handleCardClickSafe(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لمتابعة عملاء فريقك وسحب الداتا"
                   >
@@ -6615,14 +7250,14 @@ const Dashboard = () => {
                         {myTeamMembers.length} موظف
                       </h3>
                       <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
-                        ({leadsCrm.filter(c => myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())).length.toLocaleString()} Leads in Team)
+                        ({leaderTeamLeadsCount.toLocaleString()} Leads in Team)
                       </span>
                     </div>
                   </div>
 
                   {/* Leader Card 4: Subscribed Clients */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
                   >
@@ -6641,7 +7276,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 5: Website WhatsApp Leads */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
@@ -6683,7 +7318,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                       <h3 className="text-xl font-black text-amber-300">
-                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid)).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                        {leaderAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا تقييم الفريق)
@@ -6714,7 +7349,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 8: Campaign Performance (أداء الحملات) */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
                   >
@@ -6744,7 +7379,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                   {/* Agent Card 1: Leads CRM */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
                   >
@@ -6754,14 +7389,14 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, isCustomerService ? 'Customer Service' : 'Agent')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
+                        {myAssignedLeadsCount.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
 
                   {/* Agent Card 2: Employee Added Data */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
@@ -6771,14 +7406,14 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Added Leads</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads
+                        {myAssignedEmpLeadsCount.toLocaleString()} Leads
                       </h3>
                     </div>
                   </div>
 
                   {/* Agent Card 3: Subscribed Clients */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
                   >
@@ -6797,7 +7432,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 4: Website WhatsApp Leads */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'customers', 'website')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
@@ -6839,7 +7474,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
                       <h3 className="text-2xl font-black text-amber-300">
-                        {(leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length + employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length).toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                        {agentAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                         (داتا التقييم الخاصة بي)
@@ -6870,7 +7505,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
                   <div 
-                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')}
+                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                   >
@@ -7665,32 +8300,7 @@ const Dashboard = () => {
 
             {/* Filter Bar */}
             {(() => {
-              const targetEmpForCount = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'all')
-                ? employees.find(e => e.uid === selectedEmpFilter)
-                : null;
-              const targetEmpForCountMail = targetEmpForCount?.email?.toLowerCase();
-              const targetEmpForCountName = targetEmpForCount?.name;
-
-              const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
-                ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || c.addedByUid === currentUser?.uid)
-                : (selectedEmpFilter === 'admin' 
-                    ? leadsCrm.filter(c => isLeadWithAdmin(c))
-                    : (selectedEmpFilter === 'all' 
-                        ? leadsCrm.filter(c => isLeadAssignedToEmployee(c))
-                        : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
-                      )
-                  );
-
-              const crmCounts = { all: scopeLeadsForCount.length, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
-              for (let i = 0; i < scopeLeadsForCount.length; i++) {
-                const c = scopeLeadsForCount[i];
-                const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                if (st === 'junk_lead' || st === 'junk') crmCounts.junk_lead++;
-                else if (crmCounts[st] !== undefined) crmCounts[st]++;
-                else crmCounts.unassigned++;
-              }
-
-              const getCrmStatusCount = (statusKey) => crmCounts[statusKey] || 0;
+              const getCrmStatusCount = (statusKey) => memoizedLeadsCrmData.counts[statusKey] || 0;
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
@@ -7703,8 +8313,8 @@ const Dashboard = () => {
                           onChange={(e) => setSelectedEmpFilter(e.target.value)}
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
-                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
-                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})</option>
+                          <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsWithAdminCount.toLocaleString()})</option>
+                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsWithEmployeesCount.toLocaleString()})</option>
                           {assignableEmployees.map(emp => {
                             const count = employeeLeadCounts[emp.uid] || 0;
                             return (
@@ -7781,71 +8391,7 @@ const Dashboard = () => {
 
             {/* Table */}
             {(() => {
-              const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'all')
-                ? employees.find(e => e.uid === selectedEmpFilter)
-                : null;
-              const targetEmpMail = targetEmp?.email?.toLowerCase();
-              const targetEmpName = targetEmp?.name;
-
-              const regFromTime = dateFromFilter ? new Date(dateFromFilter).setHours(0, 0, 0, 0) : null;
-              const regToTime = dateToFilter ? new Date(dateToFilter).setHours(23, 59, 59, 999) : null;
-              const commFromTime = crmCommentDateFrom ? new Date(crmCommentDateFrom).setHours(0, 0, 0, 0) : null;
-              const commToTime = crmCommentDateTo ? new Date(crmCommentDateTo).setHours(23, 59, 59, 999) : null;
-              const search = tableSearch.trim().toLowerCase();
-
-              let filtered = leadsCrm.filter(c => {
-                // Employee view restriction
-                if (!isAdmin && !isCoordinator) {
-                  if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase() && c.addedByUid !== currentUser?.uid) {
-                    return false;
-                  }
-                } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
-                  if (!isLeadWithAdmin(c)) return false;
-                } else if (selectedEmpFilter === 'all') {
-                  if (!isLeadAssignedToEmployee(c)) return false;
-                } else if (selectedEmpFilter) {
-                  const matchesAssigned = c.assignedToUid === selectedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
-                  const matchesAdded = c.addedByUid === selectedEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
-                  if (!matchesAssigned && !matchesAdded) return false;
-                }
-
-                if (crmStatusFilter && crmStatusFilter !== 'all') {
-                  const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (crmStatusFilter === 'junk_lead') {
-                    if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
-                  } else if (currentStatus !== crmStatusFilter) {
-                    return false;
-                  }
-                }
-
-                // Dual 3D Date Filter: Registration Date
-                if (regFromTime) {
-                  const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime < regFromTime) return false;
-                }
-                if (regToTime) {
-                  const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime > regToTime) return false;
-                }
-                // Dual 3D Date Filter: Last Comment Date
-                if (commFromTime) {
-                  const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime < commFromTime) return false;
-                }
-                if (commToTime) {
-                  const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime > commToTime) return false;
-                }
-
-                if (!search) return true;
-                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
-              });
-
-              // Fast Direct Sorting (Already sorted descending by default)
-              if (leadsSortOrder === 'asc') {
-                filtered = [...filtered].reverse();
-              }
-
+              const filtered = memoizedLeadsCrmData.filtered;
               const totalPagesLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageLeads = Math.min(currentPageLeads, totalPagesLeads);
               const startIndexLeads = (validPageLeads - 1) * ITEMS_PER_PAGE;
@@ -8449,41 +8995,7 @@ const Dashboard = () => {
 
             {/* Filter & Status Bar */}
             {(() => {
-              const targetEmpForCount = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
-                ? employees.find(e => e.uid === empLeadsEmpFilter)
-                : null;
-              const targetEmpForCountMail = targetEmpForCount?.email?.toLowerCase();
-              const targetEmpForCountName = targetEmpForCount?.name;
-
-              const scopeEmpLeads = (!isAdmin && !isCoordinator) 
-                ? (isLeader
-                    ? (empLeadsEmpFilter === 'all'
-                        ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))
-                        : (empLeadsEmpFilter === currentUser?.uid
-                            ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || (currentEmpUser?.name && c.addedBy === currentEmpUser.name))
-                            : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
-                          )
-                      )
-                    : employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
-                  )
-                : (empLeadsEmpFilter === 'admin' 
-                    ? employeeLeads.filter(c => isLeadWithAdmin(c))
-                    : (empLeadsEmpFilter === 'all' 
-                        ? employeeLeads.filter(c => isLeadAssignedToEmployee(c))
-                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
-                      )
-                  );
-
-              const empCounts = { all: scopeEmpLeads.length, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
-              for (let i = 0; i < scopeEmpLeads.length; i++) {
-                const c = scopeEmpLeads[i];
-                const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                if (st === 'junk_lead' || st === 'junk') empCounts.junk_lead++;
-                else if (empCounts[st] !== undefined) empCounts[st]++;
-                else empCounts.unassigned++;
-              }
-
-              const getEmpLeadStatusCount = (statusKey) => empCounts[statusKey] || 0;
+              const getEmpLeadStatusCount = (statusKey) => memoizedEmpLeadsData.counts[statusKey] || 0;
 
               return (
                 <div className="px-6 py-3.5 bg-slate-900/90 border-b border-purple-500/20 flex flex-wrap justify-between items-center gap-3">
@@ -8497,22 +9009,16 @@ const Dashboard = () => {
                           className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(147,51,234,0.35)] border border-purple-400/40 hover:border-purple-300 transition-all cursor-pointer appearance-none"
                         >
                           {(isAdmin || isCoordinator) && (
-                            <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({employeeLeads.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
+                            <option value="admin" className="bg-slate-950 text-white">👑 الإدارة ({empLeadsWithAdminCount.toLocaleString()})</option>
                           )}
                           <option value="all" className="bg-slate-950 text-white">
-                            {isLeader ? `👥 All Team Leads (${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()})` : `👥 جميع الموظفين (${employeeLeads.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})`}
+                            {isLeader ? `👥 All Team Leads (${leaderTeamEmpLeadsCount.toLocaleString()})` : `👥 جميع الموظفين (${empLeadsWithEmployeesCount.toLocaleString()})`}
                           </option>
                           {isLeader && (() => {
-                            const leaderCount = employeeLeads.filter(c => 
-                              c.assignedToUid === currentUser?.uid || 
-                              c.addedByUid === currentUser?.uid || 
-                              (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || 
-                              (currentEmpUser?.name && c.addedBy === currentEmpUser.name)
-                            ).length;
                             const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
                             return (
                               <option value={currentUser?.uid} className="bg-slate-950 text-white">
-                                👑 {leaderDisplayName} ({leaderCount.toLocaleString()} Leads)
+                                👑 {leaderDisplayName} ({myAssignedEmpLeadsCount.toLocaleString()} Leads)
                               </option>
                             );
                           })()}
@@ -8588,87 +9094,7 @@ const Dashboard = () => {
 
             {/* Table Content */}
             {(() => {
-              const targetEmp = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'unassigned' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
-                ? employees.find(e => e.uid === empLeadsEmpFilter)
-                : null;
-              const targetEmpMail = targetEmp?.email?.toLowerCase();
-              const targetEmpName = targetEmp?.name;
-
-              const regFromTime = empLeadsDateFrom ? new Date(empLeadsDateFrom).setHours(0, 0, 0, 0) : null;
-              const regToTime = empLeadsDateTo ? new Date(empLeadsDateTo).setHours(23, 59, 59, 999) : null;
-              const commFromTime = empCommentDateFrom ? new Date(empCommentDateFrom).setHours(0, 0, 0, 0) : null;
-              const commToTime = empCommentDateTo ? new Date(empCommentDateTo).setHours(23, 59, 59, 999) : null;
-              const search = tableSearch.trim().toLowerCase();
-
-              let filtered = employeeLeads.filter(c => {
-                // Role restriction
-                if (!isAdmin && !isCoordinator) {
-                  if (isLeader) {
-                    if (empLeadsEmpFilter === 'all') {
-                      const matchesSelf = c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid;
-                      const matchesTeam = myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
-                      if (!matchesSelf && !matchesTeam) return false;
-                    } else if (empLeadsEmpFilter === currentUser?.uid) {
-                      const matchesAssigned = c.assignedToUid === currentUser?.uid || (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
-                      const matchesAdded = c.addedByUid === currentUser?.uid || (currentEmpUser?.name && c.addedBy === currentEmpUser.name);
-                      if (!matchesAssigned && !matchesAdded) return false;
-                    } else {
-                      const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
-                      const matchesAdded = c.addedByUid === empLeadsEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
-                      if (!matchesAssigned && !matchesAdded) return false;
-                    }
-                  } else {
-                    if (c.assignedToUid !== currentUser?.uid && c.assignedTo?.toLowerCase() !== currentUser?.email?.toLowerCase() && c.addedByUid !== currentUser?.uid) {
-                      return false;
-                    }
-                  }
-                } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
-                  if (!isLeadWithAdmin(c)) return false;
-                } else if (empLeadsEmpFilter === 'all') {
-                  if (!isLeadAssignedToEmployee(c)) return false;
-                } else if (empLeadsEmpFilter) {
-                  const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
-                  const matchesAdded = c.addedByUid === empLeadsEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
-                  if (!matchesAssigned && !matchesAdded) return false;
-                }
-
-                if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
-                  const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (empLeadsStatusFilter === 'junk_lead') {
-                    if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
-                  } else if (currentStatus !== empLeadsStatusFilter) {
-                    return false;
-                  }
-                }
-
-                // Dual 3D Date Filter: Registration Date
-                if (regFromTime) {
-                  const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime < regFromTime) return false;
-                }
-                if (regToTime) {
-                  const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime > regToTime) return false;
-                }
-                // Dual 3D Date Filter: Last Comment Date
-                if (commFromTime) {
-                  const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime < commFromTime) return false;
-                }
-                if (commToTime) {
-                  const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime > commToTime) return false;
-                }
-
-                if (!search) return true;
-                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
-              });
-
-              // Fast Direct Sorting (Already sorted descending by default)
-              if (empLeadsSortOrder === 'asc') {
-                filtered = [...filtered].reverse();
-              }
-
+              const filtered = memoizedEmpLeadsData.filtered;
               const totalPagesEmpLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageEmpLeads = Math.min(currentPageEmpLeads, totalPagesEmpLeads);
               const startIndexEmpLeads = (validPageEmpLeads - 1) * ITEMS_PER_PAGE;
@@ -11631,11 +12057,13 @@ const Dashboard = () => {
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
         {isAssignModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAssignModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAssignModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={() => setIsAssignModalOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
+                style={{ touchAction: 'manipulation' }} 
+                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg transition z-50 cursor-pointer"
               >
                 <X size={24} />
               </button>
@@ -11710,11 +12138,13 @@ const Dashboard = () => {
 
         {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
         {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={() => setIsNotesModalOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition p-1 rounded-lg hover:bg-gray-100 cursor-pointer z-10"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); }} 
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); }} 
+                style={{ touchAction: 'manipulation' }} 
+                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer z-50"
                 title="إغلاق"
               >
                 <X size={22} />
@@ -11918,8 +12348,23 @@ const Dashboard = () => {
 
         {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
         {isLeadsAnalysisModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsLeadsAnalysisModalOpen(false)}>
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsLeadsAnalysisModalOpen(false)}
+            onTouchEnd={(e) => {
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsLeadsAnalysisModalOpen(false);
+              }
+            }}
+            style={{ touchAction: 'manipulation' }}
+          >
+            <div 
+              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" 
+              onClick={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
               
               {/* Modal Header */}
               <div className="flex justify-between items-center pb-4 border-b border-purple-500/20 mb-4">
@@ -11944,10 +12389,21 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsLeadsAnalysisModalOpen(false)} 
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsLeadsAnalysisModalOpen(false);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsLeadsAnalysisModalOpen(false);
+                  }}
+                  style={{ touchAction: 'manipulation' }}
+                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  title="إغلاق النافذة"
                 >
-                  <X size={20} />
+                  <X size={22} />
                 </button>
               </div>
 
@@ -11966,26 +12422,9 @@ const Dashboard = () => {
                 {isAgent ? (
                   /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
-                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-
-                    // Combine assigned Leads CRM + Employee Added Leads for this agent
-                    const empCrmLeads = leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
-                    const empAddedLeads = employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase());
-                    const empLeads = [...empCrmLeads, ...empAddedLeads];
-
-                    const total = empLeads.length;
-                    const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
-                    const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
-                    const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
-                    const callBack = empLeads.filter(c => getStatus(c) === 'call_back').length;
-                    const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
-                    const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
-                    const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
-
-                    const successfulCount = subscribed + trial + interested;
-                    const contactedCount = total - pending;
-                    const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
-                    const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
+                    const data = leadsAnalysisData;
+                    if (!data) return null;
+                    const { empCrmLeads, empAddedLeads, total, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate } = data;
 
                     return (
                       <div className="space-y-5">
@@ -12099,62 +12538,9 @@ const Dashboard = () => {
                 ) : isLeader ? (
                   /* --- 2. LEADER TEAM PERFORMANCE ANALYSIS --- */
                   (() => {
-                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                    const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)];
-                    const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())];
-                    
-                    const teamCrmLeads = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || teamEmails.includes(c.assignedTo?.toLowerCase()));
-                    const teamEmpAddedLeads = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || teamEmails.includes(c.assignedTo?.toLowerCase()) || (myTeamMembers.some(m => m.name && c.addedBy === m.name)));
-                    const teamLeads = [...teamCrmLeads, ...teamEmpAddedLeads];
-                    
-                    const teamEmployeesData = [currentEmpUser, ...myTeamMembers].filter(Boolean).map(emp => {
-                      const empCrm = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
-                      const empAdded = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name));
-                      const empLeads = [...empCrm, ...empAdded];
-
-                      const total = empLeads.length;
-                      const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
-                      const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
-                      const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
-                      const callBack = empLeads.filter(c => getStatus(c) === 'call_back').length;
-                      const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
-                      const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
-                      const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
-
-                      const successfulCount = subscribed + trial + interested;
-                      const contactedCount = total - pending;
-                      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
-                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-
-                      return {
-                        emp,
-                        total,
-                        crmCount: empCrm.length,
-                        addedCount: empAdded.length,
-                        subscribed,
-                        trial,
-                        interested,
-                        callBack,
-                        noAnswer,
-                        notInterested,
-                        pending,
-                        successfulCount,
-                        contactedCount,
-                        successRate,
-                        interactionRate
-                      };
-                    });
-
-                    // Sort team members by success rate & total
-                    teamEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
-
-                    const totalTeamLeads = teamLeads.length;
-                    const totalTeamSuccessful = teamLeads.filter(c => ['subscribed','started_trial','interested'].includes(getStatus(c))).length;
-                    const totalTeamContacted = teamLeads.filter(c => getStatus(c) !== 'unassigned').length;
-                    const totalTeamPending = teamLeads.filter(c => getStatus(c) === 'unassigned').length;
-                    const overallTeamRate = totalTeamLeads > 0 ? Math.round((totalTeamSuccessful / totalTeamLeads) * 100) : 0;
-                    const overallTeamContactRate = totalTeamLeads > 0 ? Math.round((totalTeamContacted / totalTeamLeads) * 100) : 0;
-                    const topTeamMember = teamEmployeesData.find(e => e.total > 0);
+                    const data = leadsAnalysisData;
+                    if (!data) return null;
+                    const { teamCrmLeads, teamEmpAddedLeads, teamLeads, totalTeamLeads, totalTeamPending, totalTeamSuccessful, totalTeamContacted, overallTeamRate, overallTeamContactRate, teamEmployeesData, topTeamMember } = data;
 
                     return (
                       <div className="space-y-6">
@@ -12362,115 +12748,9 @@ const Dashboard = () => {
                 ) : (
                   /* --- 3. ADMIN / COORDINATOR ALL EMPLOYEES COMPREHENSIVE ANALYSIS + ADMIN LEADERS BREAKDOWN --- */
                   (() => {
-                    const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-
-                    // Distributed Leads from leads_crm (assigned to active employees)
-                    const distributedCrmLeads = leadsCrm.filter(c => isLeadAssignedToEmployee(c));
-                    
-                    // Total Active Distributed & Employee-Added Leads
-                    const totalDistributedLeads = distributedCrmLeads.length;
-                    const totalEmpAddedLeads = employeeLeads.length;
-                    const totalCompanyActiveLeads = totalDistributedLeads + totalEmpAddedLeads;
-
-                    const allCompanyActiveLeads = [...distributedCrmLeads, ...employeeLeads];
-                    const totalCompanySuccessful = allCompanyActiveLeads.filter(c => ['subscribed','started_trial','interested'].includes(getStatus(c))).length;
-                    const totalCompanyContacted = allCompanyActiveLeads.filter(c => getStatus(c) !== 'unassigned').length;
-                    const overallCompanyRate = totalCompanyActiveLeads > 0 ? Math.round((totalCompanySuccessful / totalCompanyActiveLeads) * 100) : 0;
-                    const overallCompanyContactRate = totalCompanyActiveLeads > 0 ? Math.round((totalCompanyContacted / totalCompanyActiveLeads) * 100) : 0;
-
-                    const allEmployeesData = employees.filter(emp => 
-                      emp.role !== 'admin' && 
-                      !adminEmails.includes(emp.email?.toLowerCase()) && 
-                      emp.jobTitle !== 'Coordinator' && 
-                      emp.jobTitle !== 'منسق للإدارة' && 
-                      emp.role !== 'coordinator'
-                    ).map(emp => {
-                      const empCrm = leadsCrm.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase());
-                      const empAdded = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name));
-                      const empLeads = [...empCrm, ...empAdded];
-
-                      const total = empLeads.length;
-                      const subscribed = empLeads.filter(c => getStatus(c) === 'subscribed').length;
-                      const trial = empLeads.filter(c => getStatus(c) === 'started_trial').length;
-                      const interested = empLeads.filter(c => getStatus(c) === 'interested').length;
-                      const callBack = empLeads.filter(c => getStatus(c) === 'call_back').length;
-                      const noAnswer = empLeads.filter(c => getStatus(c) === 'no_answer').length;
-                      const notInterested = empLeads.filter(c => getStatus(c) === 'not_interested').length;
-                      const pending = empLeads.filter(c => getStatus(c) === 'unassigned').length;
-
-                      const successfulCount = subscribed + trial + interested;
-                      const contactedCount = total - pending;
-                      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
-                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-
-                      return {
-                        emp,
-                        total,
-                        crmCount: empCrm.length,
-                        addedCount: empAdded.length,
-                        subscribed,
-                        trial,
-                        interested,
-                        callBack,
-                        noAnswer,
-                        notInterested,
-                        pending,
-                        successfulCount,
-                        contactedCount,
-                        successRate,
-                        interactionRate
-                      };
-                    });
-
-                    // Sort employees by successRate & total leads
-                    allEmployeesData.sort((a,b) => b.successRate - a.successRate || b.total - a.total);
-                    const topEmp = allEmployeesData.find(e => e.total > 0);
-
-                    // Leaders & Teams Performance Breakdown (for Admin)
-                    const leadersList = employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin');
-                    const leadersTeamData = leadersList.map(leader => {
-                      const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
-                      const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
-                      const teamEmails = [leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase())];
-
-                      const teamCrm = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase())));
-                      const teamAdded = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase())) || (teamMembers.some(tm => tm.name && c.addedBy === tm.name)) || (leader.name && c.addedBy === leader.name));
-                      const teamLeads = [...teamCrm, ...teamAdded];
-
-                      const total = teamLeads.length;
-                      const subscribed = teamLeads.filter(c => getStatus(c) === 'subscribed').length;
-                      const trial = teamLeads.filter(c => getStatus(c) === 'started_trial').length;
-                      const interested = teamLeads.filter(c => getStatus(c) === 'interested').length;
-                      const callBack = teamLeads.filter(c => getStatus(c) === 'call_back').length;
-                      const noAnswer = teamLeads.filter(c => getStatus(c) === 'no_answer').length;
-                      const notInterested = teamLeads.filter(c => getStatus(c) === 'not_interested').length;
-                      const pending = teamLeads.filter(c => getStatus(c) === 'unassigned').length;
-
-                      const successfulCount = subscribed + trial + interested;
-                      const contactedCount = total - pending;
-                      const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
-                      const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-
-                      return {
-                        leader,
-                        teamMembersCount: teamMembers.length,
-                        total,
-                        crmCount: teamCrm.length,
-                        addedCount: teamAdded.length,
-                        subscribed,
-                        trial,
-                        interested,
-                        callBack,
-                        noAnswer,
-                        notInterested,
-                        pending,
-                        successfulCount,
-                        contactedCount,
-                        successRate,
-                        interactionRate
-                      };
-                    });
-                    leadersTeamData.sort((a, b) => b.successRate - a.successRate || b.total - a.total);
+                    const data = leadsAnalysisData;
+                    if (!data) return null;
+                    const { distributedCrmLeads, totalDistributedLeads, totalEmpAddedLeads, totalCompanyActiveLeads, allCompanyActiveLeads, totalCompanySuccessful, totalCompanyContacted, overallCompanyRate, overallCompanyContactRate, allEmployeesData, topEmp, leadersList, leadersTeamData } = data;
 
                     return (
                       <div className="space-y-6">
@@ -12864,7 +13144,7 @@ const Dashboard = () => {
           const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
 
           return (typeof document !== 'undefined' && document.body) ? createPortal(
-            <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsCallsAnalysisModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsCallsAnalysisModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsCallsAnalysisModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
@@ -13577,7 +13857,7 @@ const Dashboard = () => {
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
         {isSystemTotalClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSystemTotalClientsModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSystemTotalClientsModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -13596,8 +13876,10 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsSystemTotalClientsModalOpen(false)} 
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
+                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
+                  style={{ touchAction: 'manipulation' }} 
+                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
                 >
                   <X size={20} />
                 </button>
@@ -13840,7 +14122,7 @@ const Dashboard = () => {
 
         {/* Modal 6: Pending Clients Breakdown & Distribution */}
         {isPendingClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsPendingClientsModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsPendingClientsModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -13859,8 +14141,10 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsPendingClientsModalOpen(false)} 
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
+                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
+                  style={{ touchAction: 'manipulation' }} 
+                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
                 >
                   <X size={20} />
                 </button>
