@@ -1111,7 +1111,13 @@ const Dashboard = () => {
   const isCustomerService = !isAdmin && (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.jobTitle === 'خدمة العملاء' || currentEmpUser?.role === 'customer_service');
   const isLeader = !isAdmin && !isCustomerService && !isCoordinator && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || (currentEmpUser?.role === 'leader' && (!currentEmpUser?.jobTitle || currentEmpUser?.jobTitle === 'Leader')));
   const isAgent = !isAdmin && !isCoordinator && !isLeader && !isCustomerService;
-  const myTeamMembers = isLeader ? employees.filter(e => e.leaderUid === currentUser?.uid) : [];
+  const myTeamMembers = useMemo(() => {
+    return isLeader ? employees.filter(e => e.leaderUid === currentUser?.uid) : [];
+  }, [isLeader, employees, currentUser?.uid]);
+
+  const assignableEmployees = useMemo(() => {
+    return assignableEmployees;
+  }, [employees]);
   const isAllowedToManageLeads = isAdmin || hasPermission(currentEmpUser, 'canReassignLeads') || (isCoordinator || isLeader);
   const myUid = isAdmin ? 'admin' : (effectiveUser?.uid || currentUser?.uid || '');
   const myEmail = effectiveUser?.email?.toLowerCase() || currentUser?.email?.toLowerCase() || '';
@@ -3268,7 +3274,7 @@ const Dashboard = () => {
       setManualNotes('');
       setActiveTab('employee_leads');
       setImportLoading(false);
-      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToTable();
 
       // 3. Instant Toast feedback in the exact same second!
       if (savedCount > 0) {
@@ -6876,6 +6882,8 @@ const Dashboard = () => {
           })()
         )}
 
+        {/* Persistent Table Anchor & Container for Instant Zero-Freeze Tab Switching */}
+        <div ref={tableSectionRef} id="dashboard-table-section" className="scroll-mt-4">
         {/* Campaigns Analytics Tab (Role-scoped) */}
         {activeTab === 'campaigns' && (() => {
           // Unified helpers to categorize campaign message sources accurately
@@ -6965,8 +6973,7 @@ const Dashboard = () => {
           const avgOpenRateAll = totalDeliveredAll > 0 ? Math.round((totalReadAll / totalDeliveredAll) * 100) : 0;
 
           return (
-            <div 
-              ref={tableSectionRef}
+            <div
               className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/60 overflow-hidden mt-6"
               onClick={(e) => e.stopPropagation()}
             >
@@ -7179,7 +7186,7 @@ const Dashboard = () => {
           const isPageAllSelected = paginatedTeamLeads.length > 0 && paginatedTeamLeads.every(c => selectedTeamTrackingLeads.includes(c.id));
 
           return (
-            <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 py-4 border-b border-white/30 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -7498,7 +7505,7 @@ const Dashboard = () => {
 
         {/* Dedicated Leads CRM Tab */}
         {activeTab === 'leads_crm' && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
@@ -7689,7 +7696,7 @@ const Dashboard = () => {
                         >
                           <option value="admin" className="bg-purple-950 text-white">👑 الإدارة ({leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()})</option>
                           <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()})</option>
-                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => {
+                          {assignableEmployees.map(emp => {
                             const count = employeeLeadCounts[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
@@ -8132,7 +8139,7 @@ const Dashboard = () => {
                                   ) : (
                                     <>
                                       <option value="admin">👑 الإدارة (Admin 👑)</option>
-                                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                                      {assignableEmployees.map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
                                           👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                         </option>
@@ -8211,7 +8218,7 @@ const Dashboard = () => {
                                 const val = parseInt(e.target.value, 10);
                                 if (val >= 1 && val <= totalPagesLeads) {
                                   setCurrentPageLeads(val);
-                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                  scrollToTable();
                                 } else {
                                   toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesLeads}`);
                                 }
@@ -8226,7 +8233,7 @@ const Dashboard = () => {
                               const val = parseInt(inputEl?.value, 10);
                               if (val >= 1 && val <= totalPagesLeads) {
                                 setCurrentPageLeads(val);
-                                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                scrollToTable();
                               } else {
                                 toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesLeads}`);
                               }
@@ -8241,7 +8248,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageLeads(prev => Math.max(prev - 1, 1));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageLeads === 1}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -8260,7 +8267,7 @@ const Dashboard = () => {
                                   <button
                                     onClick={() => {
                                       setCurrentPageLeads(page);
-                                      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                      scrollToTable();
                                     }}
                                     className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
                                       validPageLeads === page
@@ -8278,7 +8285,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageLeads(prev => Math.min(prev + 1, totalPagesLeads));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageLeads === totalPagesLeads}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -8296,7 +8303,7 @@ const Dashboard = () => {
 
         {/* Dedicated Employee Added Leads CRM Tab */}
         {activeTab === 'employee_leads' && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
@@ -8503,7 +8510,7 @@ const Dashboard = () => {
                               </option>
                             );
                           })()}
-                          {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
+                          {(isLeader ? myTeamMembers : assignableEmployees).map(emp => {
                             const count = empLeadsCountsByEmp[emp.uid] || 0;
                             const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
                             return (
@@ -8932,7 +8939,7 @@ const Dashboard = () => {
                                       ) : (
                                         <>
                                           <option value="admin">👑 الإدارة (Admin 👑)</option>
-                                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                                          {assignableEmployees.map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
                                               👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                             </option>
@@ -9035,7 +9042,7 @@ const Dashboard = () => {
                                 const val = parseInt(e.target.value, 10);
                                 if (val >= 1 && val <= totalPagesEmpLeads) {
                                   setCurrentPageEmpLeads(val);
-                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                  scrollToTable();
                                 } else {
                                   toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesEmpLeads}`);
                                 }
@@ -9050,7 +9057,7 @@ const Dashboard = () => {
                               const val = parseInt(inputEl?.value, 10);
                               if (val >= 1 && val <= totalPagesEmpLeads) {
                                 setCurrentPageEmpLeads(val);
-                                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                scrollToTable();
                               } else {
                                 toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesEmpLeads}`);
                               }
@@ -9065,7 +9072,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageEmpLeads(prev => Math.max(prev - 1, 1));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageEmpLeads === 1}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -9084,7 +9091,7 @@ const Dashboard = () => {
                                   <button
                                     onClick={() => {
                                       setCurrentPageEmpLeads(page);
-                                      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                      scrollToTable();
                                     }}
                                     className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
                                       validPageEmpLeads === page
@@ -9102,7 +9109,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageEmpLeads(prev => Math.min(prev + 1, totalPagesEmpLeads));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageEmpLeads === totalPagesEmpLeads}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-200 text-purple-900 shadow-sm hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -9120,7 +9127,7 @@ const Dashboard = () => {
 
         {/* Dedicated Subscribed Clients Tab (العملاء المشتركين) */}
         {activeTab === 'subscribed_clients' && !isCoordinator && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
@@ -9746,7 +9753,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageSubscribed(prev => Math.max(prev - 1, 1));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageSub === 1}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -9762,7 +9769,7 @@ const Dashboard = () => {
                                 key={page}
                                 onClick={() => {
                                   setCurrentPageSubscribed(page);
-                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                  scrollToTable();
                                 }}
                                 className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
                                   validPageSub === page
@@ -9778,7 +9785,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageSubscribed(prev => Math.min(prev + 1, totalPagesSub));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageSub === totalPagesSub}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-200 text-emerald-950 shadow-sm hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -9805,7 +9812,7 @@ const Dashboard = () => {
               );
 
           return (
-            <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
@@ -10024,7 +10031,7 @@ const Dashboard = () => {
                           ) : (
                             <>
                               <option value="admin">👑 الإدارة (Admin 👑)</option>
-                              {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                              {assignableEmployees.map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
                                   👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                 </option>
@@ -10151,7 +10158,7 @@ const Dashboard = () => {
                                 const val = parseInt(e.target.value, 10);
                                 if (val >= 1 && val <= totalPagesCust) {
                                   setCurrentPageCustomers(val);
-                                  tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                  scrollToTable();
                                 } else {
                                   toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesCust}`);
                                 }
@@ -10166,7 +10173,7 @@ const Dashboard = () => {
                               const val = parseInt(inputEl?.value, 10);
                               if (val >= 1 && val <= totalPagesCust) {
                                 setCurrentPageCustomers(val);
-                                tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                scrollToTable();
                               } else {
                                 toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesCust}`);
                               }
@@ -10181,7 +10188,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageCustomers(prev => Math.max(prev - 1, 1));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageCust === 1}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-gray-300 text-gray-800 shadow-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -10200,7 +10207,7 @@ const Dashboard = () => {
                                   <button
                                     onClick={() => {
                                       setCurrentPageCustomers(page);
-                                      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                      scrollToTable();
                                     }}
                                     className={`w-7 h-7 rounded-lg text-xs font-black transition flex items-center justify-center cursor-pointer ${
                                       validPageCust === page
@@ -10218,7 +10225,7 @@ const Dashboard = () => {
                         <button
                           onClick={() => {
                             setCurrentPageCustomers(prev => Math.min(prev + 1, totalPagesCust));
-                            tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToTable();
                           }}
                           disabled={validPageCust === totalPagesCust}
                           className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-gray-300 text-gray-800 shadow-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
@@ -10556,7 +10563,7 @@ const Dashboard = () => {
 
         {/* WhatsApp Visitors Tab - الزوار وعملاء الموقع OTP */}
         {activeTab === 'whatsapp_visitors' && (
-          <div ref={tableSectionRef} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-indigo-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-indigo-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40">
@@ -11179,6 +11186,8 @@ const Dashboard = () => {
           </div>
         )}
 
+        </div>
+
         {/* Modal: Add Employee */}
         {isAddEmployeeOpen && typeof document !== 'undefined' && document.body && createPortal(
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAddEmployeeOpen(false)}>
@@ -11672,7 +11681,7 @@ const Dashboard = () => {
                   ) : (
                     <>
                       <option value="admin">👑 الإدارة (Admin 👑)</option>
-                      {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator').map(emp => (
+                      {assignableEmployees.map(emp => (
                         <option key={emp.uid} value={emp.uid}>
                           👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                         </option>
@@ -12200,7 +12209,7 @@ const Dashboard = () => {
                               setIsLeadsAnalysisModalOpen(false);
                               setActiveTab('team_leads_tracking');
                               setTeamTrackingEmpFilter('all');
-                              setTimeout(() => tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                              scrollToTable();
                             }}
                             className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 rounded-2xl border border-amber-400/50 hover:border-amber-300 hover:scale-[1.02] transition-all cursor-pointer shadow-lg group flex items-center justify-between"
                             title="انقر للانتقال مباشرة إلى شيت متابعة عملاء التيم"
@@ -12225,7 +12234,7 @@ const Dashboard = () => {
                               setIsLeadsAnalysisModalOpen(false);
                               setActiveTab('employee_leads');
                               setEmpLeadsEmpFilter('all');
-                              setTimeout(() => tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                              scrollToTable();
                             }}
                             className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 rounded-2xl border border-amber-400/50 hover:border-amber-300 hover:scale-[1.02] transition-all cursor-pointer shadow-lg group flex items-center justify-between"
                             title="انقر للانتقال مباشرة إلى شيت الداتا المضافة من الفريق (Team Added Leads)"
@@ -13650,7 +13659,7 @@ const Dashboard = () => {
                         onClick={() => {
                           setIsSystemTotalClientsModalOpen(false);
                           setActiveTab('leads_crm');
-                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          scrollToTable();
                         }}
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
@@ -13686,7 +13695,7 @@ const Dashboard = () => {
                         onClick={() => {
                           setIsSystemTotalClientsModalOpen(false);
                           setActiveTab('employee_leads');
-                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          scrollToTable();
                         }}
                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
@@ -13904,7 +13913,7 @@ const Dashboard = () => {
                           setIsPendingClientsModalOpen(false);
                           setActiveTab('leads_crm');
                           setCrmStatusFilter('unassigned');
-                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          scrollToTable();
                         }}
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
@@ -13934,7 +13943,7 @@ const Dashboard = () => {
                           setIsPendingClientsModalOpen(false);
                           setActiveTab('employee_leads');
                           setEmpLeadsStatusFilter('unassigned');
-                          tableSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          scrollToTable();
                         }}
                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
