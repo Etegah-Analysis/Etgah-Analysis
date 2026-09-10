@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2, CheckCheck } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
@@ -2245,27 +2245,35 @@ const Dashboard = () => {
       return;
     }
 
-    if (type === 'leads_crm') {
-      setSelectedEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
-      setCrmStatusFilter('all');
-    } else if (type === 'team_leads_tracking') {
-      setTeamTrackingEmpFilter('all');
-      setCrmStatusFilter('all');
-    } else if (type === 'employee_leads') {
-      setEmpLeadsEmpFilter('all');
-      setEmpLeadsStatusFilter('all');
-    } else if (type === 'subscribed_clients') {
-      setSubscribedEmpFilter('all');
-    } else if (type === 'customers') {
-      setSelectedEmpFilter('all');
-    } else {
-      setSelectedEmpFilter('all');
-    }
-
+    // 1. URGENT UI: Instant card visual feedback (0ms) - lights up the card's active ring and border immediately!
     setActiveTab(type);
     setCustomerFilter(filter);
-    setTableSearch('');
-    scrollToTable();
+
+    // 2. BACKGROUND: Wrap heavier table filter states in startTransition
+    startTransition(() => {
+      if (type === 'leads_crm') {
+        setSelectedEmpFilter((isAdmin || isCoordinator) ? 'admin' : 'all');
+        setCrmStatusFilter('all');
+      } else if (type === 'team_leads_tracking') {
+        setTeamTrackingEmpFilter('all');
+        setCrmStatusFilter('all');
+      } else if (type === 'employee_leads') {
+        setEmpLeadsEmpFilter('all');
+        setEmpLeadsStatusFilter('all');
+      } else if (type === 'subscribed_clients') {
+        setSubscribedEmpFilter('all');
+      } else if (type === 'customers') {
+        setSelectedEmpFilter('all');
+      } else {
+        setSelectedEmpFilter('all');
+      }
+      setTableSearch('');
+    });
+
+    // 3. Keep cards in view on mobile; only scroll if on desktop
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      scrollToTable();
+    }
   };
 
   // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
