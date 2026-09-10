@@ -115,8 +115,11 @@ a, button, [role="button"], .cursor-pointer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
   }
 
-  /* Instant golden touch glow on mobile press */
+  /* Instant touch feedback on mobile without GPU rasterization */
   .cursor-pointer:active {
-    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6) !important;
+    filter: none !important;
+    opacity: 0.9 !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
+    transition: none !important;
   }
 }

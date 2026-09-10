@@ -418,6 +418,7 @@ const Dashboard = () => {
   const [tableSearch, setTableSearch] = useState(''); // per-table search
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = أحدث أولاً, 'asc' = أقدم أولاً
   const tableSectionRef = useRef(null);
+  const mainContainerRef = useRef(null);
 
   const [customers, setCustomers] = useState([]);
   const [leadsCrm, setLeadsCrm] = useState([]);
@@ -2225,12 +2226,26 @@ const Dashboard = () => {
   const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
     setTimeout(() => {
+      const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
       const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (container && el) {
+        const targetTop = Math.max(0, el.offsetTop - 15);
+        container.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
-    }, 140);
+      if (el && typeof el.scrollIntoView === 'function') {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {}
+      }
+    }, 60);
   }, []);
+
+  // Guarantee auto-scroll down to sheet whenever activeTab opens a sheet (exact laptop parity on mobile & desktop)
+  useEffect(() => {
+    if (activeTab && activeTab !== 'analytics') {
+      scrollToTable();
+    }
+  }, [activeTab, scrollToTable]);
 
   const handleBackgroundClick = useCallback((e) => {
     // If already on default analytics view, nothing to close
@@ -2251,8 +2266,12 @@ const Dashboard = () => {
       return;
     }
 
-    // Dismiss open sheet and return to lightweight analytics view
+    // Dismiss open sheet, return to lightweight analytics view, and smoothly return to top
     setActiveTab('analytics');
+    const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [activeTab]);
 
   const handleCardClick = (e, type, filter = 'all') => {
@@ -2262,6 +2281,10 @@ const Dashboard = () => {
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
       setActiveTab('analytics');
+      const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return;
     }
 
@@ -2341,7 +2364,9 @@ const Dashboard = () => {
   };
 
   // Unread emails count
-  const unreadMailCount = internalEmails.filter(m => isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length;
+  const unreadMailCount = useMemo(() => {
+    return internalEmails.filter(m => isEmailForMe(m) && !m.readBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length;
+  }, [internalEmails, myUid, isAdmin, isCoordinator, isLeader, currentUser?.uid, myEmail]);
 
   // File / Image Attachment Upload for Mail
   const handleMailAttachmentUpload = (e) => {
@@ -2649,7 +2674,9 @@ const Dashboard = () => {
     });
   }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent]);
 
-  const totalAllNotificationsCount = (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
+  const totalAllNotificationsCount = useMemo(() => {
+    return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
+  }, [unreadWhatsAppChats, unreadEmails, expiringSubscriptions]);
 
   const prevTotalNotifsRef = useRef(totalAllNotificationsCount);
   const prevUnreadChatsRef = useRef(unreadWhatsAppChats?.length || 0);
@@ -6128,30 +6155,37 @@ const Dashboard = () => {
   };
 
   // --- CALL PERFORMANCE ANALYTICS COMPUTATIONS ---
-  const roleFilteredCallLogs = callLogs.filter(log => {
-    if (isAdmin || isCoordinator) return true;
-    if (isLeader) {
-      return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
-    }
-    return log.employeeUid === currentUser?.uid;
-  });
+  const roleFilteredCallLogs = useMemo(() => {
+    return callLogs.filter(log => {
+      if (isAdmin || isCoordinator) return true;
+      if (isLeader) {
+        return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
+      }
+      return log.employeeUid === currentUser?.uid;
+    });
+  }, [callLogs, isAdmin, isCoordinator, isLeader, currentUser?.uid, myTeamMembers]);
 
-  const todayDateStr = new Date().toISOString().split('T')[0];
-  const todayCallLogsCount = roleFilteredCallLogs.filter(log => {
-    if (log.calledDateStr === todayDateStr) return true;
-    const time = getTimestampMillis(log.calledAt) || log.timestampMillis;
-    if (time) {
-      const logDate = new Date(time).toISOString().split('T')[0];
-      return logDate === todayDateStr;
-    }
-    return false;
-  }).length;
+  const todayCallLogsCount = useMemo(() => {
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    return roleFilteredCallLogs.filter(log => {
+      if (log.calledDateStr === todayDateStr) return true;
+      const time = getTimestampMillis(log.calledAt) || log.timestampMillis;
+      if (time) {
+        const logDate = new Date(time).toISOString().split('T')[0];
+        return logDate === todayDateStr;
+      }
+      return false;
+    }).length;
+  }, [roleFilteredCallLogs]);
 
   return (
     <div 
-      className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
+      ref={mainContainerRef}
+      id="dashboard-main-container"
+      className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20 cursor-default" 
       dir="rtl"
       onClick={handleBackgroundClick}
+      style={{ touchAction: 'manipulation' }}
     >
       {/* 3D Modern Gradient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -11752,16 +11786,11 @@ const Dashboard = () => {
 
         {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
         {isImportModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsImportModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsImportModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => {
                   e.preventDefault();
-                  e.stopPropagation();
-                  setIsImportModalOpen(false);
-                }}
-                onTouchEnd={(e) => {
-                  if (e.cancelable) e.preventDefault();
                   e.stopPropagation();
                   setIsImportModalOpen(false);
                 }}
@@ -11964,11 +11993,10 @@ const Dashboard = () => {
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
         {isAssignModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAssignModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsAssignModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
-                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
                 style={{ touchAction: 'manipulation' }} 
                 className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg transition z-50 cursor-pointer"
               >
@@ -12045,11 +12073,10 @@ const Dashboard = () => {
 
         {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
         {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsNotesModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsNotesModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); }} 
-                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); }} 
                 style={{ touchAction: 'manipulation' }} 
                 className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer z-50"
                 title="إغلاق"
@@ -12256,21 +12283,13 @@ const Dashboard = () => {
         {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
         {isLeadsAnalysisModalOpen && typeof document !== 'undefined' && document.body && createPortal(
           <div 
-            className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" 
             onClick={() => setIsLeadsAnalysisModalOpen(false)}
-            onTouchEnd={(e) => {
-              if (e.target === e.currentTarget) {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsLeadsAnalysisModalOpen(false);
-              }
-            }}
             style={{ touchAction: 'manipulation' }}
           >
             <div 
-              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" 
+              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden cursor-default" 
               onClick={(e) => e.stopPropagation()}
-              onTouchEnd={(e) => e.stopPropagation()}
             >
               
               {/* Modal Header */}
@@ -12297,11 +12316,6 @@ const Dashboard = () => {
                 </div>
                 <button 
                   onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsLeadsAnalysisModalOpen(false);
-                  }}
-                  onTouchEnd={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setIsLeadsAnalysisModalOpen(false);
@@ -13051,7 +13065,7 @@ const Dashboard = () => {
           const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
 
           return (typeof document !== 'undefined' && document.body) ? createPortal(
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsCallsAnalysisModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsCallsAnalysisModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
+            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsCallsAnalysisModalOpen(false)} style={{ touchAction: 'manipulation' }}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
@@ -13091,11 +13105,6 @@ const Dashboard = () => {
                     <button 
                       onClick={(e) => {
                         e.preventDefault();
-                        e.stopPropagation();
-                        setIsCallsAnalysisModalOpen(false);
-                      }}
-                      onTouchEnd={(e) => {
-                        if (e.cancelable) e.preventDefault();
                         e.stopPropagation();
                         setIsCallsAnalysisModalOpen(false);
                       }}
@@ -13455,7 +13464,7 @@ const Dashboard = () => {
           const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
 
           return (typeof document !== 'undefined' && document.body) ? createPortal(
-            <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)} style={{ touchAction: 'manipulation' }}>
               <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
@@ -13475,8 +13484,9 @@ const Dashboard = () => {
                   </div>
                   <button 
                     disabled={crmCampaignSending}
-                    onClick={() => setIsCrmCampaignModalOpen(false)}
-                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
+                    onClick={(e) => { e.stopPropagation(); setIsCrmCampaignModalOpen(false); }}
+                    style={{ touchAction: 'manipulation' }}
+                    className="min-w-[44px] min-h-[44px] p-2 rounded-full bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 flex items-center justify-center transition cursor-pointer disabled:opacity-30"
                   >
                     <X size={16} />
                   </button>
@@ -13775,7 +13785,7 @@ const Dashboard = () => {
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
         {isSystemTotalClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSystemTotalClientsModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsSystemTotalClientsModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -13795,7 +13805,6 @@ const Dashboard = () => {
                 </div>
                 <button 
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
-                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
                   style={{ touchAction: 'manipulation' }} 
                   className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
                 >
@@ -14040,7 +14049,7 @@ const Dashboard = () => {
 
         {/* Modal 6: Pending Clients Breakdown & Distribution */}
         {isPendingClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsPendingClientsModalOpen(false)} onTouchEnd={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); } }} style={{ touchAction: 'manipulation' }}>
+          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsPendingClientsModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -14060,7 +14069,6 @@ const Dashboard = () => {
                 </div>
                 <button 
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
-                  onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
                   style={{ touchAction: 'manipulation' }} 
                   className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
                 >
@@ -14194,7 +14202,7 @@ const Dashboard = () => {
 
         {/* Modal: Client Subscription Details (بيانات اشتراك العميل) */}
         {isSubscriptionModalOpen && selectedSubCustomer && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsSubscriptionModalOpen(false)}>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsSubscriptionModalOpen(false)} style={{ touchAction: 'manipulation' }}>
             <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
@@ -14215,11 +14223,6 @@ const Dashboard = () => {
                 <button 
                   onClick={(e) => {
                     e.preventDefault();
-                    e.stopPropagation();
-                    setIsSubscriptionModalOpen(false);
-                  }}
-                  onTouchEnd={(e) => {
-                    if (e.cancelable) e.preventDefault();
                     e.stopPropagation();
                     setIsSubscriptionModalOpen(false);
                   }}
