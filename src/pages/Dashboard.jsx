@@ -2221,38 +2221,24 @@ const Dashboard = () => {
     syncAndEnsureEmployeeLeads();
   }, [customers, employees]);
 
+  // --- LIGHTNING-FAST 0ms SCROLL & TABLE ANCHOR ENGINE ---
   const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const doScroll = () => {
-      const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
-      if (el) {
-        el.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    };
-    requestAnimationFrame(doScroll);
-    setTimeout(doScroll, 80);
+    const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
+    if (!el) return;
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      // 0ms INSTANT jump on mobile: zero lag, zero frame freeze, zero touch blockage!
+      const offset = 76;
+      const targetY = window.pageYOffset + el.getBoundingClientRect().top - offset;
+      window.scrollTo(0, Math.max(0, targetY));
+    } else {
+      // Smooth animated scroll on desktop / laptop
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, []);
 
-  // Guarantee automatic scroll to table upon tab change once React finishes DOM rendering
-  useEffect(() => {
-    if (activeTab && activeTab !== 'analytics') {
-      const timer = setTimeout(() => {
-        const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
-        if (el) {
-          el.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      }, 70);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab]);
-
-  // --- UNIFIED HIGH-PRECISION 0ms TOUCH & TAP ENGINE (Mobile & Desktop) ---
+  // --- UNIFIED HIGH-PRECISION 0ms TOUCH & TAP ENGINE (Single-Touch Across All Cards) ---
   const touchPosRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const lastTouchHandledRef = useRef(0);
 
@@ -2272,8 +2258,8 @@ const Dashboard = () => {
       const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
       const deltaTime = Date.now() - touchPosRef.current.startTime;
 
-      // Generous natural thumb tap threshold: < 28px movement and < 500ms duration
-      if (deltaX < 28 && deltaY < 28 && deltaTime < 500) {
+      // Generous natural thumb tap threshold: < 32px movement and < 550ms duration
+      if (deltaX < 32 && deltaY < 32 && deltaTime < 550) {
         lastTouchHandledRef.current = Date.now();
         if (e.cancelable) {
           e.preventDefault();
@@ -2284,8 +2270,8 @@ const Dashboard = () => {
   }, []);
 
   const handleCardClickSafe = useCallback((e, type, filter = 'all') => {
-    // If touch already handled this card tap within the last 700ms, suppress synthetic click
-    if (Date.now() - lastTouchHandledRef.current < 700) {
+    // Suppress synthetic ghost click only within tight 250ms window (never blocks switching to next card!)
+    if (Date.now() - lastTouchHandledRef.current < 250) {
       if (e && e.preventDefault) e.preventDefault();
       if (e && e.stopPropagation) e.stopPropagation();
       return;
@@ -2300,7 +2286,7 @@ const Dashboard = () => {
       const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
       const deltaTime = Date.now() - touchPosRef.current.startTime;
 
-      if (deltaX < 28 && deltaY < 28 && deltaTime < 500) {
+      if (deltaX < 32 && deltaY < 32 && deltaTime < 550) {
         lastTouchHandledRef.current = Date.now();
         if (e.cancelable) {
           e.preventDefault();
@@ -2311,7 +2297,7 @@ const Dashboard = () => {
   }, []);
 
   const handleModalCardClickSafe = useCallback((e, callback) => {
-    if (Date.now() - lastTouchHandledRef.current < 700) {
+    if (Date.now() - lastTouchHandledRef.current < 250) {
       if (e && e.preventDefault) e.preventDefault();
       if (e && e.stopPropagation) e.stopPropagation();
       return;
@@ -2323,7 +2309,7 @@ const Dashboard = () => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && type === 'subscribed_clients') return;
     
-    // If clicking the same active card, keep it open and smoothly scroll down to table so the user sees it immediately
+    // If clicking the same active card, keep it open and scroll down immediately
     if (activeTab === type && customerFilter === filter) {
       scrollToTable();
       return;
@@ -2356,8 +2342,8 @@ const Dashboard = () => {
     setCustomerFilter(filter);
     setTableSearch('');
 
-    // Seamlessly scroll to table on BOTH mobile and desktop!
-    scrollToTable();
+    // Instant zero-freeze transition: 20ms single tick ensures React DOM has mounted
+    setTimeout(scrollToTable, 25);
   };
 
   // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
