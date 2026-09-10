@@ -6153,20 +6153,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Card 7: Employees Count */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'employees', 'all')}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <UserCheck className="text-amber-400" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">إجمالي الموظفين</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
-                </div>
-              </div>
-
               {/* Card 8: Visitors */}
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')}
@@ -6181,6 +6167,20 @@ const Dashboard = () => {
                 </div>
               </div>
               
+              {/* Card 7: Employees Count */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'employees', 'all')}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 hover:border-amber-300 hover:scale-105 hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <UserCheck className="text-amber-400" size={28} />
+                </div>
+                <div>
+                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">إجمالي الموظفين</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employees.filter(e => e.role !== 'admin').length.toLocaleString()}</h3>
+                </div>
+              </div>
+
               {/* Card 9: Recycle Bin */}
               <div 
                 onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')}
