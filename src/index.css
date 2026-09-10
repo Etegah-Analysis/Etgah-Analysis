@@ -90,9 +90,9 @@ a, button, [role="button"], .cursor-pointer {
 
 /* Tactile Micro-Press: استجابة لمس فورية في 0 ملي ثانية */
 .cursor-pointer:active {
-  transform: scale(0.96) !important;
-  filter: brightness(1.2) !important;
-  transition: transform 50ms cubic-bezier(0.4, 0, 0.2, 1), filter 50ms ease !important;
+  filter: brightness(1.25) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.7) !important;
+  transition: filter 40ms ease, box-shadow 40ms ease !important;
 }
 
 /* Mobile Ultra-Speed Performance Optimization (Zero Freeze / Zero Hang) */

@@ -3,6 +3,7 @@ import {
   initializeFirestore, 
   persistentLocalCache, 
   persistentMultipleTabManager,
+  persistentSingleTabManager,
   getFirestore,
   collection, 
   addDoc, 
@@ -40,7 +41,7 @@ let db;
 try {
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
+      tabManager: (typeof window !== "undefined" && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768)) ? persistentSingleTabManager() : persistentMultipleTabManager()
     })
   });
 } catch (e) {

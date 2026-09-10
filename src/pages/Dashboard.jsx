@@ -2027,12 +2027,14 @@ const Dashboard = () => {
     });
 
     const leadsCrmUnsub = onSnapshot(collection(db, 'leads_crm'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      data.sort((a, b) => {
-        const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
-        const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
-        return timeB - timeA;
+      const data = snapshot.docs.map(doc => {
+        const d = doc.data();
+        d.id = doc.id;
+        d._ts = (d.updatedAt?.toMillis?.() || (d.updatedAt?.seconds ? d.updatedAt.seconds * 1000 : 0)) ||
+                (d.createdAt?.toMillis?.() || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : 0)) || 0;
+        return d;
       });
+      data.sort((a, b) => b._ts - a._ts);
       setLeadsCrm(data);
     }, (error) => {
       console.error("Error fetching leads_crm:", error);
@@ -2057,9 +2059,11 @@ const Dashboard = () => {
         }
       });
       data.sort((a, b) => {
-        const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.createdAt);
-        const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt);
-        return timeB - timeA;
+        const tA = (a.updatedAt?.toMillis?.() || (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0)) ||
+                   (a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)) || 0;
+        const tB = (b.updatedAt?.toMillis?.() || (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0)) ||
+                   (b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)) || 0;
+        return tB - tA;
       });
       setEmployeeLeads(data);
     }, (error) => {
@@ -7837,13 +7841,10 @@ const Dashboard = () => {
                 return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
               });
 
-              // Fast Pre-Mapped Sorting
-              const listWithTime = filtered.map(item => ({
-                item,
-                ts: getTimestampMillis(item.createdAt) || getTimestampMillis(item.updatedAt) || 0
-              }));
-              listWithTime.sort((a, b) => leadsSortOrder === 'asc' ? a.ts - b.ts : b.ts - a.ts);
-              filtered = listWithTime.map(x => x.item);
+              // Fast Direct Sorting (Already sorted descending by default)
+              if (leadsSortOrder === 'asc') {
+                filtered = [...filtered].reverse();
+              }
 
               const totalPagesLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageLeads = Math.min(currentPageLeads, totalPagesLeads);
@@ -8663,13 +8664,10 @@ const Dashboard = () => {
                 return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
               });
 
-              // Fast Pre-Mapped Sorting
-              const listWithTime = filtered.map(item => ({
-                item,
-                ts: getTimestampMillis(item.createdAt) || getTimestampMillis(item.updatedAt) || 0
-              }));
-              listWithTime.sort((a, b) => empLeadsSortOrder === 'asc' ? a.ts - b.ts : b.ts - a.ts);
-              filtered = listWithTime.map(x => x.item);
+              // Fast Direct Sorting (Already sorted descending by default)
+              if (empLeadsSortOrder === 'asc') {
+                filtered = [...filtered].reverse();
+              }
 
               const totalPagesEmpLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageEmpLeads = Math.min(currentPageEmpLeads, totalPagesEmpLeads);
