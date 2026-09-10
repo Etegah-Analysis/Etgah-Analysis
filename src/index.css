@@ -82,43 +82,41 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
-/* Immediate Mobile Touch Responsiveness (0ms tap delay & no tap highlight box) */
-.cursor-pointer,
-[role="button"],
-button {
+/* Immediate Mobile Single-Tap Response (من أول لمسة بدون دبل كليك) */
+a, button, [role="button"], .cursor-pointer {
   touch-action: manipulation !important;
   -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Tactile Touch Animation: حركة لمس فيزيائية فورية وتفاعلية للكارت في 0 ملي ثانية */
+/* Tactile Micro-Press: استجابة لمس فورية في 0 ملي ثانية */
 .cursor-pointer:active {
-  transform: scale(0.95) !important;
-  filter: brightness(1.22) !important;
-  transition: transform 60ms cubic-bezier(0.4, 0, 0.2, 1), filter 60ms ease !important;
+  transform: scale(0.96) !important;
+  filter: brightness(1.2) !important;
+  transition: transform 50ms cubic-bezier(0.4, 0, 0.2, 1), filter 50ms ease !important;
 }
 
 /* Mobile Ultra-Speed Performance Optimization (Zero Freeze / Zero Hang) */
 @media (max-width: 768px) {
-  /* 1. Prevent mobile compositor thread lockup during tab switching */
+  /* Prevent mobile compositor thread lockup */
   html {
     scroll-behavior: auto !important;
   }
 
-  /* 2. Eliminate mobile GPU tile buffer thrashing from heavy backdrop blur */
+  /* Eliminate mobile GPU tile buffer thrashing from heavy backdrop blur */
   *, *::before, *::after {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 
-  /* 3. Optimize box shadows on mobile to reduce GPU rasterization cost */
+  /* Optimize box shadows on mobile to reduce GPU rasterization cost */
   [class*="shadow-[0_8px_32px"],
   [class*="shadow-[0_6px_20px"],
   [class*="shadow-[0_8px_25px"] {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
   }
 
-  /* 4. Instant golden touch glow on mobile press */
+  /* Instant golden touch glow on mobile press */
   .cursor-pointer:active {
-    box-shadow: 0 0 18px rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6) !important;
   }
 }
