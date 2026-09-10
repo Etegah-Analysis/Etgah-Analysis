@@ -47,6 +47,7 @@ export const translations = {
     not_interested: '❌ Not Interested',
     no_answer: '📵 No Answer',
     lost: '🥀 Lost',
+    junk_lead: '🗑️ Junk Lead',
     subscribed: '🎉 Paid',
     started_trial: '🚀 Demo',
 
@@ -114,6 +115,7 @@ export const translations = {
     not_interested: '❌ Not Interested',
     no_answer: '📵 No Answer',
     lost: '🥀 Lost',
+    junk_lead: '🗑️ Junk Lead',
     subscribed: '🎉 Paid',
     started_trial: '🚀 Demo',
 

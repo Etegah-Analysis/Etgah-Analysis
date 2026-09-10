@@ -82,6 +82,7 @@ const CRM_STATUS_MAP = {
   no_answer: { label: '📵 No Answer', arLabel: 'No Answer', fullLabel: '📵 No Answer', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
   started_trial: { label: '🚀 Demo', arLabel: 'Demo', fullLabel: '🚀 Demo', bg: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
   subscribed: { label: '🎉 Paid', arLabel: 'Paid', fullLabel: '🎉 Paid', bg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  junk_lead: { label: '🗑️ Junk Lead', arLabel: 'Junk Lead', fullLabel: '🗑️ Junk Lead', bg: 'bg-stone-200 text-stone-800 border-stone-400' },
   assigned: { label: '📋 Assigned', arLabel: 'Assigned', fullLabel: '📋 Assigned', bg: 'bg-blue-100 text-blue-700 border-blue-300' },
   lost: { label: '🥀 Lost', arLabel: 'Lost', fullLabel: '🥀 Lost', bg: 'bg-red-100 text-red-800 border-red-300' },
 };
@@ -7026,7 +7027,11 @@ const Dashboard = () => {
 
             if (crmStatusFilter !== 'all') {
               const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-              if (currentStatus !== crmStatusFilter) return false;
+              if (crmStatusFilter === 'junk_lead') {
+                if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+              } else if (currentStatus !== crmStatusFilter) {
+                return false;
+              }
             }
 
             // Dual 3D Date Filter: Registration / Assignment Date
@@ -7142,7 +7147,8 @@ const Dashboard = () => {
                       subscribed: pool.filter(c => c.crmStatus === 'subscribed').length,
                       interested: pool.filter(c => c.crmStatus === 'interested').length,
                       no_answer: pool.filter(c => c.crmStatus === 'no_answer').length,
-                      not_interested: pool.filter(c => c.crmStatus === 'not_interested').length
+                      not_interested: pool.filter(c => c.crmStatus === 'not_interested').length,
+                      junk_lead: pool.filter(c => c.crmStatus === 'junk_lead' || c.crmStatus === 'junk').length
                     };
                     return (
                       <select 
@@ -7158,6 +7164,7 @@ const Dashboard = () => {
                         <option value="no_answer">📵 No Answer ({statusCounts.no_answer})</option>
                         <option value="started_trial">🚀 Demo ({statusCounts.started_trial})</option>
                         <option value="subscribed">🎉 Paid ({statusCounts.subscribed})</option>
+                        <option value="junk_lead">🗑️ Junk Lead ({statusCounts.junk_lead})</option>
                       </select>
                     );
                   })()}
@@ -7554,6 +7561,7 @@ const Dashboard = () => {
                 if (statusKey === 'all') return scopeLeadsForCount.length;
                 return scopeLeadsForCount.filter(c => {
                   const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                  if (statusKey === 'junk_lead') return st === 'junk_lead' || st === 'junk';
                   return st === statusKey;
                 }).length;
               };
@@ -7601,6 +7609,7 @@ const Dashboard = () => {
                         <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getCrmStatusCount('no_answer')})</option>
                         <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getCrmStatusCount('started_trial')})</option>
                         <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getCrmStatusCount('subscribed')})</option>
+                        <option value="junk_lead" className="bg-purple-950 text-white">🗑️ Junk Lead ({getCrmStatusCount('junk_lead')})</option>
                       </select>
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
                         ▼
@@ -7665,7 +7674,11 @@ const Dashboard = () => {
 
                 if (crmStatusFilter && crmStatusFilter !== 'all') {
                   const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (currentStatus !== crmStatusFilter) return false;
+                  if (crmStatusFilter === 'junk_lead') {
+                    if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+                  } else if (currentStatus !== crmStatusFilter) {
+                    return false;
+                  }
                 }
 
                 // Dual 3D Date Filter: Registration Date
@@ -7921,6 +7934,7 @@ const Dashboard = () => {
                                   <option value="no_answer">📵 No Answer</option>
                                   <option value="started_trial">🚀 Demo</option>
                                   <option value="subscribed">🎉 Paid</option>
+                                  <option value="junk_lead">🗑️ Junk Lead</option>
                                 </select>
                                 {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
                                   <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>
@@ -8329,6 +8343,7 @@ const Dashboard = () => {
                 if (statusKey === 'all') return scopeEmpLeads.length;
                 return scopeEmpLeads.filter(c => {
                   const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                  if (statusKey === 'junk_lead') return st === 'junk_lead' || st === 'junk';
                   return st === statusKey;
                 }).length;
               };
@@ -8395,6 +8410,7 @@ const Dashboard = () => {
                         <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getEmpLeadStatusCount('no_answer')})</option>
                         <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getEmpLeadStatusCount('started_trial')})</option>
                         <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getEmpLeadStatusCount('subscribed')})</option>
+                        <option value="junk_lead" className="bg-purple-950 text-white">🗑️ Junk Lead ({getEmpLeadStatusCount('junk_lead')})</option>
                       </select>
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
                         ▼
@@ -8471,7 +8487,11 @@ const Dashboard = () => {
 
                 if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
                   const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (currentStatus !== empLeadsStatusFilter) return false;
+                  if (empLeadsStatusFilter === 'junk_lead') {
+                    if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+                  } else if (currentStatus !== empLeadsStatusFilter) {
+                    return false;
+                  }
                 }
 
                 // Dual 3D Date Filter: Registration Date
@@ -8703,6 +8723,7 @@ const Dashboard = () => {
                                       <option value="no_answer">📵 No Answer</option>
                                       <option value="started_trial">🚀 Demo</option>
                                       <option value="subscribed">🎉 Paid</option>
+                                      <option value="junk_lead">🗑️ Junk Lead</option>
                                     </select>
                                     {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
                                       <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">📅 Demo: {customer.trialStartDate}</span>

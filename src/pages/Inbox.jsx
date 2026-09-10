@@ -2597,6 +2597,7 @@ function InboxContent() {
                           <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer</option>
                           <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Demo</option>
                           <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Paid</option>
+                          <option value="junk_lead" className="bg-slate-900 text-stone-300">🗑️ Junk Lead</option>
                           <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
                           <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
                         </select>
