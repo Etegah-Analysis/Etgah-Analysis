@@ -2221,25 +2221,23 @@ const Dashboard = () => {
     syncAndEnsureEmployeeLeads();
   }, [customers, employees]);
 
-  const scrollToTable = () => {
+  const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const isMobile = window.innerWidth < 768;
     requestAnimationFrame(() => {
       if (tableSectionRef.current) {
+        const isMobile = window.innerWidth < 768;
+        const offset = isMobile ? 76 : 90;
         const rect = tableSectionRef.current.getBoundingClientRect();
-        // If already visible in viewport, avoid redundant scroll
-        if (rect.top >= 0 && rect.top <= window.innerHeight * 0.4) {
-          return;
-        }
-        tableSectionRef.current.scrollIntoView({
-          behavior: isMobile ? 'auto' : 'smooth',
-          block: 'start'
+        const targetY = window.pageYOffset + rect.top - offset;
+        window.scrollTo({
+          top: Math.max(0, targetY),
+          behavior: 'smooth'
         });
       }
     });
-  };
+  }, []);
 
-    // --- INSTANT HIGH-PRECISION MOBILE TOUCH & TAP ENGINE (0ms Response) ---
+  // --- UNIFIED HIGH-PRECISION 0ms TOUCH & TAP ENGINE (Mobile & Desktop) ---
   const touchPosRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const lastTouchHandledRef = useRef(0);
 
@@ -2259,17 +2257,20 @@ const Dashboard = () => {
       const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
       const deltaTime = Date.now() - touchPosRef.current.startTime;
 
-      // Intentional tap threshold: < 12px finger jitter and < 450ms duration
-      if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
+      // Generous natural thumb tap threshold: < 28px movement and < 500ms duration
+      if (deltaX < 28 && deltaY < 28 && deltaTime < 500) {
         lastTouchHandledRef.current = Date.now();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         handleCardClick(e, type, filter);
       }
     }
   }, []);
 
   const handleCardClickSafe = useCallback((e, type, filter = 'all') => {
-    // If touch already handled this card tap within the last 400ms, suppress synthetic click to prevent double-toggle
-    if (Date.now() - lastTouchHandledRef.current < 400) {
+    // If touch already handled this card tap within the last 700ms, suppress synthetic click
+    if (Date.now() - lastTouchHandledRef.current < 700) {
       if (e && e.preventDefault) e.preventDefault();
       if (e && e.stopPropagation) e.stopPropagation();
       return;
@@ -2277,12 +2278,43 @@ const Dashboard = () => {
     handleCardClick(e, type, filter);
   }, []);
 
+  // Dedicated tap helper for modal cards (Total Leads, Pending Leads, Analysis)
+  const handleModalCardTouchEnd = useCallback((e, callback) => {
+    if (e.changedTouches && e.changedTouches[0]) {
+      const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
+      const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
+      const deltaTime = Date.now() - touchPosRef.current.startTime;
+
+      if (deltaX < 28 && deltaY < 28 && deltaTime < 500) {
+        lastTouchHandledRef.current = Date.now();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        if (callback) callback();
+      }
+    }
+  }, []);
+
+  const handleModalCardClickSafe = useCallback((e, callback) => {
+    if (Date.now() - lastTouchHandledRef.current < 700) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (e && e.stopPropagation) e.stopPropagation();
+      return;
+    }
+    if (callback) callback();
+  }, []);
+
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && type === 'subscribed_clients') return;
     
-    // Toggle close if clicking background or already active tab
-    if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
+    // If clicking the same active card, keep it open and smoothly scroll down to table so the user sees it immediately
+    if (activeTab === type && customerFilter === filter) {
+      scrollToTable();
+      return;
+    }
+
+    if (type === 'analytics') {
       setActiveTab('analytics');
       return;
     }
@@ -2309,10 +2341,8 @@ const Dashboard = () => {
     setCustomerFilter(filter);
     setTableSearch('');
 
-    // Only scroll on desktop viewport; keep cards in view on mobile
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      scrollToTable();
-    }
+    // Seamlessly scroll to table on BOTH mobile and desktop!
+    scrollToTable();
   };
 
   // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
@@ -6767,10 +6797,10 @@ const Dashboard = () => {
 
               {/* Card 4: Total Customers */}
               <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsSystemTotalClientsModalOpen(true);
-                }}
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsSystemTotalClientsModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsSystemTotalClientsModalOpen(true))}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
@@ -6785,10 +6815,10 @@ const Dashboard = () => {
               
               {/* Card 5: Pending Customers (All Sources) */}
               <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPendingClientsModalOpen(true);
-                }}
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsPendingClientsModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsPendingClientsModalOpen(true))}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
@@ -6875,28 +6905,8 @@ const Dashboard = () => {
               {/* Card 10: Leads CRM Analysis */}
               <div 
                 onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => {
-                  if (e.changedTouches && e.changedTouches[0]) {
-                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-                    const deltaTime = Date.now() - touchPosRef.current.startTime;
-                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
-                      lastTouchHandledRef.current = Date.now();
-                      if (e.preventDefault) e.preventDefault();
-                      if (e.stopPropagation) e.stopPropagation();
-                      setIsLeadsAnalysisModalOpen(true);
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (Date.now() - lastTouchHandledRef.current < 400) {
-                    if (e && e.preventDefault) e.preventDefault();
-                    if (e && e.stopPropagation) e.stopPropagation();
-                    return;
-                  }
-                  e.stopPropagation();
-                  setIsLeadsAnalysisModalOpen(true);
-                }}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
@@ -6916,28 +6926,8 @@ const Dashboard = () => {
               {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
               <div 
                 onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => {
-                  if (e.changedTouches && e.changedTouches[0]) {
-                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-                    const deltaTime = Date.now() - touchPosRef.current.startTime;
-                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
-                      lastTouchHandledRef.current = Date.now();
-                      if (e.preventDefault) e.preventDefault();
-                      if (e.stopPropagation) e.stopPropagation();
-                      setIsCallsAnalysisModalOpen(true);
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (Date.now() - lastTouchHandledRef.current < 400) {
-                    if (e && e.preventDefault) e.preventDefault();
-                    if (e && e.stopPropagation) e.stopPropagation();
-                    return;
-                  }
-                  e.stopPropagation();
-                  setIsCallsAnalysisModalOpen(true);
-                }}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
@@ -7007,10 +6997,10 @@ const Dashboard = () => {
 
               {/* Card 4: Total Customer Database */}
               <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsSystemTotalClientsModalOpen(true);
-                }}
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsSystemTotalClientsModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsSystemTotalClientsModalOpen(true))}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
@@ -7025,10 +7015,10 @@ const Dashboard = () => {
               
               {/* Card 5: Pending Customers (All Sources) */}
               <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPendingClientsModalOpen(true);
-                }}
+                onTouchStart={handleCardTouchStart}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsPendingClientsModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsPendingClientsModalOpen(true))}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
@@ -7091,28 +7081,8 @@ const Dashboard = () => {
               {/* Card 8: Leads CRM Analysis */}
               <div 
                 onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => {
-                  if (e.changedTouches && e.changedTouches[0]) {
-                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-                    const deltaTime = Date.now() - touchPosRef.current.startTime;
-                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
-                      lastTouchHandledRef.current = Date.now();
-                      if (e.preventDefault) e.preventDefault();
-                      if (e.stopPropagation) e.stopPropagation();
-                      setIsLeadsAnalysisModalOpen(true);
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (Date.now() - lastTouchHandledRef.current < 400) {
-                    if (e && e.preventDefault) e.preventDefault();
-                    if (e && e.stopPropagation) e.stopPropagation();
-                    return;
-                  }
-                  e.stopPropagation();
-                  setIsLeadsAnalysisModalOpen(true);
-                }}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
@@ -7132,28 +7102,8 @@ const Dashboard = () => {
               {/* Card 9: Call Performance Analytics */}
               <div 
                 onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => {
-                  if (e.changedTouches && e.changedTouches[0]) {
-                    const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-                    const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-                    const deltaTime = Date.now() - touchPosRef.current.startTime;
-                    if (deltaX < 12 && deltaY < 12 && deltaTime < 450) {
-                      lastTouchHandledRef.current = Date.now();
-                      if (e.preventDefault) e.preventDefault();
-                      if (e.stopPropagation) e.stopPropagation();
-                      setIsCallsAnalysisModalOpen(true);
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (Date.now() - lastTouchHandledRef.current < 400) {
-                    if (e && e.preventDefault) e.preventDefault();
-                    if (e && e.stopPropagation) e.stopPropagation();
-                    return;
-                  }
-                  e.stopPropagation();
-                  setIsCallsAnalysisModalOpen(true);
-                }}
+                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
+                onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
@@ -7305,10 +7255,10 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
                   {/* Leader Card 6: Leads CRM Analysis */}
                   <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsLeadsAnalysisModalOpen(true);
-                    }}
+                    onTouchStart={handleCardTouchStart}
+                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
+                    onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
+                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
                   >
@@ -7328,10 +7278,10 @@ const Dashboard = () => {
 
                   {/* Leader Card 7: Call Performance Analytics */}
                   <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCallsAnalysisModalOpen(true);
-                    }}
+                    onTouchStart={handleCardTouchStart}
+                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
+                    onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
+                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
                   >
@@ -7461,10 +7411,10 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
                   {/* Agent Card 5: Leads CRM Analysis */}
                   <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsLeadsAnalysisModalOpen(true);
-                    }}
+                    onTouchStart={handleCardTouchStart}
+                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
+                    onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
+                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
                   >
@@ -7484,10 +7434,10 @@ const Dashboard = () => {
 
                   {/* Agent Card 6: Call Performance Analytics */}
                   <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCallsAnalysisModalOpen(true);
-                    }}
+                    onTouchStart={handleCardTouchStart}
+                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
+                    onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
+                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
                   >
@@ -7527,7 +7477,7 @@ const Dashboard = () => {
         )}
 
         {/* Persistent Table Anchor & Container for Instant Zero-Freeze Tab Switching */}
-        <div ref={tableSectionRef} id="dashboard-table-section" className="scroll-mt-4">
+        <div ref={tableSectionRef} id="dashboard-table-section" className="scroll-mt-20 sm:scroll-mt-24">
         {/* Campaigns Analytics Tab (Role-scoped) */}
         {activeTab === 'campaigns' && (() => {
           // Unified helpers to categorize campaign message sources accurately
@@ -10831,12 +10781,22 @@ const Dashboard = () => {
                                   setImpersonatedEmp(emp);
                                   setActiveTab('leads_crm');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
+                                  scrollToTable();
                                 }}
-                                className="p-2 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40"
+                                onTouchEnd={(e) => {
+                                  if (e.cancelable) e.preventDefault();
+                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
+                                  setImpersonatedEmp(emp);
+                                  setActiveTab('leads_crm');
+                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
+                                  scrollToTable();
+                                }}
+                                style={{ touchAction: 'manipulation' }}
+                                className="p-2 sm:px-2.5 sm:py-1.5 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40 shrink-0"
                                 title={`دخول ومعاينة لوحة تحكم ${emp.name || emp.username} (كأنك مسجل دخوله بحسابه)`}
                               >
                                 <Monitor size={16} />
-                                <span className="text-[11px] font-black hidden sm:inline">دخول شاشته</span>
+                                <span className="text-[11px] font-black inline">دخول شاشته</span>
                               </button>
                             )}
                             <button 
@@ -11622,10 +11582,21 @@ const Dashboard = () => {
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAddEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={() => setIsAddEmployeeOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsAddEmployeeOpen(false);
+                }}
+                onTouchEnd={(e) => {
+                  if (e.cancelable) e.preventDefault();
+                  e.stopPropagation();
+                  setIsAddEmployeeOpen(false);
+                }}
+                style={{ touchAction: 'manipulation' }}
+                className="absolute top-3 left-3 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 transition z-50 cursor-pointer"
+                title="إغلاق"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
               
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
@@ -11737,10 +11708,21 @@ const Dashboard = () => {
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsEditEmployeeOpen(false)}>
             <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={() => setIsEditEmployeeOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsEditEmployeeOpen(false);
+                }}
+                onTouchEnd={(e) => {
+                  if (e.cancelable) e.preventDefault();
+                  e.stopPropagation();
+                  setIsEditEmployeeOpen(false);
+                }}
+                style={{ touchAction: 'manipulation' }}
+                className="absolute top-3 left-3 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 transition z-50 cursor-pointer"
+                title="إغلاق"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
               
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
@@ -11859,10 +11841,21 @@ const Dashboard = () => {
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsImportModalOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={() => setIsImportModalOpen(false)} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsImportModalOpen(false);
+                }}
+                onTouchEnd={(e) => {
+                  if (e.cancelable) e.preventDefault();
+                  e.stopPropagation();
+                  setIsImportModalOpen(false);
+                }}
+                style={{ touchAction: 'manipulation' }}
+                className="absolute top-3 left-3 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 transition z-50 cursor-pointer"
+                title="إغلاق"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
 
               <div className="mb-4">
@@ -13182,8 +13175,19 @@ const Dashboard = () => {
                       </button>
                     )}
                     <button 
-                      onClick={() => setIsCallsAnalysisModalOpen(false)} 
-                      className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsCallsAnalysisModalOpen(false);
+                      }}
+                      onTouchEnd={(e) => {
+                        if (e.cancelable) e.preventDefault();
+                        e.stopPropagation();
+                        setIsCallsAnalysisModalOpen(false);
+                      }}
+                      style={{ touchAction: 'manipulation' }}
+                      className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                      title="إغلاق النافذة"
                     >
                       <X size={20} />
                     </button>
@@ -14295,8 +14299,19 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsSubscriptionModalOpen(false)} 
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsSubscriptionModalOpen(false);
+                  }}
+                  onTouchEnd={(e) => {
+                    if (e.cancelable) e.preventDefault();
+                    e.stopPropagation();
+                    setIsSubscriptionModalOpen(false);
+                  }}
+                  style={{ touchAction: 'manipulation' }}
+                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  title="إغلاق"
                 >
                   <X size={20} />
                 </button>
