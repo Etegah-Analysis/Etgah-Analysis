@@ -2212,11 +2212,21 @@ const Dashboard = () => {
   }, [customers, employees]);
 
   const scrollToTable = () => {
-    setTimeout(() => {
+    if (typeof window === 'undefined') return;
+    const isMobile = window.innerWidth < 768;
+    requestAnimationFrame(() => {
       if (tableSectionRef.current) {
-        tableSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const rect = tableSectionRef.current.getBoundingClientRect();
+        // If already visible in viewport, avoid redundant scroll
+        if (rect.top >= 0 && rect.top <= window.innerHeight * 0.4) {
+          return;
+        }
+        tableSectionRef.current.scrollIntoView({
+          behavior: isMobile ? 'auto' : 'smooth',
+          block: 'start'
+        });
       }
-    }, 100);
+    });
   };
 
   const handleCardClick = (e, type, filter = 'all') => {
@@ -2489,13 +2499,28 @@ const Dashboard = () => {
     return st === 'unassigned';
   };
 
-  // Accurate pending counters (Only counts data sent/added to employees whose status has not been converted yet)
-  const unassignedWhatsappCount = customers.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo) && (!c.crmStatus || c.crmStatus === 'unassigned')).length || customers.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
-  const unassignedLeadsCrmCount = leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
-  const unassignedEmployeeLeadsCount = employeeLeads.filter(c => ((c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned') === 'unassigned').length;
-  const totalPendingAll = unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount;
+  // Accurate pending counters (Memoized for instantaneous zero-freeze render)
+  const unassignedWhatsappCount = useMemo(() => {
+    if (!customers) return 0;
+    return customers.filter(c => c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo) && (!c.crmStatus || c.crmStatus === 'unassigned')).length || customers.filter(c => !c.crmStatus || c.crmStatus === 'unassigned').length;
+  }, [customers]);
+
+  const unassignedLeadsCrmCount = useMemo(() => {
+    if (!leadsCrm) return 0;
+    return leadsCrm.filter(c => isLeadPendingWithEmployee(c)).length;
+  }, [leadsCrm]);
+
+  const unassignedEmployeeLeadsCount = useMemo(() => {
+    if (!employeeLeads) return 0;
+    return employeeLeads.filter(c => ((c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned') === 'unassigned').length;
+  }, [employeeLeads]);
+
+  const totalPendingAll = useMemo(() => unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount, [unassignedWhatsappCount, unassignedLeadsCrmCount, unassignedEmployeeLeadsCount]);
   const unassignedCount = unassignedWhatsappCount;
-  const whatsappVisitorsCount = visitors.length + customers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').length;
+
+  const whatsappVisitorsCount = useMemo(() => {
+    return (visitors?.length || 0) + (customers?.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor')?.length || 0);
+  }, [visitors, customers]);
 
   // --- SUBSCRIBED CLIENTS DATA POOL (العملاء المشتركين) ---
   const getIsSubscribed = (c) => {
@@ -2504,37 +2529,61 @@ const Dashboard = () => {
     return st === 'subscribed';
   };
 
-  // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers
-  const allSubscribedClients = Array.from(
-    new Map(
-      [...leadsCrm, ...employeeLeads, ...customers]
-        .filter(getIsSubscribed)
-        .map(c => [c.phoneNumber || c.id, c])
-    ).values()
-  );
+  // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers (Memoized)
+  const allSubscribedClients = useMemo(() => {
+    const map = new Map();
+    const pool = [...leadsCrm, ...employeeLeads, ...customers];
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i];
+      if (getIsSubscribed(c)) {
+        const key = c.phoneNumber || c.id;
+        if (!map.has(key)) map.set(key, c);
+      }
+    }
+    return Array.from(map.values());
+  }, [leadsCrm, employeeLeads, customers]);
 
-  const leaderSubscribedClients = Array.from(
-    new Map(
-      [...leadsCrm, ...employeeLeads, ...customers]
-        .filter(c => getIsSubscribed(c) && (
-          c.assignedToUid === currentUser?.uid || 
-          c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() ||
-          myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
-        ))
-        .map(c => [c.phoneNumber || c.id, c])
-    ).values()
-  );
+  const leaderSubscribedClients = useMemo(() => {
+    if (!isLeader) return [];
+    const map = new Map();
+    const teamUidSet = new Set(myTeamMembers.map(m => m.uid));
+    const teamEmailSet = new Set(myTeamMembers.map(m => m.email?.toLowerCase()).filter(Boolean));
+    const userUid = currentUser?.uid;
+    const userEmail = currentUser?.email?.toLowerCase();
 
-  const agentSubscribedClients = Array.from(
-    new Map(
-      [...leadsCrm, ...employeeLeads, ...customers]
-        .filter(c => getIsSubscribed(c) && (
-          c.assignedToUid === currentUser?.uid || 
-          c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()
-        ))
-        .map(c => [c.phoneNumber || c.id, c])
-    ).values()
-  );
+    const pool = [...leadsCrm, ...employeeLeads, ...customers];
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i];
+      if (!getIsSubscribed(c)) continue;
+      const cUid = c.assignedToUid;
+      const cEmail = c.assignedTo?.toLowerCase();
+      const isMineOrTeam = cUid === userUid || cEmail === userEmail || (cUid && teamUidSet.has(cUid)) || (cEmail && teamEmailSet.has(cEmail));
+      if (isMineOrTeam) {
+        const key = c.phoneNumber || c.id;
+        if (!map.has(key)) map.set(key, c);
+      }
+    }
+    return Array.from(map.values());
+  }, [isLeader, leadsCrm, employeeLeads, customers, currentUser?.uid, currentUser?.email, myTeamMembers]);
+
+  const agentSubscribedClients = useMemo(() => {
+    if (!isAgent) return [];
+    const map = new Map();
+    const userUid = currentUser?.uid;
+    const userEmail = currentUser?.email?.toLowerCase();
+
+    const pool = [...leadsCrm, ...employeeLeads, ...customers];
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i];
+      if (!getIsSubscribed(c)) continue;
+      const isMine = c.assignedToUid === userUid || c.assignedTo?.toLowerCase() === userEmail;
+      if (isMine) {
+        const key = c.phoneNumber || c.id;
+        if (!map.has(key)) map.set(key, c);
+      }
+    }
+    return Array.from(map.values());
+  }, [isAgent, leadsCrm, employeeLeads, customers, currentUser?.uid, currentUser?.email]);
 
   // Expiring Subscriptions Computation (for Admin, Coordinator, Leaders, and Agents)
   const expiringSubscriptions = useMemo(() => {
@@ -2671,6 +2720,51 @@ const Dashboard = () => {
     });
     return map;
   }, [leadsCrm, employees]);
+
+  // Memoized employee lead counts for Employee Leads Tab
+  const empLeadsCountsByEmp = useMemo(() => {
+    const map = {};
+    if (!employeeLeads || !employees) return map;
+    employees.forEach(emp => {
+      const empMail = emp.email?.toLowerCase();
+      const empName = emp.name;
+      map[emp.uid] = employeeLeads.filter(c => 
+        c.assignedToUid === emp.uid || 
+        c.addedByUid === emp.uid || 
+        (empMail && c.assignedTo?.toLowerCase() === empMail) || 
+        (empName && c.addedBy === empName)
+      ).length;
+    });
+    return map;
+  }, [employeeLeads, employees]);
+
+  // Memoized customer counts for Customers Tab
+  const customerCountsByEmp = useMemo(() => {
+    const map = {};
+    if (!customers || !employees) return map;
+    employees.forEach(emp => {
+      const empMail = emp.email?.toLowerCase();
+      map[emp.uid] = customers.filter(c => 
+        c.assignedToUid === emp.uid || 
+        (empMail && (c.assignedTo === emp.email || c.assignedTo?.toLowerCase() === empMail))
+      ).length;
+    });
+    return map;
+  }, [customers, employees]);
+
+  // Memoized subscribed client counts for Subscribed Clients Tab
+  const subscribedCountsByEmp = useMemo(() => {
+    const map = {};
+    if (!allSubscribedClients || !employees) return map;
+    employees.forEach(emp => {
+      const empMail = emp.email?.toLowerCase();
+      map[emp.uid] = allSubscribedClients.filter(c => 
+        c.assignedToUid === emp.uid || 
+        (empMail && c.assignedTo?.toLowerCase() === empMail)
+      ).length;
+    });
+    return map;
+  }, [allSubscribedClients, employees]);
 
   // --- LEAD IMPORT & EXCEL / GSHEETS / TEXT PARSER HANDLERS ---
   const handleFileUpload = (e) => {
@@ -7014,7 +7108,7 @@ const Dashboard = () => {
         {/* Team Leads Tracking Tab (Dedicated for Leader) */}
         {isLeader && activeTab === 'team_leads_tracking' && (() => {
           // Filter leads belonging to leader's team members
-          const teamLeadsPool = leadsCrm.filter(c => {
+          let teamLeadsPool = leadsCrm.filter(c => {
             const isUnderMyTeam = myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase());
             if (!isUnderMyTeam) return false;
 
@@ -7069,12 +7163,13 @@ const Dashboard = () => {
             return true;
           });
 
-          // Sort leads
-          teamLeadsPool.sort((a, b) => {
-            const dateA = a.assignedAt?.toDate ? a.assignedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0));
-            const dateB = b.assignedAt?.toDate ? b.assignedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0));
-            return leadsSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-          });
+          // Sort leads (Pre-mapped fast timestamps)
+          const teamListWithTime = teamLeadsPool.map(item => ({
+            item,
+            ts: item.assignedAt?.toMillis ? item.assignedAt.toMillis() : (item.assignedAt?.toDate ? item.assignedAt.toDate().getTime() : (item.createdAt?.toDate ? item.createdAt.toDate().getTime() : 0))
+          }));
+          teamListWithTime.sort((a, b) => leadsSortOrder === 'desc' ? b.ts - a.ts : a.ts - b.ts);
+          teamLeadsPool = teamListWithTime.map(x => x.item);
 
           const totalPages = Math.max(1, Math.ceil(teamLeadsPool.length / ITEMS_PER_PAGE));
           const currentPage = Math.min(currentPageTeamTracking, totalPages);
@@ -7141,15 +7236,22 @@ const Dashboard = () => {
                     });
                     const statusCounts = {
                       all: pool.length,
-                      unassigned: pool.filter(c => !c.crmStatus || c.crmStatus === 'unassigned' || c.crmStatus === 'pending' || c.crmStatus === 'assigned').length,
-                      call_back: pool.filter(c => c.crmStatus === 'call_back').length,
-                      started_trial: pool.filter(c => c.crmStatus === 'started_trial').length,
-                      subscribed: pool.filter(c => c.crmStatus === 'subscribed').length,
-                      interested: pool.filter(c => c.crmStatus === 'interested').length,
-                      no_answer: pool.filter(c => c.crmStatus === 'no_answer').length,
-                      not_interested: pool.filter(c => c.crmStatus === 'not_interested').length,
-                      junk_lead: pool.filter(c => c.crmStatus === 'junk_lead' || c.crmStatus === 'junk').length
+                      unassigned: 0,
+                      call_back: 0,
+                      started_trial: 0,
+                      subscribed: 0,
+                      interested: 0,
+                      no_answer: 0,
+                      not_interested: 0,
+                      junk_lead: 0
                     };
+                    for (let i = 0; i < pool.length; i++) {
+                      const c = pool[i];
+                      const st = (!c.crmStatus || c.crmStatus === 'assigned' || c.crmStatus === 'pending') ? 'unassigned' : c.crmStatus;
+                      if (st === 'junk_lead' || st === 'junk') statusCounts.junk_lead++;
+                      else if (statusCounts[st] !== undefined) statusCounts[st]++;
+                      else statusCounts.unassigned++;
+                    }
                     return (
                       <select 
                         value={crmStatusFilter} 
@@ -7547,24 +7649,32 @@ const Dashboard = () => {
 
             {/* Filter Bar */}
             {(() => {
+              const targetEmpForCount = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'all')
+                ? employees.find(e => e.uid === selectedEmpFilter)
+                : null;
+              const targetEmpForCountMail = targetEmpForCount?.email?.toLowerCase();
+              const targetEmpForCountName = targetEmpForCount?.name;
+
               const scopeLeadsForCount = (!isAdmin && !isCoordinator) 
                 ? leadsCrm.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || c.addedByUid === currentUser?.uid)
                 : (selectedEmpFilter === 'admin' 
                     ? leadsCrm.filter(c => isLeadWithAdmin(c))
                     : (selectedEmpFilter === 'all' 
                         ? leadsCrm.filter(c => isLeadAssignedToEmployee(c))
-                        : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === selectedEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === selectedEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === selectedEmpFilter)?.name))
+                        : leadsCrm.filter(c => c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
                       )
                   );
 
-              const getCrmStatusCount = (statusKey) => {
-                if (statusKey === 'all') return scopeLeadsForCount.length;
-                return scopeLeadsForCount.filter(c => {
-                  const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (statusKey === 'junk_lead') return st === 'junk_lead' || st === 'junk';
-                  return st === statusKey;
-                }).length;
-              };
+              const crmCounts = { all: scopeLeadsForCount.length, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+              for (let i = 0; i < scopeLeadsForCount.length; i++) {
+                const c = scopeLeadsForCount[i];
+                const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                if (st === 'junk_lead' || st === 'junk') crmCounts.junk_lead++;
+                else if (crmCounts[st] !== undefined) crmCounts[st]++;
+                else crmCounts.unassigned++;
+              }
+
+              const getCrmStatusCount = (statusKey) => crmCounts[statusKey] || 0;
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
@@ -7655,6 +7765,18 @@ const Dashboard = () => {
 
             {/* Table */}
             {(() => {
+              const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'all')
+                ? employees.find(e => e.uid === selectedEmpFilter)
+                : null;
+              const targetEmpMail = targetEmp?.email?.toLowerCase();
+              const targetEmpName = targetEmp?.name;
+
+              const regFromTime = dateFromFilter ? new Date(dateFromFilter).setHours(0, 0, 0, 0) : null;
+              const regToTime = dateToFilter ? new Date(dateToFilter).setHours(23, 59, 59, 999) : null;
+              const commFromTime = crmCommentDateFrom ? new Date(crmCommentDateFrom).setHours(0, 0, 0, 0) : null;
+              const commToTime = crmCommentDateTo ? new Date(crmCommentDateTo).setHours(23, 59, 59, 999) : null;
+              const search = tableSearch.trim().toLowerCase();
+
               let filtered = leadsCrm.filter(c => {
                 // Employee view restriction
                 if (!isAdmin && !isCoordinator) {
@@ -7666,9 +7788,8 @@ const Dashboard = () => {
                 } else if (selectedEmpFilter === 'all') {
                   if (!isLeadAssignedToEmployee(c)) return false;
                 } else if (selectedEmpFilter) {
-                  const emp = employees.find(e => e.uid === selectedEmpFilter);
-                  const matchesAssigned = c.assignedToUid === selectedEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
-                  const matchesAdded = c.addedByUid === selectedEmpFilter || (emp?.name && c.addedBy === emp.name);
+                  const matchesAssigned = c.assignedToUid === selectedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
+                  const matchesAdded = c.addedByUid === selectedEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
                   if (!matchesAssigned && !matchesAdded) return false;
                 }
 
@@ -7682,40 +7803,35 @@ const Dashboard = () => {
                 }
 
                 // Dual 3D Date Filter: Registration Date
-                if (dateFromFilter) {
-                  const fromTime = new Date(dateFromFilter).setHours(0, 0, 0, 0);
+                if (regFromTime) {
                   const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime < fromTime) return false;
+                  if (!regTime || regTime < regFromTime) return false;
                 }
-                if (dateToFilter) {
-                  const toTime = new Date(dateToFilter).setHours(23, 59, 59, 999);
+                if (regToTime) {
                   const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime > toTime) return false;
+                  if (!regTime || regTime > regToTime) return false;
                 }
                 // Dual 3D Date Filter: Last Comment Date
-                if (crmCommentDateFrom) {
-                  const fromTime = new Date(crmCommentDateFrom).setHours(0, 0, 0, 0);
+                if (commFromTime) {
                   const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime < fromTime) return false;
+                  if (!commTime || commTime < commFromTime) return false;
                 }
-                if (crmCommentDateTo) {
-                  const toTime = new Date(crmCommentDateTo).setHours(23, 59, 59, 999);
+                if (commToTime) {
                   const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime > toTime) return false;
+                  if (!commTime || commTime > commToTime) return false;
                 }
 
-                const search = tableSearch.trim();
                 if (!search) return true;
-                const term = search.toLowerCase();
-                return c.name?.toLowerCase().includes(term) || c.phoneNumber?.includes(term);
+                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
               });
 
-              // Sorting
-              filtered.sort((a, b) => {
-                const timeA = getTimestampMillis(a.createdAt) || getTimestampMillis(a.updatedAt);
-                const timeB = getTimestampMillis(b.createdAt) || getTimestampMillis(b.updatedAt);
-                return leadsSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-              });
+              // Fast Pre-Mapped Sorting
+              const listWithTime = filtered.map(item => ({
+                item,
+                ts: getTimestampMillis(item.createdAt) || getTimestampMillis(item.updatedAt) || 0
+              }));
+              listWithTime.sort((a, b) => leadsSortOrder === 'asc' ? a.ts - b.ts : b.ts - a.ts);
+              filtered = listWithTime.map(x => x.item);
 
               const totalPagesLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageLeads = Math.min(currentPageLeads, totalPagesLeads);
@@ -8320,13 +8436,19 @@ const Dashboard = () => {
 
             {/* Filter & Status Bar */}
             {(() => {
+              const targetEmpForCount = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
+                ? employees.find(e => e.uid === empLeadsEmpFilter)
+                : null;
+              const targetEmpForCountMail = targetEmpForCount?.email?.toLowerCase();
+              const targetEmpForCountName = targetEmpForCount?.name;
+
               const scopeEmpLeads = (!isAdmin && !isCoordinator) 
                 ? (isLeader
                     ? (empLeadsEmpFilter === 'all'
                         ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid))
                         : (empLeadsEmpFilter === currentUser?.uid
                             ? employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()) || (currentEmpUser?.name && c.addedBy === currentEmpUser.name))
-                            : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                            : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
                           )
                       )
                     : employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
@@ -8335,18 +8457,20 @@ const Dashboard = () => {
                     ? employeeLeads.filter(c => isLeadWithAdmin(c))
                     : (empLeadsEmpFilter === 'all' 
                         ? employeeLeads.filter(c => isLeadAssignedToEmployee(c))
-                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === empLeadsEmpFilter)?.email?.toLowerCase() || (employees.find(e => e.uid === empLeadsEmpFilter)?.name && c.addedBy === employees.find(e => e.uid === empLeadsEmpFilter)?.name))
+                        : employeeLeads.filter(c => c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpForCountMail && c.assignedTo?.toLowerCase() === targetEmpForCountMail) || (targetEmpForCountName && c.addedBy === targetEmpForCountName))
                       )
                   );
 
-              const getEmpLeadStatusCount = (statusKey) => {
-                if (statusKey === 'all') return scopeEmpLeads.length;
-                return scopeEmpLeads.filter(c => {
-                  const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-                  if (statusKey === 'junk_lead') return st === 'junk_lead' || st === 'junk';
-                  return st === statusKey;
-                }).length;
-              };
+              const empCounts = { all: scopeEmpLeads.length, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+              for (let i = 0; i < scopeEmpLeads.length; i++) {
+                const c = scopeEmpLeads[i];
+                const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+                if (st === 'junk_lead' || st === 'junk') empCounts.junk_lead++;
+                else if (empCounts[st] !== undefined) empCounts[st]++;
+                else empCounts.unassigned++;
+              }
+
+              const getEmpLeadStatusCount = (statusKey) => empCounts[statusKey] || 0;
 
               return (
                 <div className="px-6 py-3.5 bg-slate-900/90 border-b border-purple-500/20 flex flex-wrap justify-between items-center gap-3">
@@ -8380,7 +8504,7 @@ const Dashboard = () => {
                             );
                           })()}
                           {(isLeader ? myTeamMembers : employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator')).map(emp => {
-                            const count = employeeLeads.filter(c => c.assignedToUid === emp.uid || c.addedByUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase() || (emp.name && c.addedBy === emp.name)).length;
+                            const count = empLeadsCountsByEmp[emp.uid] || 0;
                             const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-950 text-white">
@@ -8451,6 +8575,18 @@ const Dashboard = () => {
 
             {/* Table Content */}
             {(() => {
+              const targetEmp = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'unassigned' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
+                ? employees.find(e => e.uid === empLeadsEmpFilter)
+                : null;
+              const targetEmpMail = targetEmp?.email?.toLowerCase();
+              const targetEmpName = targetEmp?.name;
+
+              const regFromTime = empLeadsDateFrom ? new Date(empLeadsDateFrom).setHours(0, 0, 0, 0) : null;
+              const regToTime = empLeadsDateTo ? new Date(empLeadsDateTo).setHours(23, 59, 59, 999) : null;
+              const commFromTime = empCommentDateFrom ? new Date(empCommentDateFrom).setHours(0, 0, 0, 0) : null;
+              const commToTime = empCommentDateTo ? new Date(empCommentDateTo).setHours(23, 59, 59, 999) : null;
+              const search = tableSearch.trim().toLowerCase();
+
               let filtered = employeeLeads.filter(c => {
                 // Role restriction
                 if (!isAdmin && !isCoordinator) {
@@ -8464,9 +8600,8 @@ const Dashboard = () => {
                       const matchesAdded = c.addedByUid === currentUser?.uid || (currentEmpUser?.name && c.addedBy === currentEmpUser.name);
                       if (!matchesAssigned && !matchesAdded) return false;
                     } else {
-                      const emp = employees.find(e => e.uid === empLeadsEmpFilter);
-                      const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
-                      const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
+                      const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
+                      const matchesAdded = c.addedByUid === empLeadsEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
                       if (!matchesAssigned && !matchesAdded) return false;
                     }
                   } else {
@@ -8479,9 +8614,8 @@ const Dashboard = () => {
                 } else if (empLeadsEmpFilter === 'all') {
                   if (!isLeadAssignedToEmployee(c)) return false;
                 } else if (empLeadsEmpFilter) {
-                  const emp = employees.find(e => e.uid === empLeadsEmpFilter);
-                  const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || c.assignedTo?.toLowerCase() === emp?.email?.toLowerCase();
-                  const matchesAdded = c.addedByUid === empLeadsEmpFilter || (emp?.name && c.addedBy === emp.name);
+                  const matchesAssigned = c.assignedToUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail);
+                  const matchesAdded = c.addedByUid === empLeadsEmpFilter || (targetEmpName && c.addedBy === targetEmpName);
                   if (!matchesAssigned && !matchesAdded) return false;
                 }
 
@@ -8495,40 +8629,35 @@ const Dashboard = () => {
                 }
 
                 // Dual 3D Date Filter: Registration Date
-                if (empLeadsDateFrom) {
-                  const fromTime = new Date(empLeadsDateFrom).setHours(0, 0, 0, 0);
+                if (regFromTime) {
                   const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime < fromTime) return false;
+                  if (!regTime || regTime < regFromTime) return false;
                 }
-                if (empLeadsDateTo) {
-                  const toTime = new Date(empLeadsDateTo).setHours(23, 59, 59, 999);
+                if (regToTime) {
                   const regTime = getClientRegTimestamp(c)?.getTime();
-                  if (!regTime || regTime > toTime) return false;
+                  if (!regTime || regTime > regToTime) return false;
                 }
                 // Dual 3D Date Filter: Last Comment Date
-                if (empCommentDateFrom) {
-                  const fromTime = new Date(empCommentDateFrom).setHours(0, 0, 0, 0);
+                if (commFromTime) {
                   const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime < fromTime) return false;
+                  if (!commTime || commTime < commFromTime) return false;
                 }
-                if (empCommentDateTo) {
-                  const toTime = new Date(empCommentDateTo).setHours(23, 59, 59, 999);
+                if (commToTime) {
                   const commTime = getLastCommentTimestamp(c)?.getTime();
-                  if (!commTime || commTime > toTime) return false;
+                  if (!commTime || commTime > commToTime) return false;
                 }
 
-                const search = tableSearch.trim();
                 if (!search) return true;
-                const term = search.toLowerCase();
-                return c.name?.toLowerCase().includes(term) || c.phoneNumber?.includes(term);
+                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
               });
 
-              // Sorting
-              filtered.sort((a, b) => {
-                const timeA = getTimestampMillis(a.createdAt) || getTimestampMillis(b.updatedAt);
-                const timeB = getTimestampMillis(b.createdAt) || getTimestampMillis(b.updatedAt);
-                return empLeadsSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-              });
+              // Fast Pre-Mapped Sorting
+              const listWithTime = filtered.map(item => ({
+                item,
+                ts: getTimestampMillis(item.createdAt) || getTimestampMillis(item.updatedAt) || 0
+              }));
+              listWithTime.sort((a, b) => empLeadsSortOrder === 'asc' ? a.ts - b.ts : b.ts - a.ts);
+              filtered = listWithTime.map(x => x.item);
 
               const totalPagesEmpLeads = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageEmpLeads = Math.min(currentPageEmpLeads, totalPagesEmpLeads);
@@ -9169,7 +9298,7 @@ const Dashboard = () => {
                                   👑 الليدر: {leader.name || leader.username} (خاص به: {leaderOwnCount} مشترك)
                                 </option>
                                 {teamMembers.map(member => {
-                                  const memberCount = allSubscribedClients.filter(c => c.assignedToUid === member.uid || c.assignedTo?.toLowerCase() === member.email?.toLowerCase()).length;
+                                  const memberCount = subscribedCountsByEmp[member.uid] || 0;
                                   return (
                                     <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
                                       👤 {member.name || member.username} ({memberCount} مشترك)
@@ -9180,7 +9309,7 @@ const Dashboard = () => {
                             );
                           })}
                           {!isLeader && employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
-                            const count = allSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
+                            const count = subscribedCountsByEmp[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                                 🏢 {emp.name || emp.username} (مباشر للإدارة - {count} مشترك)
@@ -9292,17 +9421,22 @@ const Dashboard = () => {
 
             {/* Table Content */}
             {(() => {
+              const targetEmp = (subscribedEmpFilter && subscribedEmpFilter !== 'all' && subscribedEmpFilter !== 'admin')
+                ? employees.find(e => e.uid === subscribedEmpFilter)
+                : null;
+              const targetEmpMail = targetEmp?.email?.toLowerCase();
+
               let filtered = (!isAdmin && !isCoordinator)
                 ? (isLeader
                     ? (subscribedEmpFilter === 'all'
                         ? leaderSubscribedClients
-                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
+                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail)))
                     : agentSubscribedClients)
                 : (subscribedEmpFilter === 'all'
                     ? allSubscribedClients
                     : (subscribedEmpFilter === 'admin'
                         ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
-                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail))));
 
               if (subMonthFilter !== 'all') {
                 filtered = filtered.filter(c => {
@@ -9710,7 +9844,7 @@ const Dashboard = () => {
                           <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} Leads)</option>
                         )}
                         {employees.map(emp => {
-                          const count = customers.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
+                          const count = customerCountsByEmp[emp.uid] || 0;
                           return (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                               {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.name}`} — ({count} Leads)
@@ -9774,7 +9908,13 @@ const Dashboard = () => {
             </div>
             {/* Customers Tab Table */}
             {(() => {
-              const filtered = scopedCustomerPool.filter(c => {
+              const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'all' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'admin')
+                ? employees.find(e => e.uid === selectedEmpFilter)
+                : null;
+              const targetEmpMail = targetEmp?.email?.toLowerCase();
+              const search = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
+
+              let filtered = scopedCustomerPool.filter(c => {
                 const matchesFilter = customerFilter === 'all' || (customerFilter === 'website' && (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy)) || (customerFilter === 'unassigned' && c.status === 'unassigned') || (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
                 if (!matchesFilter) return false;
 
@@ -9785,23 +9925,21 @@ const Dashboard = () => {
                   } else if (selectedEmpFilter === 'admin') {
                     if (c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo)) return false;
                   } else {
-                    const emp = employees.find(e => e.uid === selectedEmpFilter);
-                    if (c.assignedToUid !== selectedEmpFilter && c.assignedTo !== emp?.email) return false;
+                    if (c.assignedToUid !== selectedEmpFilter && (c.assignedTo !== targetEmp?.email && c.assignedTo?.toLowerCase() !== targetEmpMail)) return false;
                   }
                 }
 
-                const search = tableSearch.trim() || dashboardSearch.trim();
                 if (!search) return true;
-                const term = search.toLowerCase();
-                return c.name?.toLowerCase().includes(term) || c.phoneNumber?.includes(term);
+                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
               });
 
               const sortMultiplier = sortOrder === 'desc' ? 1 : -1;
-              filtered.sort((a, b) => {
-                const timeA = (a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)) || (a.updatedAt?.toMillis?.() || (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0)) || 0;
-                const timeB = (b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)) || (b.updatedAt?.toMillis?.() || (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0)) || 0;
-                return (timeB - timeA) * sortMultiplier;
-              });
+              const listWithTime = filtered.map(item => ({
+                item,
+                ts: (item.createdAt?.toMillis?.() || (item.createdAt?.seconds ? item.createdAt.seconds * 1000 : 0)) || (item.updatedAt?.toMillis?.() || (item.updatedAt?.seconds ? item.updatedAt.seconds * 1000 : 0)) || 0
+              }));
+              listWithTime.sort((a, b) => (b.ts - a.ts) * sortMultiplier);
+              filtered = listWithTime.map(x => x.item);
 
               const totalPagesCust = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
               const validPageCust = Math.min(currentPageCustomers, totalPagesCust);
