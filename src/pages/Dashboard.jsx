@@ -11707,22 +11707,7 @@ const Dashboard = () => {
                       onChange={(e) => setNewNoteText(e.target.value)}
                       className="w-full p-2 border border-amber-300 rounded-xl text-xs outline-none focus:border-amber-600 bg-white"
                     />
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="button"
-                        disabled={isAddingComment || !newNoteText.trim()}
-                        onClick={handleAddSingleCommentOnly}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
-                          newNoteText.trim() && !isAddingComment
-                            ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-95 shadow-amber-500/20'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        }`}
-                        title="إضافة هذا التعليق فوراً للسجل مع بقاء النافذة مفتوحة"
-                      >
-                        <Plus size={14} />
-                        <span>{isAddingComment ? 'جاري الإضافة...' : '➕ إضافة التعليق'}</span>
-                      </button>
-                    </div>
+
                   </div>
                 )}
 
