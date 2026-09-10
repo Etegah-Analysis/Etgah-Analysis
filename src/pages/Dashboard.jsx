@@ -2221,95 +2221,22 @@ const Dashboard = () => {
     syncAndEnsureEmployeeLeads();
   }, [customers, employees]);
 
-  // --- LIGHTNING-FAST 0ms SCROLL & TABLE ANCHOR ENGINE ---
+  // --- UNIFIED LAPTOP-PARITY SCROLL & TABLE ANCHOR ENGINE ---
   const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
-    if (!el) return;
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      // 0ms INSTANT jump on mobile: zero lag, zero frame freeze, zero touch blockage!
-      const offset = 76;
-      const targetY = window.pageYOffset + el.getBoundingClientRect().top - offset;
-      window.scrollTo(0, Math.max(0, targetY));
-    } else {
-      // Smooth animated scroll on desktop / laptop
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, []);
-
-  // --- UNIFIED HIGH-PRECISION 0ms TOUCH & TAP ENGINE (Single-Touch Across All Cards) ---
-  const touchPosRef = useRef({ startX: 0, startY: 0, startTime: 0 });
-  const lastTouchHandledRef = useRef(0);
-
-  const handleCardTouchStart = useCallback((e) => {
-    if (e.touches && e.touches[0]) {
-      touchPosRef.current = {
-        startX: e.touches[0].clientX,
-        startY: e.touches[0].clientY,
-        startTime: Date.now()
-      };
-    }
-  }, []);
-
-  const handleCardTouchEnd = useCallback((e, type, filter = 'all') => {
-    if (e.changedTouches && e.changedTouches[0]) {
-      const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-      const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-      const deltaTime = Date.now() - touchPosRef.current.startTime;
-
-      // Generous natural thumb tap threshold: < 32px movement and < 550ms duration
-      if (deltaX < 32 && deltaY < 32 && deltaTime < 550) {
-        lastTouchHandledRef.current = Date.now();
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-        handleCardClick(e, type, filter);
+    setTimeout(() => {
+      const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }
-  }, []);
-
-  const handleCardClickSafe = useCallback((e, type, filter = 'all') => {
-    // Suppress synthetic ghost click only within tight 250ms window (never blocks switching to next card!)
-    if (Date.now() - lastTouchHandledRef.current < 250) {
-      if (e && e.preventDefault) e.preventDefault();
-      if (e && e.stopPropagation) e.stopPropagation();
-      return;
-    }
-    handleCardClick(e, type, filter);
-  }, []);
-
-  // Dedicated tap helper for modal cards (Total Leads, Pending Leads, Analysis)
-  const handleModalCardTouchEnd = useCallback((e, callback) => {
-    if (e.changedTouches && e.changedTouches[0]) {
-      const deltaX = Math.abs(e.changedTouches[0].clientX - touchPosRef.current.startX);
-      const deltaY = Math.abs(e.changedTouches[0].clientY - touchPosRef.current.startY);
-      const deltaTime = Date.now() - touchPosRef.current.startTime;
-
-      if (deltaX < 32 && deltaY < 32 && deltaTime < 550) {
-        lastTouchHandledRef.current = Date.now();
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-        if (callback) callback();
-      }
-    }
-  }, []);
-
-  const handleModalCardClickSafe = useCallback((e, callback) => {
-    if (Date.now() - lastTouchHandledRef.current < 250) {
-      if (e && e.preventDefault) e.preventDefault();
-      if (e && e.stopPropagation) e.stopPropagation();
-      return;
-    }
-    if (callback) callback();
+    }, 140);
   }, []);
 
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && type === 'subscribed_clients') return;
     
-    // If clicking the same active card, keep it open and scroll down immediately
+    // If clicking the same active card, keep it open and scroll down smoothly
     if (activeTab === type && customerFilter === filter) {
       scrollToTable();
       return;
@@ -2342,8 +2269,7 @@ const Dashboard = () => {
     setCustomerFilter(filter);
     setTableSearch('');
 
-    // Instant zero-freeze transition: 20ms single tick ensures React DOM has mounted
-    setTimeout(scrollToTable, 25);
+    scrollToTable();
   };
 
   // --- INTERNAL EMAIL / GMAIL SYSTEM LOGIC & PERMISSIONS ---
@@ -6202,7 +6128,6 @@ const Dashboard = () => {
     <div 
       className="h-screen overflow-y-auto w-full font-sans relative bg-slate-900 pb-20" 
       dir="rtl"
-      onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'analytics', 'all')} onClick={(e) => handleCardClickSafe(e, 'analytics', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
     >
       {/* 3D Modern Gradient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -6750,7 +6675,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6764,7 +6689,7 @@ const Dashboard = () => {
 
               {/* Card 2: Employee Added Data */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
@@ -6779,7 +6704,7 @@ const Dashboard = () => {
 
               {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
               >
@@ -6798,10 +6723,7 @@ const Dashboard = () => {
 
               {/* Card 4: Total Customers */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsSystemTotalClientsModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsSystemTotalClientsModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsSystemTotalClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
@@ -6816,10 +6738,7 @@ const Dashboard = () => {
               
               {/* Card 5: Pending Customers (All Sources) */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsPendingClientsModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsPendingClientsModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsPendingClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
@@ -6835,7 +6754,7 @@ const Dashboard = () => {
 
               {/* Card 6: Website WhatsApp Leads */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
@@ -6851,7 +6770,7 @@ const Dashboard = () => {
 
               {/* Card 8: Visitors */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'whatsapp_visitors', 'all')} onClick={(e) => handleCardClickSafe(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6865,7 +6784,7 @@ const Dashboard = () => {
               
               {/* Card 7: Employees Count */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employees', 'all')} onClick={(e) => handleCardClickSafe(e, 'employees', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'employees', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employees' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6879,7 +6798,7 @@ const Dashboard = () => {
 
               {/* Card 9: Recycle Bin */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'recycle_bin', 'all')} onClick={(e) => handleCardClickSafe(e, 'recycle_bin', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'recycle_bin' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6905,10 +6824,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {/* Card 10: Leads CRM Analysis */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
               >
@@ -6926,10 +6842,7 @@ const Dashboard = () => {
 
               {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -6947,7 +6860,7 @@ const Dashboard = () => {
 
               {/* Card 12: Campaigns */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6969,7 +6882,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -6983,7 +6896,7 @@ const Dashboard = () => {
 
               {/* Card 2: Employee Added Data */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتتبع الداتا المضافة بواسطة الموظفين"
               >
@@ -6998,10 +6911,7 @@ const Dashboard = () => {
 
               {/* Card 4: Total Customer Database */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsSystemTotalClientsModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsSystemTotalClientsModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsSystemTotalClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة توزيع إجمالي العملاء على السيستم"
               >
@@ -7016,10 +6926,7 @@ const Dashboard = () => {
               
               {/* Card 5: Pending Customers (All Sources) */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsPendingClientsModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsPendingClientsModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsPendingClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تفاصيل وخريطة عملاء الانتظار (واتساب + Leads CRM + داتا الموظف)"
               >
@@ -7035,7 +6942,7 @@ const Dashboard = () => {
 
               {/* Card 6: Website WhatsApp Leads */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
               >
@@ -7051,7 +6958,7 @@ const Dashboard = () => {
 
               {/* Card 7: Visitors (عملاء الزوار والموقع) */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'whatsapp_visitors', 'all')} onClick={(e) => handleCardClickSafe(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض وتوزيع عملاء الزوار ومسجلي الموقع OTP"
               >
@@ -7081,10 +6988,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Card 8: Leads CRM Analysis */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
               >
@@ -7102,10 +7006,7 @@ const Dashboard = () => {
 
               {/* Card 9: Call Performance Analytics */}
               <div 
-                onTouchStart={handleCardTouchStart}
-                onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
-                onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
-                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -7123,7 +7024,7 @@ const Dashboard = () => {
 
               {/* Card 10: Campaign Performance (أداء الحملات) */}
               <div 
-                onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
               >
@@ -7152,7 +7053,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
                   {/* Leader Card 1: Leads CRM (Personal Leads) */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض جدول Leads CRM الخاص بك"
                   >
@@ -7169,7 +7070,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 2: Employee Added Data */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
@@ -7186,7 +7087,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'team_leads_tracking', 'all')} onClick={(e) => handleCardClickSafe(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لمتابعة عملاء فريقك وسحب الداتا"
                   >
@@ -7208,7 +7109,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 4: Subscribed Clients */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
                   >
@@ -7227,7 +7128,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 5: Website WhatsApp Leads */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
@@ -7256,10 +7157,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
                   {/* Leader Card 6: Leads CRM Analysis */}
                   <div 
-                    onTouchStart={handleCardTouchStart}
-                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
-                    onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
-                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
                   >
@@ -7279,10 +7177,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 7: Call Performance Analytics */}
                   <div 
-                    onTouchStart={handleCardTouchStart}
-                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
-                    onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
-                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
                   >
@@ -7300,7 +7195,7 @@ const Dashboard = () => {
 
                   {/* Leader Card 8: Campaign Performance (أداء الحملات) */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
                   >
@@ -7330,7 +7225,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                   {/* Agent Card 1: Leads CRM */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'leads_crm', 'all')} onClick={(e) => handleCardClickSafe(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
                   >
@@ -7347,7 +7242,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 2: Employee Added Data */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'employee_leads', 'all')} onClick={(e) => handleCardClickSafe(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
                   >
@@ -7364,7 +7259,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 3: Subscribed Clients */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'subscribed_clients', 'all')} onClick={(e) => handleCardClickSafe(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
                   >
@@ -7383,7 +7278,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 4: Website WhatsApp Leads */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'customers', 'website')} onClick={(e) => handleCardClickSafe(e, 'customers', 'website')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
                   >
@@ -7412,10 +7307,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
                   {/* Agent Card 5: Leads CRM Analysis */}
                   <div 
-                    onTouchStart={handleCardTouchStart}
-                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsLeadsAnalysisModalOpen(true))}
-                    onClick={(e) => handleModalCardClickSafe(e, () => setIsLeadsAnalysisModalOpen(true))}
-                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
                   >
@@ -7435,10 +7327,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 6: Call Performance Analytics */}
                   <div 
-                    onTouchStart={handleCardTouchStart}
-                    onTouchEnd={(e) => handleModalCardTouchEnd(e, () => setIsCallsAnalysisModalOpen(true))}
-                    onClick={(e) => handleModalCardClickSafe(e, () => setIsCallsAnalysisModalOpen(true))}
-                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
                   >
@@ -7456,7 +7345,7 @@ const Dashboard = () => {
 
                   {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
                   <div 
-                    onTouchStart={handleCardTouchStart} onTouchEnd={(e) => handleCardTouchEnd(e, 'campaigns', 'all')} onClick={(e) => handleCardClickSafe(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                   >
