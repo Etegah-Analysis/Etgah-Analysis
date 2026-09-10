@@ -2223,19 +2223,34 @@ const Dashboard = () => {
 
   const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
-    requestAnimationFrame(() => {
-      if (tableSectionRef.current) {
-        const isMobile = window.innerWidth < 768;
-        const offset = isMobile ? 76 : 90;
-        const rect = tableSectionRef.current.getBoundingClientRect();
-        const targetY = window.pageYOffset + rect.top - offset;
-        window.scrollTo({
-          top: Math.max(0, targetY),
-          behavior: 'smooth'
+    const doScroll = () => {
+      const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
+      if (el) {
+        el.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
         });
       }
-    });
+    };
+    requestAnimationFrame(doScroll);
+    setTimeout(doScroll, 80);
   }, []);
+
+  // Guarantee automatic scroll to table upon tab change once React finishes DOM rendering
+  useEffect(() => {
+    if (activeTab && activeTab !== 'analytics') {
+      const timer = setTimeout(() => {
+        const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
+        if (el) {
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
 
   // --- UNIFIED HIGH-PRECISION 0ms TOUCH & TAP ENGINE (Mobile & Desktop) ---
   const touchPosRef = useRef({ startX: 0, startY: 0, startTime: 0 });
