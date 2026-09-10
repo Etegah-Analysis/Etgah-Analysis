@@ -1116,7 +1116,7 @@ const Dashboard = () => {
   }, [isLeader, employees, currentUser?.uid]);
 
   const assignableEmployees = useMemo(() => {
-    return assignableEmployees;
+    return (employees || []).filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator');
   }, [employees]);
   const isAllowedToManageLeads = isAdmin || hasPermission(currentEmpUser, 'canReassignLeads') || (isCoordinator || isLeader);
   const myUid = isAdmin ? 'admin' : (effectiveUser?.uid || currentUser?.uid || '');
