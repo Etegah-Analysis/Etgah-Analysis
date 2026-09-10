@@ -419,6 +419,7 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = أحدث أولاً, 'asc' = أقدم أولاً
   const tableSectionRef = useRef(null);
   const mainContainerRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
 
   const [customers, setCustomers] = useState([]);
   const [leadsCrm, setLeadsCrm] = useState([]);
@@ -2225,19 +2226,21 @@ const Dashboard = () => {
   // --- UNIFIED LAPTOP-PARITY SCROLL & TABLE ANCHOR ENGINE ---
   const scrollToTable = useCallback(() => {
     if (typeof window === 'undefined') return;
-    setTimeout(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
       const container = mainContainerRef.current || document.getElementById('dashboard-main-container');
       const el = tableSectionRef.current || document.getElementById('dashboard-table-section');
       if (container && el) {
-        const targetTop = Math.max(0, el.offsetTop - 15);
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const header = document.querySelector('header');
+        const headerHeight = header ? header.getBoundingClientRect().height : 65;
+        const targetTop = Math.max(0, container.scrollTop + (elRect.top - containerRect.top) - headerHeight - 12);
         container.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
-      if (el && typeof el.scrollIntoView === 'function') {
-        try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (e) {}
-      }
-    }, 60);
+    }, 80);
   }, []);
 
   // Guarantee auto-scroll down to sheet whenever activeTab opens a sheet (exact laptop parity on mobile & desktop)
@@ -6177,6 +6180,108 @@ const Dashboard = () => {
       return false;
     }).length;
   }, [roleFilteredCallLogs]);
+
+  // Precompute and memoize all System Total Clients modal breakdowns (zero-freeze instant mobile render)
+  const systemTotalClientsModalData = useMemo(() => {
+    if (!isSystemTotalClientsModalOpen) return null;
+
+    const totalAll = leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount;
+
+    // Card 1: Leads CRM
+    let crmAssigned = 0;
+    let crmPending = 0;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      if (isLeadAssignedToEmployee(leadsCrm[i])) {
+        crmAssigned++;
+      } else {
+        crmPending++;
+      }
+    }
+
+    // Card 2: Employee Leads
+    let empAssigned = 0;
+    let empSelf = 0;
+    for (let i = 0; i < employeeLeads.length; i++) {
+      const c = employeeLeads[i];
+      if (c.assignedToUid || c.assignedTo) {
+        empAssigned++;
+      } else {
+        empSelf++;
+      }
+    }
+
+    // Card 3: Manual Customers
+    let manualPending = 0;
+    let manualAssigned = 0;
+    let whatsappAuto = 0;
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      if (c.addedBy && c.addedBy !== 'WhatsApp Webhook') {
+        if (!c.assignedToUid || c.assignedToUid === 'admin') {
+          manualPending++;
+        } else {
+          manualAssigned++;
+        }
+      } else {
+        whatsappAuto++;
+      }
+    }
+
+    // Leaders Breakdown (Admin View)
+    const leaders = isAdmin ? employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin') : [];
+    const leadersBreakdown = leaders.map((leader, idx) => {
+      const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
+      const teamUids = new Set([leader.uid, ...teamMembers.map(e => e.uid)]);
+      const teamEmails = new Set([leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase()).filter(Boolean)]);
+
+      let crmCount = 0;
+      for (let i = 0; i < leadsCrm.length; i++) {
+        const c = leadsCrm[i];
+        if (teamUids.has(c.assignedToUid) || (c.assignedTo && teamEmails.has(c.assignedTo.toLowerCase()))) {
+          crmCount++;
+        }
+      }
+
+      let empCount = 0;
+      for (let i = 0; i < employeeLeads.length; i++) {
+        const c = employeeLeads[i];
+        if (teamUids.has(c.assignedToUid) || teamUids.has(c.addedByUid) || (c.assignedTo && teamEmails.has(c.assignedTo?.toLowerCase()))) {
+          empCount++;
+        }
+      }
+
+      let whatsappCount = 0;
+      for (let i = 0; i < customers.length; i++) {
+        const c = customers[i];
+        if (teamUids.has(c.assignedToUid) || (c.assignedTo && teamEmails.has(c.assignedTo?.toLowerCase()))) {
+          whatsappCount++;
+        }
+      }
+
+      return {
+        leader,
+        idx,
+        teamMembersCount: teamMembers.length,
+        crmCount,
+        empCount,
+        whatsappCount,
+        totalTeamAll: crmCount + empCount + whatsappCount
+      };
+    });
+
+    return {
+      totalAll,
+      crmAssigned,
+      crmPending,
+      empAssigned,
+      empSelf,
+      manualPending,
+      manualAssigned,
+      whatsappAuto,
+      leadersBreakdown,
+      leadersCount: leaders.length
+    };
+  }, [isSystemTotalClientsModalOpen, isAdmin, leadsCrm, customers, employeeLeads, whatsappVisitorsCount, employees]);
 
   return (
     <div 
@@ -11527,8 +11632,16 @@ const Dashboard = () => {
 
         {/* Modal: Add Employee */}
         {isAddEmployeeOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsAddEmployeeOpen(false)}>
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsAddEmployeeOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+              onClick={() => setIsAddEmployeeOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -11653,8 +11766,16 @@ const Dashboard = () => {
 
         {/* Modal: Edit Employee Details */}
         {isEditEmployeeOpen && editEmp && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsEditEmployeeOpen(false)}>
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsEditEmployeeOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+              onClick={() => setIsEditEmployeeOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -11786,8 +11907,16 @@ const Dashboard = () => {
 
         {/* Modal 1: Import Leads (Excel, GSheet, Text/Screenshot, Manual) */}
         {isImportModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsImportModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsImportModalOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+              onClick={() => setIsImportModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative z-10 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -11993,8 +12122,16 @@ const Dashboard = () => {
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
         {isAssignModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsAssignModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsAssignModalOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 cursor-pointer" 
+              onClick={() => setIsAssignModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
                 style={{ touchAction: 'manipulation' }} 
@@ -12073,12 +12210,21 @@ const Dashboard = () => {
 
         {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
         {isNotesModalOpen && selectedCustomerForNotes && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsNotesModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative max-h-[88vh] my-auto flex flex-col border border-amber-200/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsNotesModalOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 cursor-pointer" 
+              onClick={() => setIsNotesModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative z-10 max-h-[88vh] my-auto flex flex-col border border-amber-200/50 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
               <button 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsNotesModalOpen(false); }} 
-                style={{ touchAction: 'manipulation' }} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer z-50"
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsNotesModalOpen(false); }} 
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+                className="absolute top-4 left-4 text-gray-400 md:hover:text-red-500 active:text-red-600 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg md:hover:bg-gray-100 active:bg-gray-200 cursor-pointer z-50 transition-colors duration-150"
                 title="إغلاق"
               >
                 <X size={22} />
@@ -12283,12 +12429,17 @@ const Dashboard = () => {
         {/* Modal 4: Leads CRM Analysis (Performance Dashboard for Admin, Leader & Employee) */}
         {isLeadsAnalysisModalOpen && typeof document !== 'undefined' && document.body && createPortal(
           <div 
-            className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
             onClick={() => setIsLeadsAnalysisModalOpen(false)}
-            style={{ touchAction: 'manipulation' }}
           >
+            {/* Dedicated Fixed Backdrop Overlay */}
             <div 
-              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden cursor-default" 
+              className="fixed inset-0 bg-black/85 cursor-pointer" 
+              onClick={() => setIsLeadsAnalysisModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div 
+              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden cursor-default" 
               onClick={(e) => e.stopPropagation()}
             >
               
@@ -12315,13 +12466,13 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
+                  type="button"
                   onClick={(e) => {
-                    e.preventDefault();
                     e.stopPropagation();
                     setIsLeadsAnalysisModalOpen(false);
                   }}
-                  style={{ touchAction: 'manipulation' }}
-                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
                   title="إغلاق النافذة"
                 >
                   <X size={22} />
@@ -13065,8 +13216,16 @@ const Dashboard = () => {
           const paginatedLogs = filteredLogs.slice(startIndexCalls, startIndexCalls + CALLS_PER_PAGE);
 
           return (typeof document !== 'undefined' && document.body) ? createPortal(
-            <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsCallsAnalysisModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+              onClick={() => setIsCallsAnalysisModalOpen(false)}
+            >
+              <div 
+                className="fixed inset-0 bg-black/85 cursor-pointer" 
+                onClick={() => setIsCallsAnalysisModalOpen(false)} 
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+              />
+              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-purple-500/20 mb-4">
@@ -13103,13 +13262,13 @@ const Dashboard = () => {
                       </button>
                     )}
                     <button 
+                      type="button"
                       onClick={(e) => {
-                        e.preventDefault();
                         e.stopPropagation();
                         setIsCallsAnalysisModalOpen(false);
                       }}
-                      style={{ touchAction: 'manipulation' }}
-                      className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
                       title="إغلاق النافذة"
                     >
                       <X size={20} />
@@ -13464,8 +13623,16 @@ const Dashboard = () => {
           const currentMsgPreview = crmCampaignTemplateId === 'custom' ? crmCampaignCustomText : (templateObj?.text || '');
 
           return (typeof document !== 'undefined' && document.body) ? createPortal(
-            <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+              onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)}
+            >
+              <div 
+                className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+                onClick={() => !crmCampaignSending && setIsCrmCampaignModalOpen(false)} 
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+              />
+              <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-3xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Modal Header */}
                 <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20 mb-4 shrink-0">
@@ -13785,11 +13952,24 @@ const Dashboard = () => {
 
         {/* Modal 5: System Total Clients Distribution & Breakdown */}
         {isSystemTotalClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsSystemTotalClientsModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsSystemTotalClientsModalOpen(false)}
+          >
+            {/* Dedicated Fixed Backdrop Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/85 cursor-pointer" 
+              onClick={() => setIsSystemTotalClientsModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+
+            <div 
+              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-purple-500/30 overflow-hidden cursor-default" 
+              onClick={(e) => e.stopPropagation()}
+            >
               
               {/* Modal Header */}
-              <div className="flex justify-between items-center pb-4 border-b border-purple-500/20 mb-4">
+              <div className="flex justify-between items-center pb-4 border-b border-purple-500/20 mb-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-lg border border-blue-300/40">
                     <Globe size={24} className="text-cyan-300" />
@@ -13804,9 +13984,11 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
-                  style={{ touchAction: 'manipulation' }} 
-                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setIsSystemTotalClientsModalOpen(false); }} 
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+                  className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  title="إغلاق"
                 >
                   <X size={20} />
                 </button>
@@ -13819,7 +14001,7 @@ const Dashboard = () => {
                   <div>
                     <span className="text-xs text-blue-300 font-bold block mb-1 flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 rounded-full object-cover border border-amber-300/60" /> Total System Leads:</span>
                     <span className="text-3xl sm:text-4xl font-black text-cyan-300">
-                      {(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()} عميل
+                      {(systemTotalClientsModalData?.totalAll || (leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount)).toLocaleString()} عميل
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">
@@ -13860,22 +14042,23 @@ const Dashboard = () => {
                       <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
                         <div className="flex justify-between py-0.5">
                           <span>👤 موزعة على الموظفين:</span>
-                          <span className="font-bold text-emerald-400">{leadsCrm.filter(c => isLeadAssignedToEmployee(c)).length.toLocaleString()} عميل</span>
+                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.crmAssigned || 0).toLocaleString()} عميل</span>
                         </div>
                         <div className="flex justify-between py-0.5">
-                          <span>👑 في انتظار التوزيع بالإدارة:</span>
-                          <span className="font-bold text-amber-400">{leadsCrm.filter(c => isLeadWithAdmin(c)).length.toLocaleString()} عميل</span>
+                          <span>⏳ غير موزعة (في الانتظار):</span>
+                          <span className="font-bold text-amber-400">{(systemTotalClientsModalData?.crmPending || 0).toLocaleString()} عميل</span>
                         </div>
                       </div>
                       <button
                         onClick={() => {
                           setIsSystemTotalClientsModalOpen(false);
                           setActiveTab('leads_crm');
+                          setCrmStatusFilter('all');
                           scrollToTable();
                         }}
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        الانتقال إلى جدول Leads CRM ➔
+                        الانتقال إلى Leads CRM ➔
                       </button>
                     </div>
 
@@ -13887,26 +14070,27 @@ const Dashboard = () => {
                             <Upload size={20} />
                           </div>
                           <div>
-                            <h4 className="font-extrabold text-sm text-white">📁 داتا مضافة بواسطة الموظف</h4>
-                            <p className="text-[11px] text-indigo-300">داتا رفعها الإيجنتس والليدرز</p>
+                            <h4 className="font-extrabold text-sm text-white">📁 داتا مضافة بواسطة الموظفين</h4>
+                            <p className="text-[11px] text-indigo-300">عملاء مسجلين ذاتياً بواسطة فريق العمل</p>
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">{employeeLeads.length.toLocaleString()}</span>
                       </div>
                       <div className="text-xs text-indigo-300/80 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20 mb-3" dir="rtl">
                         <div className="flex justify-between py-0.5">
-                          <span>👥 عدد الموظفين الذين أضافوا داتا:</span>
-                          <span className="font-bold text-indigo-200">{new Set(employeeLeads.map(c => c.addedBy || c.addedByUid)).size} موظف</span>
+                          <span>👤 مسندة لموظف للمتابعة:</span>
+                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.empAssigned || 0).toLocaleString()} عميل</span>
                         </div>
                         <div className="flex justify-between py-0.5">
-                          <span>🎉 عملاء تم تحويلهم بنجاح:</span>
-                          <span className="font-bold text-emerald-400">{employeeLeads.filter(c => ['subscribed','started_trial','interested'].includes(c.crmStatus)).length.toLocaleString()} عميل</span>
+                          <span>📝 خاصة بالموظف الذي أضافها:</span>
+                          <span className="font-bold text-cyan-400">{(systemTotalClientsModalData?.empSelf || 0).toLocaleString()} عميل</span>
                         </div>
                       </div>
                       <button
                         onClick={() => {
                           setIsSystemTotalClientsModalOpen(false);
                           setActiveTab('employee_leads');
+                          setEmpLeadsStatusFilter('all');
                           scrollToTable();
                         }}
                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
@@ -13915,30 +14099,30 @@ const Dashboard = () => {
                       </button>
                     </div>
 
-                    {/* Card 3: Manual Add WhatsApp */}
+                    {/* Card 3: Manual WhatsApp Leads */}
                     <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5">
                           <div className="p-2 bg-purple-900/60 rounded-xl text-purple-300">
-                            <UserPlus size={20} />
+                            <UserCheck size={20} />
                           </div>
                           <div>
-                            <h4 className="font-extrabold text-sm text-white">💬 داتا مضافة يدوياً WhatsApp</h4>
-                            <p className="text-[11px] text-purple-300">عملاء مضافين يدوياً من الشات والمحادثات</p>
+                            <h4 className="font-extrabold text-sm text-white">✍️ عملاء مضافين يدوياً للشات</h4>
+                            <p className="text-[11px] text-purple-300">أرقام تم بدء محادثات معها يدوياً</p>
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">
-                          {customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook').length.toLocaleString()}
+                          {((systemTotalClientsModalData?.manualPending || 0) + (systemTotalClientsModalData?.manualAssigned || 0)).toLocaleString()}
                         </span>
                       </div>
                       <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
                         <div className="flex justify-between py-0.5">
                           <span>⏳ عملاء في الانتظار:</span>
-                          <span className="font-bold text-amber-400">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook' && (!c.assignedToUid || c.assignedToUid === 'admin')).length.toLocaleString()} عميل</span>
+                          <span className="font-bold text-amber-400">{(systemTotalClientsModalData?.manualPending || 0).toLocaleString()} عميل</span>
                         </div>
                         <div className="flex justify-between py-0.5">
                           <span>👤 مخصصين لمتابعة الموظفين:</span>
-                          <span className="font-bold text-emerald-400">{customers.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook' && c.assignedToUid && c.assignedToUid !== 'admin').length.toLocaleString()} عميل</span>
+                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.manualAssigned || 0).toLocaleString()} عميل</span>
                         </div>
                       </div>
                       <button
@@ -13965,7 +14149,7 @@ const Dashboard = () => {
                           </div>
                         </div>
                         <span className="text-xl font-black text-cyan-300">
-                          {customers.filter(c => !c.addedBy || c.addedBy === 'WhatsApp Webhook').length.toLocaleString()}
+                          {(systemTotalClientsModalData?.whatsappAuto || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3" dir="rtl">
@@ -13997,7 +14181,7 @@ const Dashboard = () => {
                   <div className="bg-slate-950 rounded-2xl border border-amber-500/20 overflow-hidden shadow-lg">
                     <div className="p-4 border-b border-amber-500/20 bg-amber-950/30 flex justify-between items-center">
                       <h3 className="text-sm font-black text-amber-200">👑 توزيع الداتا عبر الليدرز وفرق العمل</h3>
-                      <span className="text-xs text-amber-300 font-bold">{employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').length} ليدر</span>
+                      <span className="text-xs text-amber-300 font-bold">{systemTotalClientsModalData?.leadersCount || 0} ليدر</span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-right text-xs">
@@ -14012,30 +14196,19 @@ const Dashboard = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-slate-200">
-                          {employees.filter(e => (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') && e.role !== 'admin').map((leader, idx) => {
-                            const teamMembers = employees.filter(e => e.leaderUid === leader.uid);
-                            const teamUids = [leader.uid, ...teamMembers.map(e => e.uid)];
-                            const teamEmails = [leader.email?.toLowerCase(), ...teamMembers.map(e => e.email?.toLowerCase())];
-
-                            const crmCount = leadsCrm.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
-                            const empCount = employeeLeads.filter(c => teamUids.includes(c.assignedToUid) || teamUids.includes(c.addedByUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
-                            const whatsappCount = customers.filter(c => teamUids.includes(c.assignedToUid) || (c.assignedTo && teamEmails.includes(c.assignedTo?.toLowerCase()))).length;
-                            const totalTeamAll = crmCount + empCount + whatsappCount;
-
-                            return (
-                              <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
-                                <td className="p-3 font-bold flex items-center gap-2">
-                                  <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
-                                  <span>{leader.name || leader.username}</span>
-                                </td>
-                                <td className="p-3 text-center font-bold text-amber-400">{teamMembers.length} موظف</td>
-                                <td className="p-3 text-center font-bold text-purple-400">{crmCount.toLocaleString()}</td>
-                                <td className="p-3 text-center font-bold text-indigo-400">{empCount.toLocaleString()}</td>
-                                <td className="p-3 text-center font-bold text-emerald-400">{whatsappCount.toLocaleString()}</td>
-                                <td className="p-3 text-center font-black text-cyan-300 text-sm">{totalTeamAll.toLocaleString()}</td>
-                              </tr>
-                            );
-                          })}
+                          {(systemTotalClientsModalData?.leadersBreakdown || []).map(({ leader, idx, teamMembersCount, crmCount, empCount, whatsappCount, totalTeamAll }) => (
+                            <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
+                              <td className="p-3 font-bold flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                                <span>{leader.name || leader.username}</span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
+                              <td className="p-3 text-center font-bold text-purple-400">{crmCount.toLocaleString()}</td>
+                              <td className="p-3 text-center font-bold text-indigo-400">{empCount.toLocaleString()}</td>
+                              <td className="p-3 text-center font-bold text-emerald-400">{whatsappCount.toLocaleString()}</td>
+                              <td className="p-3 text-center font-black text-cyan-300 text-sm">{totalTeamAll.toLocaleString()}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -14049,28 +14222,43 @@ const Dashboard = () => {
 
         {/* Modal 6: Pending Clients Breakdown & Distribution */}
         {isPendingClientsModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsPendingClientsModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-rose-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsPendingClientsModalOpen(false)}
+          >
+            {/* Dedicated Fixed Backdrop Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/85 cursor-pointer" 
+              onClick={() => setIsPendingClientsModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+
+            <div 
+              className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-rose-500/30 overflow-hidden cursor-default" 
+              onClick={(e) => e.stopPropagation()}
+            >
               
               {/* Modal Header */}
-              <div className="flex justify-between items-center pb-4 border-b border-rose-500/20 mb-4">
+              <div className="flex justify-between items-center pb-4 border-b border-rose-500/20 mb-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-tr from-rose-600 to-indigo-600 rounded-2xl shadow-lg border border-rose-300/40">
                     <Clock size={24} className="text-cyan-300" />
                   </div>
                   <div>
                     <h2 className="text-xl font-black text-white flex items-center gap-2">
-                      <span>خريطة وتوزيع عملاء الانتظار ⏳</span>
+                      <span>العملاء في الانتظار (غير محولين) ⏳</span>
                     </h2>
-                    <p className="text-xs text-purple-300 font-medium">
-                      تفصيل العملاء المرسلة للموظفين ولم يتم تحويل حالتهم بعد في (الواتساب + Leads CRM + داتا الموظف)
+                    <p className="text-xs text-rose-300 font-medium">
+                      حصر وتوزيع عملاء الانتظار الذين لم يتم تحويل حالتهم في كافة أقسام المنصة
                     </p>
                   </div>
                 </div>
                 <button 
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
-                  style={{ touchAction: 'manipulation' }} 
-                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setIsPendingClientsModalOpen(false); }} 
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+                  className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  title="إغلاق"
                 >
                   <X size={20} />
                 </button>
@@ -14081,8 +14269,8 @@ const Dashboard = () => {
                 {/* Total Big Badge */}
                 <div className="bg-gradient-to-r from-rose-950 via-purple-950 to-slate-900 p-5 rounded-2xl border border-rose-500/40 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
                   <div>
-                    <span className="text-xs text-rose-300 font-bold block mb-1">إجمالي عملاء الانتظار الموزعين على الموظفين (لم يتم تحويل حالتهم بعد):</span>
-                    <span className="text-3xl sm:text-4xl font-black text-cyan-300">
+                    <span className="text-xs text-rose-300 font-bold block mb-1">⏳ Total Pending Leads:</span>
+                    <span className="text-3xl sm:text-4xl font-black text-amber-300">
                       {totalPendingAll.toLocaleString()} عميل
                     </span>
                   </div>
@@ -14202,8 +14390,16 @@ const Dashboard = () => {
 
         {/* Modal: Client Subscription Details (بيانات اشتراك العميل) */}
         {isSubscriptionModalOpen && selectedSubCustomer && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto cursor-pointer" onClick={() => setIsSubscriptionModalOpen(false)} style={{ touchAction: 'manipulation' }}>
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsSubscriptionModalOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+              onClick={() => setIsSubscriptionModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
               <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20 mb-4">
@@ -14221,13 +14417,13 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button 
+                  type="button"
                   onClick={(e) => {
-                    e.preventDefault();
                     e.stopPropagation();
                     setIsSubscriptionModalOpen(false);
                   }}
-                  style={{ touchAction: 'manipulation' }}
-                  className="bg-white/10 hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 z-50"
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
                   title="إغلاق"
                 >
                   <X size={20} />
@@ -14642,8 +14838,16 @@ const Dashboard = () => {
 
         {/* Internal Mail System Modal (بريد اتجاه الداخلي - Gmail System) */}
         {isMailModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" onClick={() => setIsMailModalOpen(false)}>
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col border border-purple-500/30 overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+            onClick={() => setIsMailModalOpen(false)}
+          >
+            <div 
+              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer" 
+              onClick={() => setIsMailModalOpen(false)} 
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+            />
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col border border-purple-500/30 overflow-hidden relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
               
               {/* Mail Header */}
               <div className="px-5 py-3.5 border-b border-purple-500/20 bg-slate-950 flex flex-wrap justify-between items-center gap-3">
