@@ -10132,13 +10132,13 @@ const Dashboard = () => {
                     <th className="p-4 w-12 text-center">
                       <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-amber-500 rounded accent-amber-500" />
                     </th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">اسم الموظف / الكود</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">التدرج الوظيفي</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">Team / Leader</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">بيانات الدخول (م/س)</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">أول دخول</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">آخر دخول</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center">التحكم</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">اسم الموظف / الكود</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">التدرج الوظيفي</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">Team / Leader</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">بيانات الدخول (م/س)</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">أول دخول</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">آخر دخول</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs text-center whitespace-nowrap">التحكم</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -10154,7 +10154,7 @@ const Dashboard = () => {
                         <td className="p-4 text-center">
                           <input type="checkbox" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployeeSelection(emp.id)} className="w-4 h-4 text-primary rounded" />
                         </td>
-                        <td className="p-4 text-sm font-bold text-gray-800">
+                        <td className="p-4 text-sm font-bold text-gray-800 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {emp.isActive === false && <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" title="موقوف"></span>}
                             {emp.isActive !== false && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="نشط"></span>}
@@ -10166,26 +10166,29 @@ const Dashboard = () => {
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-sm">
-                          {emp.jobTitle === 'Leader' ? (
-                            <span className="bg-gradient-to-r from-amber-500 to-purple-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                              👑 Leader
+                        <td className="p-4 text-sm whitespace-nowrap">
+                          {emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' ? (
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-amber-500 to-purple-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm shrink-0" dir="ltr">
+                              <span>👑</span>
+                              <span>Leader</span>
                             </span>
-                          ) : emp.jobTitle === 'Coordinator' ? (
-                            <span className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                              📋 Coordinator
+                          ) : emp.jobTitle === 'Coordinator' || emp.jobTitle === 'منسق' || emp.jobTitle === 'منسق للإدارة' || emp.jobTitle === 'منسق إدارة' ? (
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm shrink-0" dir="ltr">
+                              <span>📋</span>
+                              <span>Coordinator</span>
                             </span>
-                          ) : emp.jobTitle === 'Customer Service' ? (
-                            <span className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                              🎧 Customer Service
+                          ) : emp.jobTitle === 'Customer Service' || emp.jobTitle === 'خدمة العملاء' || String(emp.jobTitle).toLowerCase().includes('customer') ? (
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm shrink-0" dir="ltr">
+                              <span>Customer Service</span>
+                              <span>🎧</span>
                             </span>
                           ) : (
-                            <span className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                              Agent
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full shadow-sm shrink-0" dir="ltr">
+                              <span>Agent</span>
                             </span>
                           )}
                         </td>
-                        <td className="p-4 text-xs">
+                        <td className="p-4 text-xs whitespace-nowrap">
                           {emp.jobTitle === 'Leader' ? (
                             <span className="bg-amber-50 text-amber-900 border border-amber-300 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 w-fit shadow-xs">
                               <span>🌟</span>
@@ -10216,14 +10219,14 @@ const Dashboard = () => {
                             </div>
                           )}
                         </td>
-                        <td className="p-4 text-sm">
+                        <td className="p-4 text-sm whitespace-nowrap">
                           <div className="flex flex-col space-y-1">
                             <span className="text-blue-600 font-mono" dir="ltr">{emp.username || emp.email?.split('@')[0]}</span>
                             <span className="text-red-600 font-mono font-bold text-xs" dir="ltr">{emp.password || 'غير محفوظ (قم بتعديله ليظهر)'}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(emp.firstLoginAt)}</td>
-                        <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(emp.lastLoginAt)}</td>
+                        <td className="p-4 text-xs text-gray-500 whitespace-nowrap" dir="ltr">{formatDate(emp.firstLoginAt)}</td>
+                        <td className="p-4 text-xs text-gray-500 whitespace-nowrap" dir="ltr">{formatDate(emp.lastLoginAt)}</td>
                         <td className="p-4">
                           <div className="flex items-center justify-center space-x-2 space-x-reverse">
                             {isAdmin && (
@@ -12495,9 +12498,11 @@ const Dashboard = () => {
                                       <span>{emp.name || emp.username}</span>
                                     </td>
                                     <td className="p-3 text-center text-xs text-purple-300">
-                                      {emp.jobTitle === 'Leader' ? (
-                                        <span className="bg-amber-900/60 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-bold">👑 Leader</span>
-                                      ) : emp.leaderUid ? (
+                                       {emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' ? (
+                                         <span className="inline-flex items-center gap-1 whitespace-nowrap bg-amber-900/60 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0">👑 Leader</span>
+                                       ) : emp.jobTitle === 'Customer Service' || emp.jobTitle === 'خدمة العملاء' ? (
+                                         <span className="inline-flex items-center gap-1 whitespace-nowrap bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0">🎧 Customer Service</span>
+                                       ) : emp.leaderUid ? (
                                         <span className="text-purple-300 font-medium">👑 {employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'ليدر'}</span>
                                       ) : (
                                         <span className="text-slate-500 text-[10px]">مباشر للإدارة</span>

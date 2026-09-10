@@ -646,6 +646,7 @@ function InboxContent() {
     const clean = title.toString().trim().toLowerCase();
     if (clean.includes('leader') || clean.includes('ليدر')) return 'Leader';
     if (clean.includes('coordinator') || clean.includes('منسق')) return 'Coordinator';
+    if (clean.includes('customer') || clean.includes('خدمة العملاء') || clean.includes('عملاء')) return 'Customer Service';
     return 'Agent';
   };
 
@@ -2061,7 +2062,7 @@ function InboxContent() {
                 </span>
                 {impersonatedEmp ? (
                   <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
-                    {impersonatedEmp.jobTitle === 'Leader' || impersonatedEmp.jobTitle === 'ليدر' ? '👑 Leader' : (impersonatedEmp.jobTitle === 'Coordinator' ? '📋 Coordinator' : (impersonatedEmp.jobTitle || impersonatedEmp.role || '👤 Agent'))}
+                    {impersonatedEmp.jobTitle === 'Leader' || impersonatedEmp.jobTitle === 'ليدر' ? '👑 Leader' : (impersonatedEmp.jobTitle === 'Coordinator' ? '📋 Coordinator' : (impersonatedEmp.jobTitle === 'Customer Service' || impersonatedEmp.jobTitle === 'خدمة العملاء' || String(impersonatedEmp.jobTitle).toLowerCase().includes('customer') ? '🎧 Customer Service' : (impersonatedEmp.jobTitle || impersonatedEmp.role || '👤 Agent')))}
                   </span>
                 ) : isAdmin ? (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 flex items-center gap-0.5">
@@ -2069,7 +2070,7 @@ function InboxContent() {
                   </span>
                 ) : (
                   <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
-                    {userProfile?.jobTitle === 'Leader' || userProfile?.jobTitle === 'ليدر' ? '👑 Leader' : (userProfile?.jobTitle === 'Coordinator' ? '📋 Coordinator' : (userProfile?.jobTitle || userProfile?.role || 'Agent'))}
+                    {userProfile?.jobTitle === 'Leader' || userProfile?.jobTitle === 'ليدر' ? '👑 Leader' : (userProfile?.jobTitle === 'Coordinator' ? '📋 Coordinator' : (userProfile?.jobTitle === 'Customer Service' || userProfile?.jobTitle === 'خدمة العملاء' || String(userProfile?.jobTitle).toLowerCase().includes('customer') ? '🎧 Customer Service' : (userProfile?.jobTitle || userProfile?.role || 'Agent')))}
                   </span>
                 )}
                 {/* Logout Button */}
@@ -3419,7 +3420,7 @@ function InboxContent() {
                               ? 'bg-cyan-900/60 text-cyan-200 border-cyan-400/40'
                               : 'bg-slate-800 text-slate-300 border-slate-700'
                         }`}>
-                          {title === 'Leader' ? '👑 Leader' : (emp.jobTitle === 'Coordinator' ? '📋 منسق' : '👤 Agent')}
+                          {title === 'Leader' ? '👑 Leader' : (emp.jobTitle === 'Coordinator' || emp.role === 'coordinator' ? '📋 منسق' : (title === 'Customer Service' ? '🎧 Customer Service' : '👤 Agent'))}
                         </span>
                         <span className="text-cyan-400 opacity-0 group-hover:opacity-100 transition text-xs font-bold">
                           مراسلة ➔
@@ -3727,7 +3728,7 @@ function InboxContent() {
 
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-800 text-slate-300 border-slate-700">
-                            {title === 'Leader' ? '👑 Leader' : (emp?.jobTitle === 'Coordinator' ? '📋 منسق' : '👤 Agent')}
+                            {title === 'Leader' ? '👑 Leader' : (emp?.jobTitle === 'Coordinator' || emp?.role === 'coordinator' ? '📋 منسق' : (title === 'Customer Service' ? '🎧 Customer Service' : '👤 Agent'))}
                           </span>
 
                           {canRemoveThisMember && (
