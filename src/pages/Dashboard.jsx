@@ -2651,11 +2651,11 @@ const Dashboard = () => {
 
   // Expiring Subscriptions Computation (for Admin, Coordinator, Leaders, and Agents)
   const expiringSubscriptions = useMemo(() => {
-    if (!isAdmin && !isCoordinator && !isLeader && !isAgent) return [];
+    if (!isAdmin && !isCoordinator && !isLeader && !isAgent && !isCustomerService) return [];
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const pool = (isAdmin || isCoordinator) 
+    const pool = (isAdmin || isCoordinator || isCustomerService) 
       ? (allSubscribedClients || [])
       : isLeader 
         ? (leaderSubscribedClients || [])
@@ -2678,7 +2678,7 @@ const Dashboard = () => {
         isExpired: daysDiff < 0
       };
     });
-  }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent]);
+  }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent, isCustomerService]);
 
   const totalAllNotificationsCount = useMemo(() => {
     return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
@@ -6510,7 +6510,7 @@ const Dashboard = () => {
                     >
                       ✉️ بريد ({unreadEmails.length})
                     </button>
-                    {(isAdmin || isCoordinator) && expiringSubscriptions.length > 0 && (
+                    {(isAdmin || isCoordinator || isCustomerService) && expiringSubscriptions.length > 0 && (
                       <button 
                         onClick={() => setNotifActiveTab('expiring')}
                         className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'expiring' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300 hover:text-white'}`}
@@ -6523,8 +6523,8 @@ const Dashboard = () => {
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1.5 space-y-1">
-                  {/* Expiring Subscriptions for Admin & Coordinator */}
-                  {(isAdmin || isCoordinator) && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
+                  {/* Expiring Subscriptions for Admin, Coordinator & Customer Service */}
+                  {(isAdmin || isCoordinator || isCustomerService) && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
                     <div className="p-2.5 bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 rounded-xl border border-amber-500/40 mb-2 space-y-2">
                       <div className="flex items-center justify-between text-amber-300 font-bold text-xs border-b border-amber-500/20 pb-1.5">
                         <span className="flex items-center gap-1.5">
@@ -7423,11 +7423,11 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* Agent Card 3: Subscribed Clients */}
+                  {/* Agent / Customer Service Card 3: Subscribed Clients */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
+                    title={isCustomerService ? "انقر لعرض ومتابعة كافة العملاء المشتركين بالمنصة" : "انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"}
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <Award className="text-amber-400" size={28} />
@@ -7436,7 +7436,7 @@ const Dashboard = () => {
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
                       <div className="mt-1">
                         <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
-                          {agentSubscribedClients.length.toLocaleString()} Paid
+                          {(isCustomerService ? allSubscribedClients.length : agentSubscribedClients.length).toLocaleString()} Paid
                         </span>
                       </div>
                     </div>
@@ -9572,7 +9572,7 @@ const Dashboard = () => {
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                     <span>🎉 Paid Clients (إدارة وتفاصيل الاشتراكات)</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                      {isAdmin || isCoordinator ? `${allSubscribedClients.length.toLocaleString()} Paid` : isLeader ? `${leaderSubscribedClients.length.toLocaleString()} Team Paid` : `${agentSubscribedClients.length.toLocaleString()} My Paid`}
+                      {(isAdmin || isCoordinator || isCustomerService) ? `${allSubscribedClients.length.toLocaleString()} Paid` : isLeader ? `${leaderSubscribedClients.length.toLocaleString()} Team Paid` : `${agentSubscribedClients.length.toLocaleString()} My Paid`}
                     </span>
                   </h2>
                 </div>
@@ -9591,9 +9591,24 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Financial Sales Summary Banner (For Admin ONLY inside Subscribed Clients) */}
-            {isAdmin && (() => {
-              let bannerClients = allSubscribedClients;
+            {/* Financial Sales Summary Banner (For Admin, Leader, and Customer Service inside Subscribed Clients) */}
+            {(isAdmin || isLeader || isCustomerService) && (() => {
+              const basePool = (isAdmin || isCustomerService) ? allSubscribedClients : leaderSubscribedClients;
+              const targetEmp = (subscribedEmpFilter && subscribedEmpFilter !== 'all' && subscribedEmpFilter !== 'admin')
+                ? employees.find(e => e.uid === subscribedEmpFilter)
+                : null;
+              const targetEmpMail = targetEmp?.email?.toLowerCase();
+
+              let pool = basePool;
+              if (subscribedEmpFilter !== 'all') {
+                if (subscribedEmpFilter === 'admin') {
+                  pool = pool.filter(c => isLeadWithAdmin(c));
+                } else {
+                  pool = pool.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail));
+                }
+              }
+
+              let bannerClients = pool;
               if (subMonthFilter !== 'all') {
                 bannerClients = bannerClients.filter(c => {
                   const history = c.subscriptionHistory || [];
@@ -9606,8 +9621,8 @@ const Dashboard = () => {
               let totalMonthRevenue = 0;
               let totalRemainingDue = 0;
 
-              // Calculate active remaining amounts due across subscribed clients (cleared automatically if paid in full)
-              allSubscribedClients.forEach(c => {
+              // Calculate active remaining amounts due across scoped clients (cleared automatically if paid in full)
+              pool.forEach(c => {
                 const sub = c.subscriptionDetails;
                 if (sub?.paymentType === 'partial' && sub?.remainingAmount) {
                   const rem = parseFloat(String(sub.remainingAmount).replace(/[^0-9.]/g, '')) || 0;
@@ -9615,46 +9630,54 @@ const Dashboard = () => {
                 }
               });
 
-              // Calculate collected sales revenue strictly by the selected financial month of the receipts
-              bannerClients.forEach(c => {
-                const history = c.subscriptionHistory || [];
-                if (subMonthFilter !== 'all') {
-                  const matchHistory = history.filter(h => h.month === subMonthFilter);
-                  if (matchHistory.length > 0) {
-                    matchHistory.forEach(h => {
-                      totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                    });
-                  } else if (c.subscriptionDetails?.paidAmount && c.subscriptionDetails?.month === subMonthFilter) {
-                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+              // Calculate collected sales revenue strictly by the selected financial month of the receipts (Hidden for Customer Service)
+              if (!isCustomerService) {
+                bannerClients.forEach(c => {
+                  const history = c.subscriptionHistory || [];
+                  if (subMonthFilter !== 'all') {
+                    const matchHistory = history.filter(h => h.month === subMonthFilter);
+                    if (matchHistory.length > 0) {
+                      matchHistory.forEach(h => {
+                        totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                      });
+                    } else if (c.subscriptionDetails?.paidAmount && c.subscriptionDetails?.month === subMonthFilter) {
+                      totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    }
+                  } else {
+                    if (history.length > 0) {
+                      history.forEach(h => {
+                        totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                      });
+                    } else if (c.subscriptionDetails?.paidAmount) {
+                      totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    }
                   }
-                } else {
-                  if (history.length > 0) {
-                    history.forEach(h => {
-                      totalMonthRevenue += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                    });
-                  } else if (c.subscriptionDetails?.paidAmount) {
-                    totalMonthRevenue += parseFloat((c.subscriptionDetails.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                  }
-                }
-              });
+                });
+              }
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner">
-                  {/* Card 1: Total Collected Sales */}
-                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
-                    <div>
-                      <span className="text-xs text-emerald-300 font-extrabold block">💰 إجمالي مبيعات وتحصيلات {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}</span>
-                      <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال</span></h4>
+                <div className={`grid grid-cols-1 ${isCustomerService ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3.5 p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-b border-emerald-500/30 text-white shadow-inner`}>
+                  {/* Card 1: Total Collected Sales (Hidden for Customer Service) */}
+                  {!isCustomerService && (
+                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
+                      <div>
+                        <span className="text-xs text-emerald-300 font-extrabold block">
+                          💰 {isLeader ? 'إجمالي مبيعات وتحصيلات فريقي' : 'إجمالي مبيعات وتحصيلات'} {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}
+                        </span>
+                        <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال</span></h4>
+                      </div>
+                      <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30 shadow-md">
+                        <CreditCard size={24} />
+                      </div>
                     </div>
-                    <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-400/30 shadow-md">
-                      <CreditCard size={24} />
-                    </div>
-                  </div>
+                  )}
 
                   {/* Card 2: Total Remaining Due */}
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
                     <div>
-                      <span className="text-xs text-amber-300 font-extrabold block">⏳ إجمالي المبالغ المتبقية</span>
+                      <span className="text-xs text-amber-300 font-extrabold block">
+                        ⏳ {isLeader ? 'إجمالي المتبقي على عملاء فريقي' : isCustomerService ? 'إجمالي المبالغ المتبقية على المشتركين' : 'إجمالي المبالغ المتبقية'}
+                      </span>
                       <h4 className="text-2xl font-black text-amber-300 font-mono mt-1">{totalRemainingDue.toLocaleString()} <span className="text-xs text-amber-400 font-normal">ريال</span></h4>
                     </div>
                     <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30 shadow-md">
@@ -9665,7 +9688,9 @@ const Dashboard = () => {
                   {/* Card 3: Registered Clients / Payments Count */}
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
                     <div>
-                      <span className="text-xs text-cyan-300 font-extrabold block">👥 عدد المشتركين والدفعات المسجلة</span>
+                      <span className="text-xs text-cyan-300 font-extrabold block">
+                        👥 {isLeader ? 'عدد مشتركي فريقي المسجلين' : 'عدد المشتركين والدفعات المسجلة'}
+                      </span>
                       <h4 className="text-2xl font-black text-white font-mono mt-1">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
                     </div>
                     <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-400/30 shadow-md">
@@ -9678,7 +9703,7 @@ const Dashboard = () => {
 
             {/* Filter Bar */}
             {(() => {
-              const scopeSubscribed = (!isAdmin && !isCoordinator)
+              const scopeSubscribed = (!isAdmin && !isCoordinator && !isCustomerService)
                 ? (isLeader
                     ? (subscribedEmpFilter === 'all'
                         ? leaderSubscribedClients
@@ -9694,7 +9719,7 @@ const Dashboard = () => {
                 <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter */}
-                    {(isAdmin || isCoordinator || isLeader) && (
+                    {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
                       <div className="relative">
                         <select
                           value={subscribedEmpFilter}
@@ -9702,7 +9727,7 @@ const Dashboard = () => {
                           className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-md border border-emerald-400/40 cursor-pointer appearance-none"
                         >
                           <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({scopeSubscribed.length})</option>
-                          {(isAdmin || isCoordinator) && (
+                          {(isAdmin || isCoordinator || isCustomerService) && (
                             <option value="admin" className="bg-slate-900 text-white">
                               👑 الإدارة ({allSubscribedClients.filter(c => isLeadWithAdmin(c)).length} مشترك)
                             </option>
@@ -9868,7 +9893,7 @@ const Dashboard = () => {
                 : null;
               const targetEmpMail = targetEmp?.email?.toLowerCase();
 
-              let filtered = (!isAdmin && !isCoordinator)
+              let filtered = (!isAdmin && !isCoordinator && !isCustomerService)
                 ? (isLeader
                     ? (subscribedEmpFilter === 'all'
                         ? leaderSubscribedClients
@@ -9925,14 +9950,14 @@ const Dashboard = () => {
                           <th className="p-3.5 text-center min-w-[230px] font-extrabold text-amber-300">الموظف المسؤول</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">فترة الاشتراك</th>
-                          {(isAdmin || isCoordinator) && <th className="p-3.5 text-center font-extrabold text-amber-300">حالة الدفع والمبلغ</th>}
+                          <th className="p-3.5 text-center font-extrabold text-amber-300">حالة الدفع والمبلغ</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">الإجراءات وتفاصيل الاشتراك</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
                         {paginatedSub.length === 0 ? (
                           <tr>
-                            <td colSpan={(isAdmin || isCoordinator) ? 7 : 6} className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={7} className="p-10 text-center text-gray-500 font-bold">
                               لا يوجد عملاء مشتركين يطابقون شروط البحث الحالية 🎉
                             </td>
                           </tr>
@@ -10072,52 +10097,68 @@ const Dashboard = () => {
                                     <span className="text-rose-500 font-bold">غير مسجل ⚠️</span>
                                   )}
                                 </td>
-                                {(isAdmin || isCoordinator) && (
-                                  <td className="p-3.5 text-center">
-                                    {(() => {
-                                      let monthPaidTotal = 0;
-                                      let monthReceiptsCount = 0;
-                                      const history = customer.subscriptionHistory || [];
-                                      if (subMonthFilter !== 'all') {
-                                        const matchHistory = history.filter(h => h.month === subMonthFilter);
-                                        if (matchHistory.length > 0) {
-                                          monthReceiptsCount = matchHistory.length;
-                                          matchHistory.forEach(h => {
-                                            monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                          });
-                                        } else if (sub.month === subMonthFilter) {
-                                          monthReceiptsCount = 1;
-                                          monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                        }
-                                      } else {
-                                        if (history.length > 0) {
-                                          monthReceiptsCount = history.length;
-                                          history.forEach(h => {
-                                            monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                          });
-                                        } else {
-                                          monthReceiptsCount = 1;
-                                          monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                                        }
+                                <td className="p-3.5 text-center">
+                                  {(() => {
+                                    let monthPaidTotal = 0;
+                                    let monthReceiptsCount = 0;
+                                    const history = customer.subscriptionHistory || [];
+                                    if (subMonthFilter !== 'all') {
+                                      const matchHistory = history.filter(h => h.month === subMonthFilter);
+                                      if (matchHistory.length > 0) {
+                                        monthReceiptsCount = matchHistory.length;
+                                        matchHistory.forEach(h => {
+                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        });
+                                      } else if (sub.month === subMonthFilter) {
+                                        monthReceiptsCount = 1;
+                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
                                       }
+                                    } else {
+                                      if (history.length > 0) {
+                                        monthReceiptsCount = history.length;
+                                        history.forEach(h => {
+                                          monthPaidTotal += parseFloat((h.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                        });
+                                      } else {
+                                        monthReceiptsCount = 1;
+                                        monthPaidTotal = parseFloat((sub.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                                      }
+                                    }
 
+                                    // Customer Service: Hide total sales/collected amounts; show only the remaining amount status
+                                    if (isCustomerService) {
                                       return (
                                         <div className="space-y-1">
-                                          <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
-                                            💵 {monthPaidTotal.toLocaleString()} ريال
-                                          </span>
-                                          <div className="text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1">
-                                            <span>({monthReceiptsCount} إشعار / دفعة)</span>
-                                            <span>•</span>
-                                            <span className="text-gray-600 font-semibold">
-                                              {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
+                                          {sub.paymentType === 'partial' ? (
+                                            <span className="bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
+                                              ⏳ متبقي: {sub.remainingAmount || '0'} ريال
                                             </span>
-                                          </div>
+                                          ) : (
+                                            <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
+                                              {sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? '💼 اتفاق نسبة' : '✓ دفع كامل'}
+                                            </span>
+                                          )}
                                         </div>
                                       );
-                                    })()}
-                                  </td>
-                                )}
+                                    }
+
+                                    // Admin, Leader, and Agent (Agent sees his own clients, Leader sees his own + team)
+                                    return (
+                                      <div className="space-y-1">
+                                        <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
+                                          💵 {monthPaidTotal.toLocaleString()} ريال
+                                        </span>
+                                        <div className="text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1">
+                                          <span>({monthReceiptsCount} إشعار / دفعة)</span>
+                                          <span>•</span>
+                                          <span className="text-gray-600 font-semibold">
+                                            {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
                                 <td className="p-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     {/* Glassmorphic Subscription Details Button */}
@@ -10156,8 +10197,20 @@ const Dashboard = () => {
                                       )}
                                     </button>
 
+                                    {/* Direct Call Button in Actions */}
+                                    {customer.phoneNumber && !isCoordinator && (isAdmin || isCustomerService || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber, customer); }}
+                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_4px_14px_rgba(37,99,235,0.6)] active:scale-95 cursor-pointer border border-blue-300/40 whitespace-nowrap"
+                                        title="اتصال مباشر عبر MicroSIP 📞"
+                                      >
+                                        <PhoneCall size={13} className="drop-shadow-sm" />
+                                        <span className="text-[11px] font-black">Call</span>
+                                      </button>
+                                    )}
+
                                     {/* WhatsApp Action Button */}
-                                    {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
+                                    {!isCoordinator && (isAdmin || isCustomerService || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                       <button 
                                         onClick={() => handleTransferToWhatsapp(customer)}
                                         className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
