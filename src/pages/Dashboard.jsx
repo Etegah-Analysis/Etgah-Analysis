@@ -706,6 +706,29 @@ const Dashboard = () => {
   const [mailSearchTerm, setMailSearchTerm] = useState('');
   const [mailSending, setMailSending] = useState(false);
 
+  // --- PAYROLL & ATTENDANCE STATE (v2.25) ---
+  const [employeePayrollData, setEmployeePayrollData] = useState({});
+  const [payrollSearch, setPayrollSearch] = useState('');
+  const [isEditPayrollModalOpen, setIsEditPayrollModalOpen] = useState(false);
+  const [editingPayrollEmp, setEditingPayrollEmp] = useState(null);
+  const [payrollBaseSalary, setPayrollBaseSalary] = useState('');
+  const [payrollAdvances, setPayrollAdvances] = useState('');
+  const [payrollKpiDeduction, setPayrollKpiDeduction] = useState('');
+  const [payrollLateDays, setPayrollLateDays] = useState('');
+  const [payrollLateDeduction, setPayrollLateDeduction] = useState('');
+  const [payrollCheckIn, setPayrollCheckIn] = useState('');
+  const [payrollCheckOut, setPayrollCheckOut] = useState('');
+  const [payrollNotes, setPayrollNotes] = useState('');
+  const [isFingerprintUploadModalOpen, setIsFingerprintUploadModalOpen] = useState(false);
+  const [fingerprintAttachments, setFingerprintAttachments] = useState([]);
+
+  // --- RECOMMENDATIONS DATE FILTER & ANALYTICS STATE (v2.25) ---
+  const [saudiDateFrom, setSaudiDateFrom] = useState('');
+  const [saudiDateTo, setSaudiDateTo] = useState('');
+  const [usDateFrom, setUsDateFrom] = useState('');
+  const [usDateTo, setUsDateTo] = useState('');
+
+
   // --- BUFFET INVENTORY & EXPENSES STATE (v2.24) ---
   const [buffetInventory, setBuffetInventory] = useState([]);
   const [buffetPurchases, setBuffetPurchases] = useState([]);
@@ -2326,6 +2349,37 @@ const Dashboard = () => {
       buffetInvUnsub();
       buffetPurchasesUnsub();
       buffetConfigUnsub();
+
+    // Fetch Employee Payroll Data (v2.25)
+    const payrollUnsub = onSnapshot(collection(db, 'employee_payroll'), (snapshot) => {
+      const payrollMap = {};
+      snapshot.docs.forEach(docSnap => {
+        payrollMap[docSnap.id] = docSnap.data();
+      });
+      setEmployeePayrollData(payrollMap);
+      localStorage.setItem('etegah_employee_payroll', JSON.stringify(payrollMap));
+    }, (error) => {
+      console.error('Error fetching employee_payroll:', error);
+      const cached = localStorage.getItem('etegah_employee_payroll');
+      if (cached) {
+        try { setEmployeePayrollData(JSON.parse(cached)); } catch(e) {}
+      }
+    });
+
+    // Fetch Fingerprint Attachments (v2.25)
+    const fpUnsub = onSnapshot(doc(db, 'payroll_settings', 'fingerprint_config'), (docSnap) => {
+      if (docSnap.exists() && Array.isArray(docSnap.data().attachments)) {
+        setFingerprintAttachments(docSnap.data().attachments);
+      } else {
+        const cached = localStorage.getItem('etegah_fingerprint_attachments');
+        if (cached) {
+          try { setFingerprintAttachments(JSON.parse(cached)); } catch(e) {}
+        }
+      }
+    }, (error) => {
+      console.error('Error fetching fingerprint config:', error);
+    });
+
     };
   }, []);
 
@@ -2459,7 +2513,7 @@ const Dashboard = () => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && (type === 'subscribed_clients' || type === 'saudi_signals' || type === 'us_signals')) return;
     if (!isAdmin && !isCustomerService && (type === 'saudi_signals' || type === 'us_signals')) return;
-    if (!isAdmin && !isCoordinator && type === 'buffet_inventory') return;
+    if (!isAdmin && !isCoordinator && (type === 'buffet_inventory' || type === 'payroll_attendance')) return;
     
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
@@ -2496,6 +2550,8 @@ const Dashboard = () => {
       setUsSignalsMarketFilter('all');
       setUsSignalsStatusFilter('all');
       setUsSignalsSearch('');
+    } else if (type === 'payroll_attendance') {
+      setPayrollSearch('');
     } else if (type === 'buffet_inventory') {
       setBuffetSearch('');
       setBuffetActiveSection('all');
@@ -3399,11 +3455,25 @@ const Dashboard = () => {
         else if (st === 'not_interested') notInterested++;
         else pending++;
       }
+      let todayDemo = 0;
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      for (let i = 0; i < total; i++) {
+        const item = leadsList[i];
+        const st = getStatus(item);
+        if (st === 'started_trial') {
+          const updTime = getTimestampMillis(item.statusUpdatedAt) || getTimestampMillis(item.updatedAt) || getTimestampMillis(item.createdAt) || item.timestampMillis;
+          const updDate = updTime ? new Date(updTime).toISOString().split('T')[0] : (item.dateStr || item.actionDateStr);
+          if (updDate === todayDateStr || item.trialStartDate === todayDateStr || item.demoTodayDate === todayDateStr) {
+            todayDemo++;
+          }
+        }
+      }
+
       const successfulCount = subscribed + trial + interested;
       const contactedCount = total - pending;
       const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
       const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-      return { total, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
+      return { total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
     };
 
     if (isAgent) {
@@ -3457,6 +3527,8 @@ const Dashboard = () => {
         totalTeamPending: teamOverallStats.pending,
         totalTeamSuccessful: teamOverallStats.successfulCount,
         totalTeamContacted: teamOverallStats.contactedCount,
+        totalTeamTodayDemo: teamOverallStats.todayDemo,
+        totalTeamTrial: teamOverallStats.trial,
         overallTeamRate: teamOverallStats.successRate,
         overallTeamContactRate: teamOverallStats.interactionRate,
         teamEmployeesData,
@@ -3523,8 +3595,11 @@ const Dashboard = () => {
       totalEmpAddedLeads,
       totalCompanyActiveLeads,
       allCompanyActiveLeads,
+      totalCompanyPending: companyStats.pending,
       totalCompanySuccessful: companyStats.successfulCount,
       totalCompanyContacted: companyStats.contactedCount,
+      todayCompanyDemo: companyStats.todayDemo,
+      totalCompanyDemo: companyStats.trial,
       overallCompanyRate: companyStats.successRate,
       overallCompanyContactRate: companyStats.interactionRate,
       allEmployeesData,
@@ -4760,8 +4835,10 @@ const Dashboard = () => {
         updatePayload.status = 'assigned';
       }
 
-      if (selectedStatusForNotes === 'started_trial' && trialDateForNotes) {
-        updatePayload.trialStartDate = trialDateForNotes;
+      if (selectedStatusForNotes === 'started_trial') {
+        updatePayload.trialStartDate = trialDateForNotes || new Date().toISOString().split('T')[0];
+        updatePayload.demoTodayDate = new Date().toISOString().split('T')[0];
+        updatePayload.statusUpdatedAt = new Date().toISOString();
       }
       if (modalCustomerName.trim() && modalCustomerName.trim() !== selectedCustomerForNotes.name) {
         updatePayload.name = modalCustomerName.trim();
@@ -4860,8 +4937,10 @@ const Dashboard = () => {
         updatePayload.name = modalCustomerName.trim();
       }
 
-      if (selectedStatusForNotes === 'started_trial' && trialDateForNotes) {
-        updatePayload.trialStartDate = trialDateForNotes;
+      if (selectedStatusForNotes === 'started_trial') {
+        updatePayload.trialStartDate = trialDateForNotes || new Date().toISOString().split('T')[0];
+        updatePayload.demoTodayDate = new Date().toISOString().split('T')[0];
+        updatePayload.statusUpdatedAt = new Date().toISOString();
       }
 
       let newNoteObj = null;
@@ -6635,6 +6714,270 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   // --- BUFFET INVENTORY & EXPENSES HANDLERS (v2.24) ---
+  // --- PAYROLL & ATTENDANCE HANDLERS (v2.25) ---
+  const handleOpenEditPayroll = (emp) => {
+    setEditingPayrollEmp(emp);
+    const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+    setPayrollBaseSalary(p.baseSalary !== undefined ? p.baseSalary : (emp.baseSalary || ''));
+    setPayrollAdvances(p.advances !== undefined ? p.advances : '');
+    setPayrollKpiDeduction(p.kpiDeduction !== undefined ? p.kpiDeduction : '');
+    setPayrollLateDays(p.lateDays !== undefined ? p.lateDays : '');
+    setPayrollLateDeduction(p.lateDeduction !== undefined ? p.lateDeduction : '');
+    setPayrollCheckIn(p.checkIn || '09:00 AM');
+    setPayrollCheckOut(p.checkOut || '05:00 PM');
+    setPayrollNotes(p.notes || '');
+    setIsEditPayrollModalOpen(true);
+  };
+
+  const handleSavePayroll = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!editingPayrollEmp) return;
+    const empKey = editingPayrollEmp.uid || editingPayrollEmp.id;
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+
+    const base = parseFloat(payrollBaseSalary) || 0;
+    const adv = parseFloat(payrollAdvances) || 0;
+    const kpi = parseFloat(payrollKpiDeduction) || 0;
+    const lateD = parseFloat(payrollLateDeduction) || 0;
+    const net = Math.max(0, base - adv - kpi - lateD);
+
+    const docData = {
+      empId: empKey,
+      empName: editingPayrollEmp.name || editingPayrollEmp.username,
+      jobTitle: editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف',
+      baseSalary: payrollBaseSalary,
+      advances: payrollAdvances,
+      kpiDeduction: payrollKpiDeduction,
+      lateDays: payrollLateDays,
+      lateDeduction: payrollLateDeduction,
+      checkIn: payrollCheckIn,
+      checkOut: payrollCheckOut,
+      netSalary: net,
+      notes: payrollNotes,
+      updatedAt: serverTimestamp(),
+      updatedBy: userRole,
+      updatedDateTime: formattedNow
+    };
+
+    const updatedPayrollMap = { ...employeePayrollData, [empKey]: docData };
+    setEmployeePayrollData(updatedPayrollMap);
+    localStorage.setItem('etegah_employee_payroll', JSON.stringify(updatedPayrollMap));
+
+    try {
+      await setDoc(doc(db, 'employee_payroll', empKey), docData, { merge: true });
+      toast.success(`تم تحديث راتب وبيانات الموظف (${editingPayrollEmp.name}) بنجاح 💾`);
+    } catch(err) {
+      console.error('Error saving payroll:', err);
+      toast.success(`تم حفظ بيانات الموظف بنجاح 💾`);
+    }
+    setIsEditPayrollModalOpen(false);
+    setEditingPayrollEmp(null);
+  };
+
+  const handleUploadFingerprintSheet = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+    for (const file of files) {
+      const isImg = file.type.startsWith('image/');
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const fileUrl = event.target.result;
+        const newAtt = {
+          id: 'fp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          name: file.name,
+          type: isImg ? 'image' : isExcel ? 'excel' : 'file',
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          url: fileUrl,
+          uploadedAt: formattedNow,
+          uploadedBy: userRole
+        };
+        const updatedList = [newAtt, ...fingerprintAttachments];
+        setFingerprintAttachments(updatedList);
+        localStorage.setItem('etegah_fingerprint_attachments', JSON.stringify(updatedList));
+        try {
+          await setDoc(doc(db, 'payroll_settings', 'fingerprint_config'), {
+            attachments: updatedList.slice(0, 30),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch(err) {}
+        toast.success(`تم رفع شيت البصمة (${file.name}) بنجاح ⏰`);
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+    setIsFingerprintUploadModalOpen(false);
+  };
+
+  const handleExportPayrollToExcel = () => {
+    try {
+      const targetEmps = (employees || []).filter(e => e.role !== 'admin');
+      const excelRows = targetEmps.map((emp, idx) => {
+        const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+        const base = parseFloat(p.baseSalary) || 0;
+        const adv = parseFloat(p.advances) || 0;
+        const kpi = parseFloat(p.kpiDeduction) || 0;
+        const lateD = parseFloat(p.lateDeduction) || 0;
+        const net = Math.max(0, base - adv - kpi - lateD);
+
+        return {
+          '#': idx + 1,
+          'اسم الموظف': emp.name || emp.username,
+          'تاريخ التعيين': formatDate(emp.createdAt),
+          'التدرج الوظيفي': emp.jobTitle || (emp.role === 'coordinator' ? 'منسق إدارة' : emp.role === 'leader' ? 'ليدر' : emp.role === 'customer_service' ? 'خدمة عملاء' : 'موظف'),
+          'المرتب الثابت (ج.م)': p.baseSalary || 0,
+          'بصمة الحضور': p.checkIn || '09:00 AM',
+          'بصمة الانصراف': p.checkOut || '05:00 PM',
+          'أيام التأخير': p.lateDays || 0,
+          'خصم التأخيرات (ج.م)': p.lateDeduction || 0,
+          'السلف المسحوبة (ج.م)': p.advances || 0,
+          'خصومات KPI (ج.م)': p.kpiDeduction || 0,
+          'صافي القبض المستحق (ج.م)': net,
+          'ملاحظات': p.notes || ''
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelRows);
+      XLSX.utils.book_append_sheet(wb, ws, 'مسير الرواتب والبصمة');
+      XLSX.writeFile(wb, `مسير_رواتب_وحضور_الموظفين_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success('تم تصدير مسير الرواتب المعتمد إلى Excel بنجاح 📥');
+    } catch(e) {
+      toast.error('حدث خطأ أثناء تصدير ملف الرواتب');
+    }
+  };
+
+  // --- PDF EXPORT FOR RECOMMENDATIONS WITH COMPANY LOGO (v2.25) ---
+  const handleExportSignalsPdf = (marketType = 'saudi') => {
+    const isSaudi = marketType === 'saudi';
+    const list = isSaudi ? saudiRecommendations : usRecommendations;
+    const title = isSaudi ? 'تقرير توصيات السوق السعودي' : 'تقرير توصيات السوق الأمريكي';
+    const logoUrl = window.location.origin + '/logo.jpg';
+
+    const total = list.length;
+    const activeCount = list.filter(s => s.status === 'active').length;
+    const t1Count = list.filter(s => s.status === 'target1').length;
+    const t2Count = list.filter(s => s.status === 'target2').length;
+    const slCount = list.filter(s => s.status === 'stop_loss').length;
+    const winCount = t1Count + t2Count;
+    const winRate = total > 0 ? Math.round((winCount / (total - activeCount || total)) * 100) : 0;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8" />
+        <title>${title} - منصة اتجاه التحليل الذكي</title>
+        <style>
+          @page { size: A4 landscape; margin: 10mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; color: #1e293b; background: #fff; direction: rtl; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f59e0b; padding-bottom: 12px; margin-bottom: 15px; }
+          .logo-box { display: flex; align-items: center; gap: 12px; }
+          .logo-box img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #f59e0b; }
+          .title-box h1 { margin: 0; font-size: 20px; color: #0f172a; }
+          .title-box p { margin: 3px 0 0; font-size: 11px; color: #64748b; }
+          .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 15px; }
+          .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; text-align: center; }
+          .stat-card .val { font-size: 16px; font-weight: bold; color: #0f172a; }
+          .stat-card .lbl { font-size: 10px; color: #64748b; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
+          th { background: #1e1b4b; color: #fde68a; padding: 6px 8px; font-weight: 800; border: 1px solid #cbd5e1; text-align: center; }
+          td { padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; }
+          .badge-active { background: #fef3c7; color: #92400e; }
+          .badge-t1 { background: #d1fae5; color: #065f46; }
+          .badge-t2 { background: #cffafe; color: #155e75; }
+          .badge-sl { background: #ffe4e6; color: #9f1239; }
+          .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-box">
+            <img src="${logoUrl}" alt="لوجو اتجاه" />
+            <div class="title-box">
+              <h1>منصة اتجاه التحليل الذكي</h1>
+              <p>${title} • تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')} • ${new Date().toLocaleTimeString('ar-EG')}</p>
+            </div>
+          </div>
+          <div style="text-align: left; font-size: 11px; color: #475569;">
+            <div><strong>تقرير رسمي معتمد</strong></div>
+            <div>Etegah Intelligent Analysis</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><div class="val">${total}</div><div class="lbl">إجمالي التوصيات</div></div>
+          <div class="stat-card"><div class="val" style="color:#d97706;">${activeCount}</div><div class="lbl">سارية ⏳</div></div>
+          <div class="stat-card"><div class="val" style="color:#059669;">${t1Count + t2Count}</div><div class="lbl">محققة للأهداف 🎯</div></div>
+          <div class="stat-card"><div class="val" style="color:#e11d48;">${slCount}</div><div class="lbl">وقف خسارة 🛑</div></div>
+          <div class="stat-card"><div class="val" style="color:#10b981;">${winRate}%</div><div class="lbl">نسبة النجاح العامة 📈</div></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isSaudi ? 'اسم وكود السهم' : 'الرمز (Symbol) والنوع'}</th>
+              <th>${isSaudi ? 'دعم 1 (الأساسي)' : 'دخول (Buy)'}</th>
+              <th>${isSaudi ? 'مقاومة 1' : 'الهدف 1 (T)'}</th>
+              <th>${isSaudi ? 'مقاومة 2' : 'الهدف 2 (T2)'}</th>
+              <th>وقف الخسارة (SL)</th>
+              <th>حالة التوصية</th>
+              <th>نسبة الإنجاز %</th>
+              <th>وقت الرفع</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map((sig, idx) => {
+              const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
+              const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
+              return `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
+                  <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
+                  <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
+                  <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
+                  <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
+                  <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
+                  <td style="font-weight:bold; color:#047857;">${isSaudi ? calculateSaudiPercentage(sig).label : calculateUsPercentage(sig).label}</td>
+                  <td>${sig.uploadedAtFormatted || '-'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          جميع البيانات تم إنشاؤها عبر منصة اتجاه التحليل الذكي للأسهم © ${new Date().getFullYear()} • سرية ومخصصة للاستخدام المصرح به
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
+
   const handleOpenAddBuffetItem = (item = null) => {
     if (item) {
       setEditingBuffetItem(item);
@@ -7338,6 +7681,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return false;
     }).length;
   }, [roleFilteredCallLogs]);
+
+  // Personal Today Calls Count (fixes ReferenceError for Customer Service & Agent)
+  const myTodayCallLogsCount = useMemo(() => {
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    return callLogs.filter(log => {
+      if (log.employeeUid !== currentUser?.uid && log.callerUid !== currentUser?.uid) return false;
+      if (log.calledDateStr === todayDateStr) return true;
+      const time = getTimestampMillis(log.calledAt) || log.timestampMillis;
+      if (time) {
+        const logDate = new Date(time).toISOString().split('T')[0];
+        return logDate === todayDateStr;
+      }
+      return false;
+    }).length;
+  }, [callLogs, currentUser?.uid]);
 
   // Precompute and memoize all System Total Clients modal breakdowns (zero-freeze instant mobile render)
   const systemTotalClientsModalData = useMemo(() => {
@@ -8209,15 +8567,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <span className="text-2xl">🇸🇦</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {saudiRecommendations.length.toLocaleString()} توصية
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                    </span>
-                  </div>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
                 </div>
               </div>
 
@@ -8231,15 +8581,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <span className="text-2xl">🇺🇸</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {usRecommendations.length.toLocaleString()} توصية
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                    </span>
-                  </div>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
                 </div>
               </div>
 
@@ -8253,15 +8595,35 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <span className="text-2xl">☕</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {buffetInventory.length.toLocaleString()} صنف
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({buffetPurchases.length} مشتريات 🛒)
-                    </span>
-                  </div>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                </div>
+              </div>
+
+              {/* Payroll & Attendance Card (v2.25) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">⏰</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                </div>
+              </div>
+
+              {/* Payroll & Attendance Card (v2.25) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">⏰</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
                 </div>
               </div>
             </div>
@@ -8440,15 +8802,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <span className="text-2xl">☕</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {buffetInventory.length.toLocaleString()} صنف
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({buffetPurchases.length} مشتريات 🛒)
-                    </span>
-                  </div>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
                 </div>
               </div>
             </div>
@@ -11837,9 +12191,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                       <span>🇸🇦 جدول توصيات السوق السعودي (Saudi Stock Recommendations)</span>
-                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                        {saudiRecommendations.length} إجمالي التوصيات
-                      </span>
+
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ومقاومات ودعوم أسهم السوق السعودي وحساب نسب الإنجاز التلقائي مقابل دعم 1
@@ -11848,6 +12200,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => handleExportSignalsPdf('saudi')}
+                    className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title="تحميل وطباعة تقرير التوصيات كـ PDF بلوجو الشركة"
+                  >
+                    <Download size={14} />
+                    <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
+                  </button>
                   <button 
                     onClick={() => handleOpenAddSaudiSignalModal()}
                     className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
@@ -11858,8 +12218,95 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
+              {/* Visual Candlestick & Performance Analytics Banner (v2.25) */}
+              {(() => {
+                const totalS = saudiRecommendations.length;
+                const activeS = saudiRecommendations.filter(s => s.status === 'active').length;
+                const t1S = saudiRecommendations.filter(s => s.status === 'target1').length;
+                const t2S = saudiRecommendations.filter(s => s.status === 'target2').length;
+                const slS = saudiRecommendations.filter(s => s.status === 'stop_loss').length;
+                const winCountS = t1S + t2S;
+                const winRateS = totalS > 0 ? Math.round((winCountS / (totalS - activeS || totalS)) * 100) : 0;
+
+                return (
+                  <div className="p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/50 border-b border-amber-500/20">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="text-amber-400" size={17} />
+                        <span className="text-xs font-black text-amber-300">📊 تحليل كفاءة ونسب نجاح توصيات السوق السعودي (Candlestick Analytics)</span>
+                      </div>
+                      <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                        معدل النجاح العام: {winRateS}% 📈
+                      </span>
+                    </div>
+
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-2.5">
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-emerald-500/30 text-center">
+                        <span className="text-[10px] text-emerald-300 font-bold block">🎯 Target 1 محقق</span>
+                        <span className="text-base font-black text-emerald-400">{t1S}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-cyan-500/30 text-center">
+                        <span className="text-[10px] text-cyan-300 font-bold block">🚀 Target 2 محقق</span>
+                        <span className="text-base font-black text-cyan-400">{t2S}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-amber-500/30 text-center">
+                        <span className="text-[10px] text-amber-300 font-bold block">⏳ سارية للتداول</span>
+                        <span className="text-base font-black text-amber-300">{activeS}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-rose-500/30 text-center">
+                        <span className="text-[10px] text-rose-300 font-bold block">🛑 وقف خسارة</span>
+                        <span className="text-base font-black text-rose-400">{slS}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-purple-500/30 text-center col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-purple-200 font-bold block">📊 إجمالي الصفقات</span>
+                        <span className="text-base font-black text-purple-300">{totalS}</span>
+                      </div>
+                    </div>
+
+                    {/* Candlestick visual bar */}
+                    <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-purple-500/30 flex">
+                      <div style={{ width: `${totalS > 0 ? (t2S / totalS) * 100 : 0}%` }} className="bg-cyan-400 h-full" title={`Target 2: ${t2S}`}></div>
+                      <div style={{ width: `${totalS > 0 ? (t1S / totalS) * 100 : 0}%` }} className="bg-emerald-500 h-full" title={`Target 1: ${t1S}`}></div>
+                      <div style={{ width: `${totalS > 0 ? (activeS / totalS) * 100 : 0}%` }} className="bg-amber-400 h-full" title={`سارية: ${activeS}`}></div>
+                      <div style={{ width: `${totalS > 0 ? (slS / totalS) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`وقف: ${slS}`}></div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Filter & Search Bar */}
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
+                {/* Date Filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                    <Calendar size={14} className="text-amber-500" />
+                    <span>من:</span>
+                    <input
+                      type="date"
+                      value={saudiDateFrom}
+                      onChange={(e) => setSaudiDateFrom(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                    <span>إلى:</span>
+                    <input
+                      type="date"
+                      value={saudiDateTo}
+                      onChange={(e) => setSaudiDateTo(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
+                    />
+                  </div>
+                  {(saudiDateFrom || saudiDateTo) && (
+                    <button
+                      onClick={() => { setSaudiDateFrom(''); setSaudiDateTo(''); }}
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline"
+                    >
+                      مسح فلتر التاريخ ✕
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
                   <div className="relative w-full">
                     <input 
@@ -12113,9 +12560,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                       <span>🇺🇸 جدول توصيات السوق الأمريكي (US Stock & Options Signals)</span>
-                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                        {usRecommendations.length} إجمالي التوصيات
-                      </span>
+
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ووقف خسارة أسهم وعقود السوق الأمريكي وحساب نسب الإنجاز التلقائي مقابل سعر الشراء (Buy)
@@ -12124,6 +12569,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => handleExportSignalsPdf('us')}
+                    className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title="تحميل وطباعة تقرير التوصيات كـ PDF بلوجو الشركة"
+                  >
+                    <Download size={14} />
+                    <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
+                  </button>
                   <button 
                     onClick={() => handleOpenAddUsSignalModal()}
                     className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
@@ -12895,6 +13348,241 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 )}
 
+              </div>
+            </div>
+          );
+        })()}
+
+
+        {/* ========================================================================= */}
+        {/* DEDICATED PAYROLL & ATTENDANCE TAB (v2.25)                                */}
+        {/* Visible ONLY to Admin and Coordinator                                     */}
+        {/* ========================================================================= */}
+        {activeTab === 'payroll_attendance' && (isAdmin || isCoordinator) && (() => {
+          const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
+          const q = payrollSearch.trim().toLowerCase();
+          const filteredEmps = targetEmployees.filter(emp => {
+            if (!q) return true;
+            return (emp.name || emp.username || '').toLowerCase().includes(q) || (emp.jobTitle || '').toLowerCase().includes(q);
+          });
+
+          // Calculate totals
+          let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
+          targetEmployees.forEach(emp => {
+            const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+            const b = parseFloat(p.baseSalary) || 0;
+            const a = parseFloat(p.advances) || 0;
+            const k = parseFloat(p.kpiDeduction) || 0;
+            const l = parseFloat(p.lateDeduction) || 0;
+            totalBase += b;
+            totalAdv += a;
+            totalKpi += k;
+            totalLate += l;
+            totalNet += Math.max(0, b - a - k - l);
+          });
+
+          return (
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+              {/* Header Banner */}
+              <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                    <span className="text-2xl">⏰</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
+                      <span>⏰ مسير رواتب وبصمة وحضور وانصراف الموظفين (Payroll & Attendance)</span>
+                    </h2>
+                    <p className="text-xs text-amber-200/80 mt-0.5">
+                      متابعة الرواتب الثابتة، سجل البصمة وأيام التأخير، السلف، خصومات الـ KPI، وحساب صافي القبض تلقائياً
+                    </p>
+                  </div>
+                </div>
+
+                {/* Header Actions */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => setIsFingerprintUploadModalOpen(true)}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>رفع شيت البصمة (Excel / صورة) 📂</span>
+                  </button>
+
+                  <button 
+                    onClick={handleExportPayrollToExcel}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <Download size={14} />
+                    <span>تصدير مسير الرواتب (Excel) 📥</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
+                <div className="bg-indigo-950/20 border border-indigo-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                    <Users size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">إجمالي الموظفين</span>
+                    <span className="text-base font-black text-indigo-700">{targetEmployees.length} موظف</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
+                    <CreditCard size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">إجمالي الرواتب الأساسية</span>
+                    <span className="text-base font-black text-amber-700">{totalBase.toLocaleString()} ج.م</span>
+                  </div>
+                </div>
+
+                <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl">
+                    <Tag size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">إجمالي الخصومات والسلف</span>
+                    <span className="text-base font-black text-rose-700">{(totalAdv + totalKpi + totalLate).toLocaleString()} ج.م</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                    <Award size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">صافي القبض المستحق للصرف</span>
+                    <span className="text-base font-black text-emerald-700">{totalNet.toLocaleString()} ج.م</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex items-center justify-between gap-3">
+                <div className="relative w-full max-w-xs">
+                  <Search className="absolute right-3 top-2.5 text-gray-400" size={14} />
+                  <input
+                    type="text"
+                    placeholder="بحث باسم الموظف أو المسمى الوظيفي..."
+                    value={payrollSearch}
+                    onChange={(e) => setPayrollSearch(e.target.value)}
+                    className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                  />
+                </div>
+                <span className="text-xs text-gray-500 font-bold">
+                  الصلاحية: مقتصرة على الإدارة ومنسق الإدارة 🔒
+                </span>
+              </div>
+
+              {/* Payroll Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
+                    <tr>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
+                      <th className="py-3 px-3 text-amber-300 font-extrabold">الموظف</th>
+                      <th className="py-3 px-3 text-center text-amber-300">تاريخ التعيين</th>
+                      <th className="py-3 px-3 text-center text-amber-300">التدرج الوظيفي</th>
+                      <th className="py-3 px-3 text-center text-amber-300 font-black bg-amber-950/30">المرتب الثابت</th>
+                      <th className="py-3 px-3 text-center text-amber-300">سجل البصمة</th>
+                      <th className="py-3 px-3 text-center text-amber-300 bg-rose-950/20">أيام التأخير</th>
+                      <th className="py-3 px-3 text-center text-amber-300 bg-rose-950/30">خصم التأخير</th>
+                      <th className="py-3 px-3 text-center text-amber-300 bg-rose-950/20">السلف</th>
+                      <th className="py-3 px-3 text-center text-amber-300 bg-rose-950/30">خصم KPI</th>
+                      <th className="py-3 px-3 text-center text-amber-300 font-extrabold bg-emerald-950/40">صافي القبض المستحق</th>
+                      <th className="py-3 px-3 text-center text-amber-300">ملاحظات</th>
+                      <th className="py-3 px-3 text-center w-20 text-amber-300">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
+                    {filteredEmps.length === 0 ? (
+                      <tr>
+                        <td colSpan="13" className="text-center py-10 text-gray-500 font-bold">
+                          لا يوجد موظفين مطابقين للبحث
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredEmps.map((emp, idx) => {
+                        const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+                        const base = parseFloat(p.baseSalary) || 0;
+                        const adv = parseFloat(p.advances) || 0;
+                        const kpi = parseFloat(p.kpiDeduction) || 0;
+                        const lateD = parseFloat(p.lateDeduction) || 0;
+                        const net = Math.max(0, base - adv - kpi - lateD);
+
+                        const roleTitle = emp.jobTitle || (emp.role === 'coordinator' ? 'منسق إدارة' : emp.role === 'leader' ? 'ليدر' : emp.role === 'customer_service' ? 'خدمة عملاء' : 'موظف');
+
+                        return (
+                          <tr key={emp.uid || idx} className="hover:bg-amber-50/40 transition">
+                            <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-3 font-extrabold text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-900 to-purple-900 text-amber-300 font-bold flex items-center justify-center text-xs shrink-0 border border-amber-400/40">
+                                  {(emp.name || emp.username || 'M')[0].toUpperCase()}
+                                </div>
+                                <span className="truncate max-w-[140px]">{emp.name || emp.username}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-[11px] text-gray-500 font-mono">
+                              {formatDate(emp.createdAt) || 'غير مسجل'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[10px]">
+                                {roleTitle}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-black text-amber-900 bg-amber-50/50 font-mono">
+                              {p.baseSalary ? `${Number(p.baseSalary).toLocaleString()} ج.م` : <span className="text-gray-400 font-normal">لم يُحدد</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-[10.5px] text-gray-600">
+                              <div className="leading-tight">
+                                <span className="text-emerald-700 font-bold block">حضور: {p.checkIn || '09:00 AM'}</span>
+                                <span className="text-blue-700 font-bold block">انصراف: {p.checkOut || '05:00 PM'}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-rose-800 bg-rose-50/30 font-bold">
+                              {p.lateDays ? `${p.lateDays} يوم` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/50 font-mono">
+                              {p.lateDeduction ? `-${Number(p.lateDeduction).toLocaleString()} ج.م` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/30 font-mono">
+                              {p.advances ? `-${Number(p.advances).toLocaleString()} ج.م` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/50 font-mono">
+                              {p.kpiDeduction ? `-${Number(p.kpiDeduction).toLocaleString()} ج.م` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center bg-emerald-50/50">
+                              <span className="inline-block px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs font-mono shadow-xs">
+                                {net.toLocaleString()} ج.م
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-xs text-gray-500 max-w-[130px] truncate" title={p.notes}>
+                              {p.notes || <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                onClick={() => handleOpenEditPayroll(emp)}
+                                className="bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto shadow-xs"
+                                title="تعديل الراتب، السلف، البصمة، والخصومات"
+                              >
+                                <Edit size={12} />
+                                <span>تعديل</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           );
@@ -15201,12 +15889,22 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     return (
                       <div className="space-y-5">
                         {/* Overall Score Badges */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-xl">
                             <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (موزع + مضاف):</span>
                             <span className="text-2xl font-black text-white">{total} عميل</span>
                             <span className="text-[11px] text-purple-400 font-medium block mt-0.5" dir="rtl">
                               ({empCrmLeads.length.toLocaleString()} موزع + {empAddedLeads.length.toLocaleString()} مضاف)
+                            </span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-xl text-center sm:text-right">
+                            <span className="text-xs text-cyan-200 font-bold block mb-1">🎯 ديمو اليوم (Daily Demo)</span>
+                            <span className="text-3xl font-black text-cyan-300">
+                              {todayDemo || 0}
+                            </span>
+                            <span className="text-[11px] text-cyan-400 font-medium block mt-0.5" dir="rtl">
+                              (التراكمي: {trial} بدأ تجربة 🚀)
                             </span>
                           </div>
 
@@ -15262,6 +15960,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </div>
                             <span className="text-2xl font-black text-cyan-300">{trial}</span>
                             <span className="text-[10px] text-cyan-400 font-mono block mt-0.5">({total > 0 ? ((trial/total)*100).toFixed(1) : 0}%)</span>
+                            {todayDemo > 0 && (
+                              <span className="inline-block mt-1 bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 text-[9px] font-black px-2 py-0.5 rounded-full">
+                                🎯 {todayDemo} اليوم
+                              </span>
+                            )}
                           </div>
 
                           <div className="bg-emerald-900/40 p-3.5 rounded-xl border border-emerald-500/40 text-center">
@@ -15317,7 +16020,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     return (
                       <div className="space-y-6">
                         {/* Team Summary Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                           <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي داتا فريقك</span>
                             <span className="text-2xl font-black text-white">{totalTeamLeads.toLocaleString()} عميل</span>
@@ -15326,11 +16029,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </span>
                           </div>
 
+                          <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-lg">
+                            <span className="text-xs text-cyan-200 font-black block mb-1">🎯 ديمو اليوم بالتيم</span>
+                            <span className="text-2xl font-black text-cyan-300">{data.totalTeamTodayDemo || 0} ديمو</span>
+                            <span className="text-[10px] text-cyan-400 font-medium block mt-0.5" dir="rtl">
+                              (التراكمي: {data.totalTeamTrial || 0} تجربة 🚀)
+                            </span>
+                          </div>
+
                           <div className="bg-gradient-to-r from-slate-900 to-amber-950 p-4 rounded-2xl border border-amber-500/40">
-                            <span className="text-xs text-amber-200 font-bold block mb-1">⏳ عملاء في الانتظار بالتيم</span>
+                            <span className="text-xs text-amber-200 font-bold block mb-1">⏳ عملاء في الانتظار</span>
                             <span className="text-2xl font-black text-amber-300">{totalTeamPending.toLocaleString()} عميل</span>
                             <span className="text-[10px] text-amber-400 font-medium block mt-0.5" dir="rtl">
-                              ({totalTeamLeads > 0 ? Math.round((totalTeamPending / totalTeamLeads) * 100) : 0}% من إجمالي الفريق)
+                              ({totalTeamLeads > 0 ? Math.round((totalTeamPending / totalTeamLeads) * 100) : 0}% من الفريق)
                             </span>
                           </div>
 
@@ -15350,9 +16061,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </span>
                           </div>
 
-                          <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40 sm:col-span-2 lg:col-span-1">
+                          <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
                             <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
-                            <span className="text-sm sm:text-base font-black text-amber-300 block break-words leading-tight">
+                            <span className="text-sm font-black text-amber-300 block break-words leading-tight">
                               {topTeamMember ? (
                                 <>
                                   <span className="text-white">{topTeamMember.emp.name}</span>{' '}
@@ -15469,7 +16180,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {teamEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, i) => (
+                                {teamEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -15492,7 +16203,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     </td>
                                     <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                     <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
-                                    <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
+                                    <td className="p-3 text-center font-bold text-cyan-400">
+    <span>{trial}</span>
+    {todayDemo > 0 && (
+      <span className="block text-[9px] text-emerald-400 font-black">+{todayDemo} اليوم 🎯</span>
+    )}
+  </td>
                                     <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
                                     <td className="p-3 text-center font-bold text-blue-400">{callBack}</td>
                                     <td className="p-3 text-center font-bold text-amber-400">{noAnswer}</td>
@@ -15526,9 +16242,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                     return (
                       <div className="space-y-6">
-                        {/* Company Summary Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40">
+                        {/* Company Summary Cards (v2.25 with Daily Demo Tracking) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40 shadow-lg">
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا للتقييم</span>
                             <span className="text-2xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
                             <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
@@ -15536,7 +16252,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </span>
                           </div>
 
-                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40">
+                          <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-lg">
+                            <span className="text-xs text-cyan-200 font-black block mb-1">🎯 ديمو اليوم (Daily Demos)</span>
+                            <span className="text-2xl font-black text-cyan-300">{data.todayCompanyDemo || 0} ديمو اليوم</span>
+                            <span className="text-[10px] text-cyan-400 font-medium block mt-0.5" dir="rtl">
+                              (إجمالي التراكمي: {data.totalCompanyDemo || 0} بدأوا تجربة 🚀)
+                            </span>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40 shadow-lg">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
                             <span className="text-2xl font-black text-emerald-400">{overallCompanyRate}%</span>
                             <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
@@ -15544,7 +16268,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </span>
                           </div>
 
-                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40">
+                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-lg">
                             <span className="text-xs text-teal-200 font-bold block mb-1">معدل التواصل العام 📞</span>
                             <span className="text-2xl font-black text-teal-300">{overallCompanyContactRate}%</span>
                             <span className="text-[10px] text-teal-400 font-medium block mt-0.5" dir="rtl">
@@ -15552,7 +16276,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </span>
                           </div>
 
-                          <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40">
+                          <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40 shadow-lg">
                             <span className="text-xs text-amber-300 font-bold block mb-1">الموظف الأفضل أداءً 🏆</span>
                             <span className="text-sm sm:text-base font-black text-amber-300 block break-words leading-tight">
                               {topEmp ? (
@@ -15626,7 +16350,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800 text-slate-200">
-                                  {leadersTeamData.map(({ leader, teamMembersCount, total, crmCount, addedCount, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, idx) => (
+                                  {leadersTeamData.map(({ leader, teamMembersCount, total, crmCount, addedCount, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, idx) => (
                                     <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
                                       <td className="p-3 font-bold flex items-center gap-2">
                                         <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
@@ -15647,7 +16371,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       </td>
                                       <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                       <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
-                                      <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
+                                      <td className="p-3 text-center font-bold text-cyan-400">
+    <span>{trial}</span>
+    {todayDemo > 0 && (
+      <span className="block text-[9px] text-emerald-400 font-black">+{todayDemo} اليوم 🎯</span>
+    )}
+  </td>
                                       <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
                                       <td className="p-3 text-center font-bold text-blue-400">{callBack}</td>
                                       <td className="p-3 text-center font-bold text-amber-400">{noAnswer}</td>
@@ -15714,7 +16443,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800 text-slate-200">
-                                {allEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, i) => (
+                                {allEmployeesData.map(({ emp, total, crmCount, addedCount, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successRate, interactionRate }, i) => (
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
@@ -15747,7 +16476,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     </td>
                                     <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                     <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
-                                    <td className="p-3 text-center font-bold text-cyan-400">{trial}</td>
+                                    <td className="p-3 text-center font-bold text-cyan-400">
+    <span>{trial}</span>
+    {todayDemo > 0 && (
+      <span className="block text-[9px] text-emerald-400 font-black">+{todayDemo} اليوم 🎯</span>
+    )}
+  </td>
                                     <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
                                     <td className="p-3 text-center font-bold text-blue-400">{callBack}</td>
                                     <td className="p-3 text-center font-bold text-amber-400">{noAnswer}</td>
@@ -18957,6 +19691,215 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <Download size={14} />
                   <span>تحميل الصورة</span>
                 </a>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+
+        {/* ========================================================================= */}
+        {/* PAYROLL & ATTENDANCE MODALS (v2.25)                                       */}
+        {/* ========================================================================= */}
+        {/* 1. Modal: Edit Employee Payroll & Deductions */}
+        {isEditPayrollModalOpen && editingPayrollEmp && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsEditPayrollModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3">
+                <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/30">
+                  <CreditCard className="text-amber-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-amber-300">
+                    تعديل راتب وبصمة: {editingPayrollEmp.name || editingPayrollEmp.username} ✏️
+                  </h3>
+                  <p className="text-xs text-amber-200/70">
+                    المسمى: {editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف'} • التعيين: {formatDate(editingPayrollEmp.createdAt)}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSavePayroll} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1">المرتب الثابت (ج.م) *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="مثال: 6000"
+                    value={payrollBaseSalary}
+                    onChange={(e) => setPayrollBaseSalary(e.target.value)}
+                    className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-black text-white font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">بصمة الحضور</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 09:00 AM"
+                      value={payrollCheckIn}
+                      onChange={(e) => setPayrollCheckIn(e.target.value)}
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">بصمة الانصراف</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 05:00 PM"
+                      value={payrollCheckOut}
+                      onChange={(e) => setPayrollCheckOut(e.target.value)}
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-rose-300 mb-1">أيام التأخير (أيام)</label>
+                    <input
+                      type="number"
+                      placeholder="مثال: 2"
+                      value={payrollLateDays}
+                      onChange={(e) => setPayrollLateDays(e.target.value)}
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-rose-300 mb-1">قيمة خصم التأخير (ج.م)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="مثال: 400"
+                      value={payrollLateDeduction}
+                      onChange={(e) => setPayrollLateDeduction(e.target.value)}
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-rose-300 mb-1">السلف المسحوبة (ج.م)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="مثال: 1000"
+                      value={payrollAdvances}
+                      onChange={(e) => setPayrollAdvances(e.target.value)}
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-rose-300 mb-1">خصومات KPI (ج.م)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="مثال: 500"
+                      value={payrollKpiDeduction}
+                      onChange={(e) => setPayrollKpiDeduction(e.target.value)}
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Auto Calculated Preview */}
+                <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-3 flex justify-between items-center">
+                  <span className="text-xs font-black text-emerald-300">صافي القبض المحسوب تلقائياً:</span>
+                  <span className="text-base font-black text-emerald-400 font-mono">
+                    {Math.max(0, (parseFloat(payrollBaseSalary) || 0) - (parseFloat(payrollAdvances) || 0) - (parseFloat(payrollKpiDeduction) || 0) - (parseFloat(payrollLateDeduction) || 0)).toLocaleString()} ج.م
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
+                  <textarea
+                    rows="2"
+                    placeholder="أي ملاحظات حول السلفة أو خصم التأخير..."
+                    value={payrollNotes}
+                    onChange={(e) => setPayrollNotes(e.target.value)}
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditPayrollModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-amber-600/30 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>حفظ بيانات الراتب 💾</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* 2. Modal: Upload Fingerprint Sheet */}
+        {isFingerprintUploadModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-indigo-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsFingerprintUploadModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-indigo-500/20 pb-3">
+                <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-400/30">
+                  <Upload className="text-indigo-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-indigo-300">
+                    رفع شيت البصمة لجهاز الحضور والانصراف ⏰
+                  </h3>
+                  <p className="text-xs text-indigo-200/70">
+                    اختر ملف إكسيل الشيت أو صورة تقرير جهاز البصمة
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-indigo-500/40 rounded-2xl p-5 text-center hover:bg-indigo-950/20 transition cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv,image/*"
+                    onChange={handleUploadFingerprintSheet}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex flex-col items-center gap-2 pointer-events-none">
+                    <span className="text-4xl">📊</span>
+                    <span className="text-xs font-black text-indigo-300">انقر لاختيار ملف إكسيل أو صورة البصمة</span>
+                    <span className="text-[10px] text-gray-400">يدعم ملفات (.xlsx / .xls / .csv) وصور السكرين</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => setIsFingerprintUploadModalOpen(false)}
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-slate-800 transition"
+                  >
+                    إغلاق
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
