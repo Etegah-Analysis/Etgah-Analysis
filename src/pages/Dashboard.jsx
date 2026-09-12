@@ -5652,7 +5652,7 @@ const Dashboard = () => {
       }
     }, 50);
 
-    toast.info('تم تحميل بيانات الإشعار في النموذج بالأعلى للتعديل ✏️');
+    toast.success('تم تحميل بيانات الإشعار في النموذج بالأعلى للتعديل ✏️');
   };
 
   const handleCancelEditPaymentRecord = () => {
@@ -5669,7 +5669,7 @@ const Dashboard = () => {
     setSubReceiptProof('');
     setSubReceiptFileUrl('');
     setSubNotes('');
-    toast.info('تم إلغاء التعديل وتفريغ الخانات');
+    toast.success('تم إلغاء التعديل وتفريغ الخانات');
   };
 
   const handleUpdatePaymentRecord = async (recordId) => {
@@ -5683,6 +5683,12 @@ const Dashboard = () => {
       const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted} (معدل)`;
 
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+      const editorIdentity = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'} (${currentEmpUser?.jobTitle || currentEmpUser?.role || 'موظف'})`;
+
       const updatedHistory = existingHistory.map(h => {
         if (h.id === recordId) {
           return {
@@ -5690,12 +5696,13 @@ const Dashboard = () => {
             paidAmount: editReceiptPaidAmount ? String(editReceiptPaidAmount).replace(/[^0-9.]/g, '') : h.paidAmount,
             receiptProof: editReceiptProof.trim() || h.receiptProof || 'مسجل',
             receiptUrl: editReceiptFileUrl || h.receiptUrl || '',
-            uploadedDateTime: uploadedDateTimeLabel,
-            savedAt: uploadIso,
-            // KEEP THE ORIGINAL FINANCIAL MONTH UNCHANGED
+            savedAt: h.savedAt || uploadIso,
             month: h.month,
-            lastEditedBy: currentEmpUser?.name || currentUser?.email || 'المستخدم',
-            lastEditedAt: uploadIso
+            lastEditedBy: editorIdentity,
+            lastEditedByUid: currentUser?.uid || (isAdmin ? 'admin' : ''),
+            lastEditedAt: uploadIso,
+            lastEditedDateTime: `${dateFormatted} • ${timeFormatted}`,
+            isEdited: true
           };
         }
         return h;
@@ -5777,16 +5784,19 @@ const Dashboard = () => {
       console.error('Error archiving deleted receipt:', err);
     }
     setSubReceiptFileUrl('');
-    toast.info('تم مسح الإشعار وحفظ نسخة منه في سلة المهملات لدى الإدارة 🗑️');
+    toast.success('تم مسح الإشعار وحفظ نسخة منه في سلة المهملات لدى الإدارة 🗑️');
   };
 
   // Open Internal Email Compose Drawer pre-filled with Subscription Details
   const handleOpenEmailComposeForSubscription = (item) => {
-    if (!selectedSubCustomer) return;
+    if (!selectedSubCustomer || !item) return;
     try {
       const isPercentage = (item.paymentType === 'percentage' || item.serviceType === 'اتفاق نسبة');
+      const cleanPaidNum = parseFloat(String(item.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+      const cleanRemNum = parseFloat(String(item.remainingAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+
       const paymentLabel = item.paymentType === 'partial' 
-        ? `جزء وباقي جزء (المتبقي: ${item.remainingAmount || '0'} ريال)` 
+        ? `جزء وباقي جزء (المتبقي: ${cleanRemNum.toLocaleString()} ريال)` 
         : isPercentage 
           ? `اتفاق نسبة (${item.agreedPercentage || ''})` 
           : 'دفع كامل';
@@ -5803,18 +5813,19 @@ const Dashboard = () => {
 📦 نوع الباقة: ${item.packageType || item.serviceType || '--'}
 🎯 تصنيف / نوع الخدمة: ${item.serviceCategory || '--'}
 💳 نوع الدفع: ${paymentLabel}
-💵 المبلغ المدفوع: ${parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال
-${item.remainingAmount && parseFloat((item.remainingAmount || '0').replace(/[^0-9.]/g, '')) > 0 ? `⏳ المبلغ المتبقي: ${parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
+💵 المبلغ المدفوع: ${cleanPaidNum.toLocaleString()} ريال
+${cleanRemNum > 0 ? `⏳ المبلغ المتبقي: ${cleanRemNum.toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
 📅 تاريخ بداية الخدمة: ${item.startDate || '--'}
-${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${item.endDate}\n` : ''}👤 الموظف المسجل: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
-🕒 وقت التسجيل: ${item.uploadedDateTime || new Date().toLocaleString('ar-EG')}`;
+${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${item.endDate}\n` : ''}👤 الموظف المسجل الأصلي: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
+🕒 وقت التسجيل الأصلي: ${String(item.uploadedDateTime || '').replace(/\s*\(معدل\)\s*/g, '') || new Date().toLocaleString('ar-EG')}
+${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').includes('معدل')) ? `✏️ تم التعديل بواسطة: ${item.lastEditedBy || '👑 الإدارة'} (${item.lastEditedDateTime || 'مسجل'})` : ''}`.trim();
 
       const attachments = [];
       if (item.receiptUrl) {
         attachments.push({
           name: `إشعار_اشتراك_${selectedSubCustomer.name || 'عميل'}.jpg`,
           url: item.receiptUrl,
-          type: item.receiptUrl.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg',
+          type: String(item.receiptUrl).startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg',
           size: 'مرفق إشعار'
         });
       }
@@ -5830,10 +5841,10 @@ ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${it
       // Close subscription modal and open compose drawer
       setIsSubscriptionModalOpen(false);
       setIsComposeOpen(true);
-      toast.info('تم فتح نموذج البريد وتعبئة بيانات الاشتراك الثابتة للإرسال ✉️');
+      toast.success('تم فتح نموذج البريد وتعبئة بيانات الاشتراك الثابتة للإرسال ✉️');
     } catch (err) {
       console.error('Error opening email compose for subscription:', err);
-      toast.error('حدث خطأ أثناء فتح نموذج البريد');
+      toast.error('حدث خطأ أثناء فتح نموذج البريد: ' + (err.message || ''));
     }
   };
 
@@ -5957,6 +5968,12 @@ ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${it
 
       if (editingReceiptId) {
         // Editing existing payment record
+        const editorIdentity = isAdmin 
+          ? '👑 الإدارة' 
+          : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+            ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+            : `${currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'} (${currentEmpUser?.jobTitle || currentEmpUser?.role || 'موظف'})`;
+
         updatedHistory = existingHistory.map(h => {
           if (h.id === editingReceiptId) {
             return {
@@ -5976,9 +5993,11 @@ ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${it
               receiptProof: subReceiptProof?.trim() || h.receiptProof || 'مسجل',
               receiptUrl: subReceiptFileUrl || '',
               notes: subNotes?.trim() || '',
-              lastEditedBy: currentEmpUser?.name || currentUser?.email || 'المستخدم',
+              lastEditedBy: editorIdentity,
+              lastEditedByUid: currentUser?.uid || (isAdmin ? 'admin' : ''),
               lastEditedAt: uploadIso,
-              uploadedDateTime: `${dateFormatted} • ${timeFormatted} (معدل)`
+              lastEditedDateTime: `${dateFormatted} • ${timeFormatted}`,
+              isEdited: true
             };
           }
           return h;
@@ -15126,7 +15145,13 @@ ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${it
                                 {isEditingThis && (
                                   <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/60 px-2.5 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
                                     <span>✏️</span>
-                                    <span>قيد التعديل</span>
+                                    <span>قيد التعديل بالأعلى</span>
+                                  </span>
+                                )}
+                                {!isEditingThis && (item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').includes('معدل')) && (
+                                  <span className="text-[10px] bg-amber-950/90 text-amber-300 border border-amber-500/60 px-2.5 py-0.5 rounded-full font-black flex items-center gap-1 shadow-sm">
+                                    <span>✏️ معدل:</span>
+                                    <span className="text-white font-extrabold">{item.lastEditedBy || '👑 الإدارة'}</span>
                                   </span>
                                 )}
                                 {(() => {
@@ -15195,10 +15220,21 @@ ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${it
                                       <span className="text-gray-200">{item.startDate || '--'} ⬅ {item.endDate || '--'}</span>
                                     </div>
                                   )}
-                                  <div className="flex items-center gap-1.5 font-mono text-[10px] col-span-full">
-                                    <span className="text-amber-400/90 font-medium">🕒 تاريخ ووقت الرفع:</span>
-                                    <span className="text-amber-200/90 font-bold">{item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}</span>
-                                    {item.savedBy && <span className="text-gray-400 font-sans">({item.savedBy})</span>}
+                                  <div className="flex items-center gap-1.5 font-mono text-[10px] col-span-full flex-wrap">
+                                    <span className="text-amber-400/90 font-medium">🕒 تاريخ الرفع:</span>
+                                    <span className="text-amber-200/90 font-bold">
+                                      {String(item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))).replace(/\s*\(معدل\)\s*/g, '')}
+                                    </span>
+                                    {item.savedBy && <span className="text-gray-400 font-sans font-medium">(المسجل الأصلي: {item.savedBy})</span>}
+                                    {(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').includes('معدل')) && (
+                                      <span className="inline-flex items-center gap-1 bg-amber-950/90 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-md font-sans font-bold shadow-sm mr-1">
+                                        <span>✏️ تم التعديل بواسطة:</span>
+                                        <span className="text-white font-extrabold">{item.lastEditedBy || '👑 الإدارة'}</span>
+                                        {item.lastEditedDateTime && (
+                                          <span className="text-[9px] text-amber-200/80 font-mono">({item.lastEditedDateTime})</span>
+                                        )}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
 
