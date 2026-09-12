@@ -2517,7 +2517,7 @@ const Dashboard = () => {
         originalCollection: 'internal_emails',
         type: 'email',
         deletedAt: serverTimestamp(),
-        deletedBy: '👑 الإدارة'
+        deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
       });
       await deleteDoc(doc(db, 'internal_emails', mail.id));
       toast.success('تم نقل الإيميل إلى سلة المهملات بنجاح 🗑️');
@@ -4333,7 +4333,7 @@ const Dashboard = () => {
         originalCollection: 'leads_crm',
         type: 'customer',
         deletedAt: serverTimestamp(),
-        deletedBy: '👑 الإدارة'
+        deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
       });
       await deleteDoc(doc(db, 'leads_crm', lead.id));
       toast.success('تم نقل العميل إلى سلة المهملات بنجاح 🗑️');
@@ -4362,7 +4362,7 @@ const Dashboard = () => {
             originalCollection: 'leads_crm',
             type: 'customer',
             deletedAt: serverTimestamp(),
-            deletedBy: '👑 الإدارة'
+            deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
           });
         }
         await deleteDoc(doc(db, 'leads_crm', id));
@@ -4861,7 +4861,7 @@ const Dashboard = () => {
             originalCollection: 'employee_leads',
             type: 'customer',
             deletedAt: serverTimestamp(),
-            deletedBy: '👑 الإدارة'
+            deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
           });
         }
         await deleteDoc(doc(db, 'employee_leads', id));
@@ -5112,7 +5112,7 @@ const Dashboard = () => {
           type: 'visitor',
           source: 'موقع الويب (OTP)',
           deletedAt: serverTimestamp(),
-          deletedBy: '👑 الإدارة'
+          deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
         });
 
         await deleteDoc(doc(db, targetCol, id)).catch(() => {});
@@ -5155,7 +5155,7 @@ const Dashboard = () => {
         type: 'visitor',
         source: 'موقع الويب (OTP)',
         deletedAt: serverTimestamp(),
-        deletedBy: '👑 الإدارة'
+        deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
       });
 
       // Delete from target collection so it immediately disappears from the Visitors card!
@@ -5711,12 +5711,198 @@ const Dashboard = () => {
     }
   };
 
+
+  // Helper: Get Current Deleter Label & Identity for Audit & Recycle Bin
+  const getCurrentDeleterInfo = () => {
+    if (isAdmin) {
+      return {
+        label: '👑 الإدارة',
+        uid: 'admin',
+        email: currentUser?.email || 'admin@etegah.com',
+        role: 'admin'
+      };
+    }
+    const name = currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف';
+    const role = currentEmpUser?.jobTitle || (isCoordinator ? 'منسق' : isLeader ? 'ليدر' : isCustomerService ? 'خدمة عملاء' : 'موظف');
+    return {
+      label: `${name} (${role})`,
+      uid: currentUser?.uid || '',
+      email: currentUser?.email || '',
+      role: currentEmpUser?.jobTitle || 'agent'
+    };
+  };
+
+  // Archive and clear receipt file from modal form to Admin Recycle Bin
+  const handleClearReceiptFileWithArchive = async () => {
+    if (!subReceiptFileUrl) return;
+    try {
+      const deleter = getCurrentDeleterInfo();
+      const archiveId = 'arch_rcpt_' + Date.now();
+      await setDoc(doc(db, 'recycle_bin', archiveId), {
+        id: archiveId,
+        type: 'receipt',
+        originalCollection: 'subscription_receipts',
+        itemTitle: `إشعار تحويل ممسوح/مستبدل - ${selectedSubCustomer?.name || 'عميل'}`,
+        name: selectedSubCustomer?.name || 'عميل',
+        customerName: selectedSubCustomer?.name || 'عميل',
+        phoneNumber: selectedSubCustomer?.phoneNumber || '',
+        customerPhone: selectedSubCustomer?.phoneNumber || '',
+        customerId: selectedSubCustomer?.id || '',
+        receiptUrl: subReceiptFileUrl,
+        paidAmount: subPaidAmount || '0',
+        receiptDate: subReceiptDate || new Date().toISOString().slice(0, 10),
+        serviceType: subServiceType || 'باقة',
+        serviceCategory: subServiceCategory || '',
+        actionNote: 'تم مسح الإشعار واستبداله من داخل النموذج بواسطة الموظف',
+        deletedAt: serverTimestamp(),
+        deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+        deletedBy: deleter.label,
+        deletedByUid: deleter.uid,
+        deletedByEmail: deleter.email,
+        deletedByRole: deleter.role
+      });
+    } catch (err) {
+      console.error('Error archiving deleted receipt:', err);
+    }
+    setSubReceiptFileUrl('');
+    toast.info('تم مسح الإشعار وحفظ نسخة منه في سلة المهملات لدى الإدارة 🗑️');
+  };
+
+  // Send Subscription Details via Internal Etegah Email to relevant staff by specialty
+  const handleSendSubscriptionViaInternalEmail = async (item) => {
+    if (!selectedSubCustomer) return;
+    try {
+      const isPercentage = (item.paymentType === 'percentage' || item.serviceType === 'اتفاق نسبة');
+      const paymentLabel = item.paymentType === 'partial' 
+        ? `جزء وباقي جزء (المتبقي: ${item.remainingAmount || '0'} ريال)` 
+        : isPercentage 
+          ? `اتفاق نسبة (${item.agreedPercentage || ''})` 
+          : 'دفع كامل';
+
+      const mailSubj = `💳 إشعار اشتراك عميل: ${selectedSubCustomer.name || 'عميل'} - ${item.packageType || item.serviceType || 'باقة'}`;
+      const mailContent = `السلام عليكم ورحمة الله وبركاته،
+
+تم تسجيل وتأكيد بيانات اشتراك ودفعة جديدة للعميل:
+
+👤 اسم العميل: ${selectedSubCustomer.name || 'غير محدد'}
+📞 رقم الهاتف: ${selectedSubCustomer.phoneNumber || 'غير محدد'}
+📦 نوع الباقة: ${item.packageType || item.serviceType || '--'}
+🎯 تصنيف / نوع الخدمة: ${item.serviceCategory || '--'}
+💳 نوع الدفع: ${paymentLabel}
+💵 المبلغ المدفوع: ${parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال
+${item.remainingAmount ? `⏳ المبلغ المتبقي: ${parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
+📅 تاريخ بداية الخدمة: ${item.startDate || '--'}
+${!isPercentage ? `📅 تاريخ نهاية الخدمة: ${item.endDate || '--'}\n` : ''}👤 الموظف المسؤول / المسجل: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
+🕒 وقت التسجيل: ${item.uploadedDateTime || new Date().toLocaleString('ar-EG')}
+${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
+يرجى من الإدارة وقائد الفريق وموظفي خدمة العملاء تفعيل الخدمة والمتابعة وفقاً للاختصاص.
+
+تحياتنا،
+منصة اتجاه التحليل الذكي`;
+
+      const targetUids = new Set(['admin']);
+      const targetEmails = new Set(['admin@etegah.com']);
+      const targetNames = ['👑 الإدارة'];
+
+      // Customer Service
+      const csEmps = employees.filter(e => e.jobTitle === 'Customer Service' || e.jobTitle === 'خدمة عملاء' || e.role === 'customer_service');
+      csEmps.forEach(e => {
+        targetUids.add(e.uid);
+        if (e.email) targetEmails.add(e.email.toLowerCase());
+        targetNames.push(`${e.name} (خدمة عملاء)`);
+      });
+
+      // Assigned Agent
+      const assignedUid = selectedSubCustomer.assignedToUid || item.savedByUid;
+      const assignedEmp = employees.find(e => e.uid === assignedUid || e.email?.toLowerCase() === selectedSubCustomer.assignedTo?.toLowerCase());
+      if (assignedEmp) {
+        targetUids.add(assignedEmp.uid);
+        if (assignedEmp.email) targetEmails.add(assignedEmp.email.toLowerCase());
+        targetNames.push(`${assignedEmp.name} (الموظف المسؤول)`);
+
+        // Leader of this agent
+        const myLeader = employees.find(e => (e.jobTitle === 'Leader' || e.role === 'leader') && (e.teamMembers?.includes(assignedEmp.uid) || e.teamMemberEmails?.includes(assignedEmp.email?.toLowerCase())));
+        if (myLeader) {
+          targetUids.add(myLeader.uid);
+          if (myLeader.email) targetEmails.add(myLeader.email.toLowerCase());
+          targetNames.push(`${myLeader.name} (قائد الفريق)`);
+        }
+      }
+
+      const emailAttachments = [];
+      if (item.receiptUrl) {
+        emailAttachments.push({
+          name: `إشعار_تحويل_${selectedSubCustomer.name || 'عميل'}.jpg`,
+          url: item.receiptUrl,
+          type: item.receiptUrl.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg'
+        });
+      }
+
+      const emailDoc = {
+        senderUid: currentUser?.uid || 'admin',
+        senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'),
+        senderEmail: currentUser?.email || '',
+        senderRole: isAdmin ? 'admin' : (currentEmpUser?.jobTitle || 'agent'),
+        recipientType: 'subscription_notification',
+        recipientUid: 'multiple',
+        recipientUids: Array.from(targetUids),
+        recipientEmails: Array.from(targetEmails),
+        recipientName: targetNames.join('، '),
+        recipientNames: targetNames,
+        subject: mailSubj,
+        body: mailContent,
+        attachments: emailAttachments,
+        isSubscriptionNotification: true,
+        subscriptionCustomerId: selectedSubCustomer.id,
+        createdAt: serverTimestamp(),
+        createdAtMillis: Date.now(),
+        readBy: [currentUser?.uid || 'admin'],
+        starredBy: [],
+        deletedBy: []
+      };
+
+      await setDoc(doc(collection(db, 'internal_emails')), emailDoc);
+      toast.success('تم إرسال بيانات الاشتراك عبر إيميل اتجاه الداخلي للمختصين بنجاح 📧✨');
+    } catch (err) {
+      console.error('Error sending subscription email:', err);
+      toast.error('حدث خطأ أثناء إرسال الإيميل: ' + err.message);
+    }
+  };
+
   const handleDeletePaymentRecord = async (recordId) => {
     if (!selectedSubCustomer || !recordId) return;
-    if (!window.confirm('هل أنت متأكد من حذف هذا الإشعار من سجل الدفعات نهائياً؟')) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الإشعار ونقله إلى سلة المهملات لدى الإدارة؟')) return;
     try {
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+      const itemToDelete = existingHistory.find(h => h.id === recordId);
       const updatedHistory = existingHistory.filter(h => h.id !== recordId);
+
+      // Archive to recycle_bin
+      if (itemToDelete) {
+        const deleter = getCurrentDeleterInfo();
+        const delBinId = 'del_rcpt_' + Date.now();
+        await setDoc(doc(db, 'recycle_bin', delBinId), {
+          ...itemToDelete,
+          id: delBinId,
+          type: 'receipt',
+          originalCollection: 'subscription_receipts',
+          itemTitle: `إشعار تحويل محذوف - ${selectedSubCustomer.name || 'عميل'}`,
+          name: selectedSubCustomer.name || 'عميل',
+          customerName: selectedSubCustomer.name || 'عميل',
+          phoneNumber: selectedSubCustomer.phoneNumber || '',
+          customerPhone: selectedSubCustomer.phoneNumber || '',
+          customerId: selectedSubCustomer.id,
+          receiptUrl: itemToDelete.receiptUrl || '',
+          paidAmount: itemToDelete.paidAmount || '0',
+          receiptDate: itemToDelete.receiptDate || itemToDelete.date || '',
+          deletedAt: serverTimestamp(),
+          deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+          deletedBy: deleter.label,
+          deletedByUid: deleter.uid,
+          deletedByEmail: deleter.email,
+          deletedByRole: deleter.role
+        });
+      }
 
       const targetId = selectedSubCustomer.id;
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
@@ -11659,6 +11845,7 @@ const Dashboard = () => {
                 <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'employee' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>موظفين</button>
                 <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'customer' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>عملاء</button>
                 <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'visitor' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>زوار (OTP)</button>
+                <button onClick={() => setRbFilter('receipt')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'receipt' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>🧾 إشعارات ودفعات</button>
                 <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'email' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>✉️ إيميلات</button>
                 <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'message' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>رسائل</button>
               </div>
@@ -11694,7 +11881,7 @@ const Dashboard = () => {
                     </th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs">النوع</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs">بيانات العنصر</th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs">تاريخ الحذف</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs">تاريخ ومن قام بالحذف</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs text-center">التحكم</th>
                   </tr>
                 </thead>
@@ -11731,6 +11918,7 @@ const Dashboard = () => {
                         ) : (
                           item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">💬 عميل واتساب</span>
                         )}
+                        {item.type === 'receipt' && <span className="bg-rose-100 text-rose-800 border border-rose-300 px-2 py-1 rounded text-xs font-bold">🧾 إشعار دفع</span>}
                         {item.type === 'email' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">✉️ بريد داخلي</span>}
                         {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">💬 رسالة شات</span>}
                       </td>
@@ -11748,10 +11936,41 @@ const Dashboard = () => {
                             {item.addedBy ? <span className="text-xs text-gray-500 font-normal">| أضافه: {item.addedBy}</span> : ''}
                           </span>
                         ) : null}
+                        {item.type === 'receipt' && (
+                          <div className="flex items-center gap-3">
+                            {item.receiptUrl ? (
+                              <img 
+                                src={item.receiptUrl} 
+                                alt="Receipt" 
+                                className="w-11 h-11 object-cover rounded-xl border-2 border-rose-300 cursor-pointer hover:scale-105 transition shadow-sm bg-black"
+                                onClick={() => setLightboxImage({ url: item.receiptUrl, title: `إشعار محذوف: ${item.customerName || item.name || 'عميل'}` })}
+                              />
+                            ) : (
+                              <div className="w-11 h-11 rounded-xl bg-gray-100 border border-gray-300 flex items-center justify-center text-xs text-gray-500">
+                                📄 بدون ملف
+                              </div>
+                            )}
+                            <div className="space-y-0.5">
+                              <strong className="text-gray-950 block text-xs">إشعار: {item.customerName || item.name || 'عميل'} ({item.customerPhone || item.phoneNumber || '--'})</strong>
+                              <div className="text-[11px] text-emerald-700 font-mono font-bold">
+                                💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال • {item.serviceType || 'باقة'}
+                              </div>
+                              <div className="text-[10px] text-gray-500">
+                                تاريخ الإشعار: {item.receiptDate || item.date || '--'} {item.actionNote ? `• (${item.actionNote})` : ''}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {item.type === 'email' && (<span>📌 {item.subject || 'بدون موضوع'} <span className="text-xs text-purple-700 font-bold">(من: {item.senderName || item.senderEmail} ➔ إلى: {item.recipientName})</span></span>)}
                         {item.type === 'message' && (<span className="text-gray-500 italic">"{item.text?.substring(0, 50)}..."</span>)}
                       </td>
-                      <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(item.deletedAt)}</td>
+                      <td className="p-4 text-xs text-gray-800">
+                        <div className="font-mono text-gray-500" dir="ltr">{formatDate(item.deletedAt)}</div>
+                        <div className="text-[11px] font-bold text-rose-700 mt-1 flex items-center gap-1">
+                          <span>🗑️ حذفه:</span>
+                          <span className="bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-rose-900 font-bold">{item.deletedBy || '👑 الإدارة'}</span>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center justify-center space-x-2 space-x-reverse">
                           <button 
@@ -14564,9 +14783,22 @@ const Dashboard = () => {
                     <h2 className="text-lg font-black text-white flex items-center gap-2">
                       <span>💳 بيانات وتفاصيل اشتراك العميل</span>
                     </h2>
-                    <p className="text-xs text-emerald-300 font-bold mt-0.5">
-                      {selectedSubCustomer.name || 'عميل مشترك'} • <span dir="ltr" className="font-mono text-cyan-300">{selectedSubCustomer.phoneNumber || ''}</span>
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                      <p className="text-xs text-emerald-300 font-bold">
+                        {selectedSubCustomer.name || 'عميل مشترك'} • <span dir="ltr" className="font-mono text-cyan-300">{selectedSubCustomer.phoneNumber || ''}</span>
+                      </p>
+                      {(() => {
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        const curSub = selectedSubCustomer.subscriptionDetails || {};
+                        const isExp = curSub.endDate && curSub.endDate < todayStr;
+                        return isExp ? (
+                          <span className="text-[10px] bg-rose-950/90 text-rose-200 border border-rose-500 px-2.5 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1 shadow-sm">
+                            <span>⚠️</span>
+                            <span>اشتراك منتهي</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 </div>
                 <button 
@@ -14836,12 +15068,9 @@ const Dashboard = () => {
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSubReceiptFileUrl('');
-                            toast.info('تم مسح الإشعار، يمكنك الآن اختيار ورفع إشعار جديد 📄');
-                          }}
-                          className="bg-rose-950/90 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/60 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
-                          title="مسح الإشعار الحالي ورفع إشعار جديد"
+                          onClick={handleClearReceiptFileWithArchive}
+                          className="bg-rose-950/90 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/60 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm active:scale-95"
+                          title="مسح الإشعار الحالي ونقله لسلة المهملات لدى الإدارة"
                         >
                           <Trash2 size={13} />
                           <span>مسح الإشعار واختيار آخر</span>
@@ -14937,6 +15166,16 @@ const Dashboard = () => {
                                       قيد التعديل بالأعلى ✏️
                                     </span>
                                   )}
+                                  {(() => {
+                                    const todayStr = new Date().toISOString().slice(0, 10);
+                                    const isExpired = item.endDate && item.endDate < todayStr;
+                                    return isExpired ? (
+                                      <span className="text-[10px] bg-rose-950/90 text-rose-300 border border-rose-500/60 px-2 py-0.5 rounded-full font-bold animate-pulse flex items-center gap-1 shadow-sm">
+                                        <span>⚠️</span>
+                                        <span>اشتراك منتهي</span>
+                                      </span>
+                                    ) : null;
+                                  })()}
                                 </div>
                                 <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
                                   <span className="text-emerald-400 font-black">💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
@@ -14963,6 +15202,15 @@ const Dashboard = () => {
                                   🔍 معاينة
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => handleSendSubscriptionViaInternalEmail(item)}
+                                className="text-purple-300 hover:text-white bg-purple-950/80 hover:bg-purple-600 border border-purple-500/50 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
+                                title="إرسال بيانات وإشعار الاشتراك عبر إيميل اتجاه الداخلي للمختصين"
+                              >
+                                <Mail size={12} />
+                                <span>إرسال لإيميل اتجاه 📧</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleStartEditPaymentRecord(item)}
