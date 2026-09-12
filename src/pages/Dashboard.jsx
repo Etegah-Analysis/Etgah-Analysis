@@ -722,6 +722,25 @@ const Dashboard = () => {
   const [isFingerprintUploadModalOpen, setIsFingerprintUploadModalOpen] = useState(false);
   const [fingerprintAttachments, setFingerprintAttachments] = useState([]);
 
+  // --- V2.26 SELECTION & BULK DELETION STATE ---
+  const [selectedSaudiIds, setSelectedSaudiIds] = useState([]);
+  const [selectedUsIds, setSelectedUsIds] = useState([]);
+  const [selectedPayrollEmpIds, setSelectedPayrollEmpIds] = useState([]);
+
+  // --- V2.26 MONTHLY CYCLES STATE ---
+  const [selectedPayrollCycle, setSelectedPayrollCycle] = useState(() => {
+    const d = new Date();
+    let y = d.getFullYear();
+    let m = d.getMonth() + 1;
+    if (d.getDate() < 20) {
+      m -= 1;
+      if (m === 0) { m = 12; y -= 1; }
+    }
+    return `${y}-${m < 10 ? '0' + m : m}`;
+  });
+  const [selectedSaudiMonth, setSelectedSaudiMonth] = useState('all');
+  const [selectedUsMonth, setSelectedUsMonth] = useState('all');
+
   // --- RECOMMENDATIONS DATE FILTER & ANALYTICS STATE (v2.25) ---
   const [saudiDateFrom, setSaudiDateFrom] = useState('');
   const [saudiDateTo, setSaudiDateTo] = useState('');
@@ -813,7 +832,7 @@ const Dashboard = () => {
     }
     if (!res) return null;
     return String(res)
-      .replace(/إضافة واستيراد داتا بواسطة\s*/g, '')
+      .replace(/إضافة و(استيراد|رفع) داتا بواسطة\s*/g, '')
       .replace(/[()]/g, '')
       .trim();
   };
@@ -1981,11 +2000,11 @@ const Dashboard = () => {
   // Export Call Performance Logs to Excel (Admin Only)
   const handleExportCallLogsToExcel = (logsToExport) => {
     if (!isAdmin) {
-      toast.error('تصدير التقارير إلى Excel متاح فقط للإدارة والأدمن 🔒');
+      toast.error('تحميل التقارير إلى Excel متاح فقط للإدارة والأدمن 🔒');
       return;
     }
     if (!logsToExport || logsToExport.length === 0) {
-      toast.error('لا توجد بيانات مكالمات لتصديرها');
+      toast.error('لا توجد بيانات مكالمات لتحميلها');
       return;
     }
     const data = logsToExport.map((log, idx) => {
@@ -2010,7 +2029,7 @@ const Dashboard = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "سجل المكالمات");
     XLSX.writeFile(wb, `تقرير_أداء_المكالمات_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success('تم تصدير تقرير المكالمات إلى Excel بنجاح 📊');
+    toast.success('تم تحميل تقرير المكالمات إلى Excel بنجاح 📊');
   };
 
   // Anti-Screenshot, Window Blur, and Anti-Select / Anti-Copy Protection for Employees
@@ -5674,11 +5693,11 @@ const Dashboard = () => {
 
   const exportLeadsToExcel = () => {
     if (!isAdmin) {
-      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      toast.error('تحميل البيانات إلى Excel متاح للإدارة فقط 🔒');
       return;
     }
     if (!leadsCrm || leadsCrm.length === 0) {
-      toast.error('لا يوجد عملاء لتصديرهم في Leads CRM');
+      toast.error('لا يوجد عملاء لتحميلهم في Leads CRM');
       return;
     }
 
@@ -5712,22 +5731,22 @@ const Dashboard = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'داتا Leads CRM');
       
-      const fileName = `تصدير_داتا_Leads_CRM_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `تحميل_داتا_Leads_CRM_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(workbook, fileName);
-      toast.success(`تم تصدير ${leadsCrm.length} عميل إلى ملف إكسيل بنجاح 🟢`);
+      toast.success(`تم تحميل ${leadsCrm.length} عميل إلى ملف إكسيل بنجاح 🟢`);
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء تصدير ملف الإكسيل');
+      toast.error('حدث خطأ أثناء تحميل ملف الإكسيل');
     }
   };
 
   const exportEmployeeLeadsToExcel = () => {
     if (!isAdmin) {
-      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      toast.error('تحميل البيانات إلى Excel متاح للإدارة فقط 🔒');
       return;
     }
     if (!employeeLeads || employeeLeads.length === 0) {
-      toast.error('لا يوجد عملاء لتصديرهم في داتا مضافة بواسطة الموظف');
+      toast.error('لا يوجد عملاء لتحميلهم في داتا مضافة بواسطة الموظف');
       return;
     }
 
@@ -5762,12 +5781,12 @@ const Dashboard = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'داتا مضافة بواسطة الموظف');
       
-      const fileName = `تصدير_داتا_مضافة_بواسطة_الموظف_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `تحميل_داتا_مضافة_بواسطة_الموظف_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(workbook, fileName);
-      toast.success(`تم تصدير ${employeeLeads.length} عميل إلى ملف إكسيل بنجاح 🟢`);
+      toast.success(`تم تحميل ${employeeLeads.length} عميل إلى ملف إكسيل بنجاح 🟢`);
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء تصدير ملف الإكسيل');
+      toast.error('حدث خطأ أثناء تحميل ملف الإكسيل');
     }
   };
 
@@ -6592,11 +6611,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
-  const handleOpenAddUsSignalModal = (signalToEdit = null) => {
+  const handleOpenAddUsSignalModal = (signalToEdit = null, defaultMarketType = 'stocks') => {
     if (signalToEdit) {
       setEditingUsSignal(signalToEdit);
       setUsSymbol(signalToEdit.symbol || '');
-      setUsMarketType(signalToEdit.marketType || 'stocks');
+      setUsMarketType(signalToEdit.marketType || defaultMarketType || 'stocks');
       setUsBuyPrice(signalToEdit.buyPrice || '');
       setUsTarget1(signalToEdit.target1 || '');
       setUsTarget2(signalToEdit.target2 || '');
@@ -6607,7 +6626,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     } else {
       setEditingUsSignal(null);
       setUsSymbol('');
-      setUsMarketType('stocks');
+      setUsMarketType(defaultMarketType || 'stocks');
       setUsBuyPrice('');
       setUsTarget1('');
       setUsTarget2('');
@@ -6717,7 +6736,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   // --- PAYROLL & ATTENDANCE HANDLERS (v2.25) ---
   const handleOpenEditPayroll = (emp) => {
     setEditingPayrollEmp(emp);
-    const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+    const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
     setPayrollBaseSalary(p.baseSalary !== undefined ? p.baseSalary : (emp.baseSalary || ''));
     setPayrollAdvances(p.advances !== undefined ? p.advances : '');
     setPayrollKpiDeduction(p.kpiDeduction !== undefined ? p.kpiDeduction : '');
@@ -6756,16 +6775,23 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       checkOut: payrollCheckOut,
       netSalary: net,
       notes: payrollNotes,
+      cycle: selectedPayrollCycle,
       updatedAt: serverTimestamp(),
       updatedBy: userRole,
       updatedDateTime: formattedNow
     };
 
-    const updatedPayrollMap = { ...employeePayrollData, [empKey]: docData };
+    const cycleKey = `${empKey}_${selectedPayrollCycle}`;
+    const updatedPayrollMap = { 
+      ...employeePayrollData, 
+      [empKey]: docData,
+      [cycleKey]: docData
+    };
     setEmployeePayrollData(updatedPayrollMap);
     localStorage.setItem('etegah_employee_payroll', JSON.stringify(updatedPayrollMap));
 
     try {
+      await setDoc(doc(db, 'employee_payroll', cycleKey), docData, { merge: true });
       await setDoc(doc(db, 'employee_payroll', empKey), docData, { merge: true });
       toast.success(`تم تحديث راتب وبيانات الموظف (${editingPayrollEmp.name}) بنجاح 💾`);
     } catch(err) {
@@ -6847,10 +6873,424 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const ws = XLSX.utils.json_to_sheet(excelRows);
       XLSX.utils.book_append_sheet(wb, ws, 'مسير الرواتب والبصمة');
       XLSX.writeFile(wb, `مسير_رواتب_وحضور_الموظفين_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      toast.success('تم تصدير مسير الرواتب المعتمد إلى Excel بنجاح 📥');
+      toast.success('تم تحميل مسير الرواتب المعتمد إلى Excel بنجاح 📥');
     } catch(e) {
-      toast.error('حدث خطأ أثناء تصدير ملف الرواتب');
+      toast.error('حدث خطأ أثناء تحميل ملف الرواتب');
     }
+  };
+
+  // --- V2.26 MONTHLY CYCLES & CYCLE RESET ENGINE ---
+  const getPayrollCycleKey = (d = new Date()) => {
+    const date = new Date(d);
+    let y = date.getFullYear();
+    let m = date.getMonth() + 1;
+    if (date.getDate() < 20) {
+      m -= 1;
+      if (m === 0) { m = 12; y -= 1; }
+    }
+    return `${y}-${m < 10 ? '0' + m : m}`;
+  };
+
+  const getPayrollCycleLabel = (cycleKey) => {
+    if (!cycleKey) return '';
+    const parts = cycleKey.split('-');
+    const y = parts[0];
+    const m = parseInt(parts[1], 10);
+    const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const monthName = monthsAr[m - 1] || m;
+    return `دورة 20 ${monthName} ${y}`;
+  };
+
+  const getPreviousPayrollCycles = () => {
+    const list = [];
+    const now = new Date();
+    for (let i = 1; i <= 12; i++) {
+      const pastDate = new Date(now.getFullYear(), now.getMonth() - i, 21);
+      const key = getPayrollCycleKey(pastDate);
+      if (!list.some(item => item.key === key)) {
+        list.push({ key, label: getPayrollCycleLabel(key) });
+      }
+    }
+    return list;
+  };
+
+  const getEmployeePayrollForCycle = (emp, cycleKey) => {
+    if (!emp) return {};
+    const empId = emp.uid || emp.id;
+    const currentCycle = getPayrollCycleKey();
+    if (employeePayrollData[`${empId}_${cycleKey}`]) {
+      return employeePayrollData[`${empId}_${cycleKey}`];
+    }
+    if (cycleKey === currentCycle) {
+      const legacyOrPrev = employeePayrollData[empId] || {};
+      return {
+        baseSalary: legacyOrPrev.baseSalary !== undefined ? legacyOrPrev.baseSalary : (emp.baseSalary || ''),
+        advances: '',
+        kpiDeduction: '',
+        lateDays: '',
+        lateDeduction: '',
+        checkIn: legacyOrPrev.checkIn || '09:00 AM',
+        checkOut: legacyOrPrev.checkOut || '05:00 PM',
+        notes: ''
+      };
+    }
+    const legacy = employeePayrollData[empId];
+    if (legacy && (!legacy.cycle || legacy.cycle === cycleKey)) {
+      return legacy;
+    }
+    return {};
+  };
+
+  const getAvailableMonthsForSignals = (signalsList = []) => {
+    const monthsSet = new Set();
+    signalsList.forEach(sig => {
+      const dateVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+      if (dateVal && !isNaN(dateVal.getTime())) {
+        const y = dateVal.getFullYear();
+        const m = dateVal.getMonth() + 1;
+        monthsSet.add(`${y}-${m < 10 ? '0' + m : m}`);
+      }
+    });
+    const now = new Date();
+    const currentM = `${now.getFullYear()}-${(now.getMonth() + 1) < 10 ? '0' + (now.getMonth() + 1) : (now.getMonth() + 1)}`;
+    monthsSet.add(currentM);
+
+    const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    return Array.from(monthsSet).sort().reverse().map(key => {
+      const parts = key.split('-');
+      const y = parts[0];
+      const mIdx = parseInt(parts[1], 10) - 1;
+      return {
+        key,
+        label: `${monthsAr[mIdx] || parts[1]} ${y} ${key === currentM ? '(الشهر الحالي)' : ''}`
+      };
+    });
+  };
+
+  // --- V2.26 BULK DELETION & RECYCLE BIN ARCHIVING ---
+  const handleSoftArchiveToRecycleBin = async (items, sourceKey, sourceTitle) => {
+    const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+    const now = new Date().toISOString();
+
+    const promises = items.map(item => {
+      const binId = `recycle_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      return setDoc(doc(db, 'recycle_bin', binId), {
+        id: binId,
+        source: sourceKey,
+        sourceTitle: sourceTitle,
+        itemType: sourceKey,
+        title: item.stockName || item.symbol || item.empName || item.name || 'سجل محذوف',
+        deletedBy: userRole,
+        deletedAt: now,
+        deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+        data: item,
+        status: 'archived'
+      });
+    });
+
+    await Promise.all(promises);
+  };
+
+  const handleDeleteSelectedSaudiSignals = async () => {
+    if (selectedSaudiIds.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedSaudiIds.length} توصية محددة ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
+    try {
+      const itemsToDelete = saudiRecommendations.filter(s => selectedSaudiIds.includes(s.id));
+      await handleSoftArchiveToRecycleBin(itemsToDelete, 'saudi_recommendations', 'توصيات السوق السعودي');
+      for (const id of selectedSaudiIds) {
+        await deleteDoc(doc(db, 'saudi_recommendations', id));
+      }
+      setSelectedSaudiIds([]);
+      toast.success(`تم نقل ${itemsToDelete.length} توصية إلى سلة المهملات بنجاح 🗑️`);
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء حذف التوصيات');
+    }
+  };
+
+  const handleDeleteAllSaudiSignals = async () => {
+    if (saudiRecommendations.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد تماماً من حذف جميع توصيات السوق السعودي (${saudiRecommendations.length} توصية) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
+    try {
+      await handleSoftArchiveToRecycleBin(saudiRecommendations, 'saudi_recommendations', 'توصيات السوق السعودي');
+      for (const s of saudiRecommendations) {
+        await deleteDoc(doc(db, 'saudi_recommendations', s.id));
+      }
+      setSelectedSaudiIds([]);
+      toast.success('تم مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات 🗑️');
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء مسح الكل');
+    }
+  };
+
+  const handleDeleteSelectedUsSignals = async () => {
+    if (selectedUsIds.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedUsIds.length} توصية أمريكية محددة ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
+    try {
+      const itemsToDelete = usRecommendations.filter(s => selectedUsIds.includes(s.id));
+      await handleSoftArchiveToRecycleBin(itemsToDelete, 'us_recommendations', 'توصيات السوق الأمريكي');
+      for (const id of selectedUsIds) {
+        await deleteDoc(doc(db, 'us_recommendations', id));
+      }
+      setSelectedUsIds([]);
+      toast.success(`تم نقل ${itemsToDelete.length} توصية أمريكية إلى سلة المهملات بنجاح 🗑️`);
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء حذف التوصيات');
+    }
+  };
+
+  const handleDeleteAllUsSignals = async () => {
+    if (usRecommendations.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد تماماً من حذف جميع توصيات السوق الأمريكي (${usRecommendations.length} توصية) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
+    try {
+      await handleSoftArchiveToRecycleBin(usRecommendations, 'us_recommendations', 'توصيات السوق الأمريكي');
+      for (const s of usRecommendations) {
+        await deleteDoc(doc(db, 'us_recommendations', s.id));
+      }
+      setSelectedUsIds([]);
+      toast.success('تم مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات 🗑️');
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء مسح الكل');
+    }
+  };
+
+  const handleDeleteSelectedPayroll = async (targetEmployees) => {
+    if (selectedPayrollEmpIds.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من مسح بيانات الرواتب للموظفين المحددين (${selectedPayrollEmpIds.length} موظف) للدورة الحالية ونقلها لسلة المهملات؟`)) return;
+    try {
+      const itemsToDelete = selectedPayrollEmpIds.map(empId => {
+        const emp = (targetEmployees || []).find(e => (e.uid || e.id) === empId);
+        const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
+        return { empId, empName: emp?.name || emp?.username, ...p, cycle: selectedPayrollCycle };
+      });
+      await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
+      for (const empId of selectedPayrollEmpIds) {
+        const docKey = `${empId}_${selectedPayrollCycle}`;
+        await deleteDoc(doc(db, 'employee_payroll', docKey));
+        setEmployeePayrollData(prev => ({
+          ...prev,
+          [docKey]: undefined,
+          [empId]: { ...(prev[empId] || {}), advances: '', kpiDeduction: '', lateDays: '', lateDeduction: '', notes: '' }
+        }));
+      }
+      setSelectedPayrollEmpIds([]);
+      toast.success(`تم مسح وتصفير بيانات الرواتب للمحددين ونقلها لسلة المهملات 🗑️`);
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء مسح بيانات الرواتب');
+    }
+  };
+
+  const handleDeleteAllPayroll = async (targetEmployees) => {
+    if (!targetEmployees || targetEmployees.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد تماماً من تصفير ومسح جميع بيانات دورة الرواتب (${selectedPayrollCycle}) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
+    try {
+      const itemsToDelete = targetEmployees.map(emp => {
+        const empId = emp.uid || emp.id;
+        const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
+        return { empId, empName: emp?.name || emp?.username, ...p, cycle: selectedPayrollCycle };
+      });
+      await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
+      for (const emp of targetEmployees) {
+        const empId = emp.uid || emp.id;
+        const docKey = `${empId}_${selectedPayrollCycle}`;
+        await deleteDoc(doc(db, 'employee_payroll', docKey));
+      }
+      setSelectedPayrollEmpIds([]);
+      toast.success('تم تصفير جميع بيانات دورة الرواتب ونقلها لسلة المهملات 🗑️');
+    } catch(err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء تصفير الدورة');
+    }
+  };
+
+  // --- V2.26 ADMIN WATERMARK PDF FOR PAYROLL ---
+  const handleExportPayrollPdf = () => {
+    if (!isAdmin) {
+      toast.error('تحميل مسير الرواتب المعتمد PDF متاح للإدارة فقط 🔒');
+      return;
+    }
+
+    const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
+    const logoUrl = window.location.origin + '/logo.jpg';
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString('ar-EG');
+    const timeFormatted = now.toLocaleTimeString('ar-EG');
+
+    let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
+    const rowsHtml = targetEmployees.map((emp, index) => {
+      const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
+      const b = parseFloat(p.baseSalary) || 0;
+      const a = parseFloat(p.advances) || 0;
+      const k = parseFloat(p.kpiDeduction) || 0;
+      const l = parseFloat(p.lateDeduction) || 0;
+      const net = Math.max(0, b - a - k - l);
+
+      totalBase += b;
+      totalAdv += a;
+      totalKpi += k;
+      totalLate += l;
+      totalNet += net;
+
+      const hireDate = emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('ar-EG') : (emp.hireDate || 'غير محدد');
+
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td style="font-weight: bold;">${emp.name || emp.username}</td>
+          <td>${emp.jobTitle || 'موظف'}</td>
+          <td>${hireDate}</td>
+          <td style="font-weight: bold; color: #1e293b;">${b > 0 ? b.toLocaleString() + ' ج.م' : '-'}</td>
+          <td>${p.lateDays || '0'} يوم (${l > 0 ? l.toLocaleString() + ' ج.م' : '0'})</td>
+          <td>${a > 0 ? a.toLocaleString() + ' ج.م' : '0'}</td>
+          <td>${k > 0 ? k.toLocaleString() + ' ج.م' : '0'}</td>
+          <td style="font-weight: 900; color: #047857; background: #ecfdf5;">${net > 0 ? net.toLocaleString() + ' ج.م' : '0'}</td>
+          <td>${p.checkIn || '09:00 AM'} - ${p.checkOut || '05:00 PM'}</td>
+          <td style="font-size: 9px; color: #64748b;">${p.notes || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8" />
+        <title>مسير رواتب وحضور وانصراف الموظفين - منصة اتجاه للتحليل الذكي</title>
+        <style>
+          @page { size: A4 landscape; margin: 8mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; color: #0f172a; background: #fff; direction: rtl; position: relative; }
+          .watermark-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            opacity: 0.06;
+            z-index: 0;
+            pointer-events: none;
+            text-align: center;
+            width: 800px;
+          }
+          .watermark-logo { width: 220px; height: 220px; border-radius: 50%; margin-bottom: 10px; }
+          .watermark-text { font-size: 38px; font-weight: 900; color: #000; letter-spacing: 1px; }
+          .content-wrap { position: relative; z-index: 1; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f59e0b; padding-bottom: 10px; margin-bottom: 12px; }
+          .logo-box { display: flex; align-items: center; gap: 12px; }
+          .logo-box img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #f59e0b; }
+          .title-box h1 { margin: 0; font-size: 19px; color: #0f172a; font-weight: 900; }
+          .title-box p { margin: 2px 0 0; font-size: 11px; color: #64748b; font-weight: bold; }
+          .badge-gov { text-align: left; font-size: 11px; color: #475569; }
+          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+          .sum-card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center; }
+          .sum-card .v { font-size: 15px; font-weight: 900; }
+          .sum-card .l { font-size: 10px; color: #64748b; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; }
+          th { background: #1e1b4b; color: #fde68a; padding: 7px 6px; font-weight: 900; border: 1px solid #94a3b8; text-align: center; }
+          td { padding: 6px 6px; border: 1px solid #cbd5e1; text-align: center; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .footer { margin-top: 15px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="watermark-container">
+          <img src="${logoUrl}" class="watermark-logo" alt="Watermark Logo" />
+          <div class="watermark-text">منصة اتجاه للتحليل الذكي</div>
+          <div style="font-size: 20px; font-weight: bold;">Etegah Intelligent Analysis</div>
+        </div>
+
+        <div class="content-wrap">
+          <div class="header">
+            <div class="logo-box">
+              <img src="${logoUrl}" alt="لوجو اتجاه" />
+              <div class="title-box">
+                <h1>منصة اتجاه للتحليل الذكي</h1>
+                <p>مسير رواتب وحضور وانصراف الموظفين المعتمد • ${getPayrollCycleLabel(selectedPayrollCycle)} • تاريخ الاستخراج: ${dateFormatted} - ${timeFormatted}</p>
+              </div>
+            </div>
+            <div class="badge-gov">
+              <div style="font-weight: 900; color: #0f172a;">الإدارة العامة والمالية 🏢</div>
+              <div>نسخة رسمية معتمدة بالعلامة المائية</div>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="sum-card">
+              <div class="v" style="color: #4338ca;">${targetEmployees.length} موظف</div>
+              <div class="l">إجمالي الموظفين</div>
+            </div>
+            <div class="sum-card">
+              <div class="v" style="color: #b45309;">${totalBase.toLocaleString()} ج.م</div>
+              <div class="l">إجمالي الرواتب الأساسية</div>
+            </div>
+            <div class="sum-card">
+              <div class="v" style="color: #be123c;">${(totalAdv + totalKpi + totalLate).toLocaleString()} ج.م</div>
+              <div class="l">إجمالي الخصومات والسلف</div>
+            </div>
+            <div class="sum-card" style="background: #ecfdf5; border-color: #a7f3d0;">
+              <div class="v" style="color: #047857;">${totalNet.toLocaleString()} ج.م</div>
+              <div class="l">إجمالي صافي المستحقات</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">#</th>
+                <th>اسم الموظف</th>
+                <th>المسمى الوظيفي</th>
+                <th>تاريخ التعيين</th>
+                <th>المرتب الثابت</th>
+                <th>أيام وخصم التأخير</th>
+                <th>السلف</th>
+                <th>خصم KPI</th>
+                <th>صافي الراتب</th>
+                <th>مواعيد البصمة</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background: #e2e8f0; font-weight: 900;">
+                <td colspan="4" style="text-align: right; padding-right: 12px;">الإجمالي العام</td>
+                <td>${totalBase.toLocaleString()} ج.م</td>
+                <td>${totalLate.toLocaleString()} ج.م</td>
+                <td>${totalAdv.toLocaleString()} ج.م</td>
+                <td>${totalKpi.toLocaleString()} ج.م</td>
+                <td style="color: #047857; background: #d1fae5;">${totalNet.toLocaleString()} ج.م</td>
+                <td colspan="2">-</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div class="footer">
+            تم استخراج هذا البيان رسمياً عبر منظومة منصة اتجاه للتحليل الذكي • توقيع واعتماد الإدارة: _____________________
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   // --- PDF EXPORT FOR RECOMMENDATIONS WITH COMPANY LOGO (v2.25) ---
@@ -6910,7 +7350,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             <img src="${logoUrl}" alt="لوجو اتجاه" />
             <div class="title-box">
               <h1>منصة اتجاه التحليل الذكي</h1>
-              <p>${title} • تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')} • ${new Date().toLocaleTimeString('ar-EG')}</p>
+              <p>${title} • تاريخ التحميل: ${new Date().toLocaleDateString('ar-EG')} • ${new Date().toLocaleTimeString('ar-EG')}</p>
             </div>
           </div>
           <div style="text-align: left; font-size: 11px; color: #475569;">
@@ -7274,10 +7714,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
       const fileName = `مصروفات_ومحتويات_البوفيه_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      toast.success('تم تصدير شيت البوفيه بنجاح 📥📊');
+      toast.success('تم تحميل شيت البوفيه بنجاح 📥📊');
     } catch (err) {
       console.error('Error exporting buffet to excel:', err);
-      toast.error('حدث خطأ أثناء التصدير');
+      toast.error('حدث خطأ أثناء التحميل');
     }
   };
 
@@ -7293,13 +7733,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const exportSubscribedClientsToExcel = () => {
     if (!isAdmin) {
-      toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
+      toast.error('تحميل البيانات إلى Excel متاح للإدارة فقط 🔒');
       return;
     }
     const scopeList = allSubscribedClients;
 
     if (scopeList.length === 0) {
-      toast.error('لا يوجد عملاء مشتركين لتصديرهم');
+      toast.error('لا يوجد عملاء مشتركين لتحميلهم');
       return;
     }
 
@@ -7335,10 +7775,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       
       const fileName = `العملاء_المشتركين_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(workbook, fileName);
-      toast.success(`تم تصدير ${scopeList.length} مشترك إلى إكسيل بنجاح 🟢`);
+      toast.success(`تم تحميل ${scopeList.length} مشترك إلى إكسيل بنجاح 🟢`);
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء تصدير ملف الإكسيل');
+      toast.error('حدث خطأ أثناء تحميل ملف الإكسيل');
     }
   };
 
@@ -8613,19 +9053,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
-              {/* Payroll & Attendance Card (v2.25) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">⏰</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
-                </div>
-              </div>
+              
             </div>
           </div>
         ) : isCoordinator ? (
@@ -8793,18 +9221,68 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </div>
 
               {/* Buffet Card: Expenses & Inventory (v2.24) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">☕</span>
+              {hasPermission(currentEmpUser, 'show_card_buffet') && (
+                <div 
+                  onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                    <span className="text-2xl">☕</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+              )}
+
+              {/* Saudi Recommendations Card for Coordinator */}
+              {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
+                <div 
+                  onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض ومتابعة توصيات السوق السعودي"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                    <span className="text-2xl">🇸🇦</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* US Recommendations Card for Coordinator */}
+              {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
+                <div 
+                  onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                    <span className="text-2xl">🇺🇸</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Payroll & Attendance Card for Coordinator */}
+              {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
+                <div 
+                  onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                  title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+                >
+                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                    <span className="text-2xl">⏰</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : isLeader ? (
@@ -10112,7 +10590,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                       title="تنزيل جميع العملاء بتفاصيلهم وملحوظاتهم على شيت إكسيل"
                     >
-                      <Download size={14} /> 📊 تصدير الداتا إلى إكسيل
+                      <Download size={14} /> 📊 تحميل الداتا إلى إكسيل
                     </button>
                     <button 
                       onClick={handleCleanLeadNames}
@@ -10126,7 +10604,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       onClick={() => setIsImportModalOpen(true)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
                     >
-                      <FileSpreadsheet size={14} /> 📥 استيراد Leads جديدة
+                      <FileSpreadsheet size={14} /> 📤 رفع Leads جديدة
                     </button>
                   </>
                 )}
@@ -10812,7 +11290,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   onClick={() => setIsImportModalOpen(true)}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                 >
-                  <FileSpreadsheet size={14} /> 📥 استيراد داتا جديدة
+                  <FileSpreadsheet size={14} /> 📤 رفع داتا جديدة
                 </button>
                 {isAdmin && (
                   <>
@@ -11085,7 +11563,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   onClick={() => setIsImportModalOpen(true)}
                                   className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
                                 >
-                                  + إضافة / استيراد داتا الآن
+                                  + إضافة / رفع داتا الآن
                                 </button>
                               </div>
                             </td>
@@ -12168,8 +12646,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* DEDICATED SAUDI MARKET RECOMMENDATIONS TAB (v2.23)                       */}
         {/* Visible ONLY to Admin and Customer Service                               */}
         {/* ========================================================================= */}
-        {activeTab === 'saudi_signals' && (isAdmin || isCustomerService) && (() => {
+        {activeTab === 'saudi_signals' && (isAdmin || isCoordinator || isCustomerService || hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) && (() => {
           const filteredSignals = saudiRecommendations.filter(sig => {
+            if (selectedSaudiMonth !== 'all') {
+              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+              if (dVal && !isNaN(dVal.getTime())) {
+                const y = dVal.getFullYear();
+                const m = dVal.getMonth() + 1;
+                const k = `${y}-${m < 10 ? '0' + m : m}`;
+                if (k !== selectedSaudiMonth) return false;
+              }
+            }
             if (saudiSignalsFilter !== 'all' && sig.status !== saudiSignalsFilter) return false;
             if (saudiSignalsSearch.trim()) {
               const q = saudiSignalsSearch.trim().toLowerCase();
@@ -12190,7 +12677,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>🇸🇦 جدول توصيات السوق السعودي (Saudi Stock Recommendations)</span>
+                      <span>🇸🇦 توصيات السوق السعودي</span>
 
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
@@ -12277,13 +12764,30 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Filter & Search Bar */}
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
-                {/* Date Filter */}
+                {/* Month & Date Filter & Bulk Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm">
+                    <Calendar size={14} className="text-amber-600" />
+                    <span className="text-[11px] font-black text-gray-700">دورة الشهر (1):</span>
+                    <select
+                      value={selectedSaudiMonth}
+                      onChange={(e) => setSelectedSaudiMonth(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">📅 كل الشهور (الأرشيف)</option>
+                      {getAvailableMonthsForSignals(saudiRecommendations).map(m => (
+                        <option key={m.key} value={m.key}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <Calendar size={14} className="text-amber-500" />
                     <span>من:</span>
                     <input
-                      type="date"
+                      type={saudiDateFrom ? "date" : "text"}
+                      onFocus={(e) => e.target.type = 'date'}
+                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                      placeholder=""
                       value={saudiDateFrom}
                       onChange={(e) => setSaudiDateFrom(e.target.value)}
                       className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
@@ -12292,7 +12796,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
                     <span>إلى:</span>
                     <input
-                      type="date"
+                      type={saudiDateTo ? "date" : "text"}
+                      onFocus={(e) => e.target.type = 'date'}
+                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                      placeholder=""
                       value={saudiDateTo}
                       onChange={(e) => setSaudiDateTo(e.target.value)}
                       className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
@@ -12303,7 +12810,28 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       onClick={() => { setSaudiDateFrom(''); setSaudiDateTo(''); }}
                       className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline"
                     >
-                      مسح فلتر التاريخ ✕
+                      مسح التاريخ ✕
+                    </button>
+                  )}
+
+                  {/* Bulk Delete Buttons */}
+                  {selectedSaudiIds.length > 0 && (
+                    <button
+                      onClick={handleDeleteSelectedSaudiSignals}
+                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>مسح المحدد ({selectedSaudiIds.length})</span>
+                    </button>
+                  )}
+                  {filteredSignals.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllSaudiSignals}
+                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      title="مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات"
+                    >
+                      <Trash2 size={13} />
+                      <span>مسح الكل</span>
                     </button>
                   )}
                 </div>
@@ -12346,8 +12874,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <table className="w-full text-right text-xs">
                   <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
-                      <th className="py-3 px-3 text-center w-12 text-amber-300">#</th>
-                      <th className="py-3 px-3 text-center text-amber-300">إشعار الواتساب</th>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">
+                        <input
+                          type="checkbox"
+                          checked={filteredSignals.length > 0 && selectedSaudiIds.length === filteredSignals.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedSaudiIds(filteredSignals.map(s => s.id));
+                            else setSelectedSaudiIds([]);
+                          }}
+                          className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
                       <th className="py-3 px-3 font-extrabold text-amber-300">اسم السهم</th>
                       <th className="py-3 px-3 text-center text-amber-300">الكود</th>
                       <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/40 text-center">دعم 1 (الأساسي)</th>
@@ -12386,25 +12924,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                         return (
                           <tr key={sig.id} className="hover:bg-emerald-50/50 transition">
-                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
-                            
-                            {/* Screenshot preview */}
-                            <td className="py-3 px-3 text-center">
-                              {sig.screenshotUrl ? (
-                                <div 
-                                  onClick={() => setLightboxImage(sig.screenshotUrl)}
-                                  className="w-10 h-10 mx-auto rounded-lg overflow-hidden border border-emerald-300/80 shadow-sm cursor-pointer hover:scale-110 transition group relative"
-                                  title="انقر لتكبير صورة الإشعار"
-                                >
-                                  <img src={sig.screenshotUrl} alt="WhatsApp Proof" className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                                    <Eye size={14} className="text-white" />
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-[10px]">بدون صورة</span>
-                              )}
+                            <td className="py-2.5 px-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedSaudiIds.includes(sig.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSaudiIds(prev => prev.includes(sig.id) ? prev.filter(x => x !== sig.id) : [...prev, sig.id]);
+                                }}
+                                className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                              />
                             </td>
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
 
                             <td className="py-3 px-3 font-extrabold text-emerald-950 text-sm">
                               {sig.stockName}
@@ -12538,8 +13069,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* Visible ONLY to Admin and Customer Service                               */}
         {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
         {/* ========================================================================= */}
-        {activeTab === 'us_signals' && (isAdmin || isCustomerService) && (() => {
+        {activeTab === 'us_signals' && (isAdmin || isCoordinator || isCustomerService || hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (() => {
           const filteredSignals = usRecommendations.filter(sig => {
+            if (selectedUsMonth !== 'all') {
+              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+              if (dVal && !isNaN(dVal.getTime())) {
+                const y = dVal.getFullYear();
+                const m = dVal.getMonth() + 1;
+                const k = `${y}-${m < 10 ? '0' + m : m}`;
+                if (k !== selectedUsMonth) return false;
+              }
+            }
             if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
             if (usSignalsStatusFilter !== 'all' && sig.status !== usSignalsStatusFilter) return false;
             if (usSignalsSearch.trim()) {
@@ -12559,7 +13099,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>🇺🇸 جدول توصيات السوق الأمريكي (US Stock & Options Signals)</span>
+                      <span>🇺🇸 توصيات السوق الأمريكي</span>
 
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
@@ -12577,44 +13117,175 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
-                  <button 
-                    onClick={() => handleOpenAddUsSignalModal()}
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                  >
-                    <Plus size={16} />
-                    <span>+ إضافة توصية أمريكية جديدة</span>
-                  </button>
                 </div>
               </div>
 
+              {/* Visual Candlestick & Performance Analytics Banner for US (v2.26) */}
+              {(() => {
+                const totalU = usRecommendations.length;
+                const activeU = usRecommendations.filter(s => s.status === 'active').length;
+                const t1U = usRecommendations.filter(s => s.status === 'target1').length;
+                const t2U = usRecommendations.filter(s => s.status === 'target2').length;
+                const slU = usRecommendations.filter(s => s.status === 'stop_loss').length;
+                const winCountU = t1U + t2U;
+                const winRateU = totalU > 0 ? Math.round((winCountU / (totalU - activeU || totalU)) * 100) : 0;
+
+                return (
+                  <div className="p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/50 border-b border-amber-500/20">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="text-amber-400" size={17} />
+                        <span className="text-xs font-black text-amber-300">📊 تحليل كفاءة ونسب نجاح توصيات السوق الأمريكي (Candlestick Analytics)</span>
+                      </div>
+                      <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                        معدل النجاح العام: {winRateU}% 📈
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-2.5">
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-emerald-500/30 text-center">
+                        <span className="text-[10px] text-emerald-300 font-bold block">🎯 Target 1 محقق</span>
+                        <span className="text-base font-black text-emerald-400">{t1U}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-cyan-500/30 text-center">
+                        <span className="text-[10px] text-cyan-300 font-bold block">🚀 Target 2 محقق</span>
+                        <span className="text-base font-black text-cyan-400">{t2U}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-amber-500/30 text-center">
+                        <span className="text-[10px] text-amber-300 font-bold block">⏳ سارية للتداول</span>
+                        <span className="text-base font-black text-amber-300">{activeU}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-rose-500/30 text-center">
+                        <span className="text-[10px] text-rose-300 font-bold block">🛑 وقف خسارة</span>
+                        <span className="text-base font-black text-rose-400">{slU}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-purple-500/30 text-center col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-purple-300 font-bold block">📊 إجمالي الصفقات</span>
+                        <span className="text-base font-black text-amber-300">{totalU}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Category Segment Tabs & Search Bar */}
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
-                {/* Segment Filter (All, Stocks, Options) */}
-                <div className="flex items-center gap-1 bg-white/80 p-1 rounded-xl border border-amber-300/60 shadow-sm">
-                  <button
-                    onClick={() => setUsSignalsMarketFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
-                  >
-                    🌐 الكل ({usRecommendations.length})
-                  </button>
-                  <button
-                    onClick={() => setUsSignalsMarketFilter('stocks')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
-                  >
-                    <span>📈 شركات وأسهم (Stocks)</span>
-                    <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'stocks').length})</span>
-                  </button>
-                  <button
-                    onClick={() => setUsSignalsMarketFilter('options')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
-                  >
-                    <span>⚡ عقود شركات (Options)</span>
-                    <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'options').length})</span>
-                  </button>
+                {/* Segment Filter with Dedicated Add Buttons (v2.26) */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex items-center gap-1 bg-white/80 p-1 rounded-xl border border-amber-300/60 shadow-sm">
+                    <button
+                      onClick={() => setUsSignalsMarketFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
+                    >
+                      🌐 الكل ({usRecommendations.length})
+                    </button>
+                    <button
+                      onClick={() => setUsSignalsMarketFilter('stocks')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
+                    >
+                      <span>📈 شركات وأسهم (Stocks)</span>
+                      <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'stocks').length})</span>
+                    </button>
+                    <button
+                      onClick={() => setUsSignalsMarketFilter('options')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
+                    >
+                      <span>⚡ عقود شركات (Options)</span>
+                      <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'options').length})</span>
+                    </button>
+                  </div>
+
+                  {/* Dedicated Add Buttons Above/Beside Filters */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleOpenAddUsSignalModal(null, 'stocks')}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="إضافة شركة أو سهم أمريكي جديد لشيت الأسهم"
+                    >
+                      <Plus size={13} />
+                      <span>+ إضافة شركة جديدة 📈</span>
+                    </button>
+                    <button
+                      onClick={() => handleOpenAddUsSignalModal(null, 'options')}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="إضافة عقد خيارات (Options) جديد لشيت العقود"
+                    >
+                      <Plus size={13} />
+                      <span>+ إضافة عقد جديد ⚡</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Search and Status Dropdown */}
+                {/* Month & Date Filter & Bulk Actions (v2.26) */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm">
+                    <Calendar size={14} className="text-amber-600" />
+                    <span className="text-[11px] font-black text-gray-700">دورة الشهر (1):</span>
+                    <select
+                      value={selectedUsMonth}
+                      onChange={(e) => setSelectedUsMonth(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">📅 كل الشهور (الأرشيف)</option>
+                      {getAvailableMonthsForSignals(usRecommendations).map(m => (
+                        <option key={m.key} value={m.key}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                    <span>من:</span>
+                    <input
+                      type={usDateFrom ? "date" : "text"}
+                      onFocus={(e) => e.target.type = 'date'}
+                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                      placeholder=""
+                      value={usDateFrom}
+                      onChange={(e) => setUsDateFrom(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                    <span>إلى:</span>
+                    <input
+                      type={usDateTo ? "date" : "text"}
+                      onFocus={(e) => e.target.type = 'date'}
+                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                      placeholder=""
+                      value={usDateTo}
+                      onChange={(e) => setUsDateTo(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
+                    />
+                  </div>
+                  {(usDateFrom || usDateTo) && (
+                    <button
+                      onClick={() => { setUsDateFrom(''); setUsDateTo(''); }}
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline"
+                    >
+                      مسح التاريخ ✕
+                    </button>
+                  )}
+
+                  {/* Bulk Delete Buttons for US */}
+                  {selectedUsIds.length > 0 && (
+                    <button
+                      onClick={handleDeleteSelectedUsSignals}
+                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>مسح المحدد ({selectedUsIds.length})</span>
+                    </button>
+                  )}
+                  {filteredSignals.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllUsSignals}
+                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      title="مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات"
+                    >
+                      <Trash2 size={13} />
+                      <span>مسح الكل</span>
+                    </button>
+                  )}
                   <div className="relative">
                     <input 
                       type="text" 
@@ -12648,8 +13319,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <table className="w-full text-right text-xs">
                   <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
-                      <th className="py-3 px-3 text-center w-12 text-amber-300">#</th>
-                      <th className="py-3 px-3 text-center text-amber-300">إشعار الواتساب</th>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">
+                        <input
+                          type="checkbox"
+                          checked={filteredSignals.length > 0 && selectedUsIds.length === filteredSignals.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedUsIds(filteredSignals.map(s => s.id));
+                            else setSelectedUsIds([]);
+                          }}
+                          className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
                       <th className="py-3 px-3 font-extrabold text-amber-300">الرمز (Symbol)</th>
                       <th className="py-3 px-3 text-center text-amber-300">النوع</th>
                       <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/40 text-center">دخول (Buy)</th>
@@ -12685,25 +13366,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                         return (
                           <tr key={sig.id} className="hover:bg-blue-50/50 transition">
-                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
-                            
-                            {/* Screenshot preview */}
-                            <td className="py-3 px-3 text-center">
-                              {sig.screenshotUrl ? (
-                                <div 
-                                  onClick={() => setLightboxImage(sig.screenshotUrl)}
-                                  className="w-10 h-10 mx-auto rounded-lg overflow-hidden border border-blue-300/80 shadow-sm cursor-pointer hover:scale-110 transition group relative"
-                                  title="انقر لتكبير صورة الإشعار"
-                                >
-                                  <img src={sig.screenshotUrl} alt="WhatsApp Proof" className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                                    <Eye size={14} className="text-white" />
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-[10px]">بدون صورة</span>
-                              )}
+                            <td className="py-2.5 px-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedUsIds.includes(sig.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedUsIds(prev => prev.includes(sig.id) ? prev.filter(x => x !== sig.id) : [...prev, sig.id]);
+                                }}
+                                className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                              />
                             </td>
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
 
                             <td className="py-3 px-3 font-black text-blue-950 text-sm font-mono tracking-wider">
                               {sig.symbol}
@@ -12845,7 +13519,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>☕ مصروفات ومحتويات البوفيه (Buffet Expenses & Inventory)</span>
+                      <span>☕ مصروفات ومحتويات البوفيه</span>
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {buffetInventory.length} صنف مسجل
                       </span>
@@ -13358,7 +14032,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* DEDICATED PAYROLL & ATTENDANCE TAB (v2.25)                                */}
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
-        {activeTab === 'payroll_attendance' && (isAdmin || isCoordinator) && (() => {
+        {activeTab === 'payroll_attendance' && (isAdmin || isCoordinator || hasPermission(currentEmpUser, 'show_card_attendance_payroll') || hasPermission(currentEmpUser, 'canViewAttendancePayroll')) && (() => {
           const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
@@ -13366,10 +14040,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             return (emp.name || emp.username || '').toLowerCase().includes(q) || (emp.jobTitle || '').toLowerCase().includes(q);
           });
 
-          // Calculate totals
+          // Calculate totals for selected cycle
           let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
           targetEmployees.forEach(emp => {
-            const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+            const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
             const b = parseFloat(p.baseSalary) || 0;
             const a = parseFloat(p.advances) || 0;
             const k = parseFloat(p.kpiDeduction) || 0;
@@ -13391,7 +14065,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>⏰ مسير رواتب وبصمة وحضور وانصراف الموظفين (Payroll & Attendance)</span>
+                      <span>⏰ حضور وانصراف وخصومات الموظفين</span>
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة الرواتب الثابتة، سجل البصمة وأيام التأخير، السلف، خصومات الـ KPI، وحساب صافي القبض تلقائياً
@@ -13414,8 +14088,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
                   >
                     <Download size={14} />
-                    <span>تصدير مسير الرواتب (Excel) 📥</span>
+                    <span>تحميل مسير الرواتب (Excel) 📥</span>
                   </button>
+
+                  {isAdmin && (
+                    <button 
+                      onClick={handleExportPayrollPdf}
+                      className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer"
+                      title="تحميل وطباعة مسير الرواتب بصيغة PDF مع العلامة المائية واللوجو للإدارة"
+                    >
+                      <Download size={14} />
+                      <span>تحميل مسير الرواتب (PDF مع علامة مائية) 📄</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -13462,21 +14147,62 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
-              {/* Search Bar */}
-              <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex items-center justify-between gap-3">
-                <div className="relative w-full max-w-xs">
-                  <Search className="absolute right-3 top-2.5 text-gray-400" size={14} />
-                  <input
-                    type="text"
-                    placeholder="بحث باسم الموظف أو المسمى الوظيفي..."
-                    value={payrollSearch}
-                    onChange={(e) => setPayrollSearch(e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
-                  />
+              {/* Search Bar & Monthly Cycle Filter & Bulk Delete (v2.26) */}
+              <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute right-3 top-2.5 text-gray-400" size={14} />
+                    <input
+                      type="text"
+                      placeholder="بحث باسم الموظف أو المسمى..."
+                      value={payrollSearch}
+                      onChange={(e) => setPayrollSearch(e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    />
+                  </div>
+
+                  {/* Monthly Cycle Selector (Cycle resets on day 20) */}
+                  <div className="flex items-center gap-1.5 bg-white/90 px-3 py-1 rounded-xl border border-amber-300 shadow-sm">
+                    <Calendar size={14} className="text-amber-600" />
+                    <span className="text-xs font-bold text-gray-700">دورة الرواتب:</span>
+                    <select
+                      value={selectedPayrollCycle}
+                      onChange={(e) => setSelectedPayrollCycle(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
+                    >
+                      <option value={getPayrollCycleKey()}>🌟 الدورة الحالية ({getPayrollCycleLabel(getPayrollCycleKey())})</option>
+                      {getPreviousPayrollCycles().map(c => (
+                        <option key={c.key} value={c.key}>📅 {c.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-500 font-bold">
-                  الصلاحية: مقتصرة على الإدارة ومنسق الإدارة 🔒
-                </span>
+
+                {/* Bulk Delete & Security Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedPayrollEmpIds.length > 0 && (
+                    <button
+                      onClick={() => handleDeleteSelectedPayroll(filteredEmps)}
+                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>مسح المحدد ({selectedPayrollEmpIds.length})</span>
+                    </button>
+                  )}
+                  {filteredEmps.length > 0 && (
+                    <button
+                      onClick={() => handleDeleteAllPayroll(filteredEmps)}
+                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      title="مسح وتصفير بيانات الدورة ونقلها لسلة المهملات"
+                    >
+                      <Trash2 size={13} />
+                      <span>تصفير الدورة لسلة المهملات 🗑️</span>
+                    </button>
+                  )}
+                  <span className="text-[11px] text-gray-500 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl">
+                    تتصفر المتغيرات يوم 20 ميلادياً تلقائياً مع ترحيل المرتب الأساسي 🔄
+                  </span>
+                </div>
               </div>
 
               {/* Payroll Table */}
@@ -13484,6 +14210,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <table className="w-full text-right text-xs">
                   <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
+                      <th className="py-3 px-3 text-center w-10 text-amber-300">
+                        <input
+                          type="checkbox"
+                          checked={filteredEmps.length > 0 && selectedPayrollEmpIds.length === filteredEmps.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedPayrollEmpIds(filteredEmps.map(emp => emp.uid || emp.id));
+                            else setSelectedPayrollEmpIds([]);
+                          }}
+                          className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                        />
+                      </th>
                       <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
                       <th className="py-3 px-3 text-amber-300 font-extrabold">الموظف</th>
                       <th className="py-3 px-3 text-center text-amber-300">تاريخ التعيين</th>
@@ -13508,17 +14245,29 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </tr>
                     ) : (
                       filteredEmps.map((emp, idx) => {
-                        const p = employeePayrollData[emp.uid] || employeePayrollData[emp.id] || {};
+                        const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
                         const base = parseFloat(p.baseSalary) || 0;
                         const adv = parseFloat(p.advances) || 0;
                         const kpi = parseFloat(p.kpiDeduction) || 0;
                         const lateD = parseFloat(p.lateDeduction) || 0;
                         const net = Math.max(0, base - adv - kpi - lateD);
+                        const empKey = emp.uid || emp.id;
 
                         const roleTitle = emp.jobTitle || (emp.role === 'coordinator' ? 'منسق إدارة' : emp.role === 'leader' ? 'ليدر' : emp.role === 'customer_service' ? 'خدمة عملاء' : 'موظف');
 
                         return (
-                          <tr key={emp.uid || idx} className="hover:bg-amber-50/40 transition">
+                          <tr key={empKey || idx} className="hover:bg-amber-50/40 transition">
+                            <td className="py-2.5 px-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedPayrollEmpIds.includes(empKey)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPayrollEmpIds(prev => prev.includes(empKey) ? prev.filter(x => x !== empKey) : [...prev, empKey]);
+                                }}
+                                className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
+                              />
+                            </td>
                             <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
                               {idx + 1}
                             </td>
@@ -15682,7 +16431,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               </span>
                             </div>
                             <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
-                              <span>بواسطة: {String(log.assignedBy || '').replace(/إضافة واستيراد داتا بواسطة\s*/g, '').replace(/[()]/g, '').trim() || 'الإدارة'}</span>
+                              <span>بواسطة: {String(log.assignedBy || '').replace(/إضافة و(استيراد|رفع) داتا بواسطة\s*/g, '').replace(/[()]/g, '').trim() || 'الإدارة'}</span>
                               <span className="text-purple-600 font-black">تحويل #{idx + 1}</span>
                             </div>
                           </div>
@@ -16151,6 +16900,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       <span className="text-purple-300 font-bold">🎉 Paid</span>
                                     </div>
                                   </th>
+                                  <th className="p-3 text-center bg-cyan-950/40 border-x border-cyan-500/30">
+                                    <div className="flex flex-col items-center leading-tight">
+                                      <span className="text-cyan-300 font-black">🎯 ديمو اليوم</span>
+                                    </div>
+                                  </th>
                                   <th className="p-3 text-center">
                                     <div className="flex flex-col items-center leading-tight">
                                       <span className="text-cyan-300 font-bold">🚀 Demo</span>
@@ -16203,11 +16957,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     </td>
                                     <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                     <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
-                                    <td className="p-3 text-center font-bold text-cyan-400">
-    <span>{trial}</span>
-    {todayDemo > 0 && (
-      <span className="block text-[9px] text-emerald-400 font-black">+{todayDemo} اليوم 🎯</span>
+                                    <td className="p-3 text-center font-black text-cyan-300 bg-cyan-950/20 border-x border-cyan-500/20">
+    {todayDemo > 0 ? (
+      <span className="inline-flex items-center gap-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full text-xs font-black shadow-sm">
+        🎯 {todayDemo}
+      </span>
+    ) : (
+      <span className="text-slate-500 text-xs font-bold">0</span>
     )}
+  </td>
+  <td className="p-3 text-center font-bold text-cyan-400">
+    <span>{trial}</span>
   </td>
                                     <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
                                     <td className="p-3 text-center font-bold text-blue-400">{callBack}</td>
@@ -16322,6 +17082,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                         <span className="text-purple-300 font-bold">🎉 Paid</span>
                                       </div>
                                     </th>
+                                    <th className="p-3 text-center bg-cyan-950/40 border-x border-cyan-500/30">
+                                      <div className="flex flex-col items-center leading-tight">
+                                        <span className="text-cyan-300 font-black">🎯 ديمو اليوم</span>
+                                      </div>
+                                    </th>
                                     <th className="p-3 text-center">
                                       <div className="flex flex-col items-center leading-tight">
                                         <span className="text-cyan-300 font-bold">🚀 Demo</span>
@@ -16371,11 +17136,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       </td>
                                       <td className="p-3 text-center font-bold text-teal-300">{interactionRate}%</td>
                                       <td className="p-3 text-center font-bold text-purple-400">{subscribed}</td>
-                                      <td className="p-3 text-center font-bold text-cyan-400">
-    <span>{trial}</span>
-    {todayDemo > 0 && (
-      <span className="block text-[9px] text-emerald-400 font-black">+{todayDemo} اليوم 🎯</span>
+                                      <td className="p-3 text-center font-black text-cyan-300 bg-cyan-950/20 border-x border-cyan-500/20">
+    {todayDemo > 0 ? (
+      <span className="inline-flex items-center gap-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full text-xs font-black shadow-sm">
+        🎯 {todayDemo}
+      </span>
+    ) : (
+      <span className="text-slate-500 text-xs font-bold">0</span>
     )}
+  </td>
+  <td className="p-3 text-center font-bold text-cyan-400">
+    <span>{trial}</span>
   </td>
                                       <td className="p-3 text-center font-bold text-emerald-400">{interested}</td>
                                       <td className="p-3 text-center font-bold text-blue-400">{callBack}</td>

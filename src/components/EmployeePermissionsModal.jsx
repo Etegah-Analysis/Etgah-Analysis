@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { 
   X, ShieldCheck, AlertCircle, Check, Info, RefreshCw, 
   Search, CheckCircle2, XCircle, Save, Sparkles, Sliders,
-  HelpCircle, Lock, Shield
+  Eye, EyeOff, Lock, Shield, Layers, HelpCircle, CheckSquare, Square
 } from 'lucide-react';
 import { db, doc, updateDoc } from '../firebase';
 import { toast } from 'react-hot-toast';
 import { 
-  PERMISSIONS_CATEGORIES, 
+  CARDS_PERMISSIONS_CONFIG, 
   SYSTEM_PERMISSIONS, 
   getEmployeeRoleKey, 
   getDefaultPermissionsForRole, 
@@ -20,7 +20,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
 
   const roleKey = getEmployeeRoleKey(employee);
   const [permissions, setPermissions] = useState({});
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCardFilter, setSelectedCardFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTooltipId, setActiveTooltipId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -31,21 +31,62 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
       setPermissions(getEmployeeResolvedPermissions(employee));
       setActiveTooltipId(null);
       setSearchQuery('');
-      setSelectedCategory('all');
+      setSelectedCardFilter('all');
     }
   }, [employee]);
 
-  // Toggle single permission
+  // Toggle single permission (master or sub)
   const handleToggle = (permId) => {
     const permObj = SYSTEM_PERMISSIONS.find(p => p.id === permId);
-    if (roleKey === 'leader' && permObj?.category === 'deletion') {
-      toast.error('غير مصرح بتفعيل صلاحيات الحذف لليدر لحماية بيانات المنصة ⛔');
+    if (roleKey === 'leader' && permObj?.cardId === 'recycle_bin' && permId === 'canEmptyRecycleBin') {
+      toast.error('غير مصرح بتفريغ سلة المهملات لليدر لحماية بيانات المنصة ⛔');
       return;
     }
     setPermissions(prev => ({
       ...prev,
       [permId]: !prev[permId]
     }));
+  };
+
+  // Toggle master card visibility
+  const handleToggleMaster = (card) => {
+    const currentVal = !!permissions[card.masterKey];
+    const newVal = !currentVal;
+    
+    setPermissions(prev => {
+      const updated = { ...prev, [card.masterKey]: newVal };
+      // If turning master ON and all sub-permissions are off, turn on default sub-permissions
+      if (newVal) {
+        const anySubActive = card.subPermissions.some(sub => prev[sub.id]);
+        if (!anySubActive) {
+          card.subPermissions.forEach(sub => {
+            updated[sub.id] = !!(sub.defaultByRole[roleKey] ?? true);
+          });
+        }
+      }
+      return updated;
+    });
+
+    if (newVal) {
+      toast.success(`تم تفعيل وإظهار كارت (${card.title}) للموظف 👁️`);
+    } else {
+      toast(`تم إخفاء كارت (${card.title}) عن الموظف 🔒`, { icon: '🙈' });
+    }
+  };
+
+  // Toggle all actions for a specific card
+  const handleToggleCardActions = (card, enable) => {
+    setPermissions(prev => {
+      const updated = { ...prev, [card.masterKey]: enable };
+      card.subPermissions.forEach(sub => {
+        if (roleKey === 'leader' && sub.id === 'canEmptyRecycleBin') {
+          updated[sub.id] = false;
+        } else {
+          updated[sub.id] = enable;
+        }
+      });
+      return updated;
+    });
   };
 
   // Reset to role defaults
@@ -55,28 +96,28 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
     toast.success(`تم استعادة الصلاحيات الافتراضية لوظيفة (${getRoleArabicTitle(roleKey)}) بنجاح 🔄`);
   };
 
-  // Enable all
+  // Enable all cards and all permissions
   const handleEnableAll = () => {
     const allOn = {};
     SYSTEM_PERMISSIONS.forEach(p => {
-      if (roleKey === 'leader' && p.category === 'deletion') {
+      if (roleKey === 'leader' && p.id === 'canEmptyRecycleBin') {
         allOn[p.id] = false;
       } else {
         allOn[p.id] = true;
       }
     });
     setPermissions(allOn);
-    toast.success('تم تفعيل جميع الصلاحيات بالكامل (مع استثناء الحذف لليدر) ✅');
+    toast.success('تم تفعيل جميع الكروت والصلاحيات بالكامل في النظام ✅✨');
   };
 
-  // Disable all
+  // Disable all cards and permissions
   const handleDisableAll = () => {
     const allOff = {};
     SYSTEM_PERMISSIONS.forEach(p => {
       allOff[p.id] = false;
     });
     setPermissions(allOff);
-    toast('تم إيقاف وتعطيل جميع الصلاحيات ⛔', { icon: '⚠️' });
+    toast('تم إيقاف وحجب جميع الكروت والصلاحيات ⛔', { icon: '⚠️' });
   };
 
   // Save to Firestore
@@ -93,7 +134,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
         customPermissions: permissions,
         permissionsUpdatedAt: new Date().toISOString()
       });
-      toast.success(`تم حفظ وتحديث صلاحيات (${employee.name || employee.username}) فوراً في النظام 🔐✨`);
+      toast.success(`تم حفظ وتطبيق صلاحيات (${employee.name || employee.username}) فوراً في النظام 🔐✨`);
       if (onSaveSuccess) {
         onSaveSuccess(permissions, empDocId);
       }
@@ -114,298 +155,315 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
     return 'مسؤول مبيعات (Agent)';
   }
 
-  // Filter permissions
-  const filteredPermissions = SYSTEM_PERMISSIONS.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    const matchesSearch = !searchQuery.trim() || 
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.goal.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+  // Filter cards based on selected filter and search query
+  const filteredCards = CARDS_PERMISSIONS_CONFIG.filter(card => {
+    if (selectedCardFilter !== 'all' && card.id !== selectedCardFilter) return false;
+    if (!searchQuery.trim()) return true;
+
+    const q = searchQuery.trim().toLowerCase();
+    const matchesCard = card.title.toLowerCase().includes(q) || 
+                        card.subtitle.toLowerCase().includes(q) || 
+                        card.description.toLowerCase().includes(q);
+    const matchesSub = card.subPermissions.some(sub => 
+      sub.title.toLowerCase().includes(q) || sub.description.toLowerCase().includes(q)
+    );
+    return matchesCard || matchesSub;
   });
 
-  const activeCount = Object.values(permissions).filter(Boolean).length;
-  const totalCount = SYSTEM_PERMISSIONS.length;
+  const activeCardsCount = CARDS_PERMISSIONS_CONFIG.filter(c => !!permissions[c.masterKey]).length;
+  const totalSubPermsActive = SYSTEM_PERMISSIONS.filter(p => !p.isMaster && !!permissions[p.id]).length;
 
-  const modalContent = (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md overflow-y-auto"
-      dir="rtl"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[999999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      onClick={onClose}
     >
       <div 
-        className="bg-slate-900 border border-purple-500/40 rounded-2xl sm:rounded-3xl shadow-[0_20px_60px_rgba(112,26,117,0.5)] w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
+        className="bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-950 border border-amber-500/30 rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-[0_20px_70px_rgba(0,0,0,0.8)] overflow-hidden text-white my-auto animate-in fade-in zoom-in duration-200"
+        onClick={e => e.stopPropagation()}
+        dir="rtl"
       >
         {/* MODAL HEADER */}
-        <div className="p-4 sm:p-6 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl shadow-lg border border-purple-400/30 text-white shrink-0">
-              <Sliders size={26} />
+        <div className="p-4 sm:p-6 border-b border-purple-500/20 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 p-0.5 shadow-lg shadow-amber-500/20 shrink-0">
+              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-amber-300 font-black text-xl sm:text-2xl">
+                {(employee.name || employee.username || 'م').charAt(0).toUpperCase()}
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-black text-white">
-                  إعدادات وصلاحيات الموظف: {employee.name || employee.username}
+                <h2 className="text-base sm:text-xl font-black text-amber-300">
+                  لوحة تحكم الصلاحيات والكروت 🔐
                 </h2>
-                <span className="bg-purple-500/20 text-purple-300 border border-purple-400/30 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                  {getRoleArabicTitle(roleKey)}
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                  {employee.name || employee.username}
                 </span>
-                {employee.empCode && (
-                  <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 px-2 py-0.5 rounded-full text-xs font-mono">
-                    #{employee.empCode}
-                  </span>
-                )}
+                <span className="bg-purple-500/20 text-purple-300 border border-purple-400/30 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                  {employee.jobTitle || getRoleArabicTitle(roleKey)}
+                </span>
               </div>
-              <p className="text-xs text-purple-200/70 mt-1">
-                تحكم دقيق ومباشر في جميع وظائف وصلاحيات السيستم المتاحة لهذا الموظف
+              <p className="text-xs text-purple-200/80 mt-1">
+                حدد الكروت التي تظهر في لوحة الموظف واضبط الصلاحيات والإجراءات الفرعية بنقرة واحدة
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            <div className="bg-slate-800/90 border border-purple-400/20 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs">
-              <span className="text-gray-400 font-bold">المفعّل:</span>
-              <span className="text-emerald-400 font-black font-mono text-sm">{activeCount}</span>
-              <span className="text-gray-500">/</span>
-              <span className="text-gray-400 font-mono">{totalCount}</span>
+          <button 
+            onClick={onClose}
+            className="text-slate-400 hover:text-white p-2 rounded-xl bg-white/5 hover:bg-white/10 transition cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* STATUS & BULK ACTIONS BAR */}
+        <div className="px-4 sm:px-6 py-3 bg-slate-950/60 border-b border-purple-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-emerald-300 font-bold">
+              <Eye size={15} />
+              <span>الكروت المفعلة:</span>
+              <span className="font-black text-white">{activeCardsCount} من {CARDS_PERMISSIONS_CONFIG.length}</span>
             </div>
+            <div className="flex items-center gap-1.5 bg-purple-950/60 border border-purple-500/30 px-3 py-1.5 rounded-xl text-purple-300 font-bold">
+              <Shield size={15} />
+              <span>الإجراءات النشطة:</span>
+              <span className="font-black text-white">{totalSubPermsActive}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
-              title="إغلاق"
+              onClick={handleEnableAll}
+              className="bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-200 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="تفعيل كافة الكروت والإجراءات في السيستم"
             >
-              <X size={20} />
+              <CheckCircle2 size={14} className="text-emerald-400" />
+              <span>تفعيل الكل ✅</span>
+            </button>
+            <button
+              onClick={handleDisableAll}
+              className="bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/40 text-rose-200 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="تعطيل وحجب جميع الكروت والإجراءات"
+            >
+              <XCircle size={14} className="text-rose-400" />
+              <span>حجب الكل ⛔</span>
+            </button>
+            <button
+              onClick={handleResetToDefaults}
+              className="bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-200 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="استعادة الصلاحيات القياسية الافتراضية"
+            >
+              <RefreshCw size={14} className="text-amber-400" />
+              <span>الافتراضي 🔄</span>
             </button>
           </div>
         </div>
 
-        {/* QUICK CONTROLS & FILTER BAR */}
-        <div className="p-3 sm:p-4 bg-slate-900/90 border-b border-purple-500/20 flex flex-col gap-3 shrink-0">
-          {/* Quick Action Buttons */}
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleResetToDefaults}
-                className="px-3 py-1.5 bg-purple-900/40 hover:bg-purple-800/60 border border-purple-400/30 text-purple-200 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-                title="استعادة الصلاحيات الافتراضية لوظيفة الموظف كما هو مسجل بالسيستم"
+        {/* SEARCH & FILTER BAR */}
+        <div className="p-4 sm:px-6 bg-slate-900/40 border-b border-purple-500/10 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-purple-400" size={17} />
+            <input
+              type="text"
+              placeholder="🔍 ابحث عن اسم كارت أو صلاحية (مثال: بوفيه، توصيات، رواتب، حذف، واتساب)..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950/80 border border-purple-500/30 rounded-xl pr-10 pl-4 py-2 text-xs font-bold text-slate-100 placeholder-purple-400/50 focus:outline-none focus:border-amber-400"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
               >
-                <RefreshCw size={14} className="text-purple-300" />
-                <span>استعادة افتراضي الوظيفة ({getRoleArabicTitle(roleKey).split(' ')[0]})</span>
+                ✕
               </button>
-              <button
-                type="button"
-                onClick={handleEnableAll}
-                className="px-3 py-1.5 bg-emerald-950/40 hover:bg-emerald-800/50 border border-emerald-500/30 text-emerald-300 rounded-xl font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
-              >
-                <CheckCircle2 size={14} />
-                <span>تفعيل الكل</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDisableAll}
-                className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-800/50 border border-rose-500/30 text-rose-300 rounded-xl font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
-              >
-                <XCircle size={14} />
-                <span>إيقاف الكل</span>
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative min-w-[200px] flex-1 sm:flex-initial">
-              <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400" />
-              <input
-                type="text"
-                placeholder="بحث في الصلاحيات..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pr-8 pl-3 py-1.5 bg-slate-800/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-              />
-            </div>
+            )}
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                selectedCategory === 'all'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'bg-slate-800 text-gray-300 hover:bg-slate-700'
-              }`}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-purple-300 font-bold shrink-0">فلترة بالكارت:</span>
+            <select
+              value={selectedCardFilter}
+              onChange={e => setSelectedCardFilter(e.target.value)}
+              className="bg-slate-950 border border-purple-500/30 rounded-xl px-3 py-2 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-400 cursor-pointer"
             >
-              🌐 جميع الصلاحيات ({SYSTEM_PERMISSIONS.length})
-            </button>
-            {PERMISSIONS_CATEGORIES.map(cat => {
-              const catTotal = SYSTEM_PERMISSIONS.filter(p => p.category === cat.id).length;
-              const catActive = SYSTEM_PERMISSIONS.filter(p => p.category === cat.id && permissions[p.id]).length;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                    selectedCategory === cat.id
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'bg-slate-800 text-gray-300 hover:bg-slate-700'
-                  }`}
-                >
-                  <span>{cat.title.split(' ')[0]}</span>
-                  <span>{cat.title.split(' ')[1]}</span>
-                  <span className="text-[10px] bg-black/30 px-1.5 py-0.2 rounded-md font-mono text-purple-200">
-                    {catActive}/{catTotal}
-                  </span>
-                </button>
-              );
-            })}
+              <option value="all">🌐 جميع الكروت (16 كارت)</option>
+              {CARDS_PERMISSIONS_CONFIG.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* PERMISSIONS LIST (BODY) */}
-        <div className="p-3 sm:p-5 overflow-y-auto flex-1 space-y-3 custom-scrollbar bg-slate-950/60">
-          {filteredPermissions.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              لم يتم العثور على صلاحيات مطابقة للبحث أو التصنيف المحدد.
+        {/* CARDS CONTAINER (SCROLLABLE) */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {filteredCards.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <AlertCircle className="mx-auto text-amber-400 mb-2" size={36} />
+              <p className="font-bold text-sm">لا توجد كروت أو صلاحيات مطابقة لكلمة البحث</p>
             </div>
           ) : (
-            filteredPermissions.map(perm => {
-              const isEnabled = !!permissions[perm.id];
-              const isTooltipOpen = activeTooltipId === perm.id;
+            filteredCards.map(card => {
+              const isMasterActive = !!permissions[card.masterKey];
+              const cardSubPerms = card.subPermissions;
+              const activeSubsCount = cardSubPerms.filter(s => !!permissions[s.id]).length;
 
               return (
                 <div 
-                  key={perm.id}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex flex-col gap-2.5 ${
-                    isEnabled 
-                      ? 'bg-slate-900/90 border-emerald-500/40 shadow-[0_4px_15px_rgba(16,185,129,0.08)]' 
-                      : 'bg-slate-900/40 border-rose-500/30 opacity-85'
+                  key={card.id}
+                  className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                    isMasterActive 
+                      ? 'bg-slate-900/90 border-amber-500/40 shadow-[0_4px_20px_rgba(0,0,0,0.3)]' 
+                      : 'bg-slate-950/60 border-slate-800 opacity-80'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-                    {/* Permission Title & Info */}
-                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                      {/* Exclamation / Info Tooltip Button */}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTooltipId(isTooltipOpen ? null : perm.id)}
-                        className={`p-1.5 rounded-xl border transition cursor-pointer mt-0.5 shrink-0 ${
-                          isTooltipOpen
-                            ? 'bg-amber-500 text-black border-amber-300 shadow-md scale-110'
-                            : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
-                        }`}
-                        title="انقر لعرض معنى الصلاحية والهدف منها ومستوى أمانها"
-                      >
-                        <AlertCircle size={17} className={isTooltipOpen ? 'stroke-[2.5]' : ''} />
-                      </button>
-
-                      <div className="min-w-0">
+                  {/* CARD HEADER WITH MASTER SWITCH */}
+                  <div className={`p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-b ${
+                    isMasterActive ? 'bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border-amber-500/20' : 'bg-slate-900/50 border-slate-800'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-2xl border text-xl sm:text-2xl shrink-0 ${
+                        isMasterActive 
+                          ? 'bg-amber-500/20 border-amber-400/40 shadow-inner' 
+                          : 'bg-slate-800 border-slate-700 text-slate-500'
+                      }`}>
+                        {card.title.slice(0, 2)}
+                      </div>
+                      <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-white tracking-wide">
-                            {perm.title}
-                          </h4>
-                          {/* Risk Level Badge */}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
-                            perm.riskLevel === 'critical'
-                              ? 'bg-rose-950 text-rose-300 border border-rose-500/40'
-                              : perm.riskLevel === 'high'
-                              ? 'bg-orange-950 text-orange-300 border border-orange-500/40'
-                              : perm.riskLevel === 'medium'
-                              ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
-                              : 'bg-blue-950 text-blue-300 border border-blue-500/40'
+                          <h3 className={`text-sm sm:text-base font-black ${isMasterActive ? 'text-amber-300' : 'text-slate-400'}`}>
+                            {card.title}
+                          </h3>
+                          <span className="text-[11px] text-purple-300/70 font-bold">
+                            ({card.subtitle})
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            isMasterActive 
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' 
+                              : 'bg-slate-800 text-slate-400'
                           }`}>
-                            {perm.riskLabel}
+                            {isMasterActive ? `مفعل (${activeSubsCount}/${cardSubPerms.length} إجراء)` : 'الكارت مخفي'}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
-                          {perm.description}
+                        <p className="text-xs text-purple-200/70 mt-0.5">
+                          {card.description}
                         </p>
                       </div>
                     </div>
 
-                    {/* Green / Red Interactive Toggle Switch or Locked for Leader */}
-                    <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                      {roleKey === 'leader' && perm.category === 'deletion' ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-rose-300 bg-rose-950/80 border border-rose-500/40 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
-                            <Lock size={12} className="text-rose-400" />
-                            <span>محظور لليدر (حظر الحذف)</span>
-                          </span>
-                          <div 
-                            className="w-16 h-8 rounded-full p-1 bg-slate-800/80 justify-start flex items-center opacity-50 cursor-not-allowed border border-white/10"
-                            title="الحذف محظور تماماً لقادة الفرق لحماية قواعد البيانات"
-                          >
-                            <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center text-slate-300">
-                              <Lock size={12} />
-                            </div>
-                          </div>
+                    {/* MASTER TOGGLE SWITCH */}
+                    <div className="flex items-center gap-3">
+                      <div className="text-left">
+                        <span className="text-[11px] font-black block text-slate-300">
+                          {isMasterActive ? 'ظهور الكارت: مفعل 👁️' : 'ظهور الكارت: مخفي 🔒'}
+                        </span>
+                        <span className="text-[10px] text-purple-300/70">
+                          {isMasterActive ? 'يظهر بالداشبورد' : 'محجوب عن الموظف'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMaster(card)}
+                        className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors duration-200 cursor-pointer shadow-inner ${
+                          isMasterActive ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-slate-700'
+                        }`}
+                      >
+                        <div 
+                          className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-200 flex items-center justify-center ${
+                            isMasterActive ? '-translate-x-6' : 'translate-x-0'
+                          }`}
+                        >
+                          {isMasterActive ? <Check size={14} className="text-emerald-600 font-black" /> : <X size={14} className="text-slate-600" />}
                         </div>
-                      ) : (
-                        <>
-                          <span className={`text-xs font-black font-mono transition-colors ${
-                            isEnabled ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>
-                            {isEnabled ? 'مفعّل' : 'معطّل'}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => handleToggle(perm.id)}
-                            className={`w-16 h-8 rounded-full p-1 transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none flex items-center shadow-inner ${
-                              isEnabled 
-                                ? 'bg-emerald-600 justify-end shadow-[0_0_15px_rgba(16,185,129,0.5)]' 
-                                : 'bg-rose-600 justify-start shadow-[0_0_15px_rgba(225,29,72,0.4)]'
-                            }`}
-                            title={isEnabled ? "انقر للتعطيل (إيقاف)" : "انقر للتفعيل (تشغيل)"}
-                          >
-                            <div 
-                              className={`w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center transition-transform duration-300 ${
-                                isEnabled ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
-                              }`}
-                            >
-                              {isEnabled ? <Check size={14} className="stroke-[3]" /> : <X size={14} className="stroke-[3]" />}
-                            </div>
-                          </button>
-                        </>
-                      )}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Expandable Explanation Card (When Exclamation Mark Clicked) */}
-                  {isTooltipOpen && (
-                    <div className="p-3.5 bg-gradient-to-br from-amber-950/40 via-slate-900 to-purple-950/40 border border-amber-500/30 rounded-xl mt-1 text-xs space-y-2 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between border-b border-amber-500/20 pb-1.5">
-                        <span className="text-amber-300 font-black flex items-center gap-1">
-                          <span>💡 تفاصيل الصلاحية:</span>
-                          <span>{perm.title}</span>
-                        </span>
+                  {/* SUB PERMISSIONS ACCORDION / BODY */}
+                  <div className="p-4 sm:p-5">
+                    {!isMasterActive ? (
+                      <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <div className="flex items-center gap-2">
+                          <EyeOff size={16} className="text-slate-500" />
+                          <span>هذا الكارت مخفي حالياً في لوحة تحكم هذا الموظف. انقر زر التفعيل بالأعلى لإظهاره.</span>
+                        </div>
                         <button
-                          type="button"
-                          onClick={() => setActiveTooltipId(null)}
-                          className="text-gray-400 hover:text-white p-0.5"
+                          onClick={() => handleToggleMaster(card)}
+                          className="text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
                         >
-                          <X size={14} />
+                          إظهار الكارت الآن 👁️
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-200">
-                        <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
-                          <span className="text-purple-300 font-bold block mb-1">📖 معنى الصلاحية:</span>
-                          <p className="text-gray-300 leading-relaxed">{perm.description}</p>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-purple-500/10">
+                          <span className="text-xs font-bold text-purple-300">
+                            الإجراءات والصلاحيات التفصيلية التابعة للكارت:
+                          </span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <button
+                              onClick={() => handleToggleCardActions(card, true)}
+                              className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
+                            >
+                              تحديد جميع إجراءات الكارت
+                            </button>
+                            <span className="text-slate-600">|</span>
+                            <button
+                              onClick={() => handleToggleCardActions(card, false)}
+                              className="text-[11px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                            >
+                              إلغاء إجراءات الكارت
+                            </button>
+                          </div>
                         </div>
-                        <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
-                          <span className="text-emerald-300 font-bold block mb-1">🎯 الهدف منها:</span>
-                          <p className="text-gray-300 leading-relaxed">{perm.goal}</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {cardSubPerms.map(sub => {
+                            const isSubActive = !!permissions[sub.id];
+                            return (
+                              <div
+                                key={sub.id}
+                                onClick={() => handleToggle(sub.id)}
+                                className={`p-3 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
+                                  isSubActive 
+                                    ? 'bg-purple-950/30 border-purple-500/40 hover:border-purple-400' 
+                                    : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`text-xs font-black ${isSubActive ? 'text-amber-200' : 'text-slate-400'}`}>
+                                      {sub.title}
+                                    </span>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                      sub.riskLevel === 'critical' ? 'bg-rose-950 text-rose-300 border border-rose-500/40' :
+                                      sub.riskLevel === 'high' ? 'bg-amber-950 text-amber-300 border border-amber-500/40' :
+                                      sub.riskLevel === 'medium' ? 'bg-blue-950 text-blue-300 border border-blue-500/40' :
+                                      'bg-slate-800 text-slate-300'
+                                    }`}>
+                                      {sub.riskLabel}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    {sub.description}
+                                  </p>
+                                </div>
+
+                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                                  isSubActive ? 'bg-amber-500 border-amber-400 text-slate-950' : 'border-slate-600 bg-slate-900'
+                                }`}>
+                                  {isSubActive && <Check size={13} className="stroke-[3]" />}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1">
-                        <span>مستوى الأمان: <strong className="text-amber-300">{perm.riskLabel}</strong></span>
-                        <span>الوضع الافتراضي لوظيفة ({getRoleArabicTitle(roleKey).split(' ')[0]}): <strong className={perm.defaultByRole[roleKey] ? 'text-emerald-400' : 'text-rose-400'}>{perm.defaultByRole[roleKey] ? 'مفعّل تلقائياً' : 'معطّل افتراضياً'}</strong></span>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -413,42 +471,42 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 border-t border-purple-500/30 flex items-center justify-between gap-3 shrink-0 flex-wrap">
-          <div className="text-xs text-gray-400">
-            <span>سيتم تطبيق الصلاحيات وحفظها في الحساب فور الضغط على حفظ.</span>
+        <div className="p-4 sm:p-5 border-t border-purple-500/20 bg-slate-950/80 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-purple-300/80">
+            <span>التعديلات تُطبق فوراً على حساب الموظف <strong>{employee.name || employee.username}</strong> بمجرد الحفظ.</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              disabled={isSaving}
+              className="px-5 py-2.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition cursor-pointer"
             >
-              إلغاء التراجع
+              إلغاء
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="px-6 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 border border-emerald-400/40"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSaving ? (
                 <>
                   <RefreshCw size={15} className="animate-spin" />
-                  <span>جاري حفظ الصلاحيات...</span>
+                  <span>جاري الحفظ...</span>
                 </>
               ) : (
                 <>
                   <Save size={15} />
-                  <span>حفظ الصلاحيات وتطبيقها فوراً 💾✨</span>
+                  <span>حفظ الصلاحيات فوراً 💾</span>
                 </>
               )}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
-
-  return typeof document !== 'undefined' && document.body ? createPortal(modalContent, document.body) : modalContent;
 }
