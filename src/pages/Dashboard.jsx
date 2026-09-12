@@ -660,6 +660,48 @@ const Dashboard = () => {
   const [mailSubject, setMailSubject] = useState('');
   const [mailBody, setMailBody] = useState('');
   const [mailFixedSubscriptionSummary, setMailFixedSubscriptionSummary] = useState('');
+
+  // --- MARKET SIGNALS & RECOMMENDATIONS STATE (SAUDI & US) (v2.23) ---
+  const [saudiRecommendations, setSaudiRecommendations] = useState([]);
+  const [usRecommendations, setUsRecommendations] = useState([]);
+  const [saudiSignalsFilter, setSaudiSignalsFilter] = useState('all');
+  const [saudiSignalsSearch, setSaudiSignalsSearch] = useState('');
+  const [usSignalsMarketFilter, setUsSignalsMarketFilter] = useState('all'); // 'all', 'stocks', 'options'
+  const [usSignalsStatusFilter, setUsSignalsStatusFilter] = useState('all');
+  const [usSignalsSearch, setUsSignalsSearch] = useState('');
+
+  // Modal states for Saudi Signal
+  const [isSaudiSignalModalOpen, setIsSaudiSignalModalOpen] = useState(false);
+  const [editingSaudiSignal, setEditingSaudiSignal] = useState(null);
+  const [saudiStockName, setSaudiStockName] = useState('');
+  const [saudiStockCode, setSaudiStockCode] = useState('');
+  const [saudiSupport1, setSaudiSupport1] = useState('');
+  const [saudiSupport2, setSaudiSupport2] = useState('');
+  const [saudiResistance1, setSaudiResistance1] = useState('');
+  const [saudiResistance2, setSaudiResistance2] = useState('');
+  const [saudiResistance3, setSaudiResistance3] = useState('');
+  const [saudiResistance4, setSaudiResistance4] = useState('');
+  const [saudiStopLoss, setSaudiStopLoss] = useState('');
+  const [saudiStatus, setSaudiStatus] = useState('active');
+  const [saudiScreenshotUrl, setSaudiScreenshotUrl] = useState('');
+  const [saudiNotes, setSaudiNotes] = useState('');
+  const [saudiRawTextPaste, setSaudiRawTextPaste] = useState('');
+  const [saudiSaving, setSaudiSaving] = useState(false);
+
+  // Modal states for US Signal
+  const [isUsSignalModalOpen, setIsUsSignalModalOpen] = useState(false);
+  const [editingUsSignal, setEditingUsSignal] = useState(null);
+  const [usSymbol, setUsSymbol] = useState('');
+  const [usMarketType, setUsMarketType] = useState('stocks'); // 'stocks' or 'options'
+  const [usBuyPrice, setUsBuyPrice] = useState('');
+  const [usTarget1, setUsTarget1] = useState('');
+  const [usTarget2, setUsTarget2] = useState('');
+  const [usStopLoss, setUsStopLoss] = useState('');
+  const [usStatus, setUsStatus] = useState('active');
+  const [usScreenshotUrl, setUsScreenshotUrl] = useState('');
+  const [usNotes, setUsNotes] = useState('');
+  const [usRawTextPaste, setUsRawTextPaste] = useState('');
+  const [usSaving, setUsSaving] = useState(false);
   const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
   const [mailSearchTerm, setMailSearchTerm] = useState('');
   const [mailSending, setMailSending] = useState(false);
@@ -2144,6 +2186,24 @@ const Dashboard = () => {
       console.error('Error fetching internal_groups:', error);
     });
 
+    // Fetch Saudi Market Recommendations (v2.23)
+    const saudiUnsub = onSnapshot(collection(db, 'saudi_recommendations'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
+      setSaudiRecommendations(data);
+    }, (error) => {
+      console.error('Error fetching saudi_recommendations:', error);
+    });
+
+    // Fetch US Market Recommendations (v2.23)
+    const usUnsub = onSnapshot(collection(db, 'us_recommendations'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
+      setUsRecommendations(data);
+    }, (error) => {
+      console.error('Error fetching us_recommendations:', error);
+    });
+
     return () => {
       custUnsub();
       leadsCrmUnsub();
@@ -2154,6 +2214,8 @@ const Dashboard = () => {
       templatesUnsub();
       emailsUnsub();
       groupsUnsub();
+      saudiUnsub();
+      usUnsub();
     };
   }, []);
 
@@ -2285,7 +2347,8 @@ const Dashboard = () => {
 
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (isCoordinator && type === 'subscribed_clients') return;
+    if (isCoordinator && (type === 'subscribed_clients' || type === 'saudi_signals' || type === 'us_signals')) return;
+    if (!isAdmin && !isCustomerService && (type === 'saudi_signals' || type === 'us_signals')) return;
     
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
@@ -2315,6 +2378,13 @@ const Dashboard = () => {
       setEmpLeadsStatusFilter('all');
     } else if (type === 'subscribed_clients') {
       setSubscribedEmpFilter('all');
+    } else if (type === 'saudi_signals') {
+      setSaudiSignalsFilter('all');
+      setSaudiSignalsSearch('');
+    } else if (type === 'us_signals') {
+      setUsSignalsMarketFilter('all');
+      setUsSignalsStatusFilter('all');
+      setUsSignalsSearch('');
     } else if (type === 'customers') {
       setSelectedEmpFilter('all');
     } else {
@@ -6096,6 +6166,370 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
+  // --- SAUDI & US MARKET RECOMMENDATIONS HELPERS & HANDLERS (v2.23) ---
+  const calculateSaudiPercentage = (signal) => {
+    const sup1 = parseFloat(String(signal.support1 || '').replace(/[^0-9.]/g, ''));
+    if (!sup1 || isNaN(sup1) || sup1 <= 0) return null;
+
+    if (signal.status === 'target1') {
+      const res1 = parseFloat(String(signal.resistance1 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(res1)) return ((res1 - sup1) / sup1) * 100;
+    } else if (signal.status === 'target2') {
+      const res2 = parseFloat(String(signal.resistance2 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(res2)) return ((res2 - sup1) / sup1) * 100;
+    } else if (signal.status === 'target3') {
+      const res3 = parseFloat(String(signal.resistance3 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(res3)) return ((res3 - sup1) / sup1) * 100;
+    } else if (signal.status === 'target4') {
+      const res4 = parseFloat(String(signal.resistance4 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(res4)) return ((res4 - sup1) / sup1) * 100;
+    } else if (signal.status === 'stop_loss') {
+      const sl = parseFloat(String(signal.stopLoss || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(sl)) return ((sl - sup1) / sup1) * 100;
+    }
+    return null;
+  };
+
+  const calculateUsPercentage = (signal) => {
+    const buy = parseFloat(String(signal.buyPrice || '').replace(/[^0-9.]/g, ''));
+    if (!buy || isNaN(buy) || buy <= 0) return null;
+
+    if (signal.status === 'target1') {
+      const t1 = parseFloat(String(signal.target1 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(t1)) return ((t1 - buy) / buy) * 100;
+    } else if (signal.status === 'target2') {
+      const t2 = parseFloat(String(signal.target2 || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(t2)) return ((t2 - buy) / buy) * 100;
+    } else if (signal.status === 'stop_loss') {
+      const sl = parseFloat(String(signal.stopLoss || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(sl)) return ((sl - buy) / buy) * 100;
+    }
+    return null;
+  };
+
+  const parseSaudiWhatsAppText = (text) => {
+    if (!text) return {};
+    const res = {};
+    const nameCodeMatch = text.match(/([^\n\d\(\)]+)\s*\((\d{4})\)/) || text.match(/\(?(\d{4})\)?\s*([^\n\d\(\)]+)/);
+    if (nameCodeMatch) {
+      if (/^\d{4}$/.test(nameCodeMatch[1].trim())) {
+        res.stockCode = nameCodeMatch[1].trim();
+        res.stockName = nameCodeMatch[2].trim();
+      } else {
+        res.stockName = nameCodeMatch[1].trim();
+        res.stockCode = nameCodeMatch[2].trim();
+      }
+    }
+    const sup1Match = text.match(/دعم\s*1\s*[≈:=]\s*([\d\.]+)/) || text.match(/دعم\s*أول\s*[≈:=]\s*([\d\.]+)/);
+    if (sup1Match) res.support1 = sup1Match[1];
+    const sup2Match = text.match(/دعم\s*2\s*[≈:=]\s*([\d\.]+)/) || text.match(/دعم\s*ثان[يى]\s*[≈:=]\s*([\d\.]+)/);
+    if (sup2Match) res.support2 = sup2Match[1];
+    const res1Match = text.match(/مقاومة\s*1\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*أول[ىي]\s*[≈:=]\s*([\d\.]+)/);
+    if (res1Match) res.resistance1 = res1Match[1];
+    const res2Match = text.match(/مقاومة\s*2\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*ثاني[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    if (res2Match) res.resistance2 = res2Match[1];
+    const res3Match = text.match(/مقاومة\s*3\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*ثالث[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    if (res3Match) res.resistance3 = res3Match[1];
+    const res4Match = text.match(/مقاومة\s*4\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*رابع[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    if (res4Match) res.resistance4 = res4Match[1];
+    const slMatch = text.match(/كسر\s*الدعم\s*تحت\s*\(?([\d\.]+)\)?/) || text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/);
+    if (slMatch) res.stopLoss = slMatch[1];
+    return res;
+  };
+
+  const parseUsWhatsAppText = (text) => {
+    if (!text) return {};
+    const res = {};
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0 && /^[A-Za-z]{1,6}$/.test(lines[0])) {
+      res.symbol = lines[0].toUpperCase();
+    }
+    const buyMatch = text.match(/Buy\s*[:=]?\s*([\d\.]+)/i);
+    if (buyMatch) res.buyPrice = buyMatch[1];
+    const t2Match = text.match(/T2\s*[:=]?\s*([\d\.]+)/i);
+    if (t2Match) res.target2 = t2Match[1];
+    const t1Match = text.match(/\bT\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*1?\s*[:=]?\s*([\d\.]+)/i);
+    if (t1Match) res.target1 = t1Match[1];
+    const slMatch = text.match(/\bSL\s*[:=]?\s*([\d\.]+)/i) || text.match(/Stop\s*Loss\s*[:=]?\s*([\d\.]+)/i);
+    if (slMatch) res.stopLoss = slMatch[1];
+    return res;
+  };
+
+  const handleOpenAddSaudiSignalModal = (signalToEdit = null) => {
+    if (signalToEdit) {
+      setEditingSaudiSignal(signalToEdit);
+      setSaudiStockName(signalToEdit.stockName || '');
+      setSaudiStockCode(signalToEdit.stockCode || '');
+      setSaudiSupport1(signalToEdit.support1 || '');
+      setSaudiSupport2(signalToEdit.support2 || '');
+      setSaudiResistance1(signalToEdit.resistance1 || '');
+      setSaudiResistance2(signalToEdit.resistance2 || '');
+      setSaudiResistance3(signalToEdit.resistance3 || '');
+      setSaudiResistance4(signalToEdit.resistance4 || '');
+      setSaudiStopLoss(signalToEdit.stopLoss || '');
+      setSaudiStatus(signalToEdit.status || 'active');
+      setSaudiScreenshotUrl(signalToEdit.screenshotUrl || '');
+      setSaudiNotes(signalToEdit.notes || '');
+    } else {
+      setEditingSaudiSignal(null);
+      setSaudiStockName('');
+      setSaudiStockCode('');
+      setSaudiSupport1('');
+      setSaudiSupport2('');
+      setSaudiResistance1('');
+      setSaudiResistance2('');
+      setSaudiResistance3('');
+      setSaudiResistance4('');
+      setSaudiStopLoss('');
+      setSaudiStatus('active');
+      setSaudiScreenshotUrl('');
+      setSaudiNotes('');
+      setSaudiRawTextPaste('');
+    }
+    setIsSaudiSignalModalOpen(true);
+  };
+
+  const handleApplySaudiTextPaste = () => {
+    if (!saudiRawTextPaste.trim()) {
+      toast.error('يرجى لصق نص التوصية من الواتساب أولاً 📋');
+      return;
+    }
+    const parsed = parseSaudiWhatsAppText(saudiRawTextPaste);
+    if (parsed.stockName) setSaudiStockName(parsed.stockName);
+    if (parsed.stockCode) setSaudiStockCode(parsed.stockCode);
+    if (parsed.support1) setSaudiSupport1(parsed.support1);
+    if (parsed.support2) setSaudiSupport2(parsed.support2);
+    if (parsed.resistance1) setSaudiResistance1(parsed.resistance1);
+    if (parsed.resistance2) setSaudiResistance2(parsed.resistance2);
+    if (parsed.resistance3) setSaudiResistance3(parsed.resistance3);
+    if (parsed.resistance4) setSaudiResistance4(parsed.resistance4);
+    if (parsed.stopLoss) setSaudiStopLoss(parsed.stopLoss);
+    toast.success('تم تحليل وتعبئة بيانات التوصية السعودية تلقائياً بنجاح ⚡');
+  };
+
+  const handleSaveSaudiSignal = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!saudiStockName.trim() || !saudiStockCode.trim()) {
+      toast.error('يرجى إدخال اسم وكود السهم 🇸🇦');
+      return;
+    }
+    setSaudiSaving(true);
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || 'موظف'}`;
+
+      const docData = {
+        stockName: saudiStockName.trim(),
+        stockCode: saudiStockCode.trim(),
+        support1: saudiSupport1.trim(),
+        support2: saudiSupport2.trim(),
+        resistance1: saudiResistance1.trim(),
+        resistance2: saudiResistance2.trim(),
+        resistance3: saudiResistance3.trim(),
+        resistance4: saudiResistance4.trim(),
+        stopLoss: saudiStopLoss.trim(),
+        status: saudiStatus || 'active',
+        screenshotUrl: saudiScreenshotUrl || '',
+        notes: saudiNotes.trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (editingSaudiSignal) {
+        docData.lastEditedBy = userRole;
+        docData.lastEditedDateTime = formattedNow;
+        docData.isEdited = true;
+        await updateDoc(doc(db, 'saudi_recommendations', editingSaudiSignal.id), docData);
+        toast.success('تم تحديث توصية السوق السعودي بنجاح 💾');
+      } else {
+        docData.createdAt = serverTimestamp();
+        docData.createdAtMillis = Date.now();
+        docData.uploadedAtFormatted = formattedNow;
+        docData.createdBy = userRole;
+        docData.createdByUid = currentUser?.uid || 'admin';
+        docData.status = 'active'; // Always active when initially uploaded!
+        await addDoc(collection(db, 'saudi_recommendations'), docData);
+        toast.success('تم إضافة توصية السوق السعودي بحالة (سارية) بنجاح 🇸🇦🚀');
+      }
+      setIsSaudiSignalModalOpen(false);
+      setEditingSaudiSignal(null);
+    } catch (err) {
+      console.error('Error saving Saudi signal:', err);
+      toast.error('حدث خطأ أثناء حفظ التوصية: ' + err.message);
+    } finally {
+      setSaudiSaving(false);
+    }
+  };
+
+  const handleQuickStatusChangeSaudi = async (signalId, newStatus) => {
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || 'موظف'}`;
+
+      await updateDoc(doc(db, 'saudi_recommendations', signalId), {
+        status: newStatus,
+        lastEditedBy: userRole,
+        lastEditedDateTime: formattedNow,
+        isEdited: true,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('تم تحديث حالة التوصية وحساب النسبة بنجاح 🎯');
+    } catch (err) {
+      console.error('Error updating status:', err);
+      toast.error('حدث خطأ أثناء تحديث الحالة');
+    }
+  };
+
+  const handleDeleteSaudiSignal = async (signalId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه التوصية نهائياً؟')) return;
+    try {
+      await deleteDoc(doc(db, 'saudi_recommendations', signalId));
+      toast.success('تم حذف التوصية بنجاح 🗑️');
+    } catch (err) {
+      toast.error('حدث خطأ أثناء الحذف');
+    }
+  };
+
+  const handleOpenAddUsSignalModal = (signalToEdit = null) => {
+    if (signalToEdit) {
+      setEditingUsSignal(signalToEdit);
+      setUsSymbol(signalToEdit.symbol || '');
+      setUsMarketType(signalToEdit.marketType || 'stocks');
+      setUsBuyPrice(signalToEdit.buyPrice || '');
+      setUsTarget1(signalToEdit.target1 || '');
+      setUsTarget2(signalToEdit.target2 || '');
+      setUsStopLoss(signalToEdit.stopLoss || '');
+      setUsStatus(signalToEdit.status || 'active');
+      setUsScreenshotUrl(signalToEdit.screenshotUrl || '');
+      setUsNotes(signalToEdit.notes || '');
+    } else {
+      setEditingUsSignal(null);
+      setUsSymbol('');
+      setUsMarketType('stocks');
+      setUsBuyPrice('');
+      setUsTarget1('');
+      setUsTarget2('');
+      setUsStopLoss('');
+      setUsStatus('active');
+      setUsScreenshotUrl('');
+      setUsNotes('');
+      setUsRawTextPaste('');
+    }
+    setIsUsSignalModalOpen(true);
+  };
+
+  const handleApplyUsTextPaste = () => {
+    if (!usRawTextPaste.trim()) {
+      toast.error('يرجى لصق نص التوصية من الواتساب أولاً 📋');
+      return;
+    }
+    const parsed = parseUsWhatsAppText(usRawTextPaste);
+    if (parsed.symbol) setUsSymbol(parsed.symbol);
+    if (parsed.buyPrice) setUsBuyPrice(parsed.buyPrice);
+    if (parsed.target1) setUsTarget1(parsed.target1);
+    if (parsed.target2) setUsTarget2(parsed.target2);
+    if (parsed.stopLoss) setUsStopLoss(parsed.stopLoss);
+    toast.success('تم تحليل وتعبئة بيانات التوصية الأمريكية تلقائياً بنجاح ⚡');
+  };
+
+  const handleSaveUsSignal = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!usSymbol.trim() || !usBuyPrice.trim()) {
+      toast.error('يرجى إدخال رمز السهم وسعر الدخول Buy 🇺🇸');
+      return;
+    }
+    setUsSaving(true);
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || 'موظف'}`;
+
+      const docData = {
+        symbol: usSymbol.trim().toUpperCase(),
+        marketType: usMarketType || 'stocks',
+        buyPrice: usBuyPrice.trim(),
+        target1: usTarget1.trim(),
+        target2: usTarget2.trim(),
+        stopLoss: usStopLoss.trim(),
+        status: usStatus || 'active',
+        screenshotUrl: usScreenshotUrl || '',
+        notes: usNotes.trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (editingUsSignal) {
+        docData.lastEditedBy = userRole;
+        docData.lastEditedDateTime = formattedNow;
+        docData.isEdited = true;
+        await updateDoc(doc(db, 'us_recommendations', editingUsSignal.id), docData);
+        toast.success('تم تحديث توصية السوق الأمريكي بنجاح 💾');
+      } else {
+        docData.createdAt = serverTimestamp();
+        docData.createdAtMillis = Date.now();
+        docData.uploadedAtFormatted = formattedNow;
+        docData.createdBy = userRole;
+        docData.createdByUid = currentUser?.uid || 'admin';
+        docData.status = 'active'; // Always active when initially uploaded!
+        await addDoc(collection(db, 'us_recommendations'), docData);
+        toast.success('تم إضافة توصية السوق الأمريكي بحالة (سارية) بنجاح 🇺🇸🚀');
+      }
+      setIsUsSignalModalOpen(false);
+      setEditingUsSignal(null);
+    } catch (err) {
+      console.error('Error saving US signal:', err);
+      toast.error('حدث خطأ أثناء حفظ التوصية: ' + err.message);
+    } finally {
+      setUsSaving(false);
+    }
+  };
+
+  const handleQuickStatusChangeUs = async (signalId, newStatus) => {
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || 'موظف'}`;
+
+      await updateDoc(doc(db, 'us_recommendations', signalId), {
+        status: newStatus,
+        lastEditedBy: userRole,
+        lastEditedDateTime: formattedNow,
+        isEdited: true,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('تم تحديث حالة التوصية وحساب النسبة بنجاح 🎯');
+    } catch (err) {
+      console.error('Error updating status:', err);
+      toast.error('حدث خطأ أثناء تحديث الحالة');
+    }
+  };
+
+  const handleDeleteUsSignal = async (signalId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه التوصية نهائياً؟')) return;
+    try {
+      await deleteDoc(doc(db, 'us_recommendations', signalId));
+      toast.success('تم حذف التوصية بنجاح 🗑️');
+    } catch (err) {
+      toast.error('حدث خطأ أثناء الحذف');
+    }
+  };
+
   const exportSubscribedClientsToExcel = () => {
     if (!isAdmin) {
       toast.error('تصدير البيانات إلى Excel متاح للإدارة فقط 🔒');
@@ -7190,6 +7624,51 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
+              
+              {/* Admin Card 3B: Saudi Market Recommendations (v2.23) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)] ring-2 ring-emerald-400/30' : 'border-emerald-500/50 md:hover:border-emerald-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">🇸🇦</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-emerald-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-emerald-500/90 bg-emerald-950/70 text-emerald-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {saudiRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold">
+                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Card 3C: US Market Recommendations (v2.23) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)] ring-2 ring-blue-400/30' : 'border-blue-500/50 md:hover:border-blue-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(59,130,246,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">🇺🇸</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-blue-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-blue-500/90 bg-blue-950/70 text-blue-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {usRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[10px] text-blue-400 font-bold">
+                      ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Card 4: Total Customers */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsSystemTotalClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -7683,6 +8162,310 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </div>
             );
           })()
+        ) : isCustomerService ? (
+          /* ========================================================================= */
+          /* CUSTOMER SERVICE CARDS VIEW (v2.23): EXACT 4 DEDICATED VERTICAL LEVELS    */
+          /* 1. Personal Data -> 2. Personal Analytics -> 3. Subscriptions & Signals  */
+          /* 4. Staff Monitoring (Bottom Row)                                          */
+          /* ========================================================================= */
+          (() => {
+            const csTemplateMsgs = templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
+
+            return (
+              <div className="space-y-6 mb-6">
+                {/* ------------------------------------------------------------- */}
+                {/* LEVEL 1: كروته الشخصية (Personal Leads & Data - 3 Cards)      */}
+                {/* ------------------------------------------------------------- */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                      <FileSpreadsheet size={15} className="text-amber-400" />
+                      <span>📁 داتا وجداول خدمة العملاء الشخصية</span>
+                    </span>
+                    <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                    {/* CS Card 1: Leads CRM */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض وتحديث جدول Leads CRM الخاص بك"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <FileSpreadsheet className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - Customer Service</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {myAssignedLeadsCount.toLocaleString()} Leads
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* CS Card 2: Employee Added Data */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Upload className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Added Leads</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {myAssignedEmpLeadsCount.toLocaleString()} Leads
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* CS Card 3: Website WhatsApp Leads */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض عملاء واتساب الموقع الإلكتروني المخصصين لك"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Globe className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ------------------------------------------------------------- */}
+                {/* LEVEL 2: كروت التحليلات الشخصية (Personal Analytics - 3 Cards) */}
+                {/* ------------------------------------------------------------- */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                      <BarChart3 size={15} className="text-cyan-400" />
+                      <span>📊 تحليلات ومؤشرات الأداء الشخصية</span>
+                    </span>
+                    <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                    {/* CS Card 4: Personal Leads Analysis */}
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لعرض تحليل أداء ونسبة نجاح داتا خدمة العملاء الخاصة بك"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-amber-300" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {agentAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                        </h3>
+                        <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                          (داتا خدمة العملاء الشخصية)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CS Card 5: Personal Call Performance */}
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لعرض تقرير وتحليل أداء مكالماتك اليوم"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <PhoneCall className="text-amber-300 animate-pulse" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {myTodayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
+                        </h3>
+                        <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                          (مكالماتك اليوم)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CS Card 6: Personal Marketing Analytics */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {new Set(csTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --------------------------------------------------------------------- */}
+                {/* LEVEL 3: كارت العملاء المشتركين + توصيات السوق السعودي والأمريكي (3 Cards) */}
+                {/* --------------------------------------------------------------------- */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                      <Award size={15} className="text-amber-400" />
+                      <span>🎉 الاشتراكات والتوصيات الاستثمارية (سعودي وأمريكي)</span>
+                    </span>
+                    <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                    {/* CS Card 7: Subscribed Clients (العملاء المشتركون) */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض ومتابعة كافة العملاء المشتركين بالمنصة وباقاتهم"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Award className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
+                        <div className="mt-1">
+                          <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                            {allSubscribedClients.length.toLocaleString()} Paid
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CS Card 8: Saudi Market Recommendations */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)] ring-2 ring-emerald-400/30' : 'border-emerald-500/50 md:hover:border-emerald-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض وإدارة توصيات السوق السعودي وإشعارات الواتساب"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <span className="text-2xl">🇸🇦</span>
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-emerald-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-emerald-500/90 bg-emerald-950/70 text-emerald-300 font-black text-sm shadow-sm" dir="ltr">
+                            {saudiRecommendations.length.toLocaleString()} توصية
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-bold">
+                            ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CS Card 9: US Market Recommendations */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)] ring-2 ring-blue-400/30' : 'border-blue-500/50 md:hover:border-blue-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(59,130,246,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض وإدارة توصيات السوق الأمريكي (أسهم وعقود)"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <span className="text-2xl">🇺🇸</span>
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-blue-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-blue-500/90 bg-blue-950/70 text-blue-300 font-black text-sm shadow-sm" dir="ltr">
+                            {usRecommendations.length.toLocaleString()} توصية
+                          </span>
+                          <span className="text-[11px] text-blue-400 font-bold">
+                            ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --------------------------------------------------------------------- */}
+                {/* LEVEL 4: كروت متابعة الموظفين - الصف الأخير (Staff Monitoring - 3 Cards) */}
+                {/* --------------------------------------------------------------------- */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                      <Users size={15} className="text-cyan-400" />
+                      <span>👥 كروت متابعة أداء الموظفين بالمنصة (All Staff Monitoring)</span>
+                    </span>
+                    <div className="h-px bg-gradient-to-l from-transparent via-cyan-500/30 to-cyan-400/10 flex-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                    {/* CS Card 10: All Staff Leads CRM Analysis */}
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لمتابعة وتحليل تقرير أداء داتا كافة موظفي المنصة"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-cyan-300" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-cyan-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis (All Staff)</p>
+                        <h3 className="text-2xl font-black text-cyan-300">
+                          {leadsCrm.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Total Leads</span>
+                        </h3>
+                        <span className="text-[10px] text-cyan-300 font-bold block mt-0.5" dir="rtl">
+                          (متابعة أداء جميع الموظفين)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CS Card 11: All Staff Call Performance Analysis */}
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لمتابعة وتحليل سجل مكالمات كافة موظفي المنصة اليوم"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <PhoneCall className="text-cyan-300 animate-pulse" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-cyan-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis (All Staff)</p>
+                        <h3 className="text-2xl font-black text-cyan-300">
+                          {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
+                        </h3>
+                        <span className="text-[10px] text-cyan-300 font-bold block mt-0.5" dir="rtl">
+                          (إجمالي مكالمات المنصة اليوم)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CS Card 12: All Staff Marketing Analytics */}
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لمتابعة وتحليل حملات الواتساب المرسلة على مستوى كافة الموظفين"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-cyan-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-cyan-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics (All Staff)</p>
+                        <h3 className="text-2xl font-black text-cyan-300">
+                          {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
+                        </h3>
+                        <span className="text-[10px] text-cyan-300 font-bold block mt-0.5" dir="rtl">
+                          (حملات كافة الموظفين)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         ) : (
           /* Regular Employee (Agent) Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
           (() => {
@@ -7702,7 +8485,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
                     <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, isCustomerService ? 'Customer Service' : 'Agent')}</p>
+                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Agent')}</p>
                       <h3 className="text-2xl font-black text-amber-300">
                         {myAssignedLeadsCount.toLocaleString()} Leads
                       </h3>
@@ -7726,11 +8509,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
 
-                  {/* Agent / Customer Service Card 3: Subscribed Clients */}
+                  {/* Agent Card 3: Subscribed Clients */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title={isCustomerService ? "انقر لعرض ومتابعة كافة العملاء المشتركين بالمنصة" : "انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"}
+                    title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <Award className="text-amber-400" size={28} />
@@ -7739,7 +8522,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
                       <div className="mt-1">
                         <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
-                          {(isCustomerService ? allSubscribedClients.length : agentSubscribedClients.length).toLocaleString()} Paid
+                          {agentSubscribedClients.length.toLocaleString()} Paid
                         </span>
                       </div>
                     </div>
@@ -7789,7 +8572,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         {agentAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                       </h3>
                       <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (داتا التقييم الخاصة بي)
+                        (الداتا المخصصة لك)
                       </span>
                     </div>
                   </div>
@@ -7798,24 +8581,26 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
-                    title="انقر لعرض تقرير وتحليل أداء مكالماتك اليومية والتراكمية"
+                    title="انقر لعرض تقرير وتحليل أداء مكالماتك اليوم"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <PhoneCall className="text-amber-300 animate-pulse" size={28} />
                     </div>
                     <div>
                       <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
-                      <h3 className="text-xl font-black text-amber-300">
-                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
+                      <h3 className="text-2xl font-black text-amber-300">
+                        {myTodayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                       </h3>
-                      
+                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                        (مكالماتك اليوم)
+                      </span>
                     </div>
                   </div>
 
                   {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                   >
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
@@ -7826,7 +8611,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <h3 className="text-2xl font-black text-amber-300">
                         {new Set(agentTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                       </h3>
-                      
                     </div>
                   </div>
                 </div>
@@ -10561,6 +11345,561 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             })()}
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* DEDICATED SAUDI MARKET RECOMMENDATIONS TAB (v2.23)                       */}
+        {/* Visible ONLY to Admin and Customer Service                               */}
+        {/* ========================================================================= */}
+        {activeTab === 'saudi_signals' && (isAdmin || isCustomerService) && (() => {
+          const filteredSignals = saudiRecommendations.filter(sig => {
+            if (saudiSignalsFilter !== 'all' && sig.status !== saudiSignalsFilter) return false;
+            if (saudiSignalsSearch.trim()) {
+              const q = saudiSignalsSearch.trim().toLowerCase();
+              const nameMatch = (sig.stockName || '').toLowerCase().includes(q);
+              const codeMatch = (sig.stockCode || '').toLowerCase().includes(q);
+              if (!nameMatch && !codeMatch) return false;
+            }
+            return true;
+          });
+
+          return (
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+              {/* Header Banner */}
+              <div className="px-6 py-4 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-400/40">
+                    <span className="text-2xl">🇸🇦</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-emerald-300 flex items-center gap-2">
+                      <span>🇸🇦 جدول توصيات السوق السعودي (Saudi Stock Recommendations)</span>
+                      <span className="bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {saudiRecommendations.length} إجمالي التوصيات
+                      </span>
+                    </h2>
+                    <p className="text-xs text-emerald-200/80 mt-0.5">
+                      متابعة أهداف ومقاومات ودعوم أسهم السوق السعودي وحساب نسب الإنجاز التلقائي مقابل دعم 1
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => handleOpenAddSaudiSignalModal()}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
+                  >
+                    <Plus size={16} />
+                    <span>+ إضافة توصية سعودية جديدة</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter & Search Bar */}
+              <div className="p-4 bg-emerald-950/20 border-b border-emerald-500/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
+                  <div className="relative w-full">
+                    <input 
+                      type="text" 
+                      placeholder="🔍 بحث باسم السهم أو الكود (مثال: الراجحي أو 1120)..."
+                      value={saudiSignalsSearch}
+                      onChange={(e) => setSaudiSignalsSearch(e.target.value)}
+                      className="w-full bg-white border border-emerald-300/60 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                    />
+                    {saudiSignalsSearch && (
+                      <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-emerald-900">تصفية حسب الحالة:</span>
+                  <select
+                    value={saudiSignalsFilter}
+                    onChange={(e) => setSaudiSignalsFilter(e.target.value)}
+                    className="bg-white border border-emerald-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
+                    <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === 'active').length})</option>
+                    <option value="target1">🎯 حقق مقاومة 1 ({saudiRecommendations.filter(s => s.status === 'target1').length})</option>
+                    <option value="target2">🎯🎯 حقق مقاومة 2 ({saudiRecommendations.filter(s => s.status === 'target2').length})</option>
+                    <option value="target3">🚀 حقق مقاومة 3 ({saudiRecommendations.filter(s => s.status === 'target3').length})</option>
+                    <option value="target4">🌟 حقق مقاومة 4 ({saudiRecommendations.filter(s => s.status === 'target4').length})</option>
+                    <option value="stop_loss">🛑 إيقاف خسارة ({saudiRecommendations.filter(s => s.status === 'stop_loss').length})</option>
+                    <option value="cancelled">❌ ملغاة ({saudiRecommendations.filter(s => s.status === 'cancelled').length})</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-emerald-950/40 text-emerald-200 uppercase font-black border-b border-emerald-500/20 text-[11px]">
+                    <tr>
+                      <th className="py-3 px-3 text-center w-12">#</th>
+                      <th className="py-3 px-3 text-center">إشعار الواتساب</th>
+                      <th className="py-3 px-3 font-extrabold text-emerald-300">اسم السهم</th>
+                      <th className="py-3 px-3 text-center">الكود</th>
+                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/20 text-center">دعم 1 (الأساسي)</th>
+                      <th className="py-3 px-3 text-center">دعم 2</th>
+                      <th className="py-3 px-3 text-center">مقاومة 1</th>
+                      <th className="py-3 px-3 text-center">مقاومة 2</th>
+                      <th className="py-3 px-3 text-center">مقاومة 3</th>
+                      <th className="py-3 px-3 text-center">مقاومة 4</th>
+                      <th className="py-3 px-3 text-rose-300 font-bold text-center">إيقاف الخسارة</th>
+                      <th className="py-3 px-3 text-center min-w-[150px]">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-emerald-950/30">نسبة الإنجاز %</th>
+                      <th className="py-3 px-3 text-center">وقت الرفع</th>
+                      <th className="py-3 px-3 text-center">آخر تعديل</th>
+                      <th className="py-3 px-3 text-center w-24">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-emerald-900/10 text-gray-800">
+                    {filteredSignals.length === 0 ? (
+                      <tr>
+                        <td colSpan="16" className="text-center py-10 text-gray-500">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <span className="text-3xl">🇸🇦</span>
+                            <span className="font-bold">لا توجد توصيات مطابقة في السوق السعودي حالياً</span>
+                            <button
+                              onClick={() => handleOpenAddSaudiSignalModal()}
+                              className="mt-2 text-xs text-emerald-700 hover:text-emerald-900 font-bold underline"
+                            >
+                              + اضغط هنا لإضافة أول توصية
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSignals.map((sig, idx) => {
+                        const pct = calculateSaudiPercentage(sig);
+
+                        return (
+                          <tr key={sig.id} className="hover:bg-emerald-50/50 transition">
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
+                            
+                            {/* Screenshot preview */}
+                            <td className="py-3 px-3 text-center">
+                              {sig.screenshotUrl ? (
+                                <div 
+                                  onClick={() => setLightboxImage(sig.screenshotUrl)}
+                                  className="w-10 h-10 mx-auto rounded-lg overflow-hidden border border-emerald-300/80 shadow-sm cursor-pointer hover:scale-110 transition group relative"
+                                  title="انقر لتكبير صورة الإشعار"
+                                >
+                                  <img src={sig.screenshotUrl} alt="WhatsApp Proof" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                    <Eye size={14} className="text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-[10px]">بدون صورة</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 font-extrabold text-emerald-950 text-sm">
+                              {sig.stockName}
+                              {sig.notes && <p className="text-[10px] text-gray-500 font-normal mt-0.5 truncate max-w-[150px]">{sig.notes}</p>}
+                            </td>
+
+                            <td className="py-3 px-3 text-center">
+                              <span className="bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-full font-black text-xs border border-emerald-300 font-mono">
+                                {sig.stockCode}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-bold text-amber-900 bg-amber-50/60 font-mono text-sm">
+                              {sig.support1 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono text-gray-700">
+                              {sig.support2 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.resistance1 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.resistance2 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.resistance3 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.resistance4 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-rose-700">
+                              {sig.stopLoss || '—'}
+                            </td>
+
+                            {/* Status selector */}
+                            <td className="py-3 px-3 text-center">
+                              <select
+                                value={sig.status || 'active'}
+                                onChange={(e) => handleQuickStatusChangeSaudi(sig.id, e.target.value)}
+                                className="bg-white border border-gray-300 rounded-lg px-2 py-1 text-[11px] font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              >
+                                <option value="active">⏳ توصية سارية</option>
+                                <option value="target1">🎯 حقق مقاومة 1</option>
+                                <option value="target2">🎯🎯 حقق مقاومة 2</option>
+                                <option value="target3">🚀 حقق مقاومة 3</option>
+                                <option value="target4">🌟 حقق مقاومة 4</option>
+                                <option value="stop_loss">🛑 إيقاف خسارة</option>
+                                <option value="cancelled">❌ ملغاة</option>
+                              </select>
+                            </td>
+
+                            {/* Calculated percentage vs Support 1 */}
+                            <td className="py-3 px-3 text-center font-mono font-black bg-emerald-950/5">
+                              {sig.status === 'active' ? (
+                                <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                                  قيد التداول ⏳
+                                </span>
+                              ) : sig.status === 'cancelled' ? (
+                                <span className="text-gray-400 font-bold text-[11px]">ملغاة ❌</span>
+                              ) : pct !== null ? (
+                                pct >= 0 ? (
+                                  <span className="text-emerald-700 font-black text-xs bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 inline-block shadow-sm" dir="ltr">
+                                    +{pct.toFixed(2)}% ↗
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-700 font-black text-xs bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300 inline-block shadow-sm" dir="ltr">
+                                    {pct.toFixed(2)}% ↘
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Upload timestamp */}
+                            <td className="py-3 px-3 text-center text-[10px] text-gray-500 leading-tight">
+                              <div>{sig.uploadedAtFormatted || 'مسجل'}</div>
+                              <div className="text-emerald-800 font-semibold mt-0.5">{sig.createdBy || 'خدمة العملاء'}</div>
+                            </td>
+
+                            {/* Edit timestamp & editor identity */}
+                            <td className="py-3 px-3 text-center text-[10px] text-gray-500 leading-tight">
+                              {sig.isEdited ? (
+                                <>
+                                  <div className="text-purple-900 font-bold">{sig.lastEditedDateTime}</div>
+                                  <div className="text-amber-700 font-semibold mt-0.5">{sig.lastEditedBy}</div>
+                                </>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Action buttons */}
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleOpenAddSaudiSignalModal(sig)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                  title="تعديل بيانات التوصية"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSaudiSignal(sig.id)}
+                                  className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                  title="حذف التوصية نهائياً"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ========================================================================= */}
+        {/* DEDICATED US MARKET RECOMMENDATIONS TAB (v2.23)                           */}
+        {/* Visible ONLY to Admin and Customer Service                               */}
+        {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
+        {/* ========================================================================= */}
+        {activeTab === 'us_signals' && (isAdmin || isCustomerService) && (() => {
+          const filteredSignals = usRecommendations.filter(sig => {
+            if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
+            if (usSignalsStatusFilter !== 'all' && sig.status !== usSignalsStatusFilter) return false;
+            if (usSignalsSearch.trim()) {
+              const q = usSignalsSearch.trim().toUpperCase();
+              if (!(sig.symbol || '').toUpperCase().includes(q)) return false;
+            }
+            return true;
+          });
+
+          return (
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-blue-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+              {/* Header Banner */}
+              <div className="px-6 py-4 border-b border-blue-500/20 bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="p-2.5 bg-blue-500/20 rounded-xl border border-blue-400/40">
+                    <span className="text-2xl">🇺🇸</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-blue-300 flex items-center gap-2">
+                      <span>🇺🇸 جدول توصيات السوق الأمريكي (US Stock & Options Signals)</span>
+                      <span className="bg-blue-500/30 text-blue-300 border border-blue-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {usRecommendations.length} إجمالي التوصيات
+                      </span>
+                    </h2>
+                    <p className="text-xs text-blue-200/80 mt-0.5">
+                      متابعة أهداف ووقف خسارة أسهم وعقود السوق الأمريكي وحساب نسب الإنجاز التلقائي مقابل سعر الشراء (Buy)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => handleOpenAddUsSignalModal()}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
+                  >
+                    <Plus size={16} />
+                    <span>+ إضافة توصية أمريكية جديدة</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Segment Tabs & Search Bar */}
+              <div className="p-4 bg-blue-950/20 border-b border-blue-500/10 flex flex-wrap items-center justify-between gap-3">
+                {/* Segment Filter (All, Stocks, Options) */}
+                <div className="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-blue-200 shadow-sm">
+                  <button
+                    onClick={() => setUsSignalsMarketFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                  >
+                    🌐 الكل ({usRecommendations.length})
+                  </button>
+                  <button
+                    onClick={() => setUsSignalsMarketFilter('stocks')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                  >
+                    <span>📈 شركات وأسهم (Stocks)</span>
+                    <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'stocks').length})</span>
+                  </button>
+                  <button
+                    onClick={() => setUsSignalsMarketFilter('options')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                  >
+                    <span>⚡ عقود شركات (Options)</span>
+                    <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'options').length})</span>
+                  </button>
+                </div>
+
+                {/* Search and Status Dropdown */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="🔍 بحث بالرمز (AAPL, TSLA...)..."
+                      value={usSignalsSearch}
+                      onChange={(e) => setUsSignalsSearch(e.target.value)}
+                      className="bg-white border border-blue-300 rounded-xl px-3.5 py-1.5 text-xs font-bold text-gray-800 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-44"
+                    />
+                    {usSignalsSearch && (
+                      <button onClick={() => setUsSignalsSearch('')} className="absolute left-2.5 top-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    )}
+                  </div>
+
+                  <select
+                    value={usSignalsStatusFilter}
+                    onChange={(e) => setUsSignalsStatusFilter(e.target.value)}
+                    className="bg-white border border-blue-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">🌐 كل الحالات</option>
+                    <option value="active">⏳ توصية سارية ({usRecommendations.filter(s => s.status === 'active').length})</option>
+                    <option value="target1">🎯 حقق Target 1 ({usRecommendations.filter(s => s.status === 'target1').length})</option>
+                    <option value="target2">🚀 حقق Target 2 ({usRecommendations.filter(s => s.status === 'target2').length})</option>
+                    <option value="stop_loss">🛑 إيقاف خسارة ({usRecommendations.filter(s => s.status === 'stop_loss').length})</option>
+                    <option value="cancelled">❌ ملغاة ({usRecommendations.filter(s => s.status === 'cancelled').length})</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-blue-950/40 text-blue-200 uppercase font-black border-b border-blue-500/20 text-[11px]">
+                    <tr>
+                      <th className="py-3 px-3 text-center w-12">#</th>
+                      <th className="py-3 px-3 text-center">إشعار الواتساب</th>
+                      <th className="py-3 px-3 font-extrabold text-blue-300">الرمز (Symbol)</th>
+                      <th className="py-3 px-3 text-center">النوع</th>
+                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/20 text-center">دخول (Buy)</th>
+                      <th className="py-3 px-3 text-center">الهدف 1 (T)</th>
+                      <th className="py-3 px-3 text-center">الهدف 2 (T2)</th>
+                      <th className="py-3 px-3 text-rose-300 font-bold text-center">وقف الخسارة (SL)</th>
+                      <th className="py-3 px-3 text-center min-w-[150px]">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-blue-950/30">نسبة الإنجاز %</th>
+                      <th className="py-3 px-3 text-center">وقت الرفع</th>
+                      <th className="py-3 px-3 text-center">آخر تعديل</th>
+                      <th className="py-3 px-3 text-center w-24">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-blue-900/10 text-gray-800">
+                    {filteredSignals.length === 0 ? (
+                      <tr>
+                        <td colSpan="13" className="text-center py-10 text-gray-500">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <span className="text-3xl">🇺🇸</span>
+                            <span className="font-bold">لا توجد توصيات مطابقة في السوق الأمريكي حالياً</span>
+                            <button
+                              onClick={() => handleOpenAddUsSignalModal()}
+                              className="mt-2 text-xs text-blue-700 hover:text-blue-900 font-bold underline"
+                            >
+                              + اضغط هنا لإضافة أول توصية
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSignals.map((sig, idx) => {
+                        const pct = calculateUsPercentage(sig);
+
+                        return (
+                          <tr key={sig.id} className="hover:bg-blue-50/50 transition">
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
+                            
+                            {/* Screenshot preview */}
+                            <td className="py-3 px-3 text-center">
+                              {sig.screenshotUrl ? (
+                                <div 
+                                  onClick={() => setLightboxImage(sig.screenshotUrl)}
+                                  className="w-10 h-10 mx-auto rounded-lg overflow-hidden border border-blue-300/80 shadow-sm cursor-pointer hover:scale-110 transition group relative"
+                                  title="انقر لتكبير صورة الإشعار"
+                                >
+                                  <img src={sig.screenshotUrl} alt="WhatsApp Proof" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                    <Eye size={14} className="text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-[10px]">بدون صورة</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 font-black text-blue-950 text-sm font-mono tracking-wider">
+                              {sig.symbol}
+                              {sig.notes && <p className="text-[10px] text-gray-500 font-normal mt-0.5 truncate max-w-[150px]">{sig.notes}</p>}
+                            </td>
+
+                            <td className="py-3 px-3 text-center">
+                              <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs border ${sig.marketType === 'options' ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-blue-100 text-blue-900 border-blue-300'}`}>
+                                {sig.marketType === 'options' ? '⚡ عقود Options' : '📈 أسهم Stocks'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-bold text-amber-900 bg-amber-50/60 font-mono text-sm">
+                              {sig.buyPrice || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.target1 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
+                              {sig.target2 || '—'}
+                            </td>
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-rose-700">
+                              {sig.stopLoss || '—'}
+                            </td>
+
+                            {/* Status selector */}
+                            <td className="py-3 px-3 text-center">
+                              <select
+                                value={sig.status || 'active'}
+                                onChange={(e) => handleQuickStatusChangeUs(sig.id, e.target.value)}
+                                className="bg-white border border-gray-300 rounded-lg px-2 py-1 text-[11px] font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="active">⏳ توصية سارية</option>
+                                <option value="target1">🎯 حقق Target 1</option>
+                                <option value="target2">🚀 حقق Target 2</option>
+                                <option value="stop_loss">🛑 إيقاف خسارة</option>
+                                <option value="cancelled">❌ ملغاة</option>
+                              </select>
+                            </td>
+
+                            {/* Calculated percentage vs Buy Price */}
+                            <td className="py-3 px-3 text-center font-mono font-black bg-blue-950/5">
+                              {sig.status === 'active' ? (
+                                <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                                  قيد التداول ⏳
+                                </span>
+                              ) : sig.status === 'cancelled' ? (
+                                <span className="text-gray-400 font-bold text-[11px]">ملغاة ❌</span>
+                              ) : pct !== null ? (
+                                pct >= 0 ? (
+                                  <span className="text-emerald-700 font-black text-xs bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 inline-block shadow-sm" dir="ltr">
+                                    +{pct.toFixed(2)}% ↗
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-700 font-black text-xs bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300 inline-block shadow-sm" dir="ltr">
+                                    {pct.toFixed(2)}% ↘
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Upload timestamp */}
+                            <td className="py-3 px-3 text-center text-[10px] text-gray-500 leading-tight">
+                              <div>{sig.uploadedAtFormatted || 'مسجل'}</div>
+                              <div className="text-blue-800 font-semibold mt-0.5">{sig.createdBy || 'خدمة العملاء'}</div>
+                            </td>
+
+                            {/* Edit timestamp & editor identity */}
+                            <td className="py-3 px-3 text-center text-[10px] text-gray-500 leading-tight">
+                              {sig.isEdited ? (
+                                <>
+                                  <div className="text-purple-900 font-bold">{sig.lastEditedDateTime}</div>
+                                  <div className="text-amber-700 font-semibold mt-0.5">{sig.lastEditedBy}</div>
+                                </>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Action buttons */}
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleOpenAddUsSignalModal(sig)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                  title="تعديل بيانات التوصية"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUsSignal(sig.id)}
+                                  className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                  title="حذف التوصية نهائياً"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Customers Tab */}
         {activeTab === 'customers' && (() => {
@@ -15741,6 +17080,508 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
             </div>
           </div>, document.body
+        )}
+
+        {/* ========================================================================= */}
+        {/* SAUDI SIGNAL ADD / EDIT MODAL (v2.23)                                     */}
+        {/* ========================================================================= */}
+        {isSaudiSignalModalOpen && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+              {/* Close Button */}
+              <button 
+                onClick={() => setIsSaudiSignalModalOpen(false)}
+                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-3 mb-5 border-b border-emerald-500/20 pb-3.5">
+                <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
+                  <span className="text-3xl">🇸🇦</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-emerald-300">
+                    {editingSaudiSignal ? 'تعديل توصية السوق السعودي ✏️' : 'إضافة توصية جديدة للسوق السعودي 🇸🇦'}
+                  </h3>
+                  <p className="text-xs text-emerald-200/70">
+                    يمكنك لصق رسالة الواتساب للتحليل التلقائي أو تعبئة الخانات يدوياً
+                  </p>
+                </div>
+              </div>
+
+              {/* WhatsApp Quick Paste Parser Box */}
+              <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-3.5 mb-5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                    <MessageCircle size={15} className="text-emerald-400" />
+                    <span>تحليل فوري من رسالة الواتساب ⚡</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleApplySaudiTextPaste}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
+                  >
+                    <span>⚡ تحليل وتعبئة تلقائية</span>
+                  </button>
+                </div>
+                <textarea
+                  rows="2"
+                  value={saudiRawTextPaste}
+                  onChange={(e) => setSaudiRawTextPaste(e.target.value)}
+                  placeholder="الصق نص التوصية المنسوخ من جروب الواتساب هنا واضغط على زر التحليل التلقائي..."
+                  className="w-full bg-slate-900/80 border border-emerald-500/30 rounded-xl p-2.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none font-mono"
+                />
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleSaveSaudiSignal} className="space-y-4">
+                {/* Stock Name & Code */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1">اسم السهم *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="مثال: الراجحي، أرامكو..."
+                      value={saudiStockName}
+                      onChange={(e) => setSaudiStockName(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1">كود السهم *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="مثال: 1120، 2222..."
+                      value={saudiStockCode}
+                      onChange={(e) => setSaudiStockCode(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Supports */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="bg-amber-950/20 p-2.5 rounded-xl border border-amber-500/30">
+                    <label className="block text-xs font-black text-amber-300 mb-1">دعم 1 (الأساسي لحساب النسبة) *</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 85.50"
+                      value={saudiSupport1}
+                      onChange={(e) => setSaudiSupport1(e.target.value)}
+                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                    />
+                  </div>
+                  <div className="bg-slate-800/40 p-2.5 rounded-xl border border-gray-700">
+                    <label className="block text-xs font-bold text-gray-300 mb-1">دعم 2</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 84.00"
+                      value={saudiSupport2}
+                      onChange={(e) => setSaudiSupport2(e.target.value)}
+                      className="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-gray-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Resistances (Targets) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 1</label>
+                    <input 
+                      type="text" 
+                      placeholder="88.00"
+                      value={saudiResistance1}
+                      onChange={(e) => setSaudiResistance1(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 2</label>
+                    <input 
+                      type="text" 
+                      placeholder="91.00"
+                      value={saudiResistance2}
+                      onChange={(e) => setSaudiResistance2(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 3</label>
+                    <input 
+                      type="text" 
+                      placeholder="94.00"
+                      value={saudiResistance3}
+                      onChange={(e) => setSaudiResistance3(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 4</label>
+                    <input 
+                      type="text" 
+                      placeholder="98.00"
+                      value={saudiResistance4}
+                      onChange={(e) => setSaudiResistance4(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* Stop Loss & Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="bg-rose-950/20 p-2.5 rounded-xl border border-rose-500/30">
+                    <label className="block text-xs font-black text-rose-300 mb-1">إيقاف الخسارة (Stop Loss)</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 83.50"
+                      value={saudiStopLoss}
+                      onChange={(e) => setSaudiStopLoss(e.target.value)}
+                      className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1">حالة التوصية</label>
+                    <select
+                      value={saudiStatus}
+                      onChange={(e) => setSaudiStatus(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="active">⏳ توصية سارية</option>
+                      <option value="target1">🎯 حقق مقاومة 1</option>
+                      <option value="target2">🎯🎯 حقق مقاومة 2</option>
+                      <option value="target3">🚀 حقق مقاومة 3</option>
+                      <option value="target4">🌟 حقق مقاومة 4</option>
+                      <option value="stop_loss">🛑 إيقاف خسارة</option>
+                      <option value="cancelled">❌ ملغاة</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Screenshot Upload from WhatsApp */}
+                <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-emerald-500/20">
+                  <label className="block text-xs font-black text-emerald-300 mb-1.5">
+                    📸 سكرين شوت / صورة الإشعار من جروب الواتساب
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <label className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0">
+                      <Upload size={14} />
+                      <span>رفع صورة من الجهاز</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (re) => setSaudiScreenshotUrl(re.target.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    <span className="text-gray-400 text-xs font-bold">أو</span>
+                    <input 
+                      type="url"
+                      placeholder="رابط الصورة المباشر إن وجد..."
+                      value={saudiScreenshotUrl}
+                      onChange={(e) => setSaudiScreenshotUrl(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Thumbnail Preview */}
+                  {saudiScreenshotUrl && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden border border-emerald-400 shadow-md">
+                        <img src={saudiScreenshotUrl} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSaudiScreenshotUrl('')}
+                        className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1"
+                      >
+                        <Trash2 size={12} />
+                        <span>إزالة الصورة</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
+                  <textarea
+                    rows="2"
+                    value={saudiNotes}
+                    onChange={(e) => setSaudiNotes(e.target.value)}
+                    placeholder="أي ملاحظات فنية أو إرشادات للمشتركين..."
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-emerald-500/20">
+                  <button
+                    type="button"
+                    onClick={() => setIsSaudiSignalModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saudiSaving}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>{saudiSaving ? 'جاري الحفظ...' : editingSaudiSignal ? 'تحديث التوصية 💾' : 'حفظ التوصية بحالة (سارية) 🇸🇦🚀'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* ========================================================================= */}
+        {/* US SIGNAL ADD / EDIT MODAL (v2.23)                                        */}
+        {/* ========================================================================= */}
+        {isUsSignalModalOpen && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+              {/* Close Button */}
+              <button 
+                onClick={() => setIsUsSignalModalOpen(false)}
+                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-3 mb-5 border-b border-blue-500/20 pb-3.5">
+                <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
+                  <span className="text-3xl">🇺🇸</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-blue-300">
+                    {editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي 🇺🇸'}
+                  </h3>
+                  <p className="text-xs text-blue-200/70">
+                    توصيات الأسهم والعقود الأمريكية مع احتساب النسبة مقابل سعر الدخول (Buy)
+                  </p>
+                </div>
+              </div>
+
+              {/* Market Type Switcher (Stocks vs Options) */}
+              <div className="flex items-center justify-center gap-2 mb-4 bg-slate-800/80 p-1.5 rounded-2xl border border-blue-500/30">
+                <button
+                  type="button"
+                  onClick={() => setUsMarketType('stocks')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${usMarketType === 'stocks' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-300 hover:bg-slate-700'}`}
+                >
+                  <span>📈 شركات وأسهم (Stocks)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUsMarketType('options')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${usMarketType === 'options' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:bg-slate-700'}`}
+                >
+                  <span>⚡ عقود شركات (Options)</span>
+                </button>
+              </div>
+
+              {/* WhatsApp Quick Paste Parser Box */}
+              <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-3.5 mb-5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                    <MessageCircle size={15} className="text-blue-400" />
+                    <span>تحليل فوري من رسالة الواتساب ⚡</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleApplyUsTextPaste}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
+                  >
+                    <span>⚡ تحليل وتعبئة تلقائية</span>
+                  </button>
+                </div>
+                <textarea
+                  rows="2"
+                  value={usRawTextPaste}
+                  onChange={(e) => setUsRawTextPaste(e.target.value)}
+                  placeholder="الصق نص التوصية من الواتساب هنا (رمز السهم، Buy، T، T2، SL) واضغط على زر التحليل..."
+                  className="w-full bg-slate-900/80 border border-blue-500/30 rounded-xl p-2.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none font-mono"
+                />
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleSaveUsSignal} className="space-y-4">
+                {/* Symbol & Buy Price */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-blue-200 mb-1">الرمز (Symbol) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="مثال: AAPL, TSLA, NVDA..."
+                      value={usSymbol}
+                      onChange={(e) => setUsSymbol(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-mono tracking-wider"
+                    />
+                  </div>
+                  <div className="bg-amber-950/20 p-2.5 rounded-xl border border-amber-500/30">
+                    <label className="block text-xs font-black text-amber-300 mb-1">سعر الدخول (Buy Price) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="مثال: 180.50"
+                      value={usBuyPrice}
+                      onChange={(e) => setUsBuyPrice(e.target.value)}
+                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Targets (T, T2) & Stop Loss (SL) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الأول (T)</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 185.00"
+                      value={usTarget1}
+                      onChange={(e) => setUsTarget1(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الثاني (T2)</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 192.00"
+                      value={usTarget2}
+                      onChange={(e) => setUsTarget2(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                  <div className="bg-rose-950/20 p-2 rounded-xl border border-rose-500/30">
+                    <label className="block text-xs font-black text-rose-300 mb-1">وقف الخسارة (SL)</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: 176.00"
+                      value={usStopLoss}
+                      onChange={(e) => setUsStopLoss(e.target.value)}
+                      className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white font-mono text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-blue-200 mb-1">حالة التوصية</label>
+                  <select
+                    value={usStatus}
+                    onChange={(e) => setUsStatus(e.target.value)}
+                    className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="active">⏳ توصية سارية</option>
+                    <option value="target1">🎯 حقق Target 1</option>
+                    <option value="target2">🚀 حقق Target 2</option>
+                    <option value="stop_loss">🛑 إيقاف خسارة (SL)</option>
+                    <option value="cancelled">❌ ملغاة</option>
+                  </select>
+                </div>
+
+                {/* Screenshot Upload from WhatsApp */}
+                <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-blue-500/20">
+                  <label className="block text-xs font-black text-blue-300 mb-1.5">
+                    📸 سكرين شوت / صورة التوصية من جروب الواتساب
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <label className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0">
+                      <Upload size={14} />
+                      <span>رفع صورة من الجهاز</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (re) => setUsScreenshotUrl(re.target.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    <span className="text-gray-400 text-xs font-bold">أو</span>
+                    <input 
+                      type="url"
+                      placeholder="رابط الصورة المباشر إن وجد..."
+                      value={usScreenshotUrl}
+                      onChange={(e) => setUsScreenshotUrl(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Thumbnail Preview */}
+                  {usScreenshotUrl && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden border border-blue-400 shadow-md">
+                        <img src={usScreenshotUrl} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUsScreenshotUrl('')}
+                        className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1"
+                      >
+                        <Trash2 size={12} />
+                        <span>إزالة الصورة</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
+                  <textarea
+                    rows="2"
+                    value={usNotes}
+                    onChange={(e) => setUsNotes(e.target.value)}
+                    placeholder="أي إرشادات أو ملاحظات على الصفقة..."
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-blue-500/20">
+                  <button
+                    type="button"
+                    onClick={() => setIsUsSignalModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={usSaving}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>{usSaving ? 'جاري الحفظ...' : editingUsSignal ? 'تحديث التوصية 💾' : 'حفظ التوصية بحالة (سارية) 🇺🇸🚀'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* Compose Email Modal Drawer (Gmail-style Compose) */}
