@@ -501,6 +501,7 @@ const Dashboard = () => {
   const [selectedSubscribedClients, setSelectedSubscribedClients] = useState([]);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [selectedSubCustomer, setSelectedSubCustomer] = useState(null);
+  const [subReceiptDate, setSubReceiptDate] = useState('');
   const [subStartDate, setSubStartDate] = useState('');
   const [subEndDate, setSubEndDate] = useState('');
   const [subServiceType, setSubServiceType] = useState('');
@@ -5499,6 +5500,7 @@ const Dashboard = () => {
     setSelectedSubCustomer(customer);
     const history = customer.subscriptionHistory || [];
     // Reset all subscription fields to empty by default (only filled on edit or when user adds new data)
+    setSubReceiptDate('');
     setSubStartDate('');
     setSubEndDate('');
     setSubServiceType('');
@@ -5617,6 +5619,7 @@ const Dashboard = () => {
 
   const handleStartEditPaymentRecord = (item) => {
     setEditingReceiptId(item.id);
+    setSubReceiptDate(item.receiptDate || item.date || '');
     setSubServiceType(item.serviceType || item.packageType || 'باقة سنوية');
     setSubServiceCategory(item.serviceCategory || 'توصيات سعودي');
     setSubPaymentType(item.paymentType || 'full');
@@ -5642,6 +5645,7 @@ const Dashboard = () => {
 
   const handleCancelEditPaymentRecord = () => {
     setEditingReceiptId(null);
+    setSubReceiptDate('');
     setSubStartDate('');
     setSubEndDate('');
     setSubServiceType('');
@@ -5750,6 +5754,10 @@ const Dashboard = () => {
       toast.error('يرجى اختيار نوع الدفع (حقل إجباري) ⚠️');
       return;
     }
+    if (!subReceiptDate) {
+      toast.error('يرجى تحديد تاريخ الإشعار / التحويل (حقل إجباري) ⚠️');
+      return;
+    }
     if (!subStartDate) {
       toast.error('يرجى تحديد تاريخ بداية الخدمة (حقل إجباري) ⚠️');
       return;
@@ -5775,8 +5783,8 @@ const Dashboard = () => {
         return;
       }
     }
-    if (!subReceiptProof?.trim() && !subReceiptFileUrl) {
-      toast.error('يرجى إرفاق صورة إشعار التحويل أو إدخال كود العملية (حقل إجباري) ⚠️');
+    if (!subReceiptFileUrl) {
+      toast.error('يرجى إرفاق صورة أو ملف إشعار التحويل (حقل إجباري) ⚠️');
       return;
     }
 
@@ -5786,7 +5794,7 @@ const Dashboard = () => {
       const uploadIso = now.toISOString();
       const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
       const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-      const currentMonthKey = (subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
+      const currentMonthKey = (subReceiptDate || subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       let updatedHistory = [];
 
@@ -5801,6 +5809,9 @@ const Dashboard = () => {
               serviceCategory: subServiceCategory || h.serviceCategory,
               paymentType: subPaymentType,
               agreedPercentage: isPercentage ? subAgreedPercentage : '',
+              receiptDate: subReceiptDate || h.receiptDate || h.date,
+              date: subReceiptDate || subStartDate,
+              month: currentMonthKey,
               startDate: subStartDate,
               endDate: isPercentage ? '' : subEndDate,
               paidAmount: cleanPaid,
@@ -5820,7 +5831,8 @@ const Dashboard = () => {
         const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
         const newPaymentRecord = {
           id: 'rec_' + Date.now(),
-          date: subStartDate || uploadIso.slice(0, 10),
+          receiptDate: subReceiptDate,
+          date: subReceiptDate || subStartDate || uploadIso.slice(0, 10),
           month: currentMonthKey,
           uploadedAt: uploadIso,
           uploadedDateTime: uploadedDateTimeLabel,
@@ -5877,6 +5889,7 @@ const Dashboard = () => {
       await Promise.all(promises);
 
       // Clear all input fields so the form is clean and empty
+      setSubReceiptDate('');
       setSubStartDate('');
       setSubEndDate('');
       setSubServiceType('');
@@ -14571,7 +14584,8 @@ const Dashboard = () => {
               </div>
 
               {/* Modal Body / Form */}
-              <form ref={modalFormRef} onSubmit={handleSaveSubscriptionDetails} className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <form onSubmit={handleSaveSubscriptionDetails} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div ref={modalFormRef} className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scroll pb-2">
                 <div ref={modalTopRef} />
 
                 {/* Edit Mode Alert Banner */}
@@ -14688,46 +14702,70 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Dynamic Service Dates */}
-                <div className={`grid grid-cols-1 ${(subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} gap-3 bg-slate-950/60 p-3.5 rounded-2xl border border-emerald-500/20`}>
+                {/* Dynamic Service & Receipt Dates */}
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-emerald-500/20 space-y-3">
+                  {/* Receipt Date - فصلة تاريخ الإشعار */}
                   <div>
-                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1">
-                      <span>📅 تاريخ بداية الخدمة</span>
-                      <span className="text-rose-400 font-black">*</span>
+                    <label className="block text-xs font-bold text-cyan-200 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span>🧾 تاريخ الإشعار / التحويل</span>
+                        <span className="text-rose-400 font-black">*</span>
+                      </span>
+                      <span className="text-[10px] text-cyan-300 font-normal">تاريخ سداد هذه الدفعة</span>
                     </label>
                     <input 
                       type="date"
                       required
-                      data-empty={!subStartDate}
-                      value={subStartDate}
-                      onChange={(e) => setSubStartDate(e.target.value)}
+                      data-empty={!subReceiptDate}
+                      value={subReceiptDate}
+                      onChange={(e) => setSubReceiptDate(e.target.value)}
                       onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                      className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subStartDate ? 'text-transparent empty-date' : 'text-white'}`}
+                      className={`w-full px-3 py-2 bg-slate-900 border border-cyan-500/40 rounded-xl text-xs font-bold outline-none focus:border-cyan-400 cursor-pointer text-center date-input-dark ${!subReceiptDate ? 'text-transparent empty-date' : 'text-white'}`}
                       dir="ltr"
                     />
                   </div>
 
-                  {!(subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') && (
+                  {/* Service Start & End Dates */}
+                  <div className={`grid grid-cols-1 ${(subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} gap-3 pt-2.5 border-t border-slate-800/80`}>
                     <div>
-                      <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                          <span>📅 تاريخ نهاية الخدمة</span>
-                          <span className="text-rose-400 font-black">*</span>
-                        </span>
-                        <span className="text-[10px] text-amber-300 font-normal">إجباري للباقات</span>
+                      <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1">
+                        <span>📅 تاريخ بداية الخدمة</span>
+                        <span className="text-rose-400 font-black">*</span>
                       </label>
                       <input 
                         type="date"
                         required
-                        data-empty={!subEndDate}
-                        value={subEndDate}
-                        onChange={(e) => setSubEndDate(e.target.value)}
+                        data-empty={!subStartDate}
+                        value={subStartDate}
+                        onChange={(e) => setSubStartDate(e.target.value)}
                         onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                        className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subEndDate ? 'text-transparent empty-date' : 'text-white'}`}
+                        className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subStartDate ? 'text-transparent empty-date' : 'text-white'}`}
                         dir="ltr"
                       />
                     </div>
-                  )}
+
+                    {!(subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') && (
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center justify-between">
+                          <span className="flex items-center gap-1">
+                            <span>📅 تاريخ نهاية الخدمة</span>
+                            <span className="text-rose-400 font-black">*</span>
+                          </span>
+                          <span className="text-[10px] text-amber-300 font-normal">إجباري للباقات</span>
+                        </label>
+                        <input 
+                          type="date"
+                          required
+                          data-empty={!subEndDate}
+                          value={subEndDate}
+                          onChange={(e) => setSubEndDate(e.target.value)}
+                          onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                          className={`w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs font-bold outline-none focus:border-emerald-400 cursor-pointer text-center date-input-dark ${!subEndDate ? 'text-transparent empty-date' : 'text-white'}`}
+                          dir="ltr"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 3. Amounts (Paid & Remaining) */}
@@ -14819,16 +14857,7 @@ const Dashboard = () => {
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">كود أو رقم الإشعار / المرجع (اختياري)</label>
-                    <input 
-                      type="text"
-                      placeholder="مثال: كود العملية أو رقم الحوالة"
-                      value={subReceiptProof}
-                      onChange={(e) => setSubReceiptProof(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
-                    />
-                  </div>
+{/* Receipt Code input removed as requested */}
                 </div>
 
                 {/* Previous Payments & Receipts History with Exact Timestamp & Edit/Delete Capabilities */}
@@ -14912,7 +14941,7 @@ const Dashboard = () => {
                                 <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
                                   <span className="text-emerald-400 font-black">💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
                                   <span>•</span>
-                                  <span className="text-cyan-300 font-bold">كود: {item.receiptProof || 'مسجل'}</span>
+                                  <span className="text-cyan-300 font-bold">🧾 تاريخ الإشعار: {item.receiptDate || item.date || item.startDate || '--'}</span>
                                 </div>
                                 <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1.5 flex-wrap">
                                   <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
@@ -14973,12 +15002,14 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* Submit & Cancel Buttons */}
-                <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-800">
+                </div>
+
+                {/* Sticky Bottom Action Bar - دائماً ظاهر وثابت بالأسفل لإجبار الحفظ والإغلاق */}
+                <div className="shrink-0 pt-3 pb-1 border-t border-slate-800 bg-slate-900/95 flex justify-end items-center gap-3 z-20">
                   <button
                     type="button"
                     onClick={() => setIsSubscriptionModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer active:scale-95"
                   >
                     إلغاء
                   </button>
@@ -14986,7 +15017,7 @@ const Dashboard = () => {
                   <button
                     type="submit"
                     disabled={subSaving}
-                    className={`py-2 px-6 rounded-xl text-xs font-black text-white shadow-lg transition flex items-center gap-2 cursor-pointer disabled:opacity-50 ${editingReceiptId ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-[0_4px_15px_rgba(245,158,11,0.4)]' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-[0_4px_15px_rgba(16,185,129,0.4)]'}`}
+                    className={`py-2.5 px-6 rounded-xl text-xs font-black text-white shadow-lg transition flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 ${editingReceiptId ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-[0_4px_15px_rgba(245,158,11,0.4)]' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-[0_4px_15px_rgba(16,185,129,0.4)]'}`}
                   >
                     <Save size={15} />
                     <span>{subSaving ? 'جاري الحفظ...' : (editingReceiptId ? 'حفظ التعديل وإغلاق النافذة 💾' : 'حفظ بيانات الاشتراك وإغلاق النافذة 💾')}</span>
