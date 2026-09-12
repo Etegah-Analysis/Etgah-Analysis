@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2, CheckCheck } from 'lucide-react';
+import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
@@ -705,6 +705,39 @@ const Dashboard = () => {
   const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
   const [mailSearchTerm, setMailSearchTerm] = useState('');
   const [mailSending, setMailSending] = useState(false);
+
+  // --- BUFFET INVENTORY & EXPENSES STATE (v2.24) ---
+  const [buffetInventory, setBuffetInventory] = useState([]);
+  const [buffetPurchases, setBuffetPurchases] = useState([]);
+  const [buffetAttachments, setBuffetAttachments] = useState([]); // [{ id, name, type, url, size, uploadedAt, uploadedBy }]
+  const [buffetGoogleSheetUrl, setBuffetGoogleSheetUrl] = useState('');
+  const [buffetSearch, setBuffetSearch] = useState('');
+  const [buffetActiveSection, setBuffetActiveSection] = useState('all'); // 'all', 'inventory', 'purchases', 'attachments', 'googlesheet'
+  const [buffetSaving, setBuffetSaving] = useState(false);
+  const [buffetLightboxImg, setBuffetLightboxImg] = useState(null);
+
+  // Buffet Item Modal states
+  const [isAddBuffetItemModalOpen, setIsAddBuffetItemModalOpen] = useState(false);
+  const [editingBuffetItem, setEditingBuffetItem] = useState(null);
+  const [buffetItemName, setBuffetItemName] = useState('');
+  const [buffetItemTotalQty, setBuffetItemTotalQty] = useState('');
+  const [buffetItemUsedQty, setBuffetItemUsedQty] = useState('');
+  const [buffetItemRemainingQty, setBuffetItemRemainingQty] = useState('');
+  const [buffetItemNotes, setBuffetItemNotes] = useState('');
+
+  // Buffet Purchase Modal states
+  const [isAddBuffetPurchaseModalOpen, setIsAddBuffetPurchaseModalOpen] = useState(false);
+  const [editingBuffetPurchase, setEditingBuffetPurchase] = useState(null);
+  const [buffetPurchaseName, setBuffetPurchaseName] = useState('');
+  const [buffetPurchaseQty, setBuffetPurchaseQty] = useState('');
+  const [buffetPurchaseCost, setBuffetPurchaseCost] = useState('');
+  const [buffetPurchaseDate, setBuffetPurchaseDate] = useState('');
+  const [buffetPurchaseNotes, setBuffetPurchaseNotes] = useState('');
+
+  // Buffet Upload & Settings Modals
+  const [isBuffetUploadModalOpen, setIsBuffetUploadModalOpen] = useState(false);
+  const [isBuffetGoogleSheetModalOpen, setIsBuffetGoogleSheetModalOpen] = useState(false);
+  const [tempGoogleSheetUrl, setTempGoogleSheetUrl] = useState('');
 
   // Admin emails definition
   const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com'];
@@ -2204,6 +2237,80 @@ const Dashboard = () => {
       console.error('Error fetching us_recommendations:', error);
     });
 
+    // Fetch Buffet Inventory (v2.24)
+    const buffetInvUnsub = onSnapshot(collection(db, 'buffet_inventory'), (snapshot) => {
+      if (snapshot.empty) {
+        const cached = localStorage.getItem('etegah_buffet_inventory');
+        if (cached) {
+          try { setBuffetInventory(JSON.parse(cached)); } catch(e) { setBuffetInventory(DEFAULT_BUFFET_INVENTORY); }
+        } else {
+          setBuffetInventory(DEFAULT_BUFFET_INVENTORY);
+        }
+      } else {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        data.sort((a, b) => (a.order || 0) - (b.order || 0) || (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
+        setBuffetInventory(data);
+        localStorage.setItem('etegah_buffet_inventory', JSON.stringify(data));
+      }
+    }, (error) => {
+      console.error('Error fetching buffet_inventory:', error);
+      const cached = localStorage.getItem('etegah_buffet_inventory');
+      if (cached) {
+        try { setBuffetInventory(JSON.parse(cached)); } catch(e) { setBuffetInventory(DEFAULT_BUFFET_INVENTORY); }
+      } else {
+        setBuffetInventory(DEFAULT_BUFFET_INVENTORY);
+      }
+    });
+
+    // Fetch Buffet Purchases (v2.24)
+    const buffetPurchasesUnsub = onSnapshot(collection(db, 'buffet_purchases'), (snapshot) => {
+      if (snapshot.empty) {
+        const cached = localStorage.getItem('etegah_buffet_purchases');
+        if (cached) {
+          try { setBuffetPurchases(JSON.parse(cached)); } catch(e) { setBuffetPurchases(DEFAULT_BUFFET_PURCHASES); }
+        } else {
+          setBuffetPurchases(DEFAULT_BUFFET_PURCHASES);
+        }
+      } else {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        data.sort((a, b) => (a.order || 0) - (b.order || 0) || (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
+        setBuffetPurchases(data);
+        localStorage.setItem('etegah_buffet_purchases', JSON.stringify(data));
+      }
+    }, (error) => {
+      console.error('Error fetching buffet_purchases:', error);
+      const cached = localStorage.getItem('etegah_buffet_purchases');
+      if (cached) {
+        try { setBuffetPurchases(JSON.parse(cached)); } catch(e) { setBuffetPurchases(DEFAULT_BUFFET_PURCHASES); }
+      } else {
+        setBuffetPurchases(DEFAULT_BUFFET_PURCHASES);
+      }
+    });
+
+    // Fetch Buffet Settings (Google Sheet URL & Attachments) (v2.24)
+    const buffetConfigUnsub = onSnapshot(doc(db, 'buffet_settings', 'main_config'), (docSnap) => {
+      if (docSnap.exists()) {
+        const conf = docSnap.data();
+        if (conf.googleSheetUrl !== undefined) setBuffetGoogleSheetUrl(conf.googleSheetUrl || '');
+        if (Array.isArray(conf.attachments)) setBuffetAttachments(conf.attachments);
+      } else {
+        const cachedUrl = localStorage.getItem('etegah_buffet_googlesheet_url') || '';
+        const cachedAtts = localStorage.getItem('etegah_buffet_attachments');
+        if (cachedUrl) setBuffetGoogleSheetUrl(cachedUrl);
+        if (cachedAtts) {
+          try { setBuffetAttachments(JSON.parse(cachedAtts)); } catch(e) {}
+        }
+      }
+    }, (error) => {
+      console.error('Error fetching buffet_settings:', error);
+      const cachedUrl = localStorage.getItem('etegah_buffet_googlesheet_url') || '';
+      const cachedAtts = localStorage.getItem('etegah_buffet_attachments');
+      if (cachedUrl) setBuffetGoogleSheetUrl(cachedUrl);
+      if (cachedAtts) {
+        try { setBuffetAttachments(JSON.parse(cachedAtts)); } catch(e) {}
+      }
+    });
+
     return () => {
       custUnsub();
       leadsCrmUnsub();
@@ -2216,6 +2323,9 @@ const Dashboard = () => {
       groupsUnsub();
       saudiUnsub();
       usUnsub();
+      buffetInvUnsub();
+      buffetPurchasesUnsub();
+      buffetConfigUnsub();
     };
   }, []);
 
@@ -2349,6 +2459,7 @@ const Dashboard = () => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (isCoordinator && (type === 'subscribed_clients' || type === 'saudi_signals' || type === 'us_signals')) return;
     if (!isAdmin && !isCustomerService && (type === 'saudi_signals' || type === 'us_signals')) return;
+    if (!isAdmin && !isCoordinator && type === 'buffet_inventory') return;
     
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
@@ -2385,6 +2496,9 @@ const Dashboard = () => {
       setUsSignalsMarketFilter('all');
       setUsSignalsStatusFilter('all');
       setUsSignalsSearch('');
+    } else if (type === 'buffet_inventory') {
+      setBuffetSearch('');
+      setBuffetActiveSection('all');
     } else if (type === 'customers') {
       setSelectedEmpFilter('all');
     } else {
@@ -6520,6 +6634,310 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
+  // --- BUFFET INVENTORY & EXPENSES HANDLERS (v2.24) ---
+  const handleOpenAddBuffetItem = (item = null) => {
+    if (item) {
+      setEditingBuffetItem(item);
+      setBuffetItemName(item.itemName || '');
+      setBuffetItemTotalQty(item.totalQty || '');
+      setBuffetItemUsedQty(item.usedQty || '');
+      setBuffetItemRemainingQty(item.remainingQty || '');
+      setBuffetItemNotes(item.notes || '');
+    } else {
+      setEditingBuffetItem(null);
+      setBuffetItemName('');
+      setBuffetItemTotalQty('');
+      setBuffetItemUsedQty('');
+      setBuffetItemRemainingQty('');
+      setBuffetItemNotes('');
+    }
+    setIsAddBuffetItemModalOpen(true);
+  };
+
+  const handleSaveBuffetItem = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!buffetItemName.trim()) {
+      toast.error('يرجى كتابة اسم الصنف للبوفيه ☕');
+      return;
+    }
+    setBuffetSaving(true);
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+
+      let remaining = buffetItemRemainingQty.trim();
+      if (!remaining && buffetItemTotalQty && buffetItemUsedQty) {
+        const t = parseFloat(buffetItemTotalQty);
+        const u = parseFloat(buffetItemUsedQty);
+        if (!isNaN(t) && !isNaN(u)) {
+          remaining = String(Math.max(0, t - u));
+        }
+      }
+
+      const itemData = {
+        itemName: buffetItemName.trim(),
+        totalQty: buffetItemTotalQty.trim() || '-',
+        usedQty: buffetItemUsedQty.trim() || '-',
+        remainingQty: remaining || '-',
+        notes: buffetItemNotes.trim(),
+        updatedAt: serverTimestamp(),
+        updatedBy: userRole,
+        updatedDateTime: formattedNow
+      };
+
+      if (editingBuffetItem && editingBuffetItem.id && !editingBuffetItem.id.startsWith('item_')) {
+        await updateDoc(doc(db, 'buffet_inventory', editingBuffetItem.id), itemData);
+        toast.success('تم تحديث صنف البوفيه بنجاح 💾');
+      } else {
+        itemData.createdAt = serverTimestamp();
+        itemData.createdAtMillis = Date.now();
+        itemData.order = buffetInventory.length + 1;
+        const newDoc = await addDoc(collection(db, 'buffet_inventory'), itemData);
+        setBuffetInventory(prev => [{ id: newDoc.id, ...itemData }, ...prev.filter(i => i.id !== editingBuffetItem?.id)]);
+        toast.success('تمت إضافة الصنف للبوفيه بنجاح ☕✨');
+      }
+      setIsAddBuffetItemModalOpen(false);
+      setEditingBuffetItem(null);
+    } catch (err) {
+      console.error('Error saving buffet item:', err);
+      const updatedList = editingBuffetItem 
+        ? buffetInventory.map(i => i.id === editingBuffetItem.id ? { ...i, itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim() } : i)
+        : [{ id: 'item_' + Date.now(), itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim(), order: buffetInventory.length + 1 }, ...buffetInventory];
+      setBuffetInventory(updatedList);
+      localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
+      setIsAddBuffetItemModalOpen(false);
+      toast.success('تم حفظ الصنف بنجاح 💾');
+    } finally {
+      setBuffetSaving(false);
+    }
+  };
+
+  const handleDeleteBuffetItem = async (itemId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا الصنف من مخزون البوفيه؟')) return;
+    try {
+      if (itemId && !itemId.startsWith('item_')) {
+        await deleteDoc(doc(db, 'buffet_inventory', itemId));
+      }
+      const updatedList = buffetInventory.filter(i => i.id !== itemId);
+      setBuffetInventory(updatedList);
+      localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
+      toast.success('تم حذف الصنف بنجاح 🗑️');
+    } catch (err) {
+      console.error('Error deleting buffet item:', err);
+      const updatedList = buffetInventory.filter(i => i.id !== itemId);
+      setBuffetInventory(updatedList);
+      localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
+      toast.success('تم حذف الصنف بنجاح 🗑️');
+    }
+  };
+
+  const handleOpenAddBuffetPurchase = (purch = null) => {
+    if (purch) {
+      setEditingBuffetPurchase(purch);
+      setBuffetPurchaseName(purch.itemName || '');
+      setBuffetPurchaseQty(purch.qty || '');
+      setBuffetPurchaseCost(purch.cost || '');
+      setBuffetPurchaseDate(purch.purchaseDate || '');
+      setBuffetPurchaseNotes(purch.notes || '');
+    } else {
+      setEditingBuffetPurchase(null);
+      setBuffetPurchaseName('');
+      setBuffetPurchaseQty('');
+      setBuffetPurchaseCost('');
+      setBuffetPurchaseDate(new Date().toISOString().slice(0, 10));
+      setBuffetPurchaseNotes('');
+    }
+    setIsAddBuffetPurchaseModalOpen(true);
+  };
+
+  const handleSaveBuffetPurchase = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!buffetPurchaseName.trim()) {
+      toast.error('يرجى إدخال اسم المشتريات الجديدة 🛒');
+      return;
+    }
+    setBuffetSaving(true);
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+
+      const purchData = {
+        itemName: buffetPurchaseName.trim(),
+        qty: buffetPurchaseQty.trim() || '-',
+        cost: buffetPurchaseCost.trim() || '',
+        purchaseDate: buffetPurchaseDate || now.toISOString().slice(0, 10),
+        notes: buffetPurchaseNotes.trim(),
+        updatedAt: serverTimestamp(),
+        updatedBy: userRole,
+        updatedDateTime: formattedNow
+      };
+
+      if (editingBuffetPurchase && editingBuffetPurchase.id && !editingBuffetPurchase.id.startsWith('purch_')) {
+        await updateDoc(doc(db, 'buffet_purchases', editingBuffetPurchase.id), purchData);
+        toast.success('تم تحديث بيانات المشترى بنجاح 💾');
+      } else {
+        purchData.createdAt = serverTimestamp();
+        purchData.createdAtMillis = Date.now();
+        purchData.order = buffetPurchases.length + 1;
+        const newDoc = await addDoc(collection(db, 'buffet_purchases'), purchData);
+        setBuffetPurchases(prev => [{ id: newDoc.id, ...purchData }, ...prev.filter(p => p.id !== editingBuffetPurchase?.id)]);
+        toast.success('تم تسجيل المشترى الجديد بنجاح 🛒✨');
+      }
+      setIsAddBuffetPurchaseModalOpen(false);
+      setEditingBuffetPurchase(null);
+    } catch (err) {
+      console.error('Error saving buffet purchase:', err);
+      const updatedList = editingBuffetPurchase
+        ? buffetPurchases.map(p => p.id === editingBuffetPurchase.id ? { ...p, itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim() } : p)
+        : [{ id: 'purch_' + Date.now(), itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim(), order: buffetPurchases.length + 1 }, ...buffetPurchases];
+      setBuffetPurchases(updatedList);
+      localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
+      setIsAddBuffetPurchaseModalOpen(false);
+      toast.success('تم حفظ المشترى بنجاح 💾');
+    } finally {
+      setBuffetSaving(false);
+    }
+  };
+
+  const handleDeleteBuffetPurchase = async (purchId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المشترى؟')) return;
+    try {
+      if (purchId && !purchId.startsWith('purch_')) {
+        await deleteDoc(doc(db, 'buffet_purchases', purchId));
+      }
+      const updatedList = buffetPurchases.filter(p => p.id !== purchId);
+      setBuffetPurchases(updatedList);
+      localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
+      toast.success('تم حذف المشترى بنجاح 🗑️');
+    } catch (err) {
+      console.error('Error deleting buffet purchase:', err);
+      const updatedList = buffetPurchases.filter(p => p.id !== purchId);
+      setBuffetPurchases(updatedList);
+      localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
+      toast.success('تم حذف المشترى بنجاح 🗑️');
+    }
+  };
+
+  const handleUploadBuffetFile = async (e, forcedType = null) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+    for (const file of files) {
+      const isImg = file.type.startsWith('image/');
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
+      const detectedType = forcedType || (isImg ? 'image' : isExcel ? 'excel' : 'file');
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const fileUrl = event.target.result;
+        const newAttachment = {
+          id: 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          name: file.name,
+          type: detectedType,
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          url: fileUrl,
+          uploadedAt: formattedNow,
+          uploadedBy: userRole
+        };
+
+        const updatedAttachments = [newAttachment, ...buffetAttachments];
+        setBuffetAttachments(updatedAttachments);
+        localStorage.setItem('etegah_buffet_attachments', JSON.stringify(updatedAttachments));
+
+        // Save to Firestore settings
+        try {
+          await setDoc(doc(db, 'buffet_settings', 'main_config'), {
+            attachments: updatedAttachments.slice(0, 30),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch(err) {
+          console.error('Error saving attachment config:', err);
+        }
+
+        toast.success(`تم رفع ${isImg ? 'صورة السكرين شوت 📷' : 'ملف الإكسيل 📊'} بنجاح!`);
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+    setIsBuffetUploadModalOpen(false);
+  };
+
+  const handleDeleteBuffetAttachment = async (attId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المرفق؟')) return;
+    const updated = buffetAttachments.filter(a => a.id !== attId);
+    setBuffetAttachments(updated);
+    localStorage.setItem('etegah_buffet_attachments', JSON.stringify(updated));
+    try {
+      await setDoc(doc(db, 'buffet_settings', 'main_config'), {
+        attachments: updated,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      toast.success('تم حذف المرفق بنجاح 🗑️');
+    } catch(e) {
+      toast.success('تم حذف المرفق بنجاح 🗑️');
+    }
+  };
+
+  const handleSaveBuffetGoogleSheetUrl = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const url = tempGoogleSheetUrl.trim();
+    setBuffetGoogleSheetUrl(url);
+    localStorage.setItem('etegah_buffet_googlesheet_url', url);
+    try {
+      await setDoc(doc(db, 'buffet_settings', 'main_config'), {
+        googleSheetUrl: url,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      toast.success('تم حفظ رابط Google Sheet بنجاح 🔗✨');
+    } catch(err) {
+      toast.success('تم حفظ رابط Google Sheet بنجاح 🔗');
+    }
+    setIsBuffetGoogleSheetModalOpen(false);
+  };
+
+  const handleExportBuffetToExcel = () => {
+    try {
+      const invData = buffetInventory.map((item, idx) => ({
+        '#': idx + 1,
+        'الصنف': item.itemName || '',
+        'العدد (الإجمالي)': item.totalQty || '-',
+        'المستخدم (المستهلك)': item.usedQty || '-',
+        'المتبقي': item.remainingQty || '-',
+        'ملحوظات': item.notes || '',
+        'آخر تحديث': item.updatedDateTime || ''
+      }));
+
+      const purchData = buffetPurchases.map((p, idx) => ({
+        '#': idx + 1,
+        'المشتريات الجديدة': p.itemName || '',
+        'العدد': p.qty || '-',
+        'التكلفة (ج.م)': p.cost || '-',
+        'تاريخ الشراء': p.purchaseDate || '-',
+        'ملاحظات': p.notes || ''
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const wsInv = XLSX.utils.json_to_sheet(invData);
+      const wsPurch = XLSX.utils.json_to_sheet(purchData);
+
+      XLSX.utils.book_append_sheet(wb, wsInv, 'مخزون ومحتويات البوفيه');
+      XLSX.utils.book_append_sheet(wb, wsPurch, 'المشتريات الجديدة');
+
+      const fileName = `مصروفات_ومحتويات_البوفيه_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      toast.success('تم تصدير شيت البوفيه بنجاح 📥📊');
+    } catch (err) {
+      console.error('Error exporting buffet to excel:', err);
+      toast.error('حدث خطأ أثناء التصدير');
+    }
+  };
+
   const handleDeleteUsSignal = async (signalId) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه التوصية نهائياً؟')) return;
     try {
@@ -7625,49 +8043,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </div>
 
               
-              {/* Admin Card 3B: Saudi Market Recommendations (v2.23) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">🇸🇦</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {saudiRecommendations.length.toLocaleString()} توصية
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Admin Card 3C: US Market Recommendations (v2.23) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">🇺🇸</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
-                      {usRecommendations.length.toLocaleString()} توصية
-                    </span>
-                    <span className="text-[10px] text-amber-400 font-bold">
-                      ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                    </span>
-                  </div>
-                </div>
-              </div>
 
               {/* Card 4: Total Customers */}
               <div 
@@ -7768,8 +8144,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
             </div>
 
-            {/* 2. Lower Section: Performance Analytics (3 Cards) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            {/* 2. Lower Section: Performance Analytics & Recommendations & Buffet (6 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Card 10: Leads CRM Analysis */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -7820,6 +8196,72 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
                   
+                </div>
+              </div>
+
+              {/* Admin Card 13: Saudi Market Recommendations (v2.24 - Moved to Analytics) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">🇸🇦</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {saudiRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-bold">
+                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Card 14: US Market Recommendations (v2.24 - Moved to Analytics) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">🇺🇸</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {usRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-bold">
+                      ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buffet Card: Expenses & Inventory (v2.24) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">☕</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {buffetInventory.length.toLocaleString()} صنف
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-bold">
+                      ({buffetPurchases.length} مشتريات 🛒)
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -7932,8 +8374,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
             </div>
 
-            {/* 2. Lower Section: Performance Analytics (3 Cards) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+            {/* 2. Lower Section: Performance Analytics & Buffet (4 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {/* Card 8: Leads CRM Analysis */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -7985,6 +8427,28 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
                   
+                </div>
+              </div>
+
+              {/* Buffet Card: Expenses & Inventory (v2.24) */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">☕</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                      {buffetInventory.length.toLocaleString()} صنف
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-bold">
+                      ({buffetPurchases.length} مشتريات 🛒)
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -11896,6 +12360,541 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          );
+        })()}
+
+
+        {/* ========================================================================= */}
+        {/* DEDICATED BUFFET EXPENSES & INVENTORY TAB (v2.24)                        */}
+        {/* Visible ONLY to Admin and Coordinator                                     */}
+        {/* ========================================================================= */}
+        {activeTab === 'buffet_inventory' && (isAdmin || isCoordinator) && (() => {
+          const q = buffetSearch.trim().toLowerCase();
+          const filteredInventory = buffetInventory.filter(item => {
+            if (!q) return true;
+            return (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+          });
+
+          const filteredPurchases = buffetPurchases.filter(p => {
+            if (!q) return true;
+            return (p.itemName || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
+          });
+
+          return (
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+              {/* Header Banner */}
+              <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
+                    <span className="text-2xl">☕</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
+                      <span>☕ مصروفات ومحتويات البوفيه (Buffet Expenses & Inventory)</span>
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {buffetInventory.length} صنف مسجل
+                      </span>
+                      <span className="bg-blue-500/30 text-blue-200 border border-blue-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                        {buffetPurchases.length} مشتريات
+                      </span>
+                    </h2>
+                    <p className="text-xs text-amber-200/80 mt-0.5">
+                      متابعة محتويات ومخزون البوفيه، تسجيل المشتريات والمصروفات الجديدة، مع دعم رفع السكرينات وملفات الإكسيل وجوجل شيت
+                    </p>
+                  </div>
+                </div>
+
+                {/* Header Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    onClick={() => handleOpenAddBuffetItem()}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
+                  >
+                    <Plus size={15} />
+                    <span>+ إضافة صنف للبوفيه 📦</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleOpenAddBuffetPurchase()}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
+                  >
+                    <ShoppingCart size={15} />
+                    <span>+ تسجيل مشتريات جديدة 🛒</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setIsBuffetUploadModalOpen(true)}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer"
+                  >
+                    <Upload size={15} />
+                    <span>رفع سكرين / إكسيل 📎</span>
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setTempGoogleSheetUrl(buffetGoogleSheetUrl);
+                      setIsBuffetGoogleSheetModalOpen(true);
+                    }}
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                  >
+                    <ExternalLink size={15} />
+                    <span>ربط Google Sheet 🔗</span>
+                  </button>
+
+                  {buffetGoogleSheetUrl && (
+                    <a 
+                      href={buffetGoogleSheetUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
+                      title="فتح رابط Google Sheet في تبويب جديد"
+                    >
+                      <ExternalLink size={14} />
+                      <span>فتح في Google Sheets ↗️</span>
+                    </a>
+                  )}
+
+                  <button 
+                    onClick={handleExportBuffetToExcel}
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    title="تحميل شيت البوفيه بصيغة Excel"
+                  >
+                    <Download size={14} />
+                    <span>تصدير Excel</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Summary Highlights (4 Cards) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
+                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                    <Coffee size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">أصناف البوفيه المسجلة</span>
+                    <span className="text-base font-black text-emerald-600">{buffetInventory.length} صنف</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-950/20 border border-blue-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl">
+                    <ShoppingCart size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">المشتريات الجديدة</span>
+                    <span className="text-base font-black text-blue-600">{buffetPurchases.length} صنف</span>
+                  </div>
+                </div>
+
+                <div className="bg-purple-950/20 border border-purple-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-500/20 text-purple-400 rounded-xl">
+                    <Paperclip size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">الفواتير والمرفقات</span>
+                    <span className="text-base font-black text-purple-600">{buffetAttachments.length} مرفق</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-bold block">Google Sheets</span>
+                    <span className="text-xs font-black text-amber-600">
+                      {buffetGoogleSheetUrl ? '🟢 متصل ومفعل' : '⚪ غير مرتبط'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Tabs & Search Filter */}
+              <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
+                {/* Section Toggle Tabs */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl flex-wrap">
+                  <button
+                    onClick={() => setBuffetActiveSection('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
+                  >
+                    <span>عرض الكل (الشيتين جنباً إلى جنب)</span>
+                  </button>
+                  <button
+                    onClick={() => setBuffetActiveSection('inventory')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'inventory' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-emerald-100'}`}
+                  >
+                    <span>📦 محتويات البوفيه ({buffetInventory.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setBuffetActiveSection('purchases')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'purchases' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                  >
+                    <span>🛒 المشتريات الجديدة ({buffetPurchases.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setBuffetActiveSection('attachments')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'attachments' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-700 hover:bg-purple-100'}`}
+                  >
+                    <span>📎 المرفقات والسكرينات ({buffetAttachments.length})</span>
+                  </button>
+                  {buffetGoogleSheetUrl && (
+                    <button
+                      onClick={() => setBuffetActiveSection('googlesheet')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'googlesheet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-indigo-100'}`}
+                    >
+                      <span>🌐 معاينة جوجل شيت</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Bar */}
+                <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-xs">
+                  <div className="relative w-full">
+                    <Search className="absolute right-3 top-2.5 text-gray-400" size={14} />
+                    <input
+                      type="text"
+                      placeholder="بحث في الأصناف والمشتريات..."
+                      value={buffetSearch}
+                      onChange={(e) => setBuffetSearch(e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content Area: Responsive side-by-side or stacked tables */}
+              <div className="p-4 space-y-6">
+                {(buffetActiveSection === 'all' || buffetActiveSection === 'inventory' || buffetActiveSection === 'purchases') && (
+                  <div className={`grid grid-cols-1 ${buffetActiveSection === 'all' ? 'lg:grid-cols-12 gap-6' : 'gap-4'}`}>
+                    
+                    {/* TABLE 1: مخزون ومحتويات البوفيه (Green Header - matching user screenshot) */}
+                    {(buffetActiveSection === 'all' || buffetActiveSection === 'inventory') && (
+                      <div className={`${buffetActiveSection === 'all' ? 'lg:col-span-7' : 'w-full'} bg-white rounded-2xl border border-emerald-500/30 shadow-sm overflow-hidden`}>
+                        <div className="px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex justify-between items-center border-b border-emerald-600/40">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">📦</span>
+                            <span className="font-black text-xs sm:text-sm text-emerald-100">محتويات ومخزون البوفيه (المستهلك والرصيد)</span>
+                            <span className="bg-emerald-950/60 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                              {filteredInventory.length} صنف
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => handleOpenAddBuffetItem()}
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
+                          >
+                            <Plus size={13} />
+                            <span>إضافة صنف</span>
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                          <table className="w-full text-right text-xs">
+                            <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
+                              <tr>
+                                <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
+                                <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
+                                <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
+                                <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
+                              {filteredInventory.length === 0 ? (
+                                <tr>
+                                  <td colSpan="7" className="text-center py-8 text-gray-500 font-bold">
+                                    لا توجد أصناف مطابقة للبحث
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredInventory.map((item, idx) => (
+                                  <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
+                                    <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-extrabold text-gray-900">
+                                      {item.itemName}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-bold text-indigo-700">
+                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
+                                        {item.totalQty || '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/40">
+                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 font-mono">
+                                        {item.usedQty || '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
+                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
+                                        {item.remainingQty || '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-xs text-gray-600 max-w-[180px] truncate" title={item.notes}>
+                                      {item.notes || <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button
+                                          onClick={() => handleOpenAddBuffetItem(item)}
+                                          className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                          title="تعديل بيانات الصنف"
+                                        >
+                                          <Edit size={13} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteBuffetItem(item.id)}
+                                          className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                          title="حذف الصنف"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TABLE 2: المشتريات والمصروفات الجديدة (Blue Header - matching user screenshot) */}
+                    {(buffetActiveSection === 'all' || buffetActiveSection === 'purchases') && (
+                      <div className={`${buffetActiveSection === 'all' ? 'lg:col-span-5' : 'w-full'} bg-white rounded-2xl border border-blue-500/30 shadow-sm overflow-hidden`}>
+                        <div className="px-4 py-3 bg-gradient-to-r from-blue-800 to-indigo-900 text-white flex justify-between items-center border-b border-blue-600/40">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">🛒</span>
+                            <span className="font-black text-xs sm:text-sm text-blue-100">المشتريات الجديدة والمصروفات</span>
+                            <span className="bg-blue-950/60 text-blue-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                              {filteredPurchases.length} مشترى
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => handleOpenAddBuffetPurchase()}
+                            className="bg-blue-500 hover:bg-blue-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
+                          >
+                            <Plus size={13} />
+                            <span>تسجيل مشترى</span>
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                          <table className="w-full text-right text-xs">
+                            <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
+                              <tr>
+                                <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
+                                <th className="py-2.5 px-3 text-amber-300 font-extrabold">المشتريات الجديدة</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">التكلفة (ج.م)</th>
+                                <th className="py-2.5 px-3 text-center text-amber-300">التاريخ</th>
+                                <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
+                              {filteredPurchases.length === 0 ? (
+                                <tr>
+                                  <td colSpan="6" className="text-center py-8 text-gray-500 font-bold">
+                                    لا توجد مشتريات مسجلة حالياً
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredPurchases.map((purch, idx) => (
+                                  <tr key={purch.id || idx} className="hover:bg-blue-50/50 transition">
+                                    <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-extrabold text-gray-900">
+                                      {purch.itemName}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-bold text-blue-700">
+                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 font-mono">
+                                        {purch.qty || '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-bold text-emerald-700">
+                                      {purch.cost ? `${purch.cost} ج.م` : <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center text-[11px] text-gray-500">
+                                      {purch.purchaseDate || <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button
+                                          onClick={() => handleOpenAddBuffetPurchase(purch)}
+                                          className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                          title="تعديل المشترى"
+                                        >
+                                          <Edit size={13} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteBuffetPurchase(purch.id)}
+                                          className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                          title="حذف المشترى"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {/* ATTACHMENTS & SCREENSHOTS SECTION */}
+                {(buffetActiveSection === 'all' || buffetActiveSection === 'attachments') && (
+                  <div className="bg-white rounded-2xl border border-purple-500/30 p-5 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">📎</span>
+                        <div>
+                          <h3 className="text-sm font-black text-purple-950">الفواتير، السكرينات، وملفات الإكسيل المرفوعة</h3>
+                          <p className="text-[11px] text-gray-500">جميع الصور وفواتير البوفيه وملفات الجرد المرفوعة من المنسق والإدارة</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIsBuffetUploadModalOpen(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+                      >
+                        <Upload size={14} />
+                        <span>+ رفع ملف جديد</span>
+                      </button>
+                    </div>
+
+                    {buffetAttachments.length === 0 ? (
+                      <div className="p-8 text-center bg-purple-50/50 rounded-xl border border-dashed border-purple-200">
+                        <Paperclip className="mx-auto text-purple-300 mb-2" size={32} />
+                        <p className="text-xs font-bold text-gray-600">لا توجد صور أو ملفات مرفوعة حالياً</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">يمكنك رفع سكرينات الشيت الورقي، الفواتير، أو شيتات الإكسيل</p>
+                        <button
+                          onClick={() => setIsBuffetUploadModalOpen(true)}
+                          className="mt-3 bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold"
+                        >
+                          + رفع أول سكرين شوت أو ملف إكسيل
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {buffetAttachments.map(att => (
+                          <div key={att.id} className="bg-slate-50 border border-gray-200 rounded-xl p-3 flex flex-col justify-between hover:shadow-md transition">
+                            {att.type === 'image' ? (
+                              <div 
+                                onClick={() => setBuffetLightboxImg(att.url)}
+                                className="w-full h-36 bg-slate-900 rounded-lg overflow-hidden relative cursor-pointer group mb-2 border border-gray-200"
+                              >
+                                <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
+                                  <Eye size={16} />
+                                  <span>انقر للتكبير 🔍</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full h-36 bg-gradient-to-br from-emerald-900 to-teal-950 rounded-lg flex flex-col items-center justify-center p-3 mb-2 text-white text-center">
+                                <FileSpreadsheet size={40} className="text-emerald-400 mb-1" />
+                                <span className="text-xs font-black truncate max-w-full">{att.name}</span>
+                                <span className="text-[10px] text-emerald-200/80">{att.size}</span>
+                              </div>
+                            )}
+
+                            <div>
+                              <p className="text-xs font-bold text-gray-900 truncate" title={att.name}>{att.name}</p>
+                              <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+                                <span>{att.uploadedAt}</span>
+                                <span className="text-purple-700 font-semibold">{att.uploadedBy}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-gray-200 pt-2 mt-2">
+                              {att.type !== 'image' ? (
+                                <a
+                                  href={att.url}
+                                  download={att.name}
+                                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1"
+                                >
+                                  <Download size={13} />
+                                  <span>تحميل الملف</span>
+                                </a>
+                              ) : (
+                                <button
+                                  onClick={() => setBuffetLightboxImg(att.url)}
+                                  className="text-[11px] text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1"
+                                >
+                                  <Eye size={13} />
+                                  <span>معاينة مكبرة</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteBuffetAttachment(att.id)}
+                                className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-0.5"
+                                title="حذف هذا المرفق"
+                              >
+                                <Trash2 size={13} />
+                                <span>حذف</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* GOOGLE SHEET DIRECT EMBED SECTION */}
+                {(buffetActiveSection === 'all' || buffetActiveSection === 'googlesheet') && buffetGoogleSheetUrl && (
+                  <div className="bg-white rounded-2xl border border-amber-500/30 p-5 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🌐</span>
+                        <div>
+                          <h3 className="text-sm font-black text-gray-900">شيت جوجل المباشر (Google Sheets)</h3>
+                          <p className="text-[11px] text-gray-500">معاينة تفاعلية حية للشيت المعتمد</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setTempGoogleSheetUrl(buffetGoogleSheetUrl);
+                            setIsBuffetGoogleSheetModalOpen(true);
+                          }}
+                          className="text-xs text-amber-700 hover:text-amber-900 font-bold underline"
+                        >
+                          تعديل الرابط ✏️
+                        </button>
+                        <a
+                          href={buffetGoogleSheetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+                        >
+                          <ExternalLink size={13} />
+                          <span>فتح في تبويب خارجي ↗️</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-[650px] rounded-xl overflow-hidden border border-gray-300 bg-slate-50">
+                      <iframe
+                        src={buffetGoogleSheetUrl.includes('/edit') ? buffetGoogleSheetUrl.replace(/\/edit.*$/, '/pubhtml?widget=true&headers=false') : buffetGoogleSheetUrl}
+                        className="w-full h-full border-0"
+                        title="Google Sheet Live View"
+                      />
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           );
@@ -17579,6 +18578,386 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </button>
                 </div>
               </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+
+        {/* ========================================================================= */}
+        {/* BUFFET MODALS: ADD/EDIT ITEM, ADD/EDIT PURCHASE, UPLOAD, GOOGLE SHEET, LIGHTBOX */}
+        {/* ========================================================================= */}
+        {/* 1. Modal: Add/Edit Buffet Inventory Item */}
+        {isAddBuffetItemModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsAddBuffetItemModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-emerald-500/20 pb-3">
+                <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
+                  <Coffee className="text-emerald-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-emerald-300">
+                    {editingBuffetItem ? 'تعديل صنف بمخزون البوفيه ✏️' : 'إضافة صنف جديد للبوفيه ☕'}
+                  </h3>
+                  <p className="text-xs text-emerald-200/70">
+                    أدخل اسم الصنف والكمية الإجمالية والمستخدمة والمتبقية
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveBuffetItem} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: بن، شاي ليبتون، سكر 10 ك..."
+                    value={buffetItemName}
+                    onChange={(e) => setBuffetItemName(e.target.value)}
+                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">العدد (الإجمالي)</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 10 أو 20 ك"
+                      value={buffetItemTotalQty}
+                      onChange={(e) => setBuffetItemTotalQty(e.target.value)}
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-rose-300 mb-1">المستخدم</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 2 أو 5 ك"
+                      value={buffetItemUsedQty}
+                      onChange={(e) => setBuffetItemUsedQty(e.target.value)}
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">المتبقي</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 8 أو 15 ك"
+                      value={buffetItemRemainingQty}
+                      onChange={(e) => setBuffetItemRemainingQty(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">ملحوظات (اختياري)</label>
+                  <textarea
+                    rows="2"
+                    placeholder="مثال: الكرتونة 22 عامود، باكيت 24 كيس..."
+                    value={buffetItemNotes}
+                    onChange={(e) => setBuffetItemNotes(e.target.value)}
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddBuffetItemModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={buffetSaving}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>{buffetSaving ? 'جاري الحفظ...' : editingBuffetItem ? 'تحديث الصنف 💾' : 'حفظ الصنف بالبوفيه ☕'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* 2. Modal: Add/Edit Buffet Purchase */}
+        {isAddBuffetPurchaseModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsAddBuffetPurchaseModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-blue-500/20 pb-3">
+                <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
+                  <ShoppingCart className="text-blue-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-blue-300">
+                    {editingBuffetPurchase ? 'تعديل مشترى للبوفيه ✏️' : 'تسجيل مشتريات / مصروفات جديدة 🛒'}
+                  </h3>
+                  <p className="text-xs text-blue-200/70">
+                    أدخل اسم المشترى والكمية والمبلغ وتاريخ الشراء
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveBuffetPurchase} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-blue-300 mb-1">المشتريات الجديدة *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: مناديل، فوط، بن، معالق حديد..."
+                    value={buffetPurchaseName}
+                    onChange={(e) => setBuffetPurchaseName(e.target.value)}
+                    className="w-full bg-slate-800 border border-blue-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">العدد / الكمية</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 5 أو طقم..."
+                      value={buffetPurchaseQty}
+                      onChange={(e) => setBuffetPurchaseQty(e.target.value)}
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-300 mb-1">التكلفة / السعر (ج.م)</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 150"
+                      value={buffetPurchaseCost}
+                      onChange={(e) => setBuffetPurchaseCost(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">تاريخ الشراء</label>
+                  <input
+                    type="date"
+                    value={buffetPurchaseDate}
+                    onChange={(e) => setBuffetPurchaseDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات (اختياري)</label>
+                  <textarea
+                    rows="2"
+                    placeholder="أي ملاحظات إضافية على الفاتورة أو المشترى..."
+                    value={buffetPurchaseNotes}
+                    onChange={(e) => setBuffetPurchaseNotes(e.target.value)}
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddBuffetPurchaseModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={buffetSaving}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>{buffetSaving ? 'جاري الحفظ...' : editingBuffetPurchase ? 'تحديث المشترى 💾' : 'حفظ المشترى 🛒'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* 3. Modal: Upload Screenshot / Excel File */}
+        {isBuffetUploadModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-purple-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsBuffetUploadModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-purple-500/20 pb-3">
+                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-400/30">
+                  <Upload className="text-purple-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-purple-300">
+                    رفع مرفقات البوفيه (سكرين شوت أو إكسيل) 📎
+                  </h3>
+                  <p className="text-xs text-purple-200/70">
+                    اختر صورة الفاتورة أو ملف إكسيل الشيت لحفظه بالسيستم
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Image Upload Area */}
+                <div className="border-2 border-dashed border-emerald-500/40 rounded-2xl p-4 text-center hover:bg-emerald-950/20 transition cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleUploadBuffetFile(e, 'image')}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex flex-col items-center gap-1.5 pointer-events-none">
+                    <span className="text-3xl">📷</span>
+                    <span className="text-xs font-black text-emerald-300">رفع صورة سكرين شوت أو فاتورة</span>
+                    <span className="text-[10px] text-gray-400">يدعم صيغ الصور (PNG, JPG, JPEG, WEBP)</span>
+                  </div>
+                </div>
+
+                {/* Excel Upload Area */}
+                <div className="border-2 border-dashed border-blue-500/40 rounded-2xl p-4 text-center hover:bg-blue-950/20 transition cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={(e) => handleUploadBuffetFile(e, 'excel')}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex flex-col items-center gap-1.5 pointer-events-none">
+                    <span className="text-3xl">📊</span>
+                    <span className="text-xs font-black text-blue-300">رفع ملف إكسيل (.xlsx / .xls / .csv)</span>
+                    <span className="text-[10px] text-gray-400">لحفظ وتحميل شيت الإكسيل بالمنصة في أي وقت</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => setIsBuffetUploadModalOpen(false)}
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-slate-800 transition"
+                  >
+                    إغلاق النافذة
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* 4. Modal: Google Sheet Link Setting */}
+        {isBuffetGoogleSheetModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
+              <button
+                onClick={() => setIsBuffetGoogleSheetModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3">
+                <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/30">
+                  <ExternalLink className="text-amber-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-amber-300">
+                    ربط Google Sheet للبوفيه 🔗
+                  </h3>
+                  <p className="text-xs text-amber-200/70">
+                    الصق رابط شيت جوجل المعتمد ليتم حفظه وعرضه داخل المنصة
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveBuffetGoogleSheetUrl} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1">رابط Google Sheet (URL)</label>
+                  <input
+                    type="url"
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    value={tempGoogleSheetUrl}
+                    onChange={(e) => setTempGoogleSheetUrl(e.target.value)}
+                    className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    تأكد من جعل الشيت متاحاً للمعاينة (Anyone with the link can view) لتظهر المعاينة المباشرة بسلاسة.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsBuffetGoogleSheetModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-amber-600/30 cursor-pointer"
+                  >
+                    <Save size={15} />
+                    <span>حفظ الرابط 🔗</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* 5. Lightbox for Screenshot Zoom */}
+        {buffetLightboxImg && typeof document !== 'undefined' && document.body && createPortal(
+          <div 
+            onClick={() => setBuffetLightboxImg(null)}
+            className="fixed inset-0 z-[999999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+            dir="rtl"
+          >
+            <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setBuffetLightboxImg(null)}
+                className="absolute -top-10 left-0 text-white/80 hover:text-white bg-slate-800/80 px-3 py-1 rounded-full text-xs font-bold"
+              >
+                ✕ إغلاق (Esc)
+              </button>
+              <img 
+                src={buffetLightboxImg} 
+                alt="معاينة مكبرة" 
+                className="max-w-full max-h-[82vh] rounded-2xl object-contain shadow-2xl border border-white/20"
+              />
+              <div className="mt-3 flex items-center gap-3">
+                <a
+                  href={buffetLightboxImg}
+                  download="buffet_screenshot.png"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md"
+                >
+                  <Download size={14} />
+                  <span>تحميل الصورة</span>
+                </a>
+              </div>
             </div>
           </div>,
           document.body
