@@ -5768,8 +5768,8 @@ const Dashboard = () => {
     toast.info('تم مسح الإشعار وحفظ نسخة منه في سلة المهملات لدى الإدارة 🗑️');
   };
 
-  // Send Subscription Details via Internal Etegah Email to relevant staff by specialty
-  const handleSendSubscriptionViaInternalEmail = async (item) => {
+  // Open Internal Email Compose Drawer pre-filled with Subscription Details
+  const handleOpenEmailComposeForSubscription = (item) => {
     if (!selectedSubCustomer) return;
     try {
       const isPercentage = (item.paymentType === 'percentage' || item.serviceType === 'اتفاق نسبة');
@@ -5782,7 +5782,7 @@ const Dashboard = () => {
       const mailSubj = `💳 إشعار اشتراك عميل: ${selectedSubCustomer.name || 'عميل'} - ${item.packageType || item.serviceType || 'باقة'}`;
       const mailContent = `السلام عليكم ورحمة الله وبركاته،
 
-تم تسجيل وتأكيد بيانات اشتراك ودفعة جديدة للعميل:
+بيانات وتفاصيل اشتراك وإشعار دفعة العميل:
 
 👤 اسم العميل: ${selectedSubCustomer.name || 'غير محدد'}
 📞 رقم الهاتف: ${selectedSubCustomer.phoneNumber || 'غير محدد'}
@@ -5792,7 +5792,7 @@ const Dashboard = () => {
 💵 المبلغ المدفوع: ${parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال
 ${item.remainingAmount ? `⏳ المبلغ المتبقي: ${parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
 📅 تاريخ بداية الخدمة: ${item.startDate || '--'}
-${!isPercentage ? `📅 تاريخ نهاية الخدمة: ${item.endDate || '--'}\n` : ''}👤 الموظف المسؤول / المسجل: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
+${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${item.endDate}\n` : ''}👤 الموظف المسجل: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
 🕒 وقت التسجيل: ${item.uploadedDateTime || new Date().toLocaleString('ar-EG')}
 ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
 يرجى من الإدارة وقائد الفريق وموظفي خدمة العملاء تفعيل الخدمة والمتابعة وفقاً للاختصاص.
@@ -5800,74 +5800,69 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
 تحياتنا،
 منصة اتجاه التحليل الذكي`;
 
-      const targetUids = new Set(['admin']);
-      const targetEmails = new Set(['admin@etegah.com']);
-      const targetNames = ['👑 الإدارة'];
+      const allowed = getAllowedRecipients();
+      const targetUids = [];
 
-      // Customer Service
-      const csEmps = employees.filter(e => e.jobTitle === 'Customer Service' || e.jobTitle === 'خدمة عملاء' || e.role === 'customer_service');
-      csEmps.forEach(e => {
-        targetUids.add(e.uid);
-        if (e.email) targetEmails.add(e.email.toLowerCase());
-        targetNames.push(`${e.name} (خدمة عملاء)`);
-      });
-
-      // Assigned Agent
-      const assignedUid = selectedSubCustomer.assignedToUid || item.savedByUid;
-      const assignedEmp = employees.find(e => e.uid === assignedUid || e.email?.toLowerCase() === selectedSubCustomer.assignedTo?.toLowerCase());
-      if (assignedEmp) {
-        targetUids.add(assignedEmp.uid);
-        if (assignedEmp.email) targetEmails.add(assignedEmp.email.toLowerCase());
-        targetNames.push(`${assignedEmp.name} (الموظف المسؤول)`);
-
-        // Leader of this agent
-        const myLeader = employees.find(e => (e.jobTitle === 'Leader' || e.role === 'leader') && (e.teamMembers?.includes(assignedEmp.uid) || e.teamMemberEmails?.includes(assignedEmp.email?.toLowerCase())));
-        if (myLeader) {
-          targetUids.add(myLeader.uid);
-          if (myLeader.email) targetEmails.add(myLeader.email.toLowerCase());
-          targetNames.push(`${myLeader.name} (قائد الفريق)`);
+      // Determine appropriate recipients to pre-check based on user role
+      if (isAdmin || isCoordinator) {
+        const csEmployees = employees.filter(e => e.jobTitle === 'Customer Service' || e.jobTitle === 'خدمة عملاء' || e.role === 'customer_service');
+        csEmployees.forEach(cs => {
+          if (allowed.some(a => a.uid === cs.uid) && !targetUids.includes(cs.uid)) {
+            targetUids.push(cs.uid);
+          }
+        });
+        const assignedUid = selectedSubCustomer.assignedToUid || item.savedByUid;
+        if (assignedUid && allowed.some(a => a.uid === assignedUid) && !targetUids.includes(assignedUid)) {
+          targetUids.push(assignedUid);
+        }
+      } else if (isLeader) {
+        if (allowed.some(a => a.uid === 'admin')) targetUids.push('admin');
+        const coord = allowed.find(a => a.type === 'coordinator');
+        if (coord && !targetUids.includes(coord.uid)) targetUids.push(coord.uid);
+      } else {
+        // Agent: Leader and/or Admin
+        const myLeaderUid = currentEmpUser?.leaderUid;
+        if (myLeaderUid && allowed.some(a => a.uid === myLeaderUid)) {
+          targetUids.push(myLeaderUid);
+        }
+        if (allowed.some(a => a.uid === 'admin') && targetUids.length === 0) {
+          targetUids.push('admin');
         }
       }
 
-      const emailAttachments = [];
+      if (targetUids.length === 0 && allowed.length > 0) {
+        targetUids.push(allowed[0].uid);
+      }
+
+      const attachments = [];
       if (item.receiptUrl) {
-        emailAttachments.push({
-          name: `إشعار_تحويل_${selectedSubCustomer.name || 'عميل'}.jpg`,
+        attachments.push({
+          name: `إشعار_اشتراك_${selectedSubCustomer.name || 'عميل'}.jpg`,
           url: item.receiptUrl,
-          type: item.receiptUrl.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg'
+          type: item.receiptUrl.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg',
+          size: 'مرفق إشعار'
         });
       }
 
-      const emailDoc = {
-        senderUid: currentUser?.uid || 'admin',
-        senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'),
-        senderEmail: currentUser?.email || '',
-        senderRole: isAdmin ? 'admin' : (currentEmpUser?.jobTitle || 'agent'),
-        recipientType: 'subscription_notification',
-        recipientUid: 'multiple',
-        recipientUids: Array.from(targetUids),
-        recipientEmails: Array.from(targetEmails),
-        recipientName: targetNames.join('، '),
-        recipientNames: targetNames,
-        subject: mailSubj,
-        body: mailContent,
-        attachments: emailAttachments,
-        isSubscriptionNotification: true,
-        subscriptionCustomerId: selectedSubCustomer.id,
-        createdAt: serverTimestamp(),
-        createdAtMillis: Date.now(),
-        readBy: [currentUser?.uid || 'admin'],
-        starredBy: [],
-        deletedBy: []
-      };
+      // Pre-fill email compose drawer states
+      setMailSubject(mailSubj);
+      setMailBody(mailContent);
+      setMailAttachments(attachments);
+      setMailSelectedRecipientUids(targetUids);
+      setMailRecipientSearch('');
 
-      await setDoc(doc(collection(db, 'internal_emails')), emailDoc);
-      toast.success('تم إرسال بيانات الاشتراك عبر إيميل اتجاه الداخلي للمختصين بنجاح 📧✨');
+      // Close subscription modal and open compose drawer
+      setIsSubscriptionModalOpen(false);
+      setIsComposeOpen(true);
+      toast.info('تم فتح نموذج البريد وتعبئة بيانات الاشتراك للإرسال ✉️');
     } catch (err) {
-      console.error('Error sending subscription email:', err);
-      toast.error('حدث خطأ أثناء إرسال الإيميل: ' + err.message);
+      console.error('Error opening email compose for subscription:', err);
+      toast.error('حدث خطأ أثناء فتح نموذج البريد');
     }
   };
+
+  // Backwards compatibility alias
+  const handleSendSubscriptionViaInternalEmail = handleOpenEmailComposeForSubscription;
 
   const handleDeletePaymentRecord = async (recordId) => {
     if (!selectedSubCustomer || !recordId) return;
@@ -14787,17 +14782,7 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                       <p className="text-xs text-emerald-300 font-bold">
                         {selectedSubCustomer.name || 'عميل مشترك'} • <span dir="ltr" className="font-mono text-cyan-300">{selectedSubCustomer.phoneNumber || ''}</span>
                       </p>
-                      {(() => {
-                        const todayStr = new Date().toISOString().slice(0, 10);
-                        const curSub = selectedSubCustomer.subscriptionDetails || {};
-                        const isExp = curSub.endDate && curSub.endDate < todayStr;
-                        return isExp ? (
-                          <span className="text-[10px] bg-rose-950/90 text-rose-200 border border-rose-500 px-2.5 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1 shadow-sm">
-                            <span>⚠️</span>
-                            <span>اشتراك منتهي</span>
-                          </span>
-                        ) : null;
-                      })()}
+
                     </div>
                   </div>
                 </div>
@@ -15138,95 +15123,156 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                         return (
                           <div 
                             key={item.id || idx} 
-                            className={`p-3 bg-slate-900/90 rounded-2xl border transition flex items-center justify-between gap-3 text-xs shadow-sm flex-wrap sm:flex-nowrap ${isEditingThis ? 'border-amber-400 ring-2 ring-amber-400/40 bg-amber-950/30' : 'border-slate-700/60 hover:border-cyan-500/40'}`}
+                            className={`p-3.5 bg-slate-900/95 rounded-2xl border transition text-xs shadow-md space-y-3 ${
+                              isEditingThis 
+                                ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-950/25' 
+                                : 'border-slate-700/70 hover:border-cyan-500/50'
+                            }`}
                           >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              {item.receiptUrl ? (
-                                <img 
-                                  src={item.receiptUrl} 
-                                  alt="Receipt" 
-                                  className="w-12 h-12 object-cover rounded-xl border-2 border-emerald-400/60 cursor-pointer hover:scale-110 transition shrink-0 bg-slate-950 shadow-md"
-                                  onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
-                                  title="انقر لتكبير الإشعار"
-                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-400 shrink-0 text-xs font-mono font-bold">
-                                  📄 كود
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-extrabold text-white text-xs">{item.packageType || item.serviceType || 'اشتراك'}</span>
-                                  <span className="text-[10px] bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
-                                    الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
+                            {/* Card Top: Badges & Status */}
+                            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-white text-xs bg-slate-800/90 px-2.5 py-1 rounded-xl border border-slate-700 flex items-center gap-1.5 shadow-sm">
+                                  <span>📦</span>
+                                  <span>{item.packageType || item.serviceType || 'اشتراك'}</span>
+                                </span>
+                                {item.serviceCategory && (
+                                  <span className="text-[11px] bg-slate-800/80 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-lg font-bold">
+                                    {item.serviceCategory}
                                   </span>
-                                  {isEditingThis && (
-                                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/50 px-2 py-0.5 rounded-full font-bold animate-pulse">
-                                      قيد التعديل بالأعلى ✏️
+                                )}
+                                <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {isEditingThis && (
+                                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/60 px-2.5 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
+                                    <span>✏️</span>
+                                    <span>قيد التعديل</span>
+                                  </span>
+                                )}
+                                {(() => {
+                                  const todayStr = new Date().toISOString().slice(0, 10);
+                                  const isExpired = item.endDate && item.endDate < todayStr;
+                                  return isExpired ? (
+                                    <span className="text-[10px] bg-rose-950/95 text-rose-200 border border-rose-500 px-2.5 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1 shadow-sm">
+                                      <span>⚠️</span>
+                                      <span>اشتراك منتهي</span>
                                     </span>
-                                  )}
-                                  {(() => {
-                                    const todayStr = new Date().toISOString().slice(0, 10);
-                                    const isExpired = item.endDate && item.endDate < todayStr;
-                                    return isExpired ? (
-                                      <span className="text-[10px] bg-rose-950/90 text-rose-300 border border-rose-500/60 px-2 py-0.5 rounded-full font-bold animate-pulse flex items-center gap-1 shadow-sm">
-                                        <span>⚠️</span>
-                                        <span>اشتراك منتهي</span>
-                                      </span>
-                                    ) : null;
-                                  })()}
-                                </div>
-                                <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
-                                  <span className="text-emerald-400 font-black">💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
-                                  <span>•</span>
-                                  <span className="text-cyan-300 font-bold">🧾 تاريخ الإشعار: {item.receiptDate || item.date || item.startDate || '--'}</span>
-                                </div>
-                                <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1.5 flex-wrap">
-                                  <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
-                                    🕒 تاريخ ووقت الرفع: {item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}
-                                  </span>
-                                  {item.savedBy && <span className="text-gray-400">(الموظف: {item.savedBy})</span>}
-                                </div>
+                                  ) : null;
+                                })()}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Card Body: Thumbnail & Details */}
+                            <div className="flex items-start gap-3.5">
+                              {/* Receipt Image / Icon */}
+                              {item.receiptUrl ? (
+                                <div className="shrink-0 group relative">
+                                  <img 
+                                    src={item.receiptUrl} 
+                                    alt="Receipt" 
+                                    className="w-16 h-16 object-cover rounded-xl border-2 border-emerald-400/60 cursor-pointer group-hover:scale-105 transition shrink-0 bg-slate-950 shadow-md"
+                                    onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
+                                    title="انقر لتكبير الإشعار"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                  <div 
+                                    onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
+                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-xl flex items-center justify-center text-white transition cursor-pointer text-[10px] font-bold"
+                                  >
+                                    🔍 تكبير
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center justify-center text-gray-400 shrink-0 text-[10px] font-mono font-bold shadow-inner">
+                                  <span className="text-base">📄</span>
+                                  <span>بدون صورة</span>
+                                </div>
+                              )}
+
+                              {/* Information Fields */}
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <div className="bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-xl text-emerald-300 font-mono font-black text-xs flex items-center gap-1.5 shadow-sm">
+                                    <span>💵 المدفوع:</span>
+                                    <span className="text-white text-sm">{parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
+                                  </div>
+                                  {item.remainingAmount && parseFloat((item.remainingAmount || '0').replace(/[^0-9.]/g, '')) > 0 && (
+                                    <div className="bg-amber-950/60 border border-amber-500/30 px-2 py-1 rounded-xl text-amber-300 font-mono font-bold text-xs flex items-center gap-1">
+                                      <span>⏳ المتبقي:</span>
+                                      <span className="text-white">{parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-300 pt-0.5">
+                                  <div className="flex items-center gap-1.5 font-mono">
+                                    <span className="text-cyan-400 font-bold">🧾 تاريخ الإشعار:</span>
+                                    <span className="text-cyan-200 font-semibold">{item.receiptDate || item.date || item.startDate || '--'}</span>
+                                  </div>
+                                  {(item.startDate || item.endDate) && (
+                                    <div className="flex items-center gap-1.5 font-mono">
+                                      <span className="text-gray-400 font-medium">📅 مدة الخدمة:</span>
+                                      <span className="text-gray-200">{item.startDate || '--'} ⬅ {item.endDate || '--'}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5 font-mono text-[10px] col-span-full">
+                                    <span className="text-amber-400/90 font-medium">🕒 تاريخ ووقت الرفع:</span>
+                                    <span className="text-amber-200/90 font-bold">{item.uploadedDateTime || (item.uploadedAt ? formatDate(item.uploadedAt) : (item.savedAt ? formatDate(item.savedAt) : item.date))}</span>
+                                    {item.savedBy && <span className="text-gray-400 font-sans">({item.savedBy})</span>}
+                                  </div>
+                                </div>
+
+                                {item.notes && (
+                                  <div className="text-[10px] text-gray-300 bg-slate-950/60 border border-slate-800 px-2.5 py-1 rounded-lg">
+                                    <span className="text-amber-300 font-bold ml-1">📝 ملاحظة:</span>
+                                    <span>{item.notes}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Footer: Action Buttons in dedicated row */}
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80 flex-wrap">
                               {item.receiptUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImage({ url: item.receiptUrl, title: `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}` })}
-                                  className="text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                  className="text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
                                   title="معاينة وتكبير صورة الإشعار"
                                 >
-                                  🔍 معاينة
+                                  <span>🔍 معاينة</span>
                                 </button>
                               )}
                               <button
                                 type="button"
-                                onClick={() => handleSendSubscriptionViaInternalEmail(item)}
-                                className="text-purple-300 hover:text-white bg-purple-950/80 hover:bg-purple-600 border border-purple-500/50 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
-                                title="إرسال بيانات وإشعار الاشتراك عبر إيميل اتجاه الداخلي للمختصين"
+                                onClick={() => handleOpenEmailComposeForSubscription(item)}
+                                className="text-purple-200 hover:text-white bg-purple-900/70 hover:bg-purple-600 border border-purple-400/50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1.5"
+                                title="تحويل تفاصيل الاشتراك إلى نموذج البريد الداخلي لإرساله بصفة الموظف الحالي"
                               >
-                                <Mail size={12} />
+                                <Mail size={13} />
                                 <span>إرسال لإيميل اتجاه 📧</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleStartEditPaymentRecord(item)}
-                                className="text-amber-300 hover:text-white bg-amber-950/80 hover:bg-amber-600 border border-amber-500/40 px-2.5 py-1 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
+                                className="text-amber-300 hover:text-white bg-amber-950/80 hover:bg-amber-600 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
                                 title="تعديل هذه الدفعة والصعود للنموذج بالأعلى"
                               >
-                                ✏️ تعديل
+                                <span>✏️ تعديل</span>
                               </button>
                               {isAdmin && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeletePaymentRecord(item.id)}
-                                  className="text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-600 border border-rose-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                                  className="text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-600 border border-rose-500/40 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
                                   title="حذف هذا الإشعار من السجل (صلاحية الإدارة)"
                                 >
-                                  🗑️ حذف
+                                  <Trash2 size={12} />
+                                  <span>حذف</span>
                                 </button>
                               )}
                             </div>
