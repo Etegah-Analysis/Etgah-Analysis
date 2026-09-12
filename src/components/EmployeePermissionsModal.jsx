@@ -5,7 +5,7 @@ import {
   Search, CheckCircle2, XCircle, Save, Sparkles, Sliders,
   Eye, EyeOff, Lock, Shield, Layers, HelpCircle, CheckSquare, Square
 } from 'lucide-react';
-import { db, doc, updateDoc } from '../firebase';
+import { db, doc, updateDoc, setDoc } from '../firebase';
 import { toast } from 'react-hot-toast';
 import { 
   CARDS_PERMISSIONS_CONFIG, 
@@ -126,14 +126,27 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
       toast.error('تعذر تحديد معرّف الموظف في النظام');
       return;
     }
-    const empDocId = employee.uid || employee.id;
+    const empDocId = employee.id || employee.uid;
     setIsSaving(true);
     try {
-      const userRef = doc(db, 'users', empDocId);
-      await updateDoc(userRef, {
+      const updateData = {
         customPermissions: permissions,
         permissionsUpdatedAt: new Date().toISOString()
-      });
+      };
+      
+      // Update primary document
+      const userRef = doc(db, 'users', empDocId);
+      await setDoc(userRef, updateData, { merge: true });
+
+      // If employee has a different uid, also update that document to guarantee synchronization
+      if (employee.uid && employee.uid !== empDocId) {
+        try {
+          await setDoc(doc(db, 'users', employee.uid), updateData, { merge: true });
+        } catch (e) {
+          console.warn('Secondary user doc update skipped:', e);
+        }
+      }
+
       toast.success(`تم حفظ وتطبيق صلاحيات (${employee.name || employee.username}) فوراً في النظام 🔐✨`);
       if (onSaveSuccess) {
         onSaveSuccess(permissions, empDocId);

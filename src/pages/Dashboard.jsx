@@ -1222,9 +1222,19 @@ const Dashboard = () => {
   }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
 
   const effectiveEmpUser = useMemo(() => {
-    return (realIsAdmin && impersonatedEmp)
-      ? impersonatedEmp
-      : employees.find(e => e.uid === realCurrentUser?.uid || e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase());
+    if (realIsAdmin && impersonatedEmp) {
+      const freshEmp = employees.find(e => 
+        (e.uid && e.uid === impersonatedEmp.uid) || 
+        (e.id && (e.id === impersonatedEmp.uid || e.id === impersonatedEmp.id)) ||
+        (e.email && e.email?.toLowerCase() === impersonatedEmp.email?.toLowerCase())
+      );
+      return freshEmp ? { ...impersonatedEmp, ...freshEmp } : impersonatedEmp;
+    }
+    return employees.find(e => 
+      (e.uid && e.uid === realCurrentUser?.uid) || 
+      (e.id && e.id === realCurrentUser?.uid) || 
+      (e.email && e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase())
+    );
   }, [realIsAdmin, impersonatedEmp, employees, realCurrentUser]);
 
   const currentUser = effectiveUser;
@@ -1237,6 +1247,22 @@ const Dashboard = () => {
   const myTeamMembers = useMemo(() => {
     return isLeader ? employees.filter(e => e.leaderUid === currentUser?.uid) : [];
   }, [isLeader, employees, currentUser?.uid]);
+
+  // Automatic guard against disabled tabs when permissions change or are turned off
+  useEffect(() => {
+    if (isAdmin) return;
+    if (activeTab === 'saudi_signals' && (!hasPermission(currentEmpUser, 'show_card_saudi_stocks') || !hasPermission(currentEmpUser, 'canViewSaudiStocks'))) {
+      setActiveTab('leads_crm');
+    } else if (activeTab === 'us_signals' && (!hasPermission(currentEmpUser, 'show_card_us_stocks') || !hasPermission(currentEmpUser, 'canViewUsStocks'))) {
+      setActiveTab('leads_crm');
+    } else if (activeTab === 'buffet_inventory' && (!hasPermission(currentEmpUser, 'show_card_buffet') || !hasPermission(currentEmpUser, 'canViewBuffet'))) {
+      setActiveTab('leads_crm');
+    } else if (activeTab === 'payroll_attendance' && (!hasPermission(currentEmpUser, 'show_card_attendance_payroll') || !hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) {
+      setActiveTab('leads_crm');
+    } else if (activeTab === 'recycle_bin' && (!hasPermission(currentEmpUser, 'show_card_recycle_bin') || !hasPermission(currentEmpUser, 'canViewRecycleBin'))) {
+      setActiveTab('leads_crm');
+    }
+  }, [isAdmin, currentEmpUser?.customPermissions, activeTab]);
 
   const assignableEmployees = useMemo(() => {
     return (employees || []).filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator' && e.role !== 'coordinator');
@@ -2530,9 +2556,50 @@ const Dashboard = () => {
 
   const handleCardClick = (e, type, filter = 'all') => {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (isCoordinator && (type === 'subscribed_clients' || type === 'saudi_signals' || type === 'us_signals')) return;
-    if (!isAdmin && !isCustomerService && (type === 'saudi_signals' || type === 'us_signals')) return;
-    if (!isAdmin && !isCoordinator && (type === 'buffet_inventory' || type === 'payroll_attendance')) return;
+
+    // Permissions verification for non-admin
+    if (!isAdmin) {
+      if (type === 'saudi_signals' && (!hasPermission(currentEmpUser, 'show_card_saudi_stocks') || !hasPermission(currentEmpUser, 'canViewSaudiStocks'))) {
+        toast.error('غير مصرح لك بالوصول لتوصيات السوق السعودي 🔒');
+        return;
+      }
+      if (type === 'us_signals' && (!hasPermission(currentEmpUser, 'show_card_us_stocks') || !hasPermission(currentEmpUser, 'canViewUsStocks'))) {
+        toast.error('غير مصرح لك بالوصول لتوصيات السوق الأمريكي 🔒');
+        return;
+      }
+      if (type === 'buffet_inventory' && (!hasPermission(currentEmpUser, 'show_card_buffet') || !hasPermission(currentEmpUser, 'canViewBuffet'))) {
+        toast.error('غير مصرح لك بالوصول لمصروفات وبوفيه الإدارة 🔒');
+        return;
+      }
+      if (type === 'payroll_attendance' && (!hasPermission(currentEmpUser, 'show_card_attendance_payroll') || !hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) {
+        toast.error('غير مصرح لك بالوصول لحضور ورواتب الموظفين 🔒');
+        return;
+      }
+      if (type === 'leads_crm' && !hasPermission(currentEmpUser, 'show_card_leads_crm')) {
+        toast.error('كارت Leads CRM محجوب عن حسابك 🔒');
+        return;
+      }
+      if (type === 'employee_leads' && !hasPermission(currentEmpUser, 'show_card_team_leads')) {
+        toast.error('كارت Team Added Leads محجوب عن حسابك 🔒');
+        return;
+      }
+      if (type === 'subscribed_clients' && !hasPermission(currentEmpUser, 'show_card_subscribed_clients')) {
+        toast.error('كارت العملاء المشتركين محجوب عن حسابك 🔒');
+        return;
+      }
+      if (type === 'recycle_bin' && (!hasPermission(currentEmpUser, 'show_card_recycle_bin') || !hasPermission(currentEmpUser, 'canViewRecycleBin'))) {
+        toast.error('سلة المهملات محجوبة عن حسابك 🔒');
+        return;
+      }
+      if (type === 'whatsapp_visitors' && !hasPermission(currentEmpUser, 'show_card_visitors_otp')) {
+        toast.error('كارت زوار الموقع محجوب عن حسابك 🔒');
+        return;
+      }
+      if (type === 'campaigns' && !hasPermission(currentEmpUser, 'show_card_marketing_analytics')) {
+        toast.error('كارت أداء الحملات محجوب عن حسابك 🔒');
+        return;
+      }
+    }
     
     // Toggle close if clicking the already active card or analytics
     if (type === 'analytics' || (activeTab === type && customerFilter === filter)) {
@@ -4638,27 +4705,48 @@ const Dashboard = () => {
       toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
       return;
     }
-    if (!isAdmin) {
-      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteLeads')) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة والمسؤولين المصرح لهم فقط 🔒');
       return;
     }
+    if (selectedLeadsCrm.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedLeadsCrm.length} عميل محدد إلى سلة المهملات؟`)) return;
     try {
-      for (const id of selectedLeadsCrm) {
-        const lead = leadsCrm.find(l => l.id === id);
-        if (lead) {
-          await setDoc(doc(db, 'recycle_bin', id), {
-            ...lead,
-            originalCollection: 'leads_crm',
-            type: 'customer',
-            deletedAt: serverTimestamp(),
-            deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
-          });
-        }
-        await deleteDoc(doc(db, 'leads_crm', id));
-      }
-      toast.success(`تم نقل ${selectedLeadsCrm.length} عميل إلى سلة المهملات بنجاح 🗑️`);
+      const idsToDelete = [...selectedLeadsCrm];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const targetLeads = leadsCrm.filter(l => toDeleteSet.has(l.id));
+      const deleterInfo = getCurrentDeleterInfo();
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setLeadsCrm(prev => prev.filter(l => !toDeleteSet.has(l.id)));
       setSelectedLeadsCrm([]);
+      toast.success(`تم مسح ونقل ${count} عميل محدد إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND (CHUNKED BY 400)
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < targetLeads.length; i += BATCH_SIZE) {
+          const chunk = targetLeads.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const lead of chunk) {
+            batch.set(doc(db, 'recycle_bin', lead.id), {
+              ...lead,
+              originalCollection: 'leads_crm',
+              type: 'customer',
+              deletedAt: serverTimestamp(),
+              deletedBy: deleterInfo.label,
+              deletedByUid: deleterInfo.uid,
+              deletedByEmail: deleterInfo.email,
+              deletedByRole: deleterInfo.role
+            });
+            batch.delete(doc(db, 'leads_crm', lead.id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete leads_crm error:', err);
+      });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ أثناء الحذف');
@@ -5139,30 +5227,49 @@ const Dashboard = () => {
       toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
       return;
     }
-    if (!isAdmin) {
-      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteLeads')) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة والمسؤولين المصرح لهم فقط 🔒');
       return;
     }
     if (selectedEmployeeLeads.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedEmployeeLeads.length} عميل من (داتا مضافة بواسطة الموظف) إلى سلة المهملات؟`)) return;
     
     try {
-      for (const id of selectedEmployeeLeads) {
-        const item = employeeLeads.find(l => l.id === id);
-        if (item) {
-          await setDoc(doc(db, 'recycle_bin', id), {
-            ...item,
-            originalCollection: 'employee_leads',
-            type: 'customer',
-            deletedAt: serverTimestamp(),
-            deletedBy: getCurrentDeleterInfo().label, deletedByUid: getCurrentDeleterInfo().uid, deletedByEmail: getCurrentDeleterInfo().email, deletedByRole: getCurrentDeleterInfo().role
-          });
-        }
-        await deleteDoc(doc(db, 'employee_leads', id));
-      }
-      const count = selectedEmployeeLeads.length;
+      const idsToDelete = [...selectedEmployeeLeads];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const targetItems = employeeLeads.filter(l => toDeleteSet.has(l.id));
+      const deleterInfo = getCurrentDeleterInfo();
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setEmployeeLeads(prev => prev.filter(l => !toDeleteSet.has(l.id)));
       setSelectedEmployeeLeads([]);
-      toast.success(`تم نقل ${count} عميل إلى سلة المهملات بنجاح 🗑️`);
+      toast.success(`تم مسح ونقل ${count} عميل إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND (CHUNKED BY 400)
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < targetItems.length; i += BATCH_SIZE) {
+          const chunk = targetItems.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const item of chunk) {
+            batch.set(doc(db, 'recycle_bin', item.id), {
+              ...item,
+              originalCollection: 'employee_leads',
+              type: 'customer',
+              deletedAt: serverTimestamp(),
+              deletedBy: deleterInfo.label,
+              deletedByUid: deleterInfo.uid,
+              deletedByEmail: deleterInfo.email,
+              deletedByRole: deleterInfo.role
+            });
+            batch.delete(doc(db, 'employee_leads', item.id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete employee_leads error:', err);
+      });
     } catch (err) {
       console.error(err);
       toast.error('خطأ أثناء حذف العملاء');
@@ -5310,24 +5417,52 @@ const Dashboard = () => {
       toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
       return;
     }
-    if (!isAdmin) {
-      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteLeads')) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة والمسؤولين المصرح لهم فقط 🔒');
       return;
     }
+    if (selectedCustomers.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedCustomers.length} عميل إلى سلة المهملات؟`)) return;
-    for (const id of selectedCustomers) {
-      const customer = customers.find(c => c.id === id);
-      if (customer) {
-        await setDoc(doc(db, 'recycle_bin', id), {
-          ...customer,
-          originalCollection: 'بيانات_تسجيل_العملاء',
-          type: 'customer',
-          deletedAt: serverTimestamp()
-        });
-      }
-      await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id));
+    try {
+      const idsToDelete = [...selectedCustomers];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const targetItems = customers.filter(c => toDeleteSet.has(c.id));
+      const deleterInfo = getCurrentDeleterInfo();
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setCustomers(prev => prev.filter(c => !toDeleteSet.has(c.id)));
+      setSelectedCustomers([]);
+      toast.success(`تم مسح ونقل ${count} عميل إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND (CHUNKED BY 400)
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < targetItems.length; i += BATCH_SIZE) {
+          const chunk = targetItems.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const customer of chunk) {
+            batch.set(doc(db, 'recycle_bin', customer.id), {
+              ...customer,
+              originalCollection: 'بيانات_تسجيل_العملاء',
+              type: 'customer',
+              deletedAt: serverTimestamp(),
+              deletedBy: deleterInfo.label,
+              deletedByUid: deleterInfo.uid,
+              deletedByEmail: deleterInfo.email,
+              deletedByRole: deleterInfo.role
+            });
+            batch.delete(doc(db, 'بيانات_تسجيل_العملاء', customer.id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete customers error:', err);
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء حذف العملاء');
     }
-    setSelectedCustomers([]);
   };
 
   const toggleEmployeeSelection = (id) => {
@@ -5343,20 +5478,34 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
+    if (selectedEmployees.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من نقل ${selectedEmployees.length} موظف إلى سلة المهملات؟`)) return;
-    for (const id of selectedEmployees) {
-      const emp = employees.find(e => e.id === id);
-      if (emp) {
-        await setDoc(doc(db, 'recycle_bin', id), {
+    const idsToDelete = [...selectedEmployees];
+    const count = idsToDelete.length;
+    const toDeleteSet = new Set(idsToDelete);
+    const empsToDelete = employees.filter(e => toDeleteSet.has(e.id));
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+    setEmployees(prev => prev.filter(e => !toDeleteSet.has(e.id)));
+    setSelectedEmployees([]);
+    toast.success(`تم نقل ${count} موظف إلى سلة المهملات فوراً 🗑️✨`);
+
+    // 2. PARALLEL WRITEBATCH IN BACKGROUND
+    (async () => {
+      const batch = writeBatch(db);
+      for (const emp of empsToDelete) {
+        batch.set(doc(db, 'recycle_bin', emp.id), {
           ...emp,
           originalCollection: 'users',
           type: 'employee',
           deletedAt: serverTimestamp()
         });
+        batch.delete(doc(db, 'users', emp.id));
       }
-      await deleteDoc(doc(db, 'users', id));
-    }
-    setSelectedEmployees([]);
+      await batch.commit();
+    })().catch(err => {
+      console.error('Error in bulk delete employees:', err);
+    });
   };
 
   const toggleEmployeeActive = async (emp) => {
@@ -5575,45 +5724,69 @@ const Dashboard = () => {
     else setSelectedRecycleItems(filteredItems.map(i => i.id));
   };
   const restoreSelectedRecycleItems = async () => {
-    if (!isAdmin) {
-      toast.error('صلاحية الاسترجاع محصورة بالإدارة العليا فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canRestoreFromRecycleBin')) {
+      toast.error('صلاحية الاسترجاع محصورة بالإدارة والمصرح لهم فقط 🔒');
       return;
     }
+    if (selectedRecycleItems.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من استرجاع ${selectedRecycleItems.length} عنصر؟`)) return;
-    for (const id of selectedRecycleItems) {
-      const item = recycleBin.find(i => i.id === id);
-      if (item) {
-        await handleRestore(item);
-      }
-    }
+    const idsToRestore = [...selectedRecycleItems];
+    const count = idsToRestore.length;
+    const toRestoreSet = new Set(idsToRestore);
+    const itemsToRestore = recycleBin.filter(i => toRestoreSet.has(i.id));
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+    setRecycleBin(prev => prev.filter(i => !toRestoreSet.has(i.id)));
     setSelectedRecycleItems([]);
+    toast.success(`تم استرجاع ${count} عنصر فوراً بنجاح 🔄✨`);
+
+    // 2. PARALLEL BACKGROUND RESTORE
+    (async () => {
+      await Promise.all(itemsToRestore.map(item => handleRestore(item)));
+    })().catch(err => {
+      console.error('Error restoring recycle items in background:', err);
+    });
   };
+
   const deleteSelectedRecycleItemsForever = async () => {
-    if (!isAdmin) {
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canEmptyRecycleBin')) {
       toast.error('صلاحية الحذف النهائي محصورة بالإدارة العليا فقط 🔒');
       return;
     }
+    if (selectedRecycleItems.length === 0) return;
     if (!window.confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedRecycleItems.length} عنصر للأبد؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
-    try {
-      for (const id of selectedRecycleItems) {
-        const item = recycleBin.find(r => r.id === id);
-        if (item?.originalCollection) {
-          await deleteDoc(doc(db, item.originalCollection, id)).catch(() => {});
+    const idsToDelete = [...selectedRecycleItems];
+    const count = idsToDelete.length;
+    const toDeleteSet = new Set(idsToDelete);
+    const itemsToDelete = recycleBin.filter(r => toDeleteSet.has(r.id));
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+    setRecycleBin(prev => prev.filter(r => !toDeleteSet.has(r.id)));
+    setSelectedRecycleItems([]);
+    toast.success(`تم مسح ${count} عنصر نهائياً للأبد في نفس اللحظة 🗑️✨`);
+
+    // 2. PARALLEL WRITEBATCH IN BACKGROUND
+    (async () => {
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const chunk = idsToDelete.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        for (const id of chunk) {
+          batch.delete(doc(db, 'recycle_bin', id));
         }
-        if (item?.type === 'visitor' || item?.originalCollection === 'visitor_customers') {
-          await deleteDoc(doc(db, 'visitor_customers', id)).catch(() => {});
-        }
-        if (item?.type === 'customer' || item?.originalCollection === 'بيانات_تسجيل_العملاء') {
-          await deleteDoc(doc(db, 'بيانات_تسجيل_العملاء', id)).catch(() => {});
-        }
-        await deleteDoc(doc(db, 'recycle_bin', id));
+        await batch.commit();
       }
-      setSelectedRecycleItems([]);
-      toast.success('تم الحذف النهائي بنجاح');
-    } catch (error) {
-      console.error("Error deleting:", error);
-      toast.error('حدث خطأ أثناء الحذف');
-    }
+      // Also cleanup original collections in parallel if any
+      await Promise.all(itemsToDelete.map(async (item) => {
+        try {
+          if (item?.originalCollection) {
+            await deleteDoc(doc(db, item.originalCollection, item.id));
+          }
+        } catch (_) {}
+      }));
+    })().catch(err => {
+      console.error('Error in permanent delete:', err);
+    });
   };
 
   const handleAssignCustomer = async (chatId, empUid) => {
@@ -5692,8 +5865,8 @@ const Dashboard = () => {
   };
 
   const exportLeadsToExcel = () => {
-    if (!isAdmin) {
-      toast.error('تحميل البيانات إلى Excel متاح للإدارة فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canExportData')) {
+      toast.error('تحميل البيانات إلى Excel متاح للإدارة والمصرح لهم فقط 🔒');
       return;
     }
     if (!leadsCrm || leadsCrm.length === 0) {
@@ -5741,8 +5914,8 @@ const Dashboard = () => {
   };
 
   const exportEmployeeLeadsToExcel = () => {
-    if (!isAdmin) {
-      toast.error('تحميل البيانات إلى Excel متاح للإدارة فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canExportData')) {
+      toast.error('تحميل البيانات إلى Excel متاح للإدارة والمصرح لهم فقط 🔒');
       return;
     }
     if (!employeeLeads || employeeLeads.length === 0) {
@@ -6578,27 +6751,38 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   const handleQuickStatusChangeSaudi = async (signalId, newStatus) => {
-    try {
-      const now = new Date();
-      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-      const userRole = isAdmin 
-        ? '👑 الإدارة' 
-        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
-          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
-          : `${currentEmpUser?.name || 'موظف'}`;
-
-      await updateDoc(doc(db, 'saudi_recommendations', signalId), {
-        status: newStatus,
-        lastEditedBy: userRole,
-        lastEditedDateTime: formattedNow,
-        isEdited: true,
-        updatedAt: serverTimestamp()
-      });
-      toast.success('تم تحديث حالة التوصية وحساب النسبة بنجاح 🎯');
-    } catch (err) {
-      console.error('Error updating status:', err);
-      toast.error('حدث خطأ أثناء تحديث الحالة');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canEditSaudiStocks')) {
+      toast.error('غير مصرح لك بتعديل حالة وتوصيات السوق السعودي 🔒');
+      return;
     }
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    const userRole = isAdmin 
+      ? '👑 الإدارة' 
+      : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+        ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+        : `${currentEmpUser?.name || 'موظف'}`;
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+    setSaudiRecommendations(prev => prev.map(s => s.id === signalId ? {
+      ...s,
+      status: newStatus,
+      lastEditedBy: userRole,
+      lastEditedDateTime: formattedNow,
+      isEdited: true
+    } : s));
+    toast.success('تم تحديث حالة التوصية وحساب النسبة فوراً 🎯✨');
+
+    // 2. BACKGROUND SERVER SYNC
+    updateDoc(doc(db, 'saudi_recommendations', signalId), {
+      status: newStatus,
+      lastEditedBy: userRole,
+      lastEditedDateTime: formattedNow,
+      isEdited: true,
+      updatedAt: serverTimestamp()
+    }).catch(err => {
+      console.error('Error updating Saudi status in background:', err);
+    });
   };
 
   const handleDeleteSaudiSignal = async (signalId) => {
@@ -6709,32 +6893,47 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   const handleQuickStatusChangeUs = async (signalId, newStatus) => {
-    try {
-      const now = new Date();
-      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-      const userRole = isAdmin 
-        ? '👑 الإدارة' 
-        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
-          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
-          : `${currentEmpUser?.name || 'موظف'}`;
-
-      await updateDoc(doc(db, 'us_recommendations', signalId), {
-        status: newStatus,
-        lastEditedBy: userRole,
-        lastEditedDateTime: formattedNow,
-        isEdited: true,
-        updatedAt: serverTimestamp()
-      });
-      toast.success('تم تحديث حالة التوصية وحساب النسبة بنجاح 🎯');
-    } catch (err) {
-      console.error('Error updating status:', err);
-      toast.error('حدث خطأ أثناء تحديث الحالة');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canEditUsStocks')) {
+      toast.error('غير مصرح لك بتعديل حالة وتوصيات السوق الأمريكي 🔒');
+      return;
     }
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    const userRole = isAdmin 
+      ? '👑 الإدارة' 
+      : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+        ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+        : `${currentEmpUser?.name || 'موظف'}`;
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+    setUsRecommendations(prev => prev.map(s => s.id === signalId ? {
+      ...s,
+      status: newStatus,
+      lastEditedBy: userRole,
+      lastEditedDateTime: formattedNow,
+      isEdited: true
+    } : s));
+    toast.success('تم تحديث حالة التوصية وحساب النسبة فوراً 🎯✨');
+
+    // 2. BACKGROUND SERVER SYNC
+    updateDoc(doc(db, 'us_recommendations', signalId), {
+      status: newStatus,
+      lastEditedBy: userRole,
+      lastEditedDateTime: formattedNow,
+      isEdited: true,
+      updatedAt: serverTimestamp()
+    }).catch(err => {
+      console.error('Error updating US status in background:', err);
+    });
   };
 
   // --- BUFFET INVENTORY & EXPENSES HANDLERS (v2.24) ---
   // --- PAYROLL & ATTENDANCE HANDLERS (v2.25) ---
   const handleOpenEditPayroll = (emp) => {
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canEditAttendancePayroll')) {
+      toast.error('غير مصرح لك بتعديل بيانات ورواتب الموظفين 🔒');
+      return;
+    }
     setEditingPayrollEmp(emp);
     const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
     setPayrollBaseSalary(p.baseSalary !== undefined ? p.baseSalary : (emp.baseSalary || ''));
@@ -6993,15 +7192,37 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteSelectedSaudiSignals = async () => {
     if (selectedSaudiIds.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق السعودي 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من حذف ${selectedSaudiIds.length} توصية محددة ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
     try {
-      const itemsToDelete = saudiRecommendations.filter(s => selectedSaudiIds.includes(s.id));
-      await handleSoftArchiveToRecycleBin(itemsToDelete, 'saudi_recommendations', 'توصيات السوق السعودي');
-      for (const id of selectedSaudiIds) {
-        await deleteDoc(doc(db, 'saudi_recommendations', id));
-      }
+      const idsToDelete = [...selectedSaudiIds];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const itemsToDelete = saudiRecommendations.filter(s => toDeleteSet.has(s.id));
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setSaudiRecommendations(prev => prev.filter(s => !toDeleteSet.has(s.id)));
       setSelectedSaudiIds([]);
-      toast.success(`تم نقل ${itemsToDelete.length} توصية إلى سلة المهملات بنجاح 🗑️`);
+      toast.success(`تم مسح ونقل ${count} توصية سعودية إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'saudi_recommendations', 'توصيات السوق السعودي');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+          const chunk = idsToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const id of chunk) {
+            batch.delete(doc(db, 'saudi_recommendations', id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete saudi signals error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء حذف التوصيات');
@@ -7010,14 +7231,35 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteAllSaudiSignals = async () => {
     if (saudiRecommendations.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق السعودي 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد تماماً من حذف جميع توصيات السوق السعودي (${saudiRecommendations.length} توصية) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
     try {
-      await handleSoftArchiveToRecycleBin(saudiRecommendations, 'saudi_recommendations', 'توصيات السوق السعودي');
-      for (const s of saudiRecommendations) {
-        await deleteDoc(doc(db, 'saudi_recommendations', s.id));
-      }
+      const itemsToDelete = [...saudiRecommendations];
+      const count = itemsToDelete.length;
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setSaudiRecommendations([]);
       setSelectedSaudiIds([]);
-      toast.success('تم مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات 🗑️');
+      toast.success(`تم مسح ونقل جميع التوصيات (${count} توصية) لسلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'saudi_recommendations', 'توصيات السوق السعودي');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < itemsToDelete.length; i += BATCH_SIZE) {
+          const chunk = itemsToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const s of chunk) {
+            batch.delete(doc(db, 'saudi_recommendations', s.id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete all saudi signals error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء مسح الكل');
@@ -7026,15 +7268,37 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteSelectedUsSignals = async () => {
     if (selectedUsIds.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteUsStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق الأمريكي 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من حذف ${selectedUsIds.length} توصية أمريكية محددة ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
     try {
-      const itemsToDelete = usRecommendations.filter(s => selectedUsIds.includes(s.id));
-      await handleSoftArchiveToRecycleBin(itemsToDelete, 'us_recommendations', 'توصيات السوق الأمريكي');
-      for (const id of selectedUsIds) {
-        await deleteDoc(doc(db, 'us_recommendations', id));
-      }
+      const idsToDelete = [...selectedUsIds];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const itemsToDelete = usRecommendations.filter(s => toDeleteSet.has(s.id));
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setUsRecommendations(prev => prev.filter(s => !toDeleteSet.has(s.id)));
       setSelectedUsIds([]);
-      toast.success(`تم نقل ${itemsToDelete.length} توصية أمريكية إلى سلة المهملات بنجاح 🗑️`);
+      toast.success(`تم مسح ونقل ${count} توصية أمريكية إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'us_recommendations', 'توصيات السوق الأمريكي');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+          const chunk = idsToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const id of chunk) {
+            batch.delete(doc(db, 'us_recommendations', id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete us signals error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء حذف التوصيات');
@@ -7043,14 +7307,35 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteAllUsSignals = async () => {
     if (usRecommendations.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteUsStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق الأمريكي 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد تماماً من حذف جميع توصيات السوق الأمريكي (${usRecommendations.length} توصية) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
     try {
-      await handleSoftArchiveToRecycleBin(usRecommendations, 'us_recommendations', 'توصيات السوق الأمريكي');
-      for (const s of usRecommendations) {
-        await deleteDoc(doc(db, 'us_recommendations', s.id));
-      }
+      const itemsToDelete = [...usRecommendations];
+      const count = itemsToDelete.length;
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setUsRecommendations([]);
       setSelectedUsIds([]);
-      toast.success('تم مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات 🗑️');
+      toast.success(`تم مسح ونقل جميع التوصيات الأمريكية (${count} توصية) لسلة المهملات فوراً 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'us_recommendations', 'توصيات السوق الأمريكي');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < itemsToDelete.length; i += BATCH_SIZE) {
+          const chunk = itemsToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const s of chunk) {
+            batch.delete(doc(db, 'us_recommendations', s.id));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete all us signals error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء مسح الكل');
@@ -7059,25 +7344,51 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteSelectedPayroll = async (targetEmployees) => {
     if (selectedPayrollEmpIds.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) {
+      toast.error('غير مصرح لك بمسح سجلات الحضور والرواتب 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد من مسح بيانات الرواتب للموظفين المحددين (${selectedPayrollEmpIds.length} موظف) للدورة الحالية ونقلها لسلة المهملات؟`)) return;
     try {
-      const itemsToDelete = selectedPayrollEmpIds.map(empId => {
+      const idsToDelete = [...selectedPayrollEmpIds];
+      const count = idsToDelete.length;
+      const itemsToDelete = idsToDelete.map(empId => {
         const emp = (targetEmployees || []).find(e => (e.uid || e.id) === empId);
         const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
         return { empId, empName: emp?.name || emp?.username, ...p, cycle: selectedPayrollCycle };
       });
-      await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
-      for (const empId of selectedPayrollEmpIds) {
-        const docKey = `${empId}_${selectedPayrollCycle}`;
-        await deleteDoc(doc(db, 'employee_payroll', docKey));
-        setEmployeePayrollData(prev => ({
-          ...prev,
-          [docKey]: undefined,
-          [empId]: { ...(prev[empId] || {}), advances: '', kpiDeduction: '', lateDays: '', lateDeduction: '', notes: '' }
-        }));
-      }
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setEmployeePayrollData(prev => {
+        const next = { ...prev };
+        for (const empId of idsToDelete) {
+          const docKey = `${empId}_${selectedPayrollCycle}`;
+          delete next[docKey];
+          if (next[empId]) {
+            next[empId] = { ...(next[empId] || {}), advances: '', kpiDeduction: '', lateDays: '', lateDeduction: '', notes: '' };
+          }
+        }
+        return next;
+      });
       setSelectedPayrollEmpIds([]);
-      toast.success(`تم مسح وتصفير بيانات الرواتب للمحددين ونقلها لسلة المهملات 🗑️`);
+      toast.success(`تم مسح وتصفير رواتب ${count} موظف محدد فوراً ونقلها لسلة المهملات 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+          const chunk = idsToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const empId of chunk) {
+            const docKey = `${empId}_${selectedPayrollCycle}`;
+            batch.delete(doc(db, 'employee_payroll', docKey));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete payroll error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء مسح بيانات الرواتب');
@@ -7086,6 +7397,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleDeleteAllPayroll = async (targetEmployees) => {
     if (!targetEmployees || targetEmployees.length === 0) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) {
+      toast.error('غير مصرح لك بمسح سجلات الحضور والرواتب 🔒');
+      return;
+    }
     if (!window.confirm(`هل أنت متأكد تماماً من تصفير ومسح جميع بيانات دورة الرواتب (${selectedPayrollCycle}) ونقلها إلى سلة المهملات لدى الإدارة؟`)) return;
     try {
       const itemsToDelete = targetEmployees.map(emp => {
@@ -7093,14 +7408,30 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
         return { empId, empName: emp?.name || emp?.username, ...p, cycle: selectedPayrollCycle };
       });
-      await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
-      for (const emp of targetEmployees) {
-        const empId = emp.uid || emp.id;
-        const docKey = `${empId}_${selectedPayrollCycle}`;
-        await deleteDoc(doc(db, 'employee_payroll', docKey));
-      }
+      const count = itemsToDelete.length;
+
+      // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI UPDATE (0ms)
+      setEmployeePayrollData({});
       setSelectedPayrollEmpIds([]);
-      toast.success('تم تصفير جميع بيانات دورة الرواتب ونقلها لسلة المهملات 🗑️');
+      toast.success(`تم تصفير ومسح جميع بيانات دورة الرواتب (${count} سجل) فوراً ونقلها لسلة المهملات 🗑️✨`);
+
+      // 2. PARALLEL WRITEBATCH IN BACKGROUND
+      (async () => {
+        await handleSoftArchiveToRecycleBin(itemsToDelete, 'employee_payroll', 'حضور وانصراف وخصومات الموظفين');
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < targetEmployees.length; i += BATCH_SIZE) {
+          const chunk = targetEmployees.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const emp of chunk) {
+            const empId = emp.uid || emp.id;
+            const docKey = `${empId}_${selectedPayrollCycle}`;
+            batch.delete(doc(db, 'employee_payroll', docKey));
+          }
+          await batch.commit();
+        }
+      })().catch(err => {
+        console.error('Background batch delete all payroll error:', err);
+      });
     } catch(err) {
       console.error(err);
       toast.error('حدث خطأ أثناء تصفير الدورة');
@@ -9060,7 +9391,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           <div className="space-y-4 mb-6 md:mb-8">
             {/* 1. Upper Section: Sheets & Client Databases (6 Cards) */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              {/* Card 1: Dedicated Leads CRM */}
+              /* Card 1: Dedicated Leads CRM */
+              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9073,8 +9405,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
+              )}
 
-              {/* Card 2: Employee Added Data */}
+              /* Card 2: Employee Added Data */
+              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9088,8 +9422,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
+              )}
 
               {/* Card 4: Total Customer Database */}
+              {(hasPermission(currentEmpUser, 'show_card_leads_crm') || hasPermission(currentEmpUser, 'show_card_total_clients')) && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsSystemTotalClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9103,8 +9439,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
                 </div>
               </div>
+              )}
               
-              {/* Card 5: Pending Customers (All Sources) */}
+              /* Card 5: Pending Customers (All Sources) */
+              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsPendingClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9119,8 +9457,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   
                 </div>
               </div>
+              )}
 
-              {/* Card 6: Website WhatsApp Leads */}
+              /* Card 6: Website WhatsApp Leads */
+              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9135,8 +9475,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   
                 </div>
               </div>
+              )}
 
-              {/* Card 7: Visitors (عملاء الزوار والموقع) */}
+              /* Card 7: Visitors (عملاء الزوار والموقع) */
+              {hasPermission(currentEmpUser, 'show_card_visitors_otp') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9153,6 +9495,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </span>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Section Divider: Performance & Analytics */}
@@ -9166,7 +9509,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
             {/* 2. Lower Section: Performance Analytics & Buffet (4 Cards) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              {/* Card 8: Leads CRM Analysis */}
+              /* Card 8: Leads CRM Analysis */
+              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9183,8 +9527,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   
                 </div>
               </div>
+              )}
 
-              {/* Card 9: Call Performance Analytics */}
+              /* Card 9: Call Performance Analytics */
+              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9201,8 +9547,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   
                 </div>
               </div>
+              )}
 
-              {/* Card 10: Campaign Performance (أداء الحملات) */}
+              /* Card 10: Campaign Performance (أداء الحملات) */
+              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9219,6 +9567,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   
                 </div>
               </div>
+              )}
 
               {/* Buffet Card: Expenses & Inventory (v2.24) */}
               {hasPermission(currentEmpUser, 'show_card_buffet') && (
@@ -9295,7 +9644,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="space-y-4 mb-6">
                 {/* 1. Upper Section: Sheets & Team Data (5 Cards) */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
-                  {/* Leader Card 1: Leads CRM (Personal Leads) */}
+                  /* Leader Card 1: Leads CRM (Personal Leads) */
+              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9311,8 +9661,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 2: Employee Added Data */}
+                  /* Leader Card 2: Employee Added Data */
+              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9328,8 +9680,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */}
+                  /* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */
+              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9350,8 +9704,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </span>
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 4: Subscribed Clients */}
+                  /* Leader Card 4: Subscribed Clients */
+              {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9369,8 +9725,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 5: Website WhatsApp Leads */}
+                  /* Leader Card 5: Website WhatsApp Leads */
+              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9386,6 +9744,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
                 </div>
 
                 {/* Section Divider: Performance & Analytics */}
@@ -9399,7 +9758,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* 2. Lower Section: Performance Analytics (3 Cards) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                  {/* Leader Card 6: Leads CRM Analysis */}
+                  /* Leader Card 6: Leads CRM Analysis */
+              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9418,8 +9778,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </span>
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 7: Call Performance Analytics */}
+                  /* Leader Card 7: Call Performance Analytics */
+              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9436,8 +9798,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       
                     </div>
                   </div>
+              )}
 
-                  {/* Leader Card 8: Campaign Performance (أداء الحملات) */}
+                  /* Leader Card 8: Campaign Performance (أداء الحملات) */
+              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9454,6 +9818,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       
                     </div>
                   </div>
+              )}
                 </div>
               </div>
             );
@@ -9482,7 +9847,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    {/* CS Card 1: Leads CRM */}
+                    /* CS Card 1: Leads CRM */
+              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9498,8 +9864,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </h3>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 2: Employee Added Data */}
+                    /* CS Card 2: Employee Added Data */
+              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9515,8 +9883,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </h3>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 3: Website WhatsApp Leads */}
+                    /* CS Card 3: Website WhatsApp Leads */
+              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9532,6 +9902,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </h3>
                       </div>
                     </div>
+              )}
                   </div>
                 </div>
 
@@ -9548,7 +9919,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    {/* CS Card 4: Personal Leads Analysis */}
+                    /* CS Card 4: Personal Leads Analysis */
+              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9567,8 +9939,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </span>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 5: Personal Call Performance */}
+                    /* CS Card 5: Personal Call Performance */
+              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9587,8 +9961,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </span>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 6: Personal Marketing Analytics */}
+                    /* CS Card 6: Personal Marketing Analytics */
+              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9604,6 +9980,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </h3>
                       </div>
                     </div>
+              )}
                   </div>
                 </div>
 
@@ -9620,7 +9997,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    {/* CS Card 7: Subscribed Clients (العملاء المشتركون) */}
+                    /* CS Card 7: Subscribed Clients (العملاء المشتركون) */
+              {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9638,8 +10016,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </div>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 8: Saudi Market Recommendations */}
+                    /* CS Card 8: Saudi Market Recommendations */
+              {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9660,8 +10040,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </div>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 9: US Market Recommendations */}
+                    /* CS Card 9: US Market Recommendations */
+              {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9682,6 +10064,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </div>
                       </div>
                     </div>
+              )}
                   </div>
                 </div>
 
@@ -9698,7 +10081,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    {/* CS Card 10: All Staff Leads CRM Analysis */}
+                    /* CS Card 10: All Staff Leads CRM Analysis */
+              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9717,8 +10101,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </span>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 11: All Staff Call Performance Analysis */}
+                    /* CS Card 11: All Staff Call Performance Analysis */
+              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9737,8 +10123,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </span>
                       </div>
                     </div>
+              )}
 
-                    {/* CS Card 12: All Staff Marketing Analytics */}
+                    /* CS Card 12: All Staff Marketing Analytics */
+              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform`}
@@ -9757,6 +10145,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         </span>
                       </div>
                     </div>
+              )}
                   </div>
                 </div>
               </div>
@@ -9771,7 +10160,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="space-y-4 mb-6">
                 {/* 1. Upper Section: Sheets & Personal Leads Data (4 Cards) */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-                  {/* Agent Card 1: Leads CRM */}
+                  /* Agent Card 1: Leads CRM */
+              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9787,8 +10177,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
 
-                  {/* Agent Card 2: Employee Added Data */}
+                  /* Agent Card 2: Employee Added Data */
+              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9804,8 +10196,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
 
-                  {/* Agent Card 3: Subscribed Clients */}
+                  /* Agent Card 3: Subscribed Clients */
+              {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9823,8 +10217,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
                   </div>
+              )}
 
-                  {/* Agent Card 4: Website WhatsApp Leads */}
+                  /* Agent Card 4: Website WhatsApp Leads */
+              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9840,6 +10236,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
                 </div>
 
                 {/* Section Divider: Performance & Analytics */}
@@ -9853,7 +10250,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* 2. Lower Section: Performance Analytics (3 Cards) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                  {/* Agent Card 5: Leads CRM Analysis */}
+                  /* Agent Card 5: Leads CRM Analysis */
+              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9872,8 +10270,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </span>
                     </div>
                   </div>
+              )}
 
-                  {/* Agent Card 6: Call Performance Analytics */}
+                  /* Agent Card 6: Call Performance Analytics */
+              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -9892,8 +10292,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </span>
                     </div>
                   </div>
+              )}
 
-                  {/* Agent Card 7: Campaign Performance (أداء الحملات) */}
+                  /* Agent Card 7: Campaign Performance (أداء الحملات) */
+              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9909,6 +10311,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </h3>
                     </div>
                   </div>
+              )}
                 </div>
               </div>
             );
@@ -11297,9 +11700,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <button 
                       onClick={exportEmployeeLeadsToExcel}
                       className="bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تصدير هذه الداتا إلى إكسيل"
+                      title="تحميل هذه الداتا إلى إكسيل"
                     >
-                      <Download size={14} /> 📊 تصدير إكسيل
+                      <Download size={14} /> 📊 تحميل إكسيل
                     </button>
                     <button 
                       onClick={handleCleanEmpLeadNames}
@@ -11966,9 +12369,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <button 
                     onClick={exportSubscribedClientsToExcel}
                     className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                    title="تصدير بيانات واشتراكات العملاء إلى إكسيل"
+                    title="تحميل بيانات واشتراكات العملاء إلى إكسيل"
                   >
-                    <Download size={14} /> 📊 تصدير المشتركين إكسيل
+                    <Download size={14} /> 📊 تحميل المشتركين إكسيل
                   </button>
                 )}
               </div>
@@ -12646,7 +13049,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* DEDICATED SAUDI MARKET RECOMMENDATIONS TAB (v2.23)                       */}
         {/* Visible ONLY to Admin and Customer Service                               */}
         {/* ========================================================================= */}
-        {activeTab === 'saudi_signals' && (isAdmin || isCoordinator || isCustomerService || hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) && (() => {
+        {activeTab === 'saudi_signals' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_saudi_stocks') && hasPermission(currentEmpUser, 'canViewSaudiStocks'))) && (() => {
           const filteredSignals = saudiRecommendations.filter(sig => {
             if (selectedSaudiMonth !== 'all') {
               const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
@@ -12687,6 +13090,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  {(isAdmin || hasPermission(currentEmpUser, 'canExportSaudiStocks')) && (
                   <button 
                     onClick={() => handleExportSignalsPdf('saudi')}
                     className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
@@ -12695,6 +13099,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
+                  )}
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
                   <button 
                     onClick={() => handleOpenAddSaudiSignalModal()}
                     className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
@@ -12702,6 +13108,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Plus size={16} />
                     <span>+ إضافة توصية سعودية جديدة</span>
                   </button>
+                  )}
                 </div>
               </div>
 
@@ -13037,6 +13444,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             {/* Action buttons */}
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
+                                {(isAdmin || hasPermission(currentEmpUser, 'canEditSaudiStocks')) && (
                                 <button
                                   onClick={() => handleOpenAddSaudiSignalModal(sig)}
                                   className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition"
@@ -13044,6 +13452,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 >
                                   <Edit size={14} />
                                 </button>
+                                )}
+                                {(isAdmin || hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) && (
                                 <button
                                   onClick={() => handleDeleteSaudiSignal(sig.id)}
                                   className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
@@ -13051,6 +13461,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 >
                                   <Trash2 size={14} />
                                 </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -13069,7 +13480,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* Visible ONLY to Admin and Customer Service                               */}
         {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
         {/* ========================================================================= */}
-        {activeTab === 'us_signals' && (isAdmin || isCoordinator || isCustomerService || hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (() => {
+        {activeTab === 'us_signals' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_us_stocks') && hasPermission(currentEmpUser, 'canViewUsStocks'))) && (() => {
           const filteredSignals = usRecommendations.filter(sig => {
             if (selectedUsMonth !== 'all') {
               const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
@@ -13465,6 +13876,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             {/* Action buttons */}
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
+                                {(isAdmin || hasPermission(currentEmpUser, 'canEditUsStocks')) && (
                                 <button
                                   onClick={() => handleOpenAddUsSignalModal(sig)}
                                   className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition"
@@ -13472,6 +13884,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 >
                                   <Edit size={14} />
                                 </button>
+                                )}
+                                {(isAdmin || hasPermission(currentEmpUser, 'canDeleteUsStocks')) && (
                                 <button
                                   onClick={() => handleDeleteUsSignal(sig.id)}
                                   className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
@@ -13479,6 +13893,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                 >
                                   <Trash2 size={14} />
                                 </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -13497,7 +13912,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* DEDICATED BUFFET EXPENSES & INVENTORY TAB (v2.24)                        */}
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
-        {activeTab === 'buffet_inventory' && (isAdmin || isCoordinator) && (() => {
+        {activeTab === 'buffet_inventory' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_buffet') && hasPermission(currentEmpUser, 'canViewBuffet'))) && (() => {
           const q = buffetSearch.trim().toLowerCase();
           const filteredInventory = buffetInventory.filter(item => {
             if (!q) return true;
@@ -13535,40 +13950,48 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* Header Action Buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button 
-                    onClick={() => handleOpenAddBuffetItem()}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
-                  >
-                    <Plus size={15} />
-                    <span>+ إضافة صنف للبوفيه 📦</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                    <button 
+                      onClick={() => handleOpenAddBuffetItem()}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>+ إضافة صنف للبوفيه 📦</span>
+                    </button>
+                  )}
 
-                  <button 
-                    onClick={() => handleOpenAddBuffetPurchase()}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
-                  >
-                    <ShoppingCart size={15} />
-                    <span>+ تسجيل مشتريات جديدة 🛒</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                    <button 
+                      onClick={() => handleOpenAddBuffetPurchase()}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
+                    >
+                      <ShoppingCart size={15} />
+                      <span>+ تسجيل مشتريات جديدة 🛒</span>
+                    </button>
+                  )}
 
-                  <button 
-                    onClick={() => setIsBuffetUploadModalOpen(true)}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer"
-                  >
-                    <Upload size={15} />
-                    <span>رفع سكرين / إكسيل 📎</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
+                    <button 
+                      onClick={() => setIsBuffetUploadModalOpen(true)}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer"
+                    >
+                      <Upload size={15} />
+                      <span>رفع سكرين / إكسيل 📎</span>
+                    </button>
+                  )}
 
-                  <button 
-                    onClick={() => {
-                      setTempGoogleSheetUrl(buffetGoogleSheetUrl);
-                      setIsBuffetGoogleSheetModalOpen(true);
-                    }}
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                  >
-                    <ExternalLink size={15} />
-                    <span>ربط Google Sheet 🔗</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
+                    <button 
+                      onClick={() => {
+                        setTempGoogleSheetUrl(buffetGoogleSheetUrl);
+                        setIsBuffetGoogleSheetModalOpen(true);
+                      }}
+                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                    >
+                      <ExternalLink size={15} />
+                      <span>ربط Google Sheet 🔗</span>
+                    </button>
+                  )}
 
                   {buffetGoogleSheetUrl && (
                     <a 
@@ -13583,14 +14006,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </a>
                   )}
 
-                  <button 
-                    onClick={handleExportBuffetToExcel}
-                    className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    title="تحميل شيت البوفيه بصيغة Excel"
-                  >
-                    <Download size={14} />
-                    <span>تصدير Excel</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canExportBuffet')) && (
+                    <button 
+                      onClick={handleExportBuffetToExcel}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تحميل شيت البوفيه بصيغة Excel"
+                    >
+                      <Download size={14} />
+                      <span>تحميل Excel</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -13766,20 +14191,24 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     </td>
                                     <td className="py-2.5 px-3 text-center">
                                       <div className="flex items-center justify-center gap-1">
-                                        <button
-                                          onClick={() => handleOpenAddBuffetItem(item)}
-                                          className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                                          title="تعديل بيانات الصنف"
-                                        >
-                                          <Edit size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteBuffetItem(item.id)}
-                                          className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
-                                          title="حذف الصنف"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
+                                        {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                                          <button
+                                            onClick={() => handleOpenAddBuffetItem(item)}
+                                            className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                            title="تعديل بيانات الصنف"
+                                          >
+                                            <Edit size={13} />
+                                          </button>
+                                        )}
+                                        {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
+                                          <button
+                                            onClick={() => handleDeleteBuffetItem(item.id)}
+                                            className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                            title="حذف الصنف"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
@@ -13852,20 +14281,24 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     </td>
                                     <td className="py-2.5 px-3 text-center">
                                       <div className="flex items-center justify-center gap-1">
-                                        <button
-                                          onClick={() => handleOpenAddBuffetPurchase(purch)}
-                                          className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                                          title="تعديل المشترى"
-                                        >
-                                          <Edit size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteBuffetPurchase(purch.id)}
-                                          className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
-                                          title="حذف المشترى"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
+                                        {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                                          <button
+                                            onClick={() => handleOpenAddBuffetPurchase(purch)}
+                                            className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                            title="تعديل المشترى"
+                                          >
+                                            <Edit size={13} />
+                                          </button>
+                                        )}
+                                        {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
+                                          <button
+                                            onClick={() => handleDeleteBuffetPurchase(purch.id)}
+                                            className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                            title="حذف المشترى"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
@@ -14032,7 +14465,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* DEDICATED PAYROLL & ATTENDANCE TAB (v2.25)                                */}
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
-        {activeTab === 'payroll_attendance' && (isAdmin || isCoordinator || hasPermission(currentEmpUser, 'show_card_attendance_payroll') || hasPermission(currentEmpUser, 'canViewAttendancePayroll')) && (() => {
+        {activeTab === 'payroll_attendance' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_attendance_payroll') && hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) && (() => {
           const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
@@ -14075,13 +14508,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* Header Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button 
-                    onClick={() => setIsFingerprintUploadModalOpen(true)}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                  >
-                    <Upload size={14} />
-                    <span>رفع شيت البصمة (Excel / صورة) 📂</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics')) && (
+                    <button 
+                      onClick={() => setIsFingerprintUploadModalOpen(true)}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <Upload size={14} />
+                      <span>رفع شيت البصمة (Excel / صورة) 📂</span>
+                    </button>
+                  )}
 
                   <button 
                     onClick={handleExportPayrollToExcel}
@@ -14091,7 +14526,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <span>تحميل مسير الرواتب (Excel) 📥</span>
                   </button>
 
-                  {isAdmin && (
+                  {(isAdmin || hasPermission(currentEmpUser, 'canExportAttendancePayrollPdf')) && (
                     <button 
                       onClick={handleExportPayrollPdf}
                       className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer"
@@ -14180,16 +14615,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* Bulk Delete & Security Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {selectedPayrollEmpIds.length > 0 && (
+                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) && selectedPayrollEmpIds.length > 0 && (
                     <button
                       onClick={() => handleDeleteSelectedPayroll(filteredEmps)}
-                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <Trash2 size={13} />
                       <span>مسح المحدد ({selectedPayrollEmpIds.length})</span>
                     </button>
                   )}
-                  {filteredEmps.length > 0 && (
+                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) && filteredEmps.length > 0 && (
                     <button
                       onClick={() => handleDeleteAllPayroll(filteredEmps)}
                       className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
@@ -14934,8 +15369,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             {isAdmin && (
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
-                                  setImpersonatedEmp(emp);
+                                  const freshEmp = employees.find(e => (e.uid && (e.uid === emp.uid || e.uid === emp.id)) || (e.id && (e.id === emp.id || e.id === emp.uid))) || emp;
+                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(freshEmp));
+                                  setImpersonatedEmp(freshEmp);
                                   setActiveTab('leads_crm');
                                   toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
                                   scrollToTable();
@@ -15599,7 +16035,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         )}
 
         {/* Recycle Bin Tab */}
-        {activeTab === 'recycle_bin' && (
+        {activeTab === 'recycle_bin' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_recycle_bin') && hasPermission(currentEmpUser, 'canViewRecycleBin'))) && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-red-500/20 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-col sm:flex-row justify-between items-center gap-4">
               <h2 className="text-lg font-black text-white flex items-center">
@@ -16039,6 +16475,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           employee={selectedEmpForPermissions}
           onSaveSuccess={(updatedPermissions, empDocId) => {
             setEmployees(prev => prev.map(e => (e.uid === empDocId || e.id === empDocId) ? { ...e, customPermissions: updatedPermissions } : e));
+            if (impersonatedEmp && (impersonatedEmp.uid === empDocId || impersonatedEmp.id === empDocId)) {
+              const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
+              setImpersonatedEmp(updated);
+              sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+            }
           }}
         />
 
@@ -17460,10 +17901,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <button 
                         onClick={() => handleExportCallLogsToExcel(filteredLogs)}
                         className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
-                        title="تصدير المكالمات المعروضة إلى ملف Excel"
+                        title="تحميل المكالمات المعروضة إلى ملف Excel"
                       >
                         <Download size={14} />
-                        <span>تصدير Excel</span>
+                        <span>تحميل Excel</span>
                       </button>
                     )}
                     <button 
