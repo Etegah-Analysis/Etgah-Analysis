@@ -659,6 +659,7 @@ const Dashboard = () => {
   const [mailRecipientSearch, setMailRecipientSearch] = useState('');
   const [mailSubject, setMailSubject] = useState('');
   const [mailBody, setMailBody] = useState('');
+  const [mailFixedSubscriptionSummary, setMailFixedSubscriptionSummary] = useState('');
   const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
   const [mailSearchTerm, setMailSearchTerm] = useState('');
   const [mailSending, setMailSending] = useState(false);
@@ -2419,7 +2420,17 @@ const Dashboard = () => {
       toast.error('يرجى كتابة عنوان / موضوع الإيميل');
       return;
     }
-    if (!mailBody.trim()) {
+    const userTypedBody = mailBody.trim();
+    let finalBody = '';
+    if (mailFixedSubscriptionSummary) {
+      finalBody = userTypedBody 
+        ? `${mailFixedSubscriptionSummary}\n\n━━━━━━━━━━━━━━━━━━━━\n📝 ملاحظات ونص إضافي:\n${userTypedBody}`
+        : mailFixedSubscriptionSummary;
+    } else {
+      finalBody = userTypedBody;
+    }
+
+    if (!finalBody.trim()) {
       toast.error('يرجى كتابة نص ومحتوى الرسالة');
       return;
     }
@@ -2456,7 +2467,7 @@ const Dashboard = () => {
         teamLeaderUid: (isLeader && isTeam) ? currentUser?.uid : '',
         teamMemberUids: (isLeader && isTeam) ? myTeamMembers.map(m => m.uid) : [],
         subject: mailSubject.trim(),
-        body: mailBody.trim(),
+        body: finalBody,
         attachments: mailAttachments,
         createdAt: serverTimestamp(),
         createdAtMillis: Date.now(),
@@ -2471,6 +2482,7 @@ const Dashboard = () => {
       // Reset compose form
       setMailSubject('');
       setMailBody('');
+      setMailFixedSubscriptionSummary('');
       setMailAttachments([]);
       setMailSelectedRecipientUids([]);
       setMailRecipientSearch('');
@@ -5780,9 +5792,11 @@ const Dashboard = () => {
           : 'دفع كامل';
 
       const mailSubj = `💳 إشعار اشتراك عميل: ${selectedSubCustomer.name || 'عميل'} - ${item.packageType || item.serviceType || 'باقة'}`;
-      const mailContent = `السلام عليكم ورحمة الله وبركاته،
+      
+      // Fixed, verified subscription data without boilerplate closing text
+      const fixedDataText = `السلام عليكم ورحمة الله وبركاته،
 
-بيانات وتفاصيل اشتراك وإشعار دفعة العميل:
+بيانات وتفاصيل اشتراك وإشعار دفعة العميل الرسمية:
 
 👤 اسم العميل: ${selectedSubCustomer.name || 'غير محدد'}
 📞 رقم الهاتف: ${selectedSubCustomer.phoneNumber || 'غير محدد'}
@@ -5790,49 +5804,10 @@ const Dashboard = () => {
 🎯 تصنيف / نوع الخدمة: ${item.serviceCategory || '--'}
 💳 نوع الدفع: ${paymentLabel}
 💵 المبلغ المدفوع: ${parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال
-${item.remainingAmount ? `⏳ المبلغ المتبقي: ${parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
+${item.remainingAmount && parseFloat((item.remainingAmount || '0').replace(/[^0-9.]/g, '')) > 0 ? `⏳ المبلغ المتبقي: ${parseFloat(item.remainingAmount.replace(/[^0-9.]/g, '')).toLocaleString()} ريال\n` : ''}🧾 تاريخ الإشعار: ${item.receiptDate || item.date || '--'}
 📅 تاريخ بداية الخدمة: ${item.startDate || '--'}
 ${!isPercentage && item.endDate ? `📅 تاريخ نهاية الخدمة: ${item.endDate}\n` : ''}👤 الموظف المسجل: ${item.savedBy || currentEmpUser?.name || currentUser?.email || 'الإدارة'}
-🕒 وقت التسجيل: ${item.uploadedDateTime || new Date().toLocaleString('ar-EG')}
-${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
-يرجى من الإدارة وقائد الفريق وموظفي خدمة العملاء تفعيل الخدمة والمتابعة وفقاً للاختصاص.
-
-تحياتنا،
-منصة اتجاه التحليل الذكي`;
-
-      const allowed = getAllowedRecipients();
-      const targetUids = [];
-
-      // Determine appropriate recipients to pre-check based on user role
-      if (isAdmin || isCoordinator) {
-        const csEmployees = employees.filter(e => e.jobTitle === 'Customer Service' || e.jobTitle === 'خدمة عملاء' || e.role === 'customer_service');
-        csEmployees.forEach(cs => {
-          if (allowed.some(a => a.uid === cs.uid) && !targetUids.includes(cs.uid)) {
-            targetUids.push(cs.uid);
-          }
-        });
-        const assignedUid = selectedSubCustomer.assignedToUid || item.savedByUid;
-        if (assignedUid && allowed.some(a => a.uid === assignedUid) && !targetUids.includes(assignedUid)) {
-          targetUids.push(assignedUid);
-        }
-      } else if (isLeader) {
-        if (allowed.some(a => a.uid === 'admin')) targetUids.push('admin');
-        const coord = allowed.find(a => a.type === 'coordinator');
-        if (coord && !targetUids.includes(coord.uid)) targetUids.push(coord.uid);
-      } else {
-        // Agent: Leader and/or Admin
-        const myLeaderUid = currentEmpUser?.leaderUid;
-        if (myLeaderUid && allowed.some(a => a.uid === myLeaderUid)) {
-          targetUids.push(myLeaderUid);
-        }
-        if (allowed.some(a => a.uid === 'admin') && targetUids.length === 0) {
-          targetUids.push('admin');
-        }
-      }
-
-      if (targetUids.length === 0 && allowed.length > 0) {
-        targetUids.push(allowed[0].uid);
-      }
+🕒 وقت التسجيل: ${item.uploadedDateTime || new Date().toLocaleString('ar-EG')}`;
 
       const attachments = [];
       if (item.receiptUrl) {
@@ -5846,15 +5821,16 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
 
       // Pre-fill email compose drawer states
       setMailSubject(mailSubj);
-      setMailBody(mailContent);
+      setMailFixedSubscriptionSummary(fixedDataText);
+      setMailBody(''); // Blank body so employee can write their custom text/notes under fixed data
       setMailAttachments(attachments);
-      setMailSelectedRecipientUids(targetUids);
+      setMailSelectedRecipientUids([]); // Nobody pre-selected: user has full freedom to select recipients
       setMailRecipientSearch('');
 
       // Close subscription modal and open compose drawer
       setIsSubscriptionModalOpen(false);
       setIsComposeOpen(true);
-      toast.info('تم فتح نموذج البريد وتعبئة بيانات الاشتراك للإرسال ✉️');
+      toast.info('تم فتح نموذج البريد وتعبئة بيانات الاشتراك الثابتة للإرسال ✉️');
     } catch (err) {
       console.error('Error opening email compose for subscription:', err);
       toast.error('حدث خطأ أثناء فتح نموذج البريد');
@@ -15284,17 +15260,7 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                   );
                 })()}
 
-                {/* 5. Notes (Optional) */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">ملاحظات الاشتراك (اختياري)</label>
-                  <textarea 
-                    rows={2}
-                    placeholder="أي تفاصيل أو شروط خاصة بالاشتراك..."
-                    value={subNotes}
-                    onChange={(e) => setSubNotes(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-medium text-white outline-none focus:border-emerald-400"
-                  />
-                </div>
+
 
                 </div>
 
@@ -15751,7 +15717,11 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                 <span>✏️ إنشاء رسالة جديدة (إيميل داخلي)</span>
               </span>
               <button 
-                onClick={() => setIsComposeOpen(false)}
+                onClick={() => {
+                  setIsComposeOpen(false);
+                  setMailFixedSubscriptionSummary('');
+                  setMailBody('');
+                }}
                 className="text-white/80 hover:text-white text-xs font-black"
               >
                 ✕
@@ -15763,8 +15733,9 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
               {/* Multi-Recipient Selection Component */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-black text-purple-200">
-                    إلى (المستلمون - اختر موظف، موظفين، ثلاثة أو الكل):
+                  <label className="block text-[10.5px] font-bold text-purple-300">
+                    <span className="text-xs font-black text-cyan-300">المستلمون:</span>
+                    <span className="text-slate-300 mr-1.5 font-medium">أرسل إلى (اختر من ترغب بإرسال الرسالة إليه):</span>
                   </label>
                   <div className="flex items-center gap-1.5 text-[10px] font-bold">
                     <button
@@ -15869,20 +15840,39 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                   placeholder="عنوان الموضوع..."
                   value={mailSubject}
                   onChange={(e) => setMailSubject(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-cyan-400"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-purple-500/40 rounded-xl text-sm font-bold text-white outline-none focus:border-cyan-400 placeholder-gray-500"
                 />
               </div>
 
+              {/* Fixed, Non-editable Subscription Data (if opened for subscription) */}
+              {mailFixedSubscriptionSummary && (
+                <div className="p-3.5 bg-slate-950/95 rounded-2xl border border-cyan-500/40 space-y-2 shadow-inner">
+                  <div className="flex items-center justify-between text-xs font-black text-cyan-300 pb-1.5 border-b border-slate-800">
+                    <span className="flex items-center gap-1.5">
+                      <span>🔒 بيانات الاشتراك المسجلة (ثابتة رسمية لا يمكن التعديل عليها):</span>
+                    </span>
+                    <span className="bg-cyan-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-md border border-cyan-500/30 font-bold">
+                      معتمدة بالكامل ✓
+                    </span>
+                  </div>
+                  <div className="text-sm font-mono text-gray-200 whitespace-pre-line leading-relaxed max-h-48 overflow-y-auto pr-1 bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 select-all">
+                    {mailFixedSubscriptionSummary}
+                  </div>
+                </div>
+              )}
+
               {/* Body */}
               <div className="flex-1 flex flex-col">
-                <label className="block text-[11px] font-bold text-purple-200 mb-1">نص الرسالة والمحتوى:</label>
+                <label className="block text-[11px] font-bold text-purple-200 mb-1">
+                  {mailFixedSubscriptionSummary ? 'كتابة نص وملاحظات إضافية تحت البيانات الثابتة (اختياري):' : 'نص الرسالة والمحتوى:'}
+                </label>
                 <textarea 
-                  required
-                  rows={5}
-                  placeholder="اكتب رسالتك وتفاصيلها هنا..."
+                  required={!mailFixedSubscriptionSummary}
+                  rows={mailFixedSubscriptionSummary ? 3 : 5}
+                  placeholder={mailFixedSubscriptionSummary ? "اكتب هنا أي نص أو ملاحظات إضافية ترغب بظهورها تحت البيانات الثابتة..." : "اكتب رسالتك وتفاصيلها هنا..."}
                   value={mailBody}
                   onChange={(e) => setMailBody(e.target.value)}
-                  className="w-full flex-1 px-3 py-2 bg-slate-950 border border-purple-500/40 rounded-xl text-xs font-medium text-white outline-none focus:border-cyan-400 resize-none leading-relaxed"
+                  className="w-full flex-1 px-3.5 py-2.5 bg-slate-950 border border-purple-500/40 rounded-xl text-sm font-medium text-white outline-none focus:border-cyan-400 resize-none leading-relaxed placeholder-gray-500 min-h-[90px]"
                 />
               </div>
 
@@ -15927,6 +15917,7 @@ ${item.notes ? `📝 ملاحظات خاصة: ${item.notes}\n` : ''}
                     onClick={() => {
                       setMailSubject('');
                       setMailBody('');
+                      setMailFixedSubscriptionSummary('');
                       setMailAttachments([]);
                       setMailSelectedRecipientUids([]);
                       setIsComposeOpen(false);
