@@ -7628,19 +7628,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Admin Card 3B: Saudi Market Recommendations (v2.23) */}
               <div 
                 onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)] ring-2 ring-emerald-400/30' : 'border-emerald-500/50 md:hover:border-emerald-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <span className="text-2xl">🇸🇦</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-emerald-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
                   <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-emerald-500/90 bg-emerald-950/70 text-emerald-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
                       {saudiRecommendations.length.toLocaleString()} توصية
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-bold">
+                    <span className="text-[10px] text-amber-400 font-bold">
                       ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
                     </span>
                   </div>
@@ -7650,19 +7650,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Admin Card 3C: US Market Recommendations (v2.23) */}
               <div 
                 onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)] ring-2 ring-blue-400/30' : 'border-blue-500/50 md:hover:border-blue-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(59,130,246,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
               >
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <span className="text-2xl">🇺🇸</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-blue-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
                   <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-blue-500/90 bg-blue-950/70 text-blue-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-xs sm:text-sm shadow-sm" dir="ltr">
                       {usRecommendations.length.toLocaleString()} توصية
                     </span>
-                    <span className="text-[10px] text-blue-400 font-bold">
+                    <span className="text-[10px] text-amber-400 font-bold">
                       ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
                     </span>
                   </div>
@@ -8346,19 +8346,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {/* CS Card 8: Saudi Market Recommendations */}
                     <div 
                       onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                      className={`bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(16,185,129,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-emerald-400 scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.5)] ring-2 ring-emerald-400/30' : 'border-emerald-500/50 md:hover:border-emerald-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                       title="انقر لعرض وإدارة توصيات السوق السعودي وإشعارات الواتساب"
                     >
                       <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                         <span className="text-2xl">🇸🇦</span>
                       </div>
                       <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-emerald-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-block px-3 py-0.5 rounded-full border border-emerald-500/90 bg-emerald-950/70 text-emerald-300 font-black text-sm shadow-sm" dir="ltr">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
                             {saudiRecommendations.length.toLocaleString()} توصية
                           </span>
-                          <span className="text-[11px] text-emerald-400 font-bold">
+                          <span className="text-[11px] text-amber-400 font-bold">
                             ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
                           </span>
                         </div>
@@ -8368,19 +8368,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {/* CS Card 9: US Market Recommendations */}
                     <div 
                       onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                      className={`bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(59,130,246,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-blue-400 scale-105 shadow-[0_8px_25px_rgba(59,130,246,0.5)] ring-2 ring-blue-400/30' : 'border-blue-500/50 md:hover:border-blue-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(59,130,246,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                       title="انقر لعرض وإدارة توصيات السوق الأمريكي (أسهم وعقود)"
                     >
                       <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                         <span className="text-2xl">🇺🇸</span>
                       </div>
                       <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-blue-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-block px-3 py-0.5 rounded-full border border-blue-500/90 bg-blue-950/70 text-blue-300 font-black text-sm shadow-sm" dir="ltr">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
                             {usRecommendations.length.toLocaleString()} توصية
                           </span>
-                          <span className="text-[11px] text-blue-400 font-bold">
+                          <span className="text-[11px] text-amber-400 font-bold">
                             ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
                           </span>
                         </div>
@@ -11363,21 +11363,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           });
 
           return (
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
               {/* Header Banner */}
-              <div className="px-6 py-4 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+              <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-400/40">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
                     <span className="text-2xl">🇸🇦</span>
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-emerald-300 flex items-center gap-2">
+                    <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                       <span>🇸🇦 جدول توصيات السوق السعودي (Saudi Stock Recommendations)</span>
-                      <span className="bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {saudiRecommendations.length} إجمالي التوصيات
                       </span>
                     </h2>
-                    <p className="text-xs text-emerald-200/80 mt-0.5">
+                    <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ومقاومات ودعوم أسهم السوق السعودي وحساب نسب الإنجاز التلقائي مقابل دعم 1
                     </p>
                   </div>
@@ -11386,7 +11386,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="flex items-center gap-2 flex-wrap">
                   <button 
                     onClick={() => handleOpenAddSaudiSignalModal()}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
                   >
                     <Plus size={16} />
                     <span>+ إضافة توصية سعودية جديدة</span>
@@ -11395,7 +11395,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </div>
 
               {/* Filter & Search Bar */}
-              <div className="p-4 bg-emerald-950/20 border-b border-emerald-500/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
                   <div className="relative w-full">
                     <input 
@@ -11403,7 +11403,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       placeholder="🔍 بحث باسم السهم أو الكود (مثال: الراجحي أو 1120)..."
                       value={saudiSignalsSearch}
                       onChange={(e) => setSaudiSignalsSearch(e.target.value)}
-                      className="w-full bg-white border border-emerald-300/60 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                      className="w-full bg-white border border-amber-300/60 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
                     />
                     {saudiSignalsSearch && (
                       <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs">✕</button>
@@ -11412,11 +11412,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-emerald-900">تصفية حسب الحالة:</span>
+                  <span className="text-xs font-bold text-amber-300">تصفية حسب الحالة:</span>
                   <select
                     value={saudiSignalsFilter}
                     onChange={(e) => setSaudiSignalsFilter(e.target.value)}
-                    className="bg-white border border-emerald-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
                     <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === 'active').length})</option>
@@ -11433,24 +11433,24 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Table Body */}
               <div className="overflow-x-auto">
                 <table className="w-full text-right text-xs">
-                  <thead className="bg-emerald-950/40 text-emerald-200 uppercase font-black border-b border-emerald-500/20 text-[11px]">
+                  <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
-                      <th className="py-3 px-3 text-center w-12">#</th>
-                      <th className="py-3 px-3 text-center">إشعار الواتساب</th>
-                      <th className="py-3 px-3 font-extrabold text-emerald-300">اسم السهم</th>
-                      <th className="py-3 px-3 text-center">الكود</th>
-                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/20 text-center">دعم 1 (الأساسي)</th>
-                      <th className="py-3 px-3 text-center">دعم 2</th>
-                      <th className="py-3 px-3 text-center">مقاومة 1</th>
-                      <th className="py-3 px-3 text-center">مقاومة 2</th>
-                      <th className="py-3 px-3 text-center">مقاومة 3</th>
-                      <th className="py-3 px-3 text-center">مقاومة 4</th>
-                      <th className="py-3 px-3 text-rose-300 font-bold text-center">إيقاف الخسارة</th>
-                      <th className="py-3 px-3 text-center min-w-[150px]">حالة التوصية</th>
-                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-emerald-950/30">نسبة الإنجاز %</th>
-                      <th className="py-3 px-3 text-center">وقت الرفع</th>
-                      <th className="py-3 px-3 text-center">آخر تعديل</th>
-                      <th className="py-3 px-3 text-center w-24">إجراءات</th>
+                      <th className="py-3 px-3 text-center w-12 text-amber-300">#</th>
+                      <th className="py-3 px-3 text-center text-amber-300">إشعار الواتساب</th>
+                      <th className="py-3 px-3 font-extrabold text-amber-300">اسم السهم</th>
+                      <th className="py-3 px-3 text-center text-amber-300">الكود</th>
+                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/40 text-center">دعم 1 (الأساسي)</th>
+                      <th className="py-3 px-3 text-center text-amber-300">دعم 2</th>
+                      <th className="py-3 px-3 text-center text-amber-300">مقاومة 1</th>
+                      <th className="py-3 px-3 text-center text-amber-300">مقاومة 2</th>
+                      <th className="py-3 px-3 text-center text-amber-300">مقاومة 3</th>
+                      <th className="py-3 px-3 text-center text-amber-300">مقاومة 4</th>
+                      <th className="py-3 px-3 text-amber-300 font-bold text-center">إيقاف الخسارة</th>
+                      <th className="py-3 px-3 text-center min-w-[150px] text-amber-300">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-amber-950/40 text-amber-300">نسبة الإنجاز %</th>
+                      <th className="py-3 px-3 text-center text-amber-300">وقت الرفع</th>
+                      <th className="py-3 px-3 text-center text-amber-300">آخر تعديل</th>
+                      <th className="py-3 px-3 text-center w-24 text-amber-300">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-emerald-900/10 text-gray-800">
@@ -11639,21 +11639,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           });
 
           return (
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-blue-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
               {/* Header Banner */}
-              <div className="px-6 py-4 border-b border-blue-500/20 bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
+              <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="p-2.5 bg-blue-500/20 rounded-xl border border-blue-400/40">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
                     <span className="text-2xl">🇺🇸</span>
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-blue-300 flex items-center gap-2">
+                    <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
                       <span>🇺🇸 جدول توصيات السوق الأمريكي (US Stock & Options Signals)</span>
-                      <span className="bg-blue-500/30 text-blue-300 border border-blue-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
+                      <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {usRecommendations.length} إجمالي التوصيات
                       </span>
                     </h2>
-                    <p className="text-xs text-blue-200/80 mt-0.5">
+                    <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ووقف خسارة أسهم وعقود السوق الأمريكي وحساب نسب الإنجاز التلقائي مقابل سعر الشراء (Buy)
                     </p>
                   </div>
@@ -11662,7 +11662,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="flex items-center gap-2 flex-wrap">
                   <button 
                     onClick={() => handleOpenAddUsSignalModal()}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
                   >
                     <Plus size={16} />
                     <span>+ إضافة توصية أمريكية جديدة</span>
@@ -11671,25 +11671,25 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </div>
 
               {/* Category Segment Tabs & Search Bar */}
-              <div className="p-4 bg-blue-950/20 border-b border-blue-500/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
                 {/* Segment Filter (All, Stocks, Options) */}
-                <div className="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-blue-200 shadow-sm">
+                <div className="flex items-center gap-1 bg-white/80 p-1 rounded-xl border border-amber-300/60 shadow-sm">
                   <button
                     onClick={() => setUsSignalsMarketFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                   >
                     🌐 الكل ({usRecommendations.length})
                   </button>
                   <button
                     onClick={() => setUsSignalsMarketFilter('stocks')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                   >
                     <span>📈 شركات وأسهم (Stocks)</span>
                     <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'stocks').length})</span>
                   </button>
                   <button
                     onClick={() => setUsSignalsMarketFilter('options')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                   >
                     <span>⚡ عقود شركات (Options)</span>
                     <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'options').length})</span>
@@ -11704,7 +11704,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       placeholder="🔍 بحث بالرمز (AAPL, TSLA...)..."
                       value={usSignalsSearch}
                       onChange={(e) => setUsSignalsSearch(e.target.value)}
-                      className="bg-white border border-blue-300 rounded-xl px-3.5 py-1.5 text-xs font-bold text-gray-800 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-44"
+                      className="bg-white border border-amber-300 rounded-xl px-3.5 py-1.5 text-xs font-bold text-gray-800 uppercase focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm w-44"
                     />
                     {usSignalsSearch && (
                       <button onClick={() => setUsSignalsSearch('')} className="absolute left-2.5 top-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
@@ -11714,7 +11714,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <select
                     value={usSignalsStatusFilter}
                     onChange={(e) => setUsSignalsStatusFilter(e.target.value)}
-                    className="bg-white border border-blue-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="all">🌐 كل الحالات</option>
                     <option value="active">⏳ توصية سارية ({usRecommendations.filter(s => s.status === 'active').length})</option>
@@ -11729,21 +11729,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Table Body */}
               <div className="overflow-x-auto">
                 <table className="w-full text-right text-xs">
-                  <thead className="bg-blue-950/40 text-blue-200 uppercase font-black border-b border-blue-500/20 text-[11px]">
+                  <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
-                      <th className="py-3 px-3 text-center w-12">#</th>
-                      <th className="py-3 px-3 text-center">إشعار الواتساب</th>
-                      <th className="py-3 px-3 font-extrabold text-blue-300">الرمز (Symbol)</th>
-                      <th className="py-3 px-3 text-center">النوع</th>
-                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/20 text-center">دخول (Buy)</th>
-                      <th className="py-3 px-3 text-center">الهدف 1 (T)</th>
-                      <th className="py-3 px-3 text-center">الهدف 2 (T2)</th>
-                      <th className="py-3 px-3 text-rose-300 font-bold text-center">وقف الخسارة (SL)</th>
-                      <th className="py-3 px-3 text-center min-w-[150px]">حالة التوصية</th>
-                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-blue-950/30">نسبة الإنجاز %</th>
-                      <th className="py-3 px-3 text-center">وقت الرفع</th>
-                      <th className="py-3 px-3 text-center">آخر تعديل</th>
-                      <th className="py-3 px-3 text-center w-24">إجراءات</th>
+                      <th className="py-3 px-3 text-center w-12 text-amber-300">#</th>
+                      <th className="py-3 px-3 text-center text-amber-300">إشعار الواتساب</th>
+                      <th className="py-3 px-3 font-extrabold text-amber-300">الرمز (Symbol)</th>
+                      <th className="py-3 px-3 text-center text-amber-300">النوع</th>
+                      <th className="py-3 px-3 font-bold text-amber-300 bg-amber-950/40 text-center">دخول (Buy)</th>
+                      <th className="py-3 px-3 text-center text-amber-300">الهدف 1 (T)</th>
+                      <th className="py-3 px-3 text-center text-amber-300">الهدف 2 (T2)</th>
+                      <th className="py-3 px-3 text-amber-300 font-bold text-center">وقف الخسارة (SL)</th>
+                      <th className="py-3 px-3 text-center min-w-[150px] text-amber-300">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-amber-950/40 text-amber-300">نسبة الإنجاز %</th>
+                      <th className="py-3 px-3 text-center text-amber-300">وقت الرفع</th>
+                      <th className="py-3 px-3 text-center text-amber-300">آخر تعديل</th>
+                      <th className="py-3 px-3 text-center w-24 text-amber-300">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-900/10 text-gray-800">
@@ -17087,7 +17087,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* ========================================================================= */}
         {isSaudiSignalModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
               {/* Close Button */}
               <button 
                 onClick={() => setIsSaudiSignalModalOpen(false)}
@@ -17097,15 +17097,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </button>
 
               {/* Modal Header */}
-              <div className="flex items-center gap-3 mb-5 border-b border-emerald-500/20 pb-3.5">
+              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3.5">
                 <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
                   <span className="text-3xl">🇸🇦</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-emerald-300">
+                  <h3 className="text-lg font-black text-amber-300">
                     {editingSaudiSignal ? 'تعديل توصية السوق السعودي ✏️' : 'إضافة توصية جديدة للسوق السعودي 🇸🇦'}
                   </h3>
-                  <p className="text-xs text-emerald-200/70">
+                  <p className="text-xs text-amber-200/70">
                     يمكنك لصق رسالة الواتساب للتحليل التلقائي أو تعبئة الخانات يدوياً
                   </p>
                 </div>
@@ -17353,7 +17353,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* ========================================================================= */}
         {isUsSignalModalOpen && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
               {/* Close Button */}
               <button 
                 onClick={() => setIsUsSignalModalOpen(false)}
@@ -17363,7 +17363,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </button>
 
               {/* Modal Header */}
-              <div className="flex items-center gap-3 mb-5 border-b border-blue-500/20 pb-3.5">
+              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3.5">
                 <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
                   <span className="text-3xl">🇺🇸</span>
                 </div>
@@ -17371,7 +17371,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <h3 className="text-lg font-black text-blue-300">
                     {editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي 🇺🇸'}
                   </h3>
-                  <p className="text-xs text-blue-200/70">
+                  <p className="text-xs text-amber-200/70">
                     توصيات الأسهم والعقود الأمريكية مع احتساب النسبة مقابل سعر الدخول (Buy)
                   </p>
                 </div>
