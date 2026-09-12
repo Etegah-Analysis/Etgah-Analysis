@@ -526,6 +526,8 @@ const Dashboard = () => {
   const [editReceiptFileUrl, setEditReceiptFileUrl] = useState('');
   const [editReceiptProof, setEditReceiptProof] = useState('');
   const [editReceiptSaving, setEditReceiptSaving] = useState(false);
+  const modalFormRef = useRef(null);
+  const modalTopRef = useRef(null);
 
   useEffect(() => {
     setCurrentPageSubscribed(1);
@@ -5613,6 +5615,41 @@ const Dashboard = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleStartEditPaymentRecord = (item) => {
+    setEditingReceiptId(item.id);
+    setSubServiceType(item.serviceType || item.packageType || 'باقة سنوية');
+    setSubServiceCategory(item.serviceCategory || 'توصيات سعودي');
+    setSubPaymentType(item.paymentType || 'full');
+    setSubAgreedPercentage(item.agreedPercentage || '20%');
+    setSubStartDate(item.startDate || item.date || '');
+    setSubEndDate(item.endDate || '');
+    setSubPaidAmount(item.paidAmount ? String(item.paidAmount).replace(/[^0-9.]/g, '') : '');
+    setSubRemainingAmount(item.remainingAmount ? String(item.remainingAmount).replace(/[^0-9.]/g, '') : '');
+    setSubReceiptProof(item.receiptProof || '');
+    setSubReceiptFileUrl(item.receiptUrl || '');
+    setSubNotes(item.notes || '');
+
+    setTimeout(() => {
+      if (modalTopRef.current) {
+        modalTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (modalFormRef.current) {
+        modalFormRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
+
+    toast.info('تم تحميل بيانات الإشعار في النموذج بالأعلى للتعديل ✏️');
+  };
+
+  const handleCancelEditPaymentRecord = () => {
+    setEditingReceiptId(null);
+    setSubPaidAmount('');
+    setSubRemainingAmount('');
+    setSubReceiptProof('');
+    setSubReceiptFileUrl('');
+    setSubNotes('');
+    toast.info('تم إلغاء وضع التعديل');
+  };
+
   const handleUpdatePaymentRecord = async (recordId) => {
     if (!selectedSubCustomer || !recordId) return;
     setEditReceiptSaving(true);
@@ -5693,17 +5730,43 @@ const Dashboard = () => {
   const handleSaveSubscriptionDetails = async (e) => {
     e?.preventDefault();
     if (!selectedSubCustomer) return;
-    const isPercentage = (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage');
+
+    // Strict Required Fields Validation
+    if (!subServiceType) {
+      toast.error('يرجى اختيار نوع الباقة (حقل إجباري) ⚠️');
+      return;
+    }
+    if (!subServiceCategory) {
+      toast.error('يرجى اختيار تصنيف الخدمة (حقل إجباري) ⚠️');
+      return;
+    }
     if (!subStartDate) {
       toast.error('يرجى تحديد تاريخ بداية الخدمة (حقل إجباري) ⚠️');
       return;
     }
+    const isPercentage = (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage');
     if (!isPercentage && !subEndDate) {
       toast.error('يرجى تحديد تاريخ نهاية الخدمة (إجباري للباقات) ⚠️');
       return;
     }
-    if (!subReceiptProof.trim() && !subReceiptFileUrl) {
-      toast.error('يرجى إدخال إشعار التحويل / كود العملية أو رفع الإشعار (إجباري) ⚠️');
+    if (isPercentage && !subAgreedPercentage?.trim()) {
+      toast.error('يرجى إدخال النسبة المتفق عليها (حقل إجباري) ⚠️');
+      return;
+    }
+    const cleanPaid = (subPaidAmount || '').replace(/[^0-9.]/g, '');
+    if (!cleanPaid || parseFloat(cleanPaid) <= 0) {
+      toast.error('يرجى إدخال المبلغ المدفوع (حقل إجباري) ⚠️');
+      return;
+    }
+    if (subPaymentType === 'partial') {
+      const cleanRem = (subRemainingAmount || '').replace(/[^0-9.]/g, '');
+      if (!cleanRem) {
+        toast.error('يرجى إدخال المبلغ المتبقي (إجباري لنظام الجزء وباقي جزء) ⚠️');
+        return;
+      }
+    }
+    if (!subReceiptProof?.trim() && !subReceiptFileUrl) {
+      toast.error('يرجى إرفاق صورة إشعار التحويل أو إدخال كود العملية (حقل إجباري) ⚠️');
       return;
     }
 
@@ -5713,49 +5776,78 @@ const Dashboard = () => {
       const uploadIso = now.toISOString();
       const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
       const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-      const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
       const currentMonthKey = (subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
-
-      const cleanPaid = (subPaidAmount || '').replace(/[^0-9.]/g, '') || '0';
-
-      const newPaymentRecord = {
-        id: 'rec_' + Date.now(),
-        date: subStartDate || uploadIso.slice(0, 10),
-        month: currentMonthKey,
-        uploadedAt: uploadIso,
-        uploadedDateTime: uploadedDateTimeLabel,
-        startDate: subStartDate,
-        endDate: subEndDate,
-        serviceType: subServiceType || 'باقة سنوية',
-        serviceCategory: subServiceCategory || 'توصيات سعودي',
-        month: currentMonthKey,
-        paymentType: subPaymentType,
-        agreedPercentage: (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? subAgreedPercentage : '',
-        paidAmount: cleanPaid,
-        remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
-        receiptProof: subReceiptProof.trim() || 'مسجل',
-        receiptUrl: subReceiptFileUrl || '',
-        notes: subNotes.trim(),
-        savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
-        savedByUid: currentUser?.uid || 'admin',
-        savedAt: uploadIso
-      };
-
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
-      const updatedHistory = [newPaymentRecord, ...existingHistory.filter(h => h.id !== newPaymentRecord.id)];
+      let updatedHistory = [];
 
+      if (editingReceiptId) {
+        // Editing existing payment record
+        updatedHistory = existingHistory.map(h => {
+          if (h.id === editingReceiptId) {
+            return {
+              ...h,
+              serviceType: subServiceType || h.serviceType,
+              packageType: subServiceType || h.packageType,
+              serviceCategory: subServiceCategory || h.serviceCategory,
+              paymentType: subPaymentType,
+              agreedPercentage: isPercentage ? subAgreedPercentage : '',
+              startDate: subStartDate,
+              endDate: isPercentage ? '' : subEndDate,
+              paidAmount: cleanPaid,
+              remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+              receiptProof: subReceiptProof?.trim() || h.receiptProof || 'مسجل',
+              receiptUrl: subReceiptFileUrl || '',
+              notes: subNotes?.trim() || '',
+              lastEditedBy: currentEmpUser?.name || currentUser?.email || 'المستخدم',
+              lastEditedAt: uploadIso,
+              uploadedDateTime: `${dateFormatted} • ${timeFormatted} (معدل)`
+            };
+          }
+          return h;
+        });
+      } else {
+        // Adding new payment record
+        const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
+        const newPaymentRecord = {
+          id: 'rec_' + Date.now(),
+          date: subStartDate || uploadIso.slice(0, 10),
+          month: currentMonthKey,
+          uploadedAt: uploadIso,
+          uploadedDateTime: uploadedDateTimeLabel,
+          startDate: subStartDate,
+          endDate: isPercentage ? '' : subEndDate,
+          serviceType: subServiceType || 'باقة سنوية',
+          serviceCategory: subServiceCategory || 'توصيات سعودي',
+          packageType: subServiceType || 'باقة سنوية',
+          paymentType: subPaymentType,
+          agreedPercentage: isPercentage ? subAgreedPercentage : '',
+          paidAmount: cleanPaid,
+          remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+          receiptProof: subReceiptProof?.trim() || 'مسجل',
+          receiptUrl: subReceiptFileUrl || '',
+          notes: subNotes?.trim() || '',
+          savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
+          savedByUid: currentUser?.uid || 'admin',
+          savedAt: uploadIso
+        };
+        updatedHistory = [newPaymentRecord, ...existingHistory];
+      }
+
+      // Primary subscription details synced from latest history record
+      const primaryRec = updatedHistory[0] || {};
       const subData = {
-        startDate: subStartDate,
-        endDate: subEndDate,
-        serviceType: subServiceType || 'باقة سنوية',
-        serviceCategory: subServiceCategory || 'توصيات سعودي',
-        paymentType: subPaymentType,
-        agreedPercentage: (subServiceType === 'اتفاق نسبة' || subPaymentType === 'percentage') ? subAgreedPercentage : '',
-        paidAmount: cleanPaid,
-        remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
-        receiptProof: subReceiptProof.trim() || 'مسجل',
-        receiptUrl: subReceiptFileUrl || '',
-        notes: subNotes.trim(),
+        startDate: primaryRec.startDate || subStartDate,
+        endDate: isPercentage ? '' : (primaryRec.endDate || subEndDate),
+        serviceType: primaryRec.serviceType || subServiceType || 'باقة سنوية',
+        serviceCategory: primaryRec.serviceCategory || subServiceCategory || 'توصيات سعودي',
+        paymentType: primaryRec.paymentType || subPaymentType,
+        agreedPercentage: isPercentage ? subAgreedPercentage : '',
+        paidAmount: primaryRec.paidAmount || cleanPaid,
+        remainingAmount: primaryRec.paymentType === 'partial' ? primaryRec.remainingAmount : '',
+        receiptProof: primaryRec.receiptProof || (subReceiptProof?.trim() || 'مسجل'),
+        receiptUrl: primaryRec.receiptUrl || subReceiptFileUrl || '',
+        notes: primaryRec.notes || subNotes?.trim() || '',
+        month: primaryRec.month || currentMonthKey,
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
         savedByUid: currentUser?.uid || 'admin',
         savedAt: uploadIso
@@ -5774,17 +5866,29 @@ const Dashboard = () => {
       }
       await Promise.all(promises);
 
-      // Clear input fields so the form is clean and ready for the next entry
+      // Clear all input fields so the form is clean and empty
+      setSubStartDate('');
+      setSubEndDate('');
+      setSubServiceType('باقة سنوية');
+      setSubServiceCategory('توصيات سعودي');
+      setSubPaymentType('full');
+      setSubAgreedPercentage('');
       setSubPaidAmount('');
       setSubRemainingAmount('');
       setSubReceiptProof('');
       setSubReceiptFileUrl('');
       setSubNotes('');
+      setEditingReceiptId(null);
       setIsAddingNewReceipt(false);
+
+      // Update state
       setSubPaymentHistory(updatedHistory);
       setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory }));
 
-      toast.success('تم حفظ وتأكيد بيانات الاشتراك ورفع الإشعار بنجاح 💾✨');
+      // Close modal immediately upon saving
+      setIsSubscriptionModalOpen(false);
+
+      toast.success(editingReceiptId ? 'تم حفظ التعديلات وإغلاق النافذة بنجاح 💾✨' : 'تم حفظ بيانات الاشتراك وإغلاق النافذة بنجاح 💾✨');
     } catch (err) {
       console.error('Error saving subscription details:', err);
       toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك');
@@ -10149,10 +10253,8 @@ const Dashboard = () => {
                                           💵 {monthPaidTotal.toLocaleString()} ريال
                                         </span>
                                         <div className="text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1">
-                                          <span>({monthReceiptsCount} إشعار / دفعة)</span>
-                                          <span>•</span>
-                                          <span className="text-gray-600 font-semibold">
-                                            {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'}` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
+                                          <span className={sub.paymentType === 'partial' ? "text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold" : "text-emerald-700 font-semibold"}>
+                                            {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'} ريال` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
                                           </span>
                                         </div>
                                       </div>
@@ -10162,12 +10264,7 @@ const Dashboard = () => {
                                 <td className="p-3.5 text-center">
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                     {/* Glassmorphic Subscription Details Button */}
-                                    {/* Multiple Receipts History Badge */}
-                                    {customer.subscriptionHistory?.length > 1 && (
-                                      <span className="bg-cyan-100 text-cyan-800 border border-cyan-300 font-mono font-bold px-2 py-1 rounded-xl text-[10px]" title="عدد الدفعات والإشعارات المسجلة للعميل">
-                                        🧾 {customer.subscriptionHistory.length} دفعات
-                                      </span>
-                                    )}
+{/* Multiple Receipts History Badge Hidden */}
 
                                     <button 
                                       onClick={() => openSubscriptionModal(customer)}
@@ -14487,19 +14584,44 @@ const Dashboard = () => {
               </div>
 
               {/* Modal Body / Form */}
-              <form onSubmit={handleSaveSubscriptionDetails} className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <form ref={modalFormRef} onSubmit={handleSaveSubscriptionDetails} className="flex-1 overflow-y-auto space-y-4 pr-1">
+                <div ref={modalTopRef} />
+
+                {/* Edit Mode Alert Banner */}
+                {editingReceiptId && (
+                  <div className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-2 border-amber-500/80 rounded-2xl p-3.5 text-xs text-amber-200 shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl animate-bounce">✏️</span>
+                      <div>
+                        <span className="font-black text-amber-300 text-sm block">أنت الآن في وضع تعديل بيانات الدفعة / الإشعار</span>
+                        <span className="text-[11px] text-gray-300">قم بتعديل الخانات بالأعلى، أو مسح واستبدال الإشعار، ثم اضغط حفظ التعديل ليتم الحفظ والإغلاق.</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCancelEditPaymentRecord}
+                      className="bg-slate-800 hover:bg-slate-700 text-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-600 transition shrink-0 cursor-pointer"
+                    >
+                      إلغاء التعديل ✕
+                    </button>
+                  </div>
+                )}
+
                 {/* Required Alert Banner */}
                 <div className="bg-emerald-950/60 border border-emerald-500/30 rounded-2xl p-3 text-xs text-emerald-200 shadow-inner flex items-center gap-2">
                   <span className="text-base">📌</span>
                   <span>
-                    يرجى تعبئة بيانات الباقة وإشعار التحويل. علامة (<span className="text-rose-400 font-bold">*</span>) تعني حقل إجباري.
+                    يرجى تعبئة بيانات الباقة وإشعار التحويل والمبلغ. علامة (<span className="text-rose-400 font-bold">*</span>) تعني حقل إجباري.
                   </span>
                 </div>
 
                 {/* 1. Package Type, Service Category & Payment Type */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">📦 نوع الباقة</label>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5 flex items-center gap-1">
+                      <span>📦 نوع الباقة</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
                     <select
                       value={subServiceType}
                       onChange={(e) => {
@@ -14522,7 +14644,10 @@ const Dashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">🎯 تصنيف / نوع الخدمة</label>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5 flex items-center gap-1">
+                      <span>🎯 تصنيف / نوع الخدمة</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
                     <select
                       value={subServiceCategory}
                       onChange={(e) => setSubServiceCategory(e.target.value)}
@@ -14540,7 +14665,10 @@ const Dashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">💳 نوع الدفع</label>
+                    <label className="block text-xs font-bold text-slate-200 mb-1.5 flex items-center gap-1">
+                      <span>💳 نوع الدفع</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
                     <select
                       value={subPaymentType}
                       onChange={(e) => setSubPaymentType(e.target.value)}
@@ -14615,47 +14743,103 @@ const Dashboard = () => {
                 {/* 3. Amounts (Paid & Remaining) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-200 mb-1.5">المبلغ المدفوع</label>
+                    <label className="block text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1">
+                      <span>💵 المبلغ المدفوع</span>
+                      <span className="text-rose-400 font-black">*</span>
+                    </label>
                     <input 
                       type="text"
-                      placeholder="ريال"
+                      required
+                      placeholder="المبلغ بالريال *"
                       value={subPaidAmount}
                       onChange={(e) => setSubPaidAmount(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                      className="w-full px-3 py-2 bg-slate-950 border border-emerald-500/50 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 font-mono"
                     />
                   </div>
 
                   {subPaymentType === 'partial' && (
                     <div>
-                      <label className="block text-xs font-bold text-amber-300 mb-1.5">المبلغ المتبقي</label>
+                      <label className="block text-xs font-bold text-amber-300 mb-1.5 flex items-center gap-1">
+                        <span>⏳ المبلغ المتبقي</span>
+                        <span className="text-rose-400 font-black">*</span>
+                      </label>
                       <input 
                         type="text"
-                        placeholder="ريال"
+                        required
+                        placeholder="المبلغ المتبقي بالريال *"
                         value={subRemainingAmount}
                         onChange={(e) => setSubRemainingAmount(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-950 border border-amber-500/50 rounded-xl text-xs font-bold text-amber-200 outline-none focus:border-amber-400"
+                        className="w-full px-3 py-2 bg-slate-950 border border-amber-500/50 rounded-xl text-xs font-bold text-amber-200 outline-none focus:border-amber-400 font-mono"
                       />
                     </div>
                   )}
                 </div>
 
-                {/* 4. Transfer Receipt / Proof - Required */}
-                {((!subPaymentHistory || subPaymentHistory.length === 0) || isAddingNewReceipt) && (
-                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3 animate-fadeIn">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                        <span>📁 رفع صورة إشعار التحويل / الإيصال:</span>
-                        {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم اختيار صورة الإشعار</span>}
-                      </label>
+                {/* 4. Transfer Receipt / Proof - Required with Delete & Re-upload Support */}
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 space-y-3 animate-fadeIn">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span>📁 صورة إشعار التحويل / الإيصال</span>
+                        <span className="text-rose-400 font-black">*</span>
+                      </span>
+                      {subReceiptFileUrl && <span className="text-emerald-400 font-bold text-[10px]">✓ تم إرفاق الإشعار</span>}
+                    </label>
+
+                    {subReceiptFileUrl ? (
+                      <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-emerald-500/40 gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {subReceiptFileUrl.startsWith('data:application/pdf') ? (
+                            <div className="w-12 h-12 rounded-lg bg-rose-950/80 border border-rose-500/50 flex items-center justify-center text-rose-300 font-mono text-xs font-bold shrink-0">
+                              PDF 📄
+                            </div>
+                          ) : (
+                            <img 
+                              src={subReceiptFileUrl} 
+                              alt="Receipt preview" 
+                              className="w-12 h-12 object-cover rounded-lg border-2 border-emerald-400/80 cursor-pointer hover:scale-105 transition shrink-0 bg-black"
+                              onClick={() => setLightboxImage({ url: subReceiptFileUrl, title: 'معاينة إشعار التحويل' })}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <span className="text-xs text-emerald-300 font-bold block truncate">✓ الإشعار محمل وجاهز</span>
+                            <span className="text-[10px] text-gray-400">انقر على الزر الأحمر لمسحه واختيار إشعار بديل</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubReceiptFileUrl('');
+                            toast.info('تم مسح الإشعار، يمكنك الآن اختيار ورفع إشعار جديد 📄');
+                          }}
+                          className="bg-rose-950/90 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/60 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                          title="مسح الإشعار الحالي ورفع إشعار جديد"
+                        >
+                          <Trash2 size={13} />
+                          <span>مسح الإشعار واختيار آخر</span>
+                        </button>
+                      </div>
+                    ) : (
                       <input 
                         type="file"
                         accept="image/*,.pdf"
                         onChange={handleReceiptFileUpload}
-                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer border border-slate-700 rounded-xl bg-slate-900 p-1"
                       />
-                    </div>
+                    )}
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">كود أو رقم الإشعار / المرجع (اختياري)</label>
+                    <input 
+                      type="text"
+                      placeholder="مثال: كود العملية أو رقم الحوالة"
+                      value={subReceiptProof}
+                      onChange={(e) => setSubReceiptProof(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
 
                 {/* Previous Payments & Receipts History with Exact Timestamp & Edit/Delete Capabilities */}
                 {subPaymentHistory && subPaymentHistory.length > 0 && (() => {
@@ -14703,79 +14887,11 @@ const Dashboard = () => {
                       {subPaymentHistory.map((item, idx) => {
                         const isEditingThis = editingReceiptId === item.id;
 
-                        if (isEditingThis) {
-                          return (
-                            <div key={item.id || idx} className="p-3.5 bg-slate-900 rounded-2xl border-2 border-amber-500/60 shadow-lg space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-black text-amber-300 flex items-center gap-1">
-                                  <span>✏️ تعديل بيانات الإشعار</span>
-                                  <span className="text-[10px] bg-cyan-900/60 text-cyan-200 px-2 py-0.5 rounded-md font-mono">الشهر المالي الثابت: {item.month}</span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingReceiptId(null)}
-                                  className="text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded-lg bg-slate-800"
-                                >
-                                  إلغاء ✕
-                                </button>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                <div>
-                                  <label className="block text-[11px] font-bold text-slate-300 mb-1">المبلغ المدفوع (ريال)</label>
-                                  <input 
-                                    type="text"
-                                    value={editReceiptPaidAmount}
-                                    onChange={(e) => setEditReceiptPaidAmount(e.target.value)}
-                                    placeholder="مثال: 3662 ريال"
-                                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-amber-400 font-mono"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[11px] font-bold text-slate-300 mb-1">كود الإشعار / المرجع</label>
-                                  <input 
-                                    type="text"
-                                    value={editReceiptProof}
-                                    onChange={(e) => setEditReceiptProof(e.target.value)}
-                                    placeholder="رقم أو كود الإشعار"
-                                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-amber-400"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-1">استبدال صورة الإشعار (اختياري)</label>
-                                <input 
-                                  type="file"
-                                  accept="image/*,.pdf"
-                                  onChange={handleEditReceiptFileUpload}
-                                  className="block w-full text-xs text-slate-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-amber-600 file:text-white hover:file:bg-amber-700 cursor-pointer"
-                                />
-                              </div>
-
-                              <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingReceiptId(null)}
-                                  className="px-3 py-1 rounded-xl text-xs font-bold bg-slate-800 text-gray-300 hover:bg-slate-700"
-                                >
-                                  إلغاء
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={editReceiptSaving}
-                                  onClick={() => handleUpdatePaymentRecord(item.id)}
-                                  className="bg-amber-600 hover:bg-amber-500 text-white font-black px-4 py-1 rounded-xl text-xs shadow transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                >
-                                  <span>{editReceiptSaving ? 'جاري الحفظ...' : 'حفظ التعديل وتحديث الوقت 💾'}</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        }
-
                         return (
-                          <div key={item.id || idx} className="p-3 bg-slate-900/90 rounded-2xl border border-slate-700/60 hover:border-cyan-500/40 transition flex items-center justify-between gap-3 text-xs shadow-sm flex-wrap sm:flex-nowrap">
+                          <div 
+                            key={item.id || idx} 
+                            className={`p-3 bg-slate-900/90 rounded-2xl border transition flex items-center justify-between gap-3 text-xs shadow-sm flex-wrap sm:flex-nowrap ${isEditingThis ? 'border-amber-400 ring-2 ring-amber-400/40 bg-amber-950/30' : 'border-slate-700/60 hover:border-cyan-500/40'}`}
+                          >
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {item.receiptUrl ? (
                                 <img 
@@ -14797,6 +14913,11 @@ const Dashboard = () => {
                                   <span className="text-[10px] bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
                                     الشهر المالي: {item.month || (item.startDate ? item.startDate.slice(0, 7) : '--')}
                                   </span>
+                                  {isEditingThis && (
+                                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/50 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                                      قيد التعديل بالأعلى ✏️
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-[11px] text-gray-300 font-mono flex items-center gap-2 flex-wrap">
                                   <span className="text-emerald-400 font-black">💵 المبلغ: {parseFloat((item.paidAmount || '0').replace(/[^0-9.]/g, '')).toLocaleString()} ريال</span>
@@ -14825,14 +14946,9 @@ const Dashboard = () => {
                               )}
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEditingReceiptId(item.id);
-                                  setEditReceiptPaidAmount(item.paidAmount || '');
-                                  setEditReceiptProof(item.receiptProof || '');
-                                  setEditReceiptFileUrl(item.receiptUrl || '');
-                                }}
-                                className="text-amber-300 hover:text-white bg-amber-950/80 hover:bg-amber-600 border border-amber-500/40 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
-                                title="تعديل المبلغ أو صورة الإشعار"
+                                onClick={() => handleStartEditPaymentRecord(item)}
+                                className="text-amber-300 hover:text-white bg-amber-950/80 hover:bg-amber-600 border border-amber-500/40 px-2.5 py-1 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 shadow-sm flex items-center gap-1"
+                                title="تعديل هذه الدفعة والصعود للنموذج بالأعلى"
                               >
                                 ✏️ تعديل
                               </button>
@@ -14880,10 +14996,10 @@ const Dashboard = () => {
                   <button
                     type="submit"
                     disabled={subSaving}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-2 px-6 rounded-xl transition flex items-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
+                    className={`py-2 px-6 rounded-xl text-xs font-black text-white shadow-lg transition flex items-center gap-2 cursor-pointer disabled:opacity-50 ${editingReceiptId ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-[0_4px_15px_rgba(245,158,11,0.4)]' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-[0_4px_15px_rgba(16,185,129,0.4)]'}`}
                   >
                     <Save size={15} />
-                    <span>{subSaving ? 'جاري الحفظ...' : 'حفظ وتأكيد بيانات الاشتراك 💾'}</span>
+                    <span>{subSaving ? 'جاري الحفظ...' : (editingReceiptId ? 'حفظ التعديل وإغلاق النافذة 💾' : 'حفظ بيانات الاشتراك وإغلاق النافذة 💾')}</span>
                   </button>
                 </div>
               </form>
