@@ -503,9 +503,9 @@ const Dashboard = () => {
   const [selectedSubCustomer, setSelectedSubCustomer] = useState(null);
   const [subStartDate, setSubStartDate] = useState('');
   const [subEndDate, setSubEndDate] = useState('');
-  const [subServiceType, setSubServiceType] = useState('باقة سنوية');
-  const [subServiceCategory, setSubServiceCategory] = useState('توصيات سعودي');
-  const [subAgreedPercentage, setSubAgreedPercentage] = useState('20%');
+  const [subServiceType, setSubServiceType] = useState('');
+  const [subServiceCategory, setSubServiceCategory] = useState('');
+  const [subAgreedPercentage, setSubAgreedPercentage] = useState('');
   const [subMonthFilter, setSubMonthFilter] = useState('all');
   const [subPaymentHistory, setSubPaymentHistory] = useState([]);
   const [lightboxImage, setLightboxImage] = useState(null);
@@ -513,7 +513,7 @@ const Dashboard = () => {
 
 
 
-  const [subPaymentType, setSubPaymentType] = useState('full'); // 'full', 'percentage', 'partial'
+  const [subPaymentType, setSubPaymentType] = useState(''); // 'full', 'percentage', 'partial'
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
   const [subReceiptProof, setSubReceiptProof] = useState('');
@@ -5497,19 +5497,19 @@ const Dashboard = () => {
 
   const openSubscriptionModal = (customer) => {
     setSelectedSubCustomer(customer);
-    const details = customer.subscriptionDetails || {};
     const history = customer.subscriptionHistory || [];
-    setSubStartDate(details.startDate || new Date().toISOString().slice(0, 10));
-    setSubEndDate(details.endDate || '');
-    setSubServiceType(details.serviceType || 'باقة سنوية');
-    setSubServiceCategory(details.serviceCategory || 'توصيات سعودي');
-    setSubPaymentType(details.paymentType || 'full');
-    setSubAgreedPercentage(details.agreedPercentage || '');
-    setSubPaidAmount(history.length > 0 ? '' : (details.paidAmount || ''));
-    setSubRemainingAmount(details.remainingAmount || '');
-    setSubReceiptProof(history.length > 0 ? '' : (details.receiptProof || ''));
-    setSubReceiptFileUrl(history.length > 0 ? '' : (details.receiptUrl || ''));
-    setSubNotes(details.notes || '');
+    // Reset all subscription fields to empty by default (only filled on edit or when user adds new data)
+    setSubStartDate('');
+    setSubEndDate('');
+    setSubServiceType('');
+    setSubServiceCategory('');
+    setSubPaymentType('');
+    setSubAgreedPercentage('');
+    setSubPaidAmount('');
+    setSubRemainingAmount('');
+    setSubReceiptProof('');
+    setSubReceiptFileUrl('');
+    setSubNotes('');
     setSubPaymentHistory(history);
     setIsAddingNewReceipt(false);
     setEditingReceiptId(null);
@@ -5642,12 +5642,18 @@ const Dashboard = () => {
 
   const handleCancelEditPaymentRecord = () => {
     setEditingReceiptId(null);
+    setSubStartDate('');
+    setSubEndDate('');
+    setSubServiceType('');
+    setSubServiceCategory('');
+    setSubPaymentType('');
+    setSubAgreedPercentage('');
     setSubPaidAmount('');
     setSubRemainingAmount('');
     setSubReceiptProof('');
     setSubReceiptFileUrl('');
     setSubNotes('');
-    toast.info('تم إلغاء وضع التعديل');
+    toast.info('تم إلغاء التعديل وتفريغ الخانات');
   };
 
   const handleUpdatePaymentRecord = async (recordId) => {
@@ -5738,6 +5744,10 @@ const Dashboard = () => {
     }
     if (!subServiceCategory) {
       toast.error('يرجى اختيار تصنيف الخدمة (حقل إجباري) ⚠️');
+      return;
+    }
+    if (!subPaymentType) {
+      toast.error('يرجى اختيار نوع الدفع (حقل إجباري) ⚠️');
       return;
     }
     if (!subStartDate) {
@@ -5869,9 +5879,9 @@ const Dashboard = () => {
       // Clear all input fields so the form is clean and empty
       setSubStartDate('');
       setSubEndDate('');
-      setSubServiceType('باقة سنوية');
-      setSubServiceCategory('توصيات سعودي');
-      setSubPaymentType('full');
+      setSubServiceType('');
+      setSubServiceCategory('');
+      setSubPaymentType('');
       setSubAgreedPercentage('');
       setSubPaidAmount('');
       setSubRemainingAmount('');
@@ -10229,30 +10239,17 @@ const Dashboard = () => {
                                       }
                                     }
 
-                                    // Customer Service: Hide total sales/collected amounts; show only the remaining amount status
-                                    if (isCustomerService) {
-                                      return (
-                                        <div className="space-y-1">
-                                          {sub.paymentType === 'partial' ? (
-                                            <span className="bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
-                                              ⏳ متبقي: {sub.remainingAmount || '0'} ريال
-                                            </span>
-                                          ) : (
-                                            <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
-                                              {sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? '💼 اتفاق نسبة' : '✓ دفع كامل'}
-                                            </span>
-                                          )}
-                                        </div>
-                                      );
-                                    }
-
-                                    // Admin, Leader, and Agent (Agent sees his own clients, Leader sees his own + team)
+                                    // Display payment details & receipts count for all roles according to each employee's sheet (Customer Service matches Admin)
                                     return (
                                       <div className="space-y-1">
                                         <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-1 rounded-full text-xs font-black block shadow-xs font-mono">
                                           💵 {monthPaidTotal.toLocaleString()} ريال
                                         </span>
                                         <div className="text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1">
+                                          <span className="text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded-full border border-cyan-200 font-bold font-mono">
+                                            {monthReceiptsCount} {monthReceiptsCount === 1 ? 'دفعة' : 'دفعات'}
+                                          </span>
+                                          <span>•</span>
                                           <span className={sub.paymentType === 'partial' ? "text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold" : "text-emerald-700 font-semibold"}>
                                             {sub.paymentType === 'partial' ? `متبقي: ${sub.remainingAmount || '0'} ريال` : (sub.paymentType === 'percentage' || sub.serviceType === 'اتفاق نسبة' ? 'نسبة' : 'دفع كامل')}
                                           </span>
@@ -10294,17 +10291,7 @@ const Dashboard = () => {
                                       )}
                                     </button>
 
-                                    {/* Direct Call Button in Actions */}
-                                    {customer.phoneNumber && !isCoordinator && (isAdmin || isCustomerService || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
-                                      <button 
-                                        onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber, customer); }}
-                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_4px_14px_rgba(37,99,235,0.6)] active:scale-95 cursor-pointer border border-blue-300/40 whitespace-nowrap"
-                                        title="اتصال مباشر عبر MicroSIP 📞"
-                                      >
-                                        <PhoneCall size={13} className="drop-shadow-sm" />
-                                        <span className="text-[11px] font-black">Call</span>
-                                      </button>
-                                    )}
+{/* Direct Call in Actions removed as requested - calling available via phone number column */}
 
                                     {/* WhatsApp Action Button */}
                                     {!isCoordinator && (isAdmin || isCustomerService || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
@@ -14636,6 +14623,7 @@ const Dashboard = () => {
                       }}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
                     >
+                      <option value="">-- اختر نوع الباقة --</option>
                       <option value="باقة سنوية">باقة سنوية</option>
                       <option value="باقة نصف سنوية">باقة نصف سنوية</option>
                       <option value="باقة ربع سنوية">باقة ربع سنوية</option>
@@ -14653,6 +14641,7 @@ const Dashboard = () => {
                       onChange={(e) => setSubServiceCategory(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
                     >
+                      <option value="">-- اختر نوع / تصنيف الخدمة --</option>
                       <option value="توصيات سعودي">توصيات سعودي</option>
                       <option value="توصيات أمريكي">توصيات أمريكي</option>
                       <option value="إدارة محافظ سعودي">إدارة محافظ سعودي</option>
@@ -14674,6 +14663,7 @@ const Dashboard = () => {
                       onChange={(e) => setSubPaymentType(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
                     >
+                      <option value="">-- اختر نوع الدفع --</option>
                       <option value="full">كامل (Full Payment)</option>
                       <option value="percentage">نسبة (Percentage)</option>
                       <option value="partial">جزء وباقي جزء (Installment / Partial)</option>
