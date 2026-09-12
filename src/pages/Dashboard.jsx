@@ -9391,7 +9391,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           <div className="space-y-4 mb-6 md:mb-8">
             {/* 1. Upper Section: Sheets & Client Databases (6 Cards) */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              /* Card 1: Dedicated Leads CRM */
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9406,8 +9405,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-
-              /* Card 2: Employee Added Data */
               {hasPermission(currentEmpUser, 'show_card_team_leads') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9440,8 +9437,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-              
-              /* Card 5: Pending Customers (All Sources) */
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsPendingClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9458,8 +9453,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-
-              /* Card 6: Website WhatsApp Leads */
               {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9476,8 +9469,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-
-              /* Card 7: Visitors (عملاء الزوار والموقع) */
               {hasPermission(currentEmpUser, 'show_card_visitors_otp') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9498,18 +9489,25 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
             </div>
 
-            {/* Section Divider: Performance & Analytics */}
-            <div className="flex items-center gap-2 pt-2">
-              <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
-                <BarChart3 size={15} className="text-cyan-400" />
-                <span>📊 تحليلات ومؤشرات الأداء</span>
-              </span>
-              <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
-            </div>
+            {/* Section Divider: Performance & Analytics & Services */}
+            {(hasPermission(currentEmpUser, 'show_card_leads_analysis') ||
+              hasPermission(currentEmpUser, 'show_card_calls_analytics') ||
+              hasPermission(currentEmpUser, 'show_card_marketing_analytics') ||
+              hasPermission(currentEmpUser, 'show_card_buffet') ||
+              hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+              hasPermission(currentEmpUser, 'show_card_us_stocks') ||
+              hasPermission(currentEmpUser, 'show_card_attendance_payroll')) && (
+              <>
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                    <BarChart3 size={15} className="text-cyan-400" />
+                    <span>📊 تحليلات ومؤشرات الأداء والخدمات</span>
+                  </span>
+                  <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
+                </div>
 
-            {/* 2. Lower Section: Performance Analytics & Buffet (4 Cards) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              /* Card 8: Leads CRM Analysis */
+                {/* 2. Lower Section: Performance Analytics & Services (Cards auto-align side by side) */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9528,8 +9526,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-
-              /* Card 9: Call Performance Analytics */
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9548,8 +9544,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
               )}
-
-              /* Card 10: Campaign Performance (أداء الحملات) */
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9633,6 +9627,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
         ) : isLeader ? (
           /* Leader Dashboard Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
@@ -9644,7 +9640,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="space-y-4 mb-6">
                 {/* 1. Upper Section: Sheets & Team Data (5 Cards) */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
-                  /* Leader Card 1: Leads CRM (Personal Leads) */
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9662,8 +9657,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 2: Employee Added Data */
               {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9681,8 +9674,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 3: Leader Team CRM Data (Positioned 3rd card from right) */
               {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9705,8 +9696,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 4: Subscribed Clients */
               {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9726,8 +9715,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 5: Website WhatsApp Leads */
               {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9748,17 +9735,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 {/* Section Divider: Performance & Analytics */}
-                <div className="flex items-center gap-2 pt-2">
-                  <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
-                    <BarChart3 size={15} className="text-cyan-400" />
-                    <span>📊 تحليلات ومؤشرات الأداء</span>
-                  </span>
-                  <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
-                </div>
+                {(hasPermission(currentEmpUser, 'show_card_leads_analysis') ||
+                  hasPermission(currentEmpUser, 'show_card_calls_analytics') ||
+                  hasPermission(currentEmpUser, 'show_card_marketing_analytics')) && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                        <BarChart3 size={15} className="text-cyan-400" />
+                        <span>📊 تحليلات ومؤشرات الأداء</span>
+                      </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
+                    </div>
 
-                {/* 2. Lower Section: Performance Analytics (3 Cards) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                  /* Leader Card 6: Leads CRM Analysis */
+                    {/* 2. Lower Section: Performance Analytics (3 Cards auto-align side by side) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9779,8 +9769,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 7: Call Performance Analytics */
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9799,8 +9787,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Leader Card 8: Campaign Performance (أداء الحملات) */
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9820,6 +9806,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
               )}
                 </div>
+                  </>
+                )}
               </div>
             );
           })()
@@ -9847,7 +9835,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    /* CS Card 1: Leads CRM */
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9865,8 +9852,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 2: Employee Added Data */
               {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9884,8 +9869,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 3: Website WhatsApp Leads */
               {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9919,7 +9902,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    /* CS Card 4: Personal Leads Analysis */
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9940,8 +9922,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 5: Personal Call Performance */
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9962,8 +9942,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 6: Personal Marketing Analytics */
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -9987,6 +9965,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 {/* --------------------------------------------------------------------- */}
                 {/* LEVEL 3: كارت العملاء المشتركين + توصيات السوق السعودي والأمريكي (3 Cards) */}
                 {/* --------------------------------------------------------------------- */}
+                {(hasPermission(currentEmpUser, 'show_card_subscribed_clients') ||
+                  hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+                  hasPermission(currentEmpUser, 'show_card_us_stocks')) && (
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
@@ -9997,7 +9978,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    /* CS Card 7: Subscribed Clients (العملاء المشتركون) */
               {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10017,8 +9997,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 8: Saudi Market Recommendations */
               {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10041,8 +10019,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 9: US Market Recommendations */
               {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10067,6 +10043,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
                   </div>
                 </div>
+                )}
 
                 {/* --------------------------------------------------------------------- */}
                 {/* LEVEL 4: كروت متابعة الموظفين - الصف الأخير (Staff Monitoring - 3 Cards) */}
@@ -10081,7 +10058,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                    /* CS Card 10: All Staff Leads CRM Analysis */
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10102,8 +10078,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 11: All Staff Call Performance Analysis */
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
                       onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10124,8 +10098,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-
-                    /* CS Card 12: All Staff Marketing Analytics */
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10160,7 +10132,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="space-y-4 mb-6">
                 {/* 1. Upper Section: Sheets & Personal Leads Data (4 Cards) */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-                  /* Agent Card 1: Leads CRM */
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10178,8 +10149,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Agent Card 2: Employee Added Data */
               {hasPermission(currentEmpUser, 'show_card_team_leads') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10197,8 +10166,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Agent Card 3: Subscribed Clients */
               {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10218,8 +10185,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Agent Card 4: Website WhatsApp Leads */
               {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10250,7 +10215,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* 2. Lower Section: Performance Analytics (3 Cards) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-                  /* Agent Card 5: Leads CRM Analysis */
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10271,8 +10235,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Agent Card 6: Call Performance Analytics */
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
                     onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10293,8 +10255,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   </div>
               )}
-
-                  /* Agent Card 7: Campaign Performance (أداء الحملات) */
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
