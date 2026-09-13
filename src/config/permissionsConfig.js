@@ -8,7 +8,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Saudi Stock Recommendations',
     icon: 'TrendingUp',
     description: 'كارت وجدول تحليل وتوصيات وأهداف أسهم السوق السعودي',
-    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: true },
     subPermissions: [
       {
         id: 'canViewSaudiStocks',
@@ -16,7 +16,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'إمكانية فتح الشيت واستعراض التوصيات والأسهم ونسب الإنجاز.',
         riskLevel: 'low',
         riskLabel: 'عادي',
-        defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false }
+        defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: true }
       },
       {
         id: 'canAddSaudiStocks',
@@ -59,7 +59,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'US Stocks & Options Signals',
     icon: 'TrendingUp',
     description: 'كارت وجدول تحليل وتوصيات أسهم وعقود السوق الأمريكي',
-    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: true },
     subPermissions: [
       {
         id: 'canViewUsStocks',
@@ -220,7 +220,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Master Leads Database',
     icon: 'Users',
     description: 'الشيت الرئيسي الشامل لجميع عملاء المنظومة (15,000+ عميل)',
-    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewAllCrm',
@@ -311,7 +311,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Team & Employee Leads',
     icon: 'Briefcase',
     description: 'كارت عملاء فريق العمل المضافين والمخصصين لأعضاء الفريق والليدر',
-    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewTeamLeads',
@@ -338,7 +338,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Paid Active Subscribers',
     icon: 'Award',
     description: 'كارت شيت العملاء المشتركين الفعليين بالباقات والخدمات المدفوعة',
-    defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: true },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewSubscribedClients',
@@ -346,7 +346,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'الاطلاع على العملاء المشتركين وباقاتهم وتواريخ التجديد.',
         riskLevel: 'medium',
         riskLabel: 'متوسط',
-        defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: true }
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       },
       {
         id: 'canEditSubscribedClients',
@@ -400,7 +400,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Direct Website WhatsApp Leads',
     icon: 'MessageSquare',
     description: 'كارت العملاء القادمين عبر زر الواتساب المباشر من صفحات الموقع',
-    defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: true },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewWebsiteWhatsappData',
@@ -408,7 +408,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'الاطلاع على الأرقام والرسائل الواردة من موقع اتجاه.',
         riskLevel: 'low',
         riskLabel: 'عادي',
-        defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: true }
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       }
     ]
   },
@@ -521,7 +521,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Conversion & Leaderboard Analytics',
     icon: 'BarChart3',
     description: 'كارت تحليلات معدلات الإغلاق، تقرير فرق العمل والليدرز، وديمو اليوم',
-    defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewPerformanceAnalytics',
@@ -529,7 +529,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'إظهار الكروت البيانية لمعدلات الإغلاق وكفاءة المبيعات وتوزيع الحالات.',
         riskLevel: 'medium',
         riskLabel: 'متوسط',
-        defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: false }
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       },
       {
         id: 'canViewLeadersTeamReport',
@@ -556,7 +556,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Call Duration & Outcomes Analytics',
     icon: 'PhoneCall',
     description: 'كارت تحليلات مدد ونتائج المكالمات ومعدلات الرد والتواصل اليومية',
-    defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewCallsAnalytics',
@@ -564,7 +564,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'إظهار الرسوم البيانية لأوقات الذروة ومتوسط مدة المكالمة ومعدل الإغلاق.',
         riskLevel: 'medium',
         riskLabel: 'متوسط',
-        defaultByRole: { admin: true, coordinator: true, leader: true, agent: false, customer_service: false }
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       }
     ]
   },
@@ -575,7 +575,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
     subtitle: 'Campaign Performance & ROI',
     icon: 'PieChart',
     description: 'كارت مؤشرات الحملات الإعلانية ومصادر العملاء وتفاعل الرسائل',
-    defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false },
+    defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true },
     subPermissions: [
       {
         id: 'canViewMarketingAnalytics',
@@ -583,7 +583,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         description: 'تحليل تكلفة العميل، مصادر التدفق، ونسب التحويل من الحملات.',
         riskLevel: 'medium',
         riskLabel: 'متوسط',
-        defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false }
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       }
     ]
   },
