@@ -6643,31 +6643,34 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const parseSaudiWhatsAppText = (text) => {
     if (!text) return {};
+    // Normalize Arabic-Indic digits to ASCII numbers & normalize commas/dots
+    let norm = String(text).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.');
     const res = {};
     
-    // Stock Code
-    const codeMatch = text.match(/الرمز\s*\(?(\d{4})\)?/i) || 
-                      text.match(/كود\s*\(?(\d{4})\)?/i) || 
-                      text.match(/\((\d{4})\)/) || 
-                      text.match(/\b(\d{4})\b/);
+    // 1. Stock Code
+    const codeMatch = norm.match(/الرمز\s*\(?(\d{4})\)?/i) || 
+                      norm.match(/كود\s*\(?(\d{4})\)?/i) || 
+                      norm.match(/\((\d{4})\)/) || 
+                      norm.match(/\b(\d{4})\b/);
     if (codeMatch) {
       res.stockCode = codeMatch[1].trim();
     }
 
-    // Stock Name
-    const nameCodeMatch = text.match(/([^\n\d\(\)]+)\s*\((\d{4})\)/) || text.match(/\(?(\d{4})\)?\s*([^\n\d\(\)]+)/);
+    // 2. Stock Name
+    const nameCodeMatch = norm.match(/([^\n\d\(\)]+)\s*\((\d{4})\)/) || norm.match(/\(?(\d{4})\)?\s*([^\n\d\(\)]+)/);
     if (nameCodeMatch) {
-      if (/^\d{4}$/.test(nameCodeMatch[1].trim())) {
+      const candidate = nameCodeMatch[1].trim();
+      if (/^\d{4}$/.test(candidate)) {
         res.stockName = nameCodeMatch[2].trim();
       } else {
-        res.stockName = nameCodeMatch[1].trim();
+        res.stockName = candidate;
       }
     } else {
-      const nameMatch = text.match(/سهم\s*([^\n\d\(\)]+)/i) || text.match(/اسم\s*السهم\s*[:=]?\s*([^\n\d\(\)]+)/i);
+      const nameMatch = norm.match(/سهم\s*([^\n\d\(\)]+)/i) || norm.match(/اسم\s*السهم\s*[:=]?\s*([^\n\d\(\)]+)/i);
       if (nameMatch) res.stockName = nameMatch[1].trim();
     }
 
-    if (res.stockCode && !res.stockName) {
+    if (res.stockCode && (!res.stockName || res.stockName === 'الرمز')) {
       const knownSaudiStocks = {
         '1120': 'الراجحي',
         '2222': 'أرامكو',
@@ -6681,27 +6684,40 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
     }
 
-    // Supports
-    const sup1Match = text.match(/دعم\s*1?\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/دعم\s*أول\s*[≈:=]?\s*([\d\.]+)/i);
+    // 3. Supports (دعم 1 الأساسي / سعر الدخول / الشراء / Buy)
+    const sup1Match = norm.match(/(?:دعم\s*1|دعم\s*أول|الدعم\s*الأول|الدعم|دعم|دخول|سعر\s*الدخول|سعر\s*الشراء|شراء|نقطة\s*الشراء|Buy(?:\s*at)?)\s*[≈:=]?\s*([\d\.]+)/i);
     if (sup1Match) res.support1 = sup1Match[1];
-    const sup2Match = text.match(/دعم\s*2\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/دعم\s*ثان[يى]\s*[≈:=]?\s*([\d\.]+)/i);
+
+    const sup2Match = norm.match(/(?:دعم\s*2|دعم\s*ثان[يى]|الدعم\s*الثاني)\s*[≈:=]?\s*([\d\.]+)/i);
     if (sup2Match) res.support2 = sup2Match[1];
 
-    // Resistances
-    const res1Match = text.match(/مقاومة\s*1\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*أول[ىي]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*1\s*[≈:=]?\s*([\d\.]+)/i);
+    // 4. Resistances / Targets (مقاومات / أهداف)
+    const res1Match = norm.match(/(?:مقاومة\s*1|مقاومة\s*أول[ىي]|المقاومة\s*الأولى|هدف\s*1|الهدف\s*الأول|الهدف\s*1|Target\s*1|T1)\s*[≈:=]?\s*([\d\.]+)/i);
     if (res1Match) res.resistance1 = res1Match[1];
-    const res2Match = text.match(/مقاومة\s*2\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*ثاني[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*2\s*[≈:=]?\s*([\d\.]+)/i);
+
+    const res2Match = norm.match(/(?:مقاومة\s*2|مقاومة\s*ثاني[ةه]|المقاومة\s*الثانية|هدف\s*2|الهدف\s*الثاني|الهدف\s*2|Target\s*2|T2)\s*[≈:=]?\s*([\d\.]+)/i);
     if (res2Match) res.resistance2 = res2Match[1];
-    const res3Match = text.match(/مقاومة\s*3\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*ثالث[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*3\s*[≈:=]?\s*([\d\.]+)/i);
+
+    const res3Match = norm.match(/(?:مقاومة\s*3|مقاومة\s*ثالث[ةه]|المقاومة\s*الثالثة|هدف\s*3|الهدف\s*الثالث|الهدف\s*3|Target\s*3|T3)\s*[≈:=]?\s*([\d\.]+)/i);
     if (res3Match) res.resistance3 = res3Match[1];
-    const res4Match = text.match(/مقاومة\s*4\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*رابع[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*4\s*[≈:=]?\s*([\d\.]+)/i);
+
+    const res4Match = norm.match(/(?:مقاومة\s*4|مقاومة\s*رابع[ةه]|المقاومة\s*الرابعة|هدف\s*4|الهدف\s*الرابع|الهدف\s*4|Target\s*4|T4)\s*[≈:=]?\s*([\d\.]+)/i);
     if (res4Match) res.resistance4 = res4Match[1];
 
-    // Stop Loss
-    const slMatch = text.match(/كسر\s*الدعم\s*تحت\s*\(?([\d\.]+)\)?/i) || 
-                    text.match(/وقف\s*الخسارة\s*[≈:=]?\s*([\d\.]+)/i) || 
-                    text.match(/إيقاف\s*الخسارة\s*[≈:=]?\s*([\d\.]+)/i) || 
-                    text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/i);
+    // Check list pattern like "الأهداف: 52.80 - 54.00 - 56.00 - 60.00" or "المقاومات: 52.80 / 54"
+    const targetsListMatch = norm.match(/(?:الأهداف|الاهداف|أهداف|اهداف|المقاومات|مقاومات|Targets|Target)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
+    if (targetsListMatch) {
+      const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
+      if (numbers && numbers.length > 0) {
+        if (!res.resistance1 && numbers[0]) res.resistance1 = numbers[0];
+        if (!res.resistance2 && numbers[1]) res.resistance2 = numbers[1];
+        if (!res.resistance3 && numbers[2]) res.resistance3 = numbers[2];
+        if (!res.resistance4 && numbers[3]) res.resistance4 = numbers[3];
+      }
+    }
+
+    // 5. Stop Loss (إيقاف الخسارة / الوقف / كسر الدعم تحت)
+    const slMatch = norm.match(/(?:كسر\s*الدعم\s*تحت|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف|Stop\s*Loss|SL)\s*[≈:=]?\s*\(?([\d\.]+)\)?/i);
     if (slMatch) res.stopLoss = slMatch[1];
 
     return res;
@@ -6709,37 +6725,43 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const parseUsWhatsAppText = (text) => {
     if (!text) return {};
+    let norm = String(text).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.');
     const res = {};
     
     // Symbol
-    const symMatch = text.match(/\b([A-Z]{1,5})\b/) || text.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i);
+    const symMatch = norm.match(/\b([A-Z]{1,5})\b/) || norm.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i);
     if (symMatch && !['BUY', 'SELL', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT'].includes(symMatch[1].toUpperCase())) {
       res.symbol = symMatch[1].toUpperCase();
     } else {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const lines = norm.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length > 0 && /^[A-Za-z]{1,5}$/.test(lines[0])) {
         res.symbol = lines[0].toUpperCase();
       }
     }
 
     // Buy Price
-    const buyMatch = text.match(/Buy\s*at\s*[:=]?\s*([\d\.]+)/i) || 
-                     text.match(/Buy\s*[:=]?\s*([\d\.]+)/i) || 
-                     text.match(/دخول\s*[:=]?\s*([\d\.]+)/i) || 
-                     text.match(/شراء\s*[:=]?\s*([\d\.]+)/i);
+    const buyMatch = norm.match(/(?:Buy\s*at|Buy|دخول|شراء|سعر\s*الدخول|سعر\s*الشراء|دعم)\s*[:=≈]?\s*([\d\.]+)/i);
     if (buyMatch) res.buyPrice = buyMatch[1];
 
     // Targets
-    const t1Match = text.match(/\bT1\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*1\s*[:=]?\s*([\d\.]+)/i) || text.match(/\bT\s*[:=]?\s*([\d\.]+)/i);
+    const t1Match = norm.match(/(?:\bT1|Target\s*1|\bT\b|الهدف\s*1|هدف\s*1|الهدف\s*الأول)\s*[:=≈]?\s*([\d\.]+)/i);
     if (t1Match) res.target1 = t1Match[1];
 
-    const t2Match = text.match(/\bT2\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*2\s*[:=]?\s*([\d\.]+)/i);
+    const t2Match = norm.match(/(?:\bT2|Target\s*2|الهدف\s*2|هدف\s*2|الهدف\s*الثاني)\s*[:=≈]?\s*([\d\.]+)/i);
     if (t2Match) res.target2 = t2Match[1];
 
+    // Targets List match
+    const targetsListMatch = norm.match(/(?:Targets|Target|الأهداف|الاهداف|أهداف|اهداف)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
+    if (targetsListMatch) {
+      const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
+      if (numbers && numbers.length > 0) {
+        if (!res.target1 && numbers[0]) res.target1 = numbers[0];
+        if (!res.target2 && numbers[1]) res.target2 = numbers[1];
+      }
+    }
+
     // Stop Loss
-    const slMatch = text.match(/\bSL\s*[:=]?\s*([\d\.]+)/i) || 
-                    text.match(/Stop\s*Loss\s*[:=]?\s*([\d\.]+)/i) || 
-                    text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/i);
+    const slMatch = norm.match(/(?:\bSL\b|Stop\s*Loss|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف)\s*[≈:=]?\s*([\d\.]+)/i);
     if (slMatch) res.stopLoss = slMatch[1];
 
     return res;
@@ -6922,8 +6944,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleSaveSaudiSignal = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const finalCode = saudiStockCode.trim() || '4327';
-    const finalName = saudiStockName.trim() || (saudiStockCode.trim() ? `سهم ${saudiStockCode.trim()}` : 'توصية سعودية جديد');
+    const finalCode = saudiStockCode.trim() || '—';
+    const finalName = saudiStockName.trim() || (saudiStockCode.trim() && saudiStockCode.trim() !== '—' ? `سهم ${saudiStockCode.trim()}` : 'توصية جديدة');
     
     setSaudiSaving(true);
     try {
@@ -20551,7 +20573,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-blue-300 inline-flex items-center gap-2">
-                    <span>{editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي'}</span>
+                    <span>
+                      {editingUsSignal 
+                        ? (usMarketType === 'options' ? 'تعديل توصية عقد (Options) ⚡' : 'تعديل توصية شركة/سهم (Stocks) 📈')
+                        : (usMarketType === 'options' ? 'إضافة توصية عقد جديد للسوق الأمريكي ⚡' : 'إضافة توصية شركة جديدة للسوق الأمريكي 📈')
+                      }
+                    </span>
                     <UsFlagIcon className="w-6 h-6" />
                   </h3>
                   <p className="text-xs text-blue-200/80">
@@ -20560,22 +20587,23 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
-              {/* Market Type Switcher */}
-              <div className="flex items-center justify-center gap-2 mb-4 bg-slate-800/80 p-1.5 rounded-2xl border border-blue-500/30">
-                <button
-                  type="button"
-                  onClick={() => setUsMarketType('stocks')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${usMarketType === 'stocks' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-300 hover:bg-slate-700'}`}
-                >
-                  <span>📈 شركات وأسهم (Stocks)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUsMarketType('options')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${usMarketType === 'options' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:bg-slate-700'}`}
-                >
-                  <span>⚡ عقود شركات (Options)</span>
-                </button>
+              {/* Dedicated Market Type Badge / Switcher */}
+              <div className="mb-4 bg-slate-800/80 p-2.5 rounded-2xl border border-blue-500/30 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-300">القسم المستهدف:</span>
+                  <span className={`px-3 py-1 rounded-xl text-xs font-black shadow-sm ${usMarketType === 'options' ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                    {usMarketType === 'options' ? '⚡ شيت عقود الخيارات (Options)' : '📈 شيت الأسهم والشركات (Stocks)'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setUsMarketType(usMarketType === 'options' ? 'stocks' : 'options')}
+                    className="text-[11px] text-amber-300 hover:text-amber-200 font-bold underline transition bg-slate-900/80 px-2.5 py-1 rounded-lg border border-amber-500/30"
+                  >
+                    {usMarketType === 'options' ? 'التحويل إلى إضافة شركة 📈' : 'التحويل إلى إضافة عقد ⚡'}
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleSaveUsSignal} className="space-y-4">
