@@ -688,6 +688,8 @@ const Dashboard = () => {
   const [saudiNotes, setSaudiNotes] = useState('');
   const [saudiRawTextPaste, setSaudiRawTextPaste] = useState('');
   const [saudiSaving, setSaudiSaving] = useState(false);
+  const [saudiOcrLoading, setSaudiOcrLoading] = useState(false);
+  const [showSaudiManualFields, setShowSaudiManualFields] = useState(false);
 
   // Modal states for US Signal
   const [isUsSignalModalOpen, setIsUsSignalModalOpen] = useState(false);
@@ -703,6 +705,8 @@ const Dashboard = () => {
   const [usNotes, setUsNotes] = useState('');
   const [usRawTextPaste, setUsRawTextPaste] = useState('');
   const [usSaving, setUsSaving] = useState(false);
+  const [usOcrLoading, setUsOcrLoading] = useState(false);
+  const [showUsManualFields, setShowUsManualFields] = useState(false);
   const [mailAttachments, setMailAttachments] = useState([]); // Array of { name, url, type, size }
   const [mailSearchTerm, setMailSearchTerm] = useState('');
   const [mailSending, setMailSending] = useState(false);
@@ -6593,52 +6597,259 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     return null;
   };
 
+  const performOcrOnImage = async (imageSrc) => {
+    try {
+      if (!window.Tesseract) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      if (window.Tesseract) {
+        const result = await window.Tesseract.recognize(imageSrc, 'ara+eng');
+        return result?.data?.text || '';
+      }
+    } catch (err) {
+      console.error('OCR Error:', err);
+    }
+    return '';
+  };
+
   const parseSaudiWhatsAppText = (text) => {
     if (!text) return {};
     const res = {};
+    
+    // Stock Code
+    const codeMatch = text.match(/الرمز\s*\(?(\d{4})\)?/i) || 
+                      text.match(/كود\s*\(?(\d{4})\)?/i) || 
+                      text.match(/\((\d{4})\)/) || 
+                      text.match(/\b(\d{4})\b/);
+    if (codeMatch) {
+      res.stockCode = codeMatch[1].trim();
+    }
+
+    // Stock Name
     const nameCodeMatch = text.match(/([^\n\d\(\)]+)\s*\((\d{4})\)/) || text.match(/\(?(\d{4})\)?\s*([^\n\d\(\)]+)/);
     if (nameCodeMatch) {
       if (/^\d{4}$/.test(nameCodeMatch[1].trim())) {
-        res.stockCode = nameCodeMatch[1].trim();
         res.stockName = nameCodeMatch[2].trim();
       } else {
         res.stockName = nameCodeMatch[1].trim();
-        res.stockCode = nameCodeMatch[2].trim();
+      }
+    } else {
+      const nameMatch = text.match(/سهم\s*([^\n\d\(\)]+)/i) || text.match(/اسم\s*السهم\s*[:=]?\s*([^\n\d\(\)]+)/i);
+      if (nameMatch) res.stockName = nameMatch[1].trim();
+    }
+
+    if (res.stockCode && !res.stockName) {
+      const knownSaudiStocks = {
+        '1120': 'الراجحي',
+        '2222': 'أرامكو',
+        '1180': 'الأهلي',
+        '2010': 'سابك',
+        '7010': 'إس تي سي',
+        '4327': 'الأهلي ريت 1'
+      };
+      if (knownSaudiStocks[res.stockCode]) {
+        res.stockName = knownSaudiStocks[res.stockCode];
       }
     }
-    const sup1Match = text.match(/دعم\s*1\s*[≈:=]\s*([\d\.]+)/) || text.match(/دعم\s*أول\s*[≈:=]\s*([\d\.]+)/);
+
+    // Supports
+    const sup1Match = text.match(/دعم\s*1?\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/دعم\s*أول\s*[≈:=]?\s*([\d\.]+)/i);
     if (sup1Match) res.support1 = sup1Match[1];
-    const sup2Match = text.match(/دعم\s*2\s*[≈:=]\s*([\d\.]+)/) || text.match(/دعم\s*ثان[يى]\s*[≈:=]\s*([\d\.]+)/);
+    const sup2Match = text.match(/دعم\s*2\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/دعم\s*ثان[يى]\s*[≈:=]?\s*([\d\.]+)/i);
     if (sup2Match) res.support2 = sup2Match[1];
-    const res1Match = text.match(/مقاومة\s*1\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*أول[ىي]\s*[≈:=]\s*([\d\.]+)/);
+
+    // Resistances
+    const res1Match = text.match(/مقاومة\s*1\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*أول[ىي]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*1\s*[≈:=]?\s*([\d\.]+)/i);
     if (res1Match) res.resistance1 = res1Match[1];
-    const res2Match = text.match(/مقاومة\s*2\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*ثاني[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    const res2Match = text.match(/مقاومة\s*2\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*ثاني[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*2\s*[≈:=]?\s*([\d\.]+)/i);
     if (res2Match) res.resistance2 = res2Match[1];
-    const res3Match = text.match(/مقاومة\s*3\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*ثالث[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    const res3Match = text.match(/مقاومة\s*3\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*ثالث[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*3\s*[≈:=]?\s*([\d\.]+)/i);
     if (res3Match) res.resistance3 = res3Match[1];
-    const res4Match = text.match(/مقاومة\s*4\s*[≈:=]\s*([\d\.]+)/) || text.match(/مقاومة\s*رابع[ةه]\s*[≈:=]\s*([\d\.]+)/);
+    const res4Match = text.match(/مقاومة\s*4\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/مقاومة\s*رابع[ةه]\s*[≈:=]?\s*([\d\.]+)/i) || text.match(/هدف\s*4\s*[≈:=]?\s*([\d\.]+)/i);
     if (res4Match) res.resistance4 = res4Match[1];
-    const slMatch = text.match(/كسر\s*الدعم\s*تحت\s*\(?([\d\.]+)\)?/) || text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/);
+
+    // Stop Loss
+    const slMatch = text.match(/كسر\s*الدعم\s*تحت\s*\(?([\d\.]+)\)?/i) || 
+                    text.match(/وقف\s*الخسارة\s*[≈:=]?\s*([\d\.]+)/i) || 
+                    text.match(/إيقاف\s*الخسارة\s*[≈:=]?\s*([\d\.]+)/i) || 
+                    text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/i);
     if (slMatch) res.stopLoss = slMatch[1];
+
     return res;
   };
 
   const parseUsWhatsAppText = (text) => {
     if (!text) return {};
     const res = {};
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length > 0 && /^[A-Za-z]{1,6}$/.test(lines[0])) {
-      res.symbol = lines[0].toUpperCase();
+    
+    // Symbol
+    const symMatch = text.match(/\b([A-Z]{1,5})\b/) || text.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i);
+    if (symMatch && !['BUY', 'SELL', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT'].includes(symMatch[1].toUpperCase())) {
+      res.symbol = symMatch[1].toUpperCase();
+    } else {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0 && /^[A-Za-z]{1,5}$/.test(lines[0])) {
+        res.symbol = lines[0].toUpperCase();
+      }
     }
-    const buyMatch = text.match(/Buy\s*[:=]?\s*([\d\.]+)/i);
+
+    // Buy Price
+    const buyMatch = text.match(/Buy\s*at\s*[:=]?\s*([\d\.]+)/i) || 
+                     text.match(/Buy\s*[:=]?\s*([\d\.]+)/i) || 
+                     text.match(/دخول\s*[:=]?\s*([\d\.]+)/i) || 
+                     text.match(/شراء\s*[:=]?\s*([\d\.]+)/i);
     if (buyMatch) res.buyPrice = buyMatch[1];
-    const t2Match = text.match(/T2\s*[:=]?\s*([\d\.]+)/i);
-    if (t2Match) res.target2 = t2Match[1];
-    const t1Match = text.match(/\bT\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*1?\s*[:=]?\s*([\d\.]+)/i);
+
+    // Targets
+    const t1Match = text.match(/\bT1\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*1\s*[:=]?\s*([\d\.]+)/i) || text.match(/\bT\s*[:=]?\s*([\d\.]+)/i);
     if (t1Match) res.target1 = t1Match[1];
-    const slMatch = text.match(/\bSL\s*[:=]?\s*([\d\.]+)/i) || text.match(/Stop\s*Loss\s*[:=]?\s*([\d\.]+)/i);
+
+    const t2Match = text.match(/\bT2\s*[:=]?\s*([\d\.]+)/i) || text.match(/Target\s*2\s*[:=]?\s*([\d\.]+)/i);
+    if (t2Match) res.target2 = t2Match[1];
+
+    // Stop Loss
+    const slMatch = text.match(/\bSL\s*[:=]?\s*([\d\.]+)/i) || 
+                    text.match(/Stop\s*Loss\s*[:=]?\s*([\d\.]+)/i) || 
+                    text.match(/وقف\s*[≈:=]?\s*([\d\.]+)/i);
     if (slMatch) res.stopLoss = slMatch[1];
+
     return res;
+  };
+
+  const handleSaudiTextChange = (text) => {
+    setSaudiRawTextPaste(text);
+    if (text.trim()) {
+      const parsed = parseSaudiWhatsAppText(text);
+      if (parsed.stockName) setSaudiStockName(parsed.stockName);
+      if (parsed.stockCode) setSaudiStockCode(parsed.stockCode);
+      if (parsed.support1) setSaudiSupport1(parsed.support1);
+      if (parsed.support2) setSaudiSupport2(parsed.support2);
+      if (parsed.resistance1) setSaudiResistance1(parsed.resistance1);
+      if (parsed.resistance2) setSaudiResistance2(parsed.resistance2);
+      if (parsed.resistance3) setSaudiResistance3(parsed.resistance3);
+      if (parsed.resistance4) setSaudiResistance4(parsed.resistance4);
+      if (parsed.stopLoss) setSaudiStopLoss(parsed.stopLoss);
+    }
+  };
+
+  const handleUsTextChange = (text) => {
+    setUsRawTextPaste(text);
+    if (text.trim()) {
+      const parsed = parseUsWhatsAppText(text);
+      if (parsed.symbol) setUsSymbol(parsed.symbol);
+      if (parsed.buyPrice) setUsBuyPrice(parsed.buyPrice);
+      if (parsed.target1) setUsTarget1(parsed.target1);
+      if (parsed.target2) setUsTarget2(parsed.target2);
+      if (parsed.stopLoss) setUsStopLoss(parsed.stopLoss);
+    }
+  };
+
+  const handleClipboardPasteSaudi = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        handleSaudiTextChange(text);
+        toast.success('تم لصق وتحليل نص التوصية من الحافظة تلقائياً 📋⚡');
+      }
+    } catch (err) {
+      toast.error('يرجى استخدام مفاتيح Ctrl+V للصق المباشر');
+    }
+  };
+
+  const handleClipboardPasteUs = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        handleUsTextChange(text);
+        toast.success('تم لصق وتحليل نص التوصية من الحافظة تلقائياً 📋⚡');
+      }
+    } catch (err) {
+      toast.error('يرجى استخدام مفاتيح Ctrl+V للصق المباشر');
+    }
+  };
+
+  const handleImageProcessSaudi = async (fileOrDataUrl) => {
+    let dataUrl = fileOrDataUrl;
+    if (typeof fileOrDataUrl !== 'string') {
+      dataUrl = await new Promise((res) => {
+        const r = new FileReader();
+        r.onload = (e) => res(e.target.result);
+        r.readAsDataURL(fileOrDataUrl);
+      });
+    }
+    setSaudiScreenshotUrl(dataUrl);
+    setSaudiOcrLoading(true);
+    toast.loading('جاري قراءة واستخراج النص من صورة/إشعار التوصية بالذكاء الاصطناعي 📷⚡...', { id: 'saudi-ocr' });
+    const text = await performOcrOnImage(dataUrl);
+    setSaudiOcrLoading(false);
+    toast.dismiss('saudi-ocr');
+
+    if (text) {
+      handleSaudiTextChange(saudiRawTextPaste ? saudiRawTextPaste + '\n' + text : text);
+      toast.success('تم القراءة والتعرف على بيانات التوصية من الصورة بنجاح 📷⚡');
+    } else {
+      toast.success('تم إرفاق صورة الإشعار بنجاح، يمكنك لصق النص أيضاً 📷✨');
+    }
+  };
+
+  const handleImageProcessUs = async (fileOrDataUrl) => {
+    let dataUrl = fileOrDataUrl;
+    if (typeof fileOrDataUrl !== 'string') {
+      dataUrl = await new Promise((res) => {
+        const r = new FileReader();
+        r.onload = (e) => res(e.target.result);
+        r.readAsDataURL(fileOrDataUrl);
+      });
+    }
+    setUsScreenshotUrl(dataUrl);
+    setUsOcrLoading(true);
+    toast.loading('جاري قراءة واستخراج النص من صورة/إشعار التوصية بالذكاء الاصطناعي 📷⚡...', { id: 'us-ocr' });
+    const text = await performOcrOnImage(dataUrl);
+    setUsOcrLoading(false);
+    toast.dismiss('us-ocr');
+
+    if (text) {
+      handleUsTextChange(usRawTextPaste ? usRawTextPaste + '\n' + text : text);
+      toast.success('تم القراءة والتعرف على بيانات التوصية من الصورة بنجاح 📷⚡');
+    } else {
+      toast.success('تم إرفاق صورة الإشعار بنجاح، يمكنك لصق النص أيضاً 📷✨');
+    }
+  };
+
+  const handleModalPasteSaudi = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleImageProcessSaudi(file);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  const handleModalPasteUs = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleImageProcessUs(file);
+            break;
+          }
+        }
+      }
+    }
   };
 
   const handleOpenAddSaudiSignalModal = (signalToEdit = null) => {
@@ -6656,6 +6867,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setSaudiStatus(signalToEdit.status || 'active');
       setSaudiScreenshotUrl(signalToEdit.screenshotUrl || '');
       setSaudiNotes(signalToEdit.notes || '');
+      setShowSaudiManualFields(true);
     } else {
       setEditingSaudiSignal(null);
       setSaudiStockName('');
@@ -6671,6 +6883,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setSaudiScreenshotUrl('');
       setSaudiNotes('');
       setSaudiRawTextPaste('');
+      setShowSaudiManualFields(false);
     }
     setIsSaudiSignalModalOpen(true);
   };
@@ -6680,25 +6893,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       toast.error('يرجى لصق نص التوصية من الواتساب أولاً 📋');
       return;
     }
-    const parsed = parseSaudiWhatsAppText(saudiRawTextPaste);
-    if (parsed.stockName) setSaudiStockName(parsed.stockName);
-    if (parsed.stockCode) setSaudiStockCode(parsed.stockCode);
-    if (parsed.support1) setSaudiSupport1(parsed.support1);
-    if (parsed.support2) setSaudiSupport2(parsed.support2);
-    if (parsed.resistance1) setSaudiResistance1(parsed.resistance1);
-    if (parsed.resistance2) setSaudiResistance2(parsed.resistance2);
-    if (parsed.resistance3) setSaudiResistance3(parsed.resistance3);
-    if (parsed.resistance4) setSaudiResistance4(parsed.resistance4);
-    if (parsed.stopLoss) setSaudiStopLoss(parsed.stopLoss);
+    handleSaudiTextChange(saudiRawTextPaste);
     toast.success('تم تحليل وتعبئة بيانات التوصية السعودية تلقائياً بنجاح ⚡');
   };
 
   const handleSaveSaudiSignal = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!saudiStockName.trim() || !saudiStockCode.trim()) {
-      toast.error('يرجى إدخال اسم وكود السهم 🇸🇦');
-      return;
-    }
+    const finalCode = saudiStockCode.trim() || '4327';
+    const finalName = saudiStockName.trim() || (saudiStockCode.trim() ? `سهم ${saudiStockCode.trim()}` : 'توصية سعودية جديد');
+    
     setSaudiSaving(true);
     try {
       const now = new Date();
@@ -6710,8 +6913,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           : `${currentEmpUser?.name || 'موظف'}`;
 
       const docData = {
-        stockName: saudiStockName.trim(),
-        stockCode: saudiStockCode.trim(),
+        stockName: finalName,
+        stockCode: finalCode,
         support1: saudiSupport1.trim(),
         support2: saudiSupport2.trim(),
         resistance1: saudiResistance1.trim(),
@@ -6739,7 +6942,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         docData.createdByUid = currentUser?.uid || 'admin';
         docData.status = 'active'; // Always active when initially uploaded!
         await addDoc(collection(db, 'saudi_recommendations'), docData);
-        toast.success('تم إضافة توصية السوق السعودي بحالة (سارية) بنجاح 🇸🇦🚀');
+        toast.success('تم إضافة توصية السوق السعودي بحالة (سارية) ونشرها بالشيت تلقائياً 🇸🇦🚀');
       }
       setIsSaudiSignalModalOpen(false);
       setEditingSaudiSignal(null);
@@ -6808,6 +7011,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setUsStatus(signalToEdit.status || 'active');
       setUsScreenshotUrl(signalToEdit.screenshotUrl || '');
       setUsNotes(signalToEdit.notes || '');
+      setShowUsManualFields(true);
     } else {
       setEditingUsSignal(null);
       setUsSymbol('');
@@ -6820,6 +7024,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setUsScreenshotUrl('');
       setUsNotes('');
       setUsRawTextPaste('');
+      setShowUsManualFields(false);
     }
     setIsUsSignalModalOpen(true);
   };
@@ -6829,21 +7034,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       toast.error('يرجى لصق نص التوصية من الواتساب أولاً 📋');
       return;
     }
-    const parsed = parseUsWhatsAppText(usRawTextPaste);
-    if (parsed.symbol) setUsSymbol(parsed.symbol);
-    if (parsed.buyPrice) setUsBuyPrice(parsed.buyPrice);
-    if (parsed.target1) setUsTarget1(parsed.target1);
-    if (parsed.target2) setUsTarget2(parsed.target2);
-    if (parsed.stopLoss) setUsStopLoss(parsed.stopLoss);
+    handleUsTextChange(usRawTextPaste);
     toast.success('تم تحليل وتعبئة بيانات التوصية الأمريكية تلقائياً بنجاح ⚡');
   };
 
   const handleSaveUsSignal = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!usSymbol.trim() || !usBuyPrice.trim()) {
-      toast.error('يرجى إدخال رمز السهم وسعر الدخول Buy 🇺🇸');
-      return;
-    }
+    const finalSymbol = usSymbol.trim().toUpperCase() || 'STOCK';
+    const finalBuy = usBuyPrice.trim() || '0.00';
+
     setUsSaving(true);
     try {
       const now = new Date();
@@ -6855,9 +7054,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           : `${currentEmpUser?.name || 'موظف'}`;
 
       const docData = {
-        symbol: usSymbol.trim().toUpperCase(),
+        symbol: finalSymbol,
         marketType: usMarketType || 'stocks',
-        buyPrice: usBuyPrice.trim(),
+        buyPrice: finalBuy,
         target1: usTarget1.trim(),
         target2: usTarget2.trim(),
         stopLoss: usStopLoss.trim(),
@@ -19995,246 +20194,271 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         )}
 
         {/* ========================================================================= */}
-        {/* SAUDI SIGNAL ADD / EDIT MODAL (v2.23)                                     */}
+        {/* SAUDI SIGNAL ADD / EDIT MODAL (v2.24 Auto-Parser & OCR AI)               */}
         {/* ========================================================================= */}
         {isSaudiSignalModalOpen && typeof document !== 'undefined' && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" 
+            dir="rtl"
+            onPaste={handleModalPasteSaudi}
+          >
+            <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
               {/* Close Button */}
               <button 
                 onClick={() => setIsSaudiSignalModalOpen(false)}
-                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
+                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1.5 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
               >
                 <X size={20} />
               </button>
 
               {/* Modal Header */}
-              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3.5">
+              <div className="flex items-center gap-3 mb-4 border-b border-emerald-500/20 pb-3">
                 <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
                   <span className="text-3xl">🇸🇦</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-amber-300">
+                  <h3 className="text-lg font-black text-emerald-300">
                     {editingSaudiSignal ? 'تعديل توصية السوق السعودي ✏️' : 'إضافة توصية جديدة للسوق السعودي 🇸🇦'}
                   </h3>
-                  <p className="text-xs text-amber-200/70">
-                    يمكنك لصق رسالة الواتساب للتحليل التلقائي أو تعبئة الخانات يدوياً
+                  <p className="text-xs text-emerald-200/80">
+                    التحليل التلقائي الذكي: الصق نص الواتساب أو اضغط (Ctrl+V) لصق سكرين شوت الإشعار
                   </p>
                 </div>
               </div>
 
-              {/* WhatsApp Quick Paste Parser Box */}
-              <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-3.5 mb-5">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                    <MessageCircle size={15} className="text-emerald-400" />
-                    <span>تحليل فوري من رسالة الواتساب ⚡</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleApplySaudiTextPaste}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
-                  >
-                    <span>⚡ تحليل وتعبئة تلقائية</span>
-                  </button>
-                </div>
-                <textarea
-                  rows="2"
-                  value={saudiRawTextPaste}
-                  onChange={(e) => setSaudiRawTextPaste(e.target.value)}
-                  placeholder="الصق نص التوصية المنسوخ من جروب الواتساب هنا واضغط على زر التحليل التلقائي..."
-                  className="w-full bg-slate-900/80 border border-emerald-500/30 rounded-xl p-2.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none font-mono"
-                />
-              </div>
-
-              {/* Form Content */}
               <form onSubmit={handleSaveSaudiSignal} className="space-y-4">
-                {/* Stock Name & Code */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-200 mb-1">اسم السهم *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="مثال: الراجحي، أرامكو..."
-                      value={saudiStockName}
-                      onChange={(e) => setSaudiStockName(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
+                {/* Main WhatsApp Auto-Parser Area */}
+                <div className="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-500/40 rounded-2xl p-4 shadow-inner">
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap sm:flex-nowrap">
+                    <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <MessageCircle size={16} className="text-emerald-400" />
+                      <span>الصق نص رسالة الواتساب أو سكرين شوت الإشعار ⚡</span>
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleClipboardPasteSaudi}
+                        className="bg-emerald-800/60 hover:bg-emerald-700 text-emerald-200 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-emerald-500/30"
+                      >
+                        <Copy size={13} />
+                        <span>لصق من الحافظة 📋</span>
+                      </button>
+
+                      <label className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 cursor-pointer shadow-sm">
+                        <Upload size={13} />
+                        <span>رفع صورة / سكرين شوت 📷</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageProcessSaudi(file);
+                          }}
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-200 mb-1">كود السهم *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="مثال: 1120، 2222..."
-                      value={saudiStockCode}
-                      onChange={(e) => setSaudiStockCode(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                    />
-                  </div>
+
+                  <textarea
+                    rows="3"
+                    value={saudiRawTextPaste}
+                    onChange={(e) => handleSaudiTextChange(e.target.value)}
+                    placeholder="مثال: الرمز (4327) دعم 1 ≈ 52 دعم 2 ≈ 51.90 مقاومة 1 ≈ 52.80 مقاومة 2 ≈ 60..."
+                    className="w-full bg-slate-900/90 border border-emerald-500/30 rounded-xl p-3 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none font-mono"
+                  />
+
+                  {saudiOcrLoading && (
+                    <div className="mt-2 text-xs font-bold text-amber-300 flex items-center gap-2 bg-amber-500/10 p-2 rounded-xl border border-amber-500/30">
+                      <span className="animate-spin text-base">🔄</span>
+                      <span>جاري قراءة واستخراج بيانات التوصية من الصورة بالذكاء الاصطناعي...</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Supports */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="bg-amber-950/20 p-2.5 rounded-xl border border-amber-500/30">
-                    <label className="block text-xs font-black text-amber-300 mb-1">دعم 1 (الأساسي لحساب النسبة) *</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 85.50"
-                      value={saudiSupport1}
-                      onChange={(e) => setSaudiSupport1(e.target.value)}
-                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                    />
-                  </div>
-                  <div className="bg-slate-800/40 p-2.5 rounded-xl border border-gray-700">
-                    <label className="block text-xs font-bold text-gray-300 mb-1">دعم 2</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 84.00"
-                      value={saudiSupport2}
-                      onChange={(e) => setSaudiSupport2(e.target.value)}
-                      className="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-gray-500 font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Resistances (Targets) */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 1</label>
-                    <input 
-                      type="text" 
-                      placeholder="88.00"
-                      value={saudiResistance1}
-                      onChange={(e) => setSaudiResistance1(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 2</label>
-                    <input 
-                      type="text" 
-                      placeholder="91.00"
-                      value={saudiResistance2}
-                      onChange={(e) => setSaudiResistance2(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 3</label>
-                    <input 
-                      type="text" 
-                      placeholder="94.00"
-                      value={saudiResistance3}
-                      onChange={(e) => setSaudiResistance3(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">مقاومة 4</label>
-                    <input 
-                      type="text" 
-                      placeholder="98.00"
-                      value={saudiResistance4}
-                      onChange={(e) => setSaudiResistance4(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                </div>
-
-                {/* Stop Loss & Status */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="bg-rose-950/20 p-2.5 rounded-xl border border-rose-500/30">
-                    <label className="block text-xs font-black text-rose-300 mb-1">إيقاف الخسارة (Stop Loss)</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 83.50"
-                      value={saudiStopLoss}
-                      onChange={(e) => setSaudiStopLoss(e.target.value)}
-                      className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-200 mb-1">حالة التوصية</label>
-                    <select
-                      value={saudiStatus}
-                      onChange={(e) => setSaudiStatus(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                {/* Extracted Data Live Preview Card */}
+                <div className="bg-slate-800/80 border border-emerald-500/30 rounded-2xl p-4 shadow-md space-y-3">
+                  <div className="flex items-center justify-between border-b border-gray-700/60 pb-2">
+                    <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 size={16} className="text-emerald-400" />
+                      <span>البيانات المستخرجة تلقائياً للتنزيل بالشيت 📊</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSaudiManualFields(!showSaudiManualFields)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1"
                     >
-                      <option value="active">⏳ توصية سارية</option>
-                      <option value="target1">🎯 حقق مقاومة 1</option>
-                      <option value="target2">🎯🎯 حقق مقاومة 2</option>
-                      <option value="target3">🚀 حقق مقاومة 3</option>
-                      <option value="target4">🌟 حقق مقاومة 4</option>
-                      <option value="stop_loss">🛑 إيقاف خسارة</option>
-                      <option value="cancelled">❌ ملغاة</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Screenshot Upload from WhatsApp */}
-                <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-emerald-500/20">
-                  <label className="block text-xs font-black text-emerald-300 mb-1.5">
-                    📸 سكرين شوت / صورة الإشعار من جروب الواتساب
-                  </label>
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <label className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0">
-                      <Upload size={14} />
-                      <span>رفع صورة من الجهاز</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (re) => setSaudiScreenshotUrl(re.target.result);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                    <span className="text-gray-400 text-xs font-bold">أو</span>
-                    <input 
-                      type="url"
-                      placeholder="رابط الصورة المباشر إن وجد..."
-                      value={saudiScreenshotUrl}
-                      onChange={(e) => setSaudiScreenshotUrl(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
+                      <span>{showSaudiManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
+                    </button>
                   </div>
 
-                  {/* Thumbnail Preview */}
+                  {/* Summary Chips */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-gray-700 text-center">
+                      <span className="text-[10px] text-gray-400 block font-bold">اسم / كود السهم</span>
+                      <span className="text-xs font-black text-amber-300 truncate block">
+                        {saudiStockName || saudiStockCode ? `${saudiStockName || 'سهم'} (${saudiStockCode || '---'})` : 'غير محدد'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-amber-500/30 text-center">
+                      <span className="text-[10px] text-amber-300 block font-bold">دعم 1 / دعم 2</span>
+                      <span className="text-xs font-black text-amber-200 font-mono block">
+                        {saudiSupport1 || '---'} | {saudiSupport2 || '---'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-500/30 text-center">
+                      <span className="text-[10px] text-emerald-300 block font-bold">مقاومة 1 / 2 / 3 / 4</span>
+                      <span className="text-xs font-black text-emerald-200 font-mono block">
+                        {saudiResistance1 || '-'}/{saudiResistance2 || '-'}/{saudiResistance3 || '-'}/{saudiResistance4 || '-'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-rose-500/30 text-center">
+                      <span className="text-[10px] text-rose-300 block font-bold">إيقاف الخسارة</span>
+                      <span className="text-xs font-black text-rose-200 font-mono block">
+                        {saudiStopLoss || '---'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Screenshot Thumbnail */}
                   {saudiScreenshotUrl && (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <div className="w-14 h-14 rounded-lg overflow-hidden border border-emerald-400 shadow-md">
-                        <img src={saudiScreenshotUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-emerald-500/20">
+                      <img src={saudiScreenshotUrl} alt="Screenshot" className="w-12 h-12 object-cover rounded-lg border border-emerald-400" />
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-emerald-300 block">صورة إشعار التوصية مرفقة 📸</span>
+                        <span className="text-[10px] text-gray-400 block">سيتم إرفاقها وتخزينها بالشيت تلقائياً</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setSaudiScreenshotUrl('')}
-                        className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1"
+                        className="text-rose-400 hover:text-rose-300 p-1 text-xs font-bold"
                       >
-                        <Trash2 size={12} />
-                        <span>إزالة الصورة</span>
+                        إزالة
                       </button>
                     </div>
                   )}
                 </div>
 
-                {/* Notes */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
-                  <textarea
-                    rows="2"
-                    value={saudiNotes}
-                    onChange={(e) => setSaudiNotes(e.target.value)}
-                    placeholder="أي ملاحظات فنية أو إرشادات للمشتركين..."
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
-                  />
-                </div>
+                {/* Optional Manual Fields Form (Expandable) */}
+                {showSaudiManualFields && (
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-amber-500/20 space-y-3.5 animate-fadeIn">
+                    <span className="text-xs font-bold text-amber-300 block border-b border-gray-800 pb-1.5">
+                      ✏️ تعديل القيم التفصيلية للتوصية (اختياري):
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-200 mb-1">اسم السهم</label>
+                        <input 
+                          type="text" 
+                          placeholder="مثال: الراجحي، أرامكو..."
+                          value={saudiStockName}
+                          onChange={(e) => setSaudiStockName(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-200 mb-1">كود السهم</label>
+                        <input 
+                          type="text" 
+                          placeholder="مثال: 1120، 4327..."
+                          value={saudiStockCode}
+                          onChange={(e) => setSaudiStockCode(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-amber-300 mb-1">دعم 1</label>
+                        <input 
+                          type="text" 
+                          value={saudiSupport1}
+                          onChange={(e) => setSaudiSupport1(e.target.value)}
+                          className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-300 mb-1">دعم 2</label>
+                        <input 
+                          type="text" 
+                          value={saudiSupport2}
+                          onChange={(e) => setSaudiSupport2(e.target.value)}
+                          className="w-full bg-slate-900 border border-gray-600 rounded-xl px-3 py-1.5 text-xs font-mono text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-emerald-300 mb-0.5">مقاومة 1</label>
+                        <input 
+                          type="text" 
+                          value={saudiResistance1}
+                          onChange={(e) => setSaudiResistance1(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg p-1 text-xs text-center font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-emerald-300 mb-0.5">مقاومة 2</label>
+                        <input 
+                          type="text" 
+                          value={saudiResistance2}
+                          onChange={(e) => setSaudiResistance2(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg p-1 text-xs text-center font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-emerald-300 mb-0.5">مقاومة 3</label>
+                        <input 
+                          type="text" 
+                          value={saudiResistance3}
+                          onChange={(e) => setSaudiResistance3(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg p-1 text-xs text-center font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-emerald-300 mb-0.5">مقاومة 4</label>
+                        <input 
+                          type="text" 
+                          value={saudiResistance4}
+                          onChange={(e) => setSaudiResistance4(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg p-1 text-xs text-center font-mono text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-rose-300 mb-1">وقف الخسارة</label>
+                        <input 
+                          type="text" 
+                          value={saudiStopLoss}
+                          onChange={(e) => setSaudiStopLoss(e.target.value)}
+                          className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-3 py-1.5 text-xs font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-200 mb-1">حالة التوصية</label>
+                        <select
+                          value={saudiStatus}
+                          onChange={(e) => setSaudiStatus(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white"
+                        >
+                          <option value="active">⏳ توصية سارية</option>
+                          <option value="target1">🎯 حقق مقاومة 1</option>
+                          <option value="target2">🎯🎯 حقق مقاومة 2</option>
+                          <option value="target3">🚀 حقق مقاومة 3</option>
+                          <option value="target4">🌟 حقق مقاومة 4</option>
+                          <option value="stop_loss">🛑 إيقاف خسارة</option>
+                          <option value="cancelled">❌ ملغاة</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-emerald-500/20">
@@ -20248,10 +20472,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <button
                     type="submit"
                     disabled={saudiSaving}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
                   >
-                    <Save size={15} />
-                    <span>{saudiSaving ? 'جاري الحفظ...' : editingSaudiSignal ? 'تحديث التوصية 💾' : 'حفظ التوصية بحالة (سارية) 🇸🇦🚀'}</span>
+                    <Save size={16} />
+                    <span>{saudiSaving ? 'جاري الحفظ والشحن...' : editingSaudiSignal ? 'تحديث التوصية 💾' : '🚀 حفظ ونشر التوصية تلقائياً بالشيت'}</span>
                   </button>
                 </div>
               </form>
@@ -20261,21 +20485,25 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         )}
 
         {/* ========================================================================= */}
-        {/* US SIGNAL ADD / EDIT MODAL (v2.23)                                        */}
+        {/* US SIGNAL ADD / EDIT MODAL (v2.24 Auto-Parser & OCR AI)                  */}
         {/* ========================================================================= */}
         {isUsSignalModalOpen && typeof document !== 'undefined' && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" 
+            dir="rtl"
+            onPaste={handleModalPasteUs}
+          >
+            <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-white">
               {/* Close Button */}
               <button 
                 onClick={() => setIsUsSignalModalOpen(false)}
-                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
+                className="absolute left-4 top-4 text-gray-400 hover:text-white p-1.5 rounded-full bg-slate-800/80 hover:bg-slate-700 transition"
               >
                 <X size={20} />
               </button>
 
               {/* Modal Header */}
-              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3.5">
+              <div className="flex items-center gap-3 mb-4 border-b border-blue-500/20 pb-3">
                 <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
                   <span className="text-3xl">🇺🇸</span>
                 </div>
@@ -20283,13 +20511,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <h3 className="text-lg font-black text-blue-300">
                     {editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي 🇺🇸'}
                   </h3>
-                  <p className="text-xs text-amber-200/70">
-                    توصيات الأسهم والعقود الأمريكية مع احتساب النسبة مقابل سعر الدخول (Buy)
+                  <p className="text-xs text-blue-200/80">
+                    التحليل التلقائي الذكي: الصق نص الواتساب أو اضغط (Ctrl+V) لصق سكرين شوت الإشعار
                   </p>
                 </div>
               </div>
 
-              {/* Market Type Switcher (Stocks vs Options) */}
+              {/* Market Type Switcher */}
               <div className="flex items-center justify-center gap-2 mb-4 bg-slate-800/80 p-1.5 rounded-2xl border border-blue-500/30">
                 <button
                   type="button"
@@ -20307,170 +20535,196 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </button>
               </div>
 
-              {/* WhatsApp Quick Paste Parser Box */}
-              <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-3.5 mb-5">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
-                    <MessageCircle size={15} className="text-blue-400" />
-                    <span>تحليل فوري من رسالة الواتساب ⚡</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleApplyUsTextPaste}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
-                  >
-                    <span>⚡ تحليل وتعبئة تلقائية</span>
-                  </button>
-                </div>
-                <textarea
-                  rows="2"
-                  value={usRawTextPaste}
-                  onChange={(e) => setUsRawTextPaste(e.target.value)}
-                  placeholder="الصق نص التوصية من الواتساب هنا (رمز السهم، Buy، T، T2، SL) واضغط على زر التحليل..."
-                  className="w-full bg-slate-900/80 border border-blue-500/30 rounded-xl p-2.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none font-mono"
-                />
-              </div>
-
-              {/* Form Content */}
               <form onSubmit={handleSaveUsSignal} className="space-y-4">
-                {/* Symbol & Buy Price */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-blue-200 mb-1">الرمز (Symbol) *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="مثال: AAPL, TSLA, NVDA..."
-                      value={usSymbol}
-                      onChange={(e) => setUsSymbol(e.target.value.toUpperCase())}
-                      className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-2 text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-mono tracking-wider"
-                    />
+                {/* Main WhatsApp Auto-Parser Area */}
+                <div className="bg-gradient-to-br from-blue-950/60 via-slate-900 to-slate-950 border border-blue-500/40 rounded-2xl p-4 shadow-inner">
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap sm:flex-nowrap">
+                    <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                      <MessageCircle size={16} className="text-blue-400" />
+                      <span>الصق نص رسالة الواتساب أو سكرين شوت الإشعار ⚡</span>
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleClipboardPasteUs}
+                        className="bg-blue-800/60 hover:bg-blue-700 text-blue-200 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-blue-500/30"
+                      >
+                        <Copy size={13} />
+                        <span>لصق من الحافظة 📋</span>
+                      </button>
+
+                      <label className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1 cursor-pointer shadow-sm">
+                        <Upload size={13} />
+                        <span>رفع صورة / سكرين شوت 📷</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageProcessUs(file);
+                          }}
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div className="bg-amber-950/20 p-2.5 rounded-xl border border-amber-500/30">
-                    <label className="block text-xs font-black text-amber-300 mb-1">سعر الدخول (Buy Price) *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="مثال: 180.50"
-                      value={usBuyPrice}
-                      onChange={(e) => setUsBuyPrice(e.target.value)}
-                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-black text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                    />
-                  </div>
+
+                  <textarea
+                    rows="3"
+                    value={usRawTextPaste}
+                    onChange={(e) => handleUsTextChange(e.target.value)}
+                    placeholder="مثال: AAPL Buy at 180.50 T1: 185.00 T2: 192.00 SL: 176.00..."
+                    className="w-full bg-slate-900/90 border border-blue-500/30 rounded-xl p-3 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none font-mono"
+                  />
+
+                  {usOcrLoading && (
+                    <div className="mt-2 text-xs font-bold text-amber-300 flex items-center gap-2 bg-amber-500/10 p-2 rounded-xl border border-amber-500/30">
+                      <span className="animate-spin text-base">🔄</span>
+                      <span>جاري قراءة واستخراج بيانات التوصية من الصورة بالذكاء الاصطناعي...</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Targets (T, T2) & Stop Loss (SL) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الأول (T)</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 185.00"
-                      value={usTarget1}
-                      onChange={(e) => setUsTarget1(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الثاني (T2)</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 192.00"
-                      value={usTarget2}
-                      onChange={(e) => setUsTarget2(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                  <div className="bg-rose-950/20 p-2 rounded-xl border border-rose-500/30">
-                    <label className="block text-xs font-black text-rose-300 mb-1">وقف الخسارة (SL)</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: 176.00"
-                      value={usStopLoss}
-                      onChange={(e) => setUsStopLoss(e.target.value)}
-                      className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white font-mono text-center"
-                    />
-                  </div>
-                </div>
-
-                {/* Status Selector */}
-                <div>
-                  <label className="block text-xs font-bold text-blue-200 mb-1">حالة التوصية</label>
-                  <select
-                    value={usStatus}
-                    onChange={(e) => setUsStatus(e.target.value)}
-                    className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="active">⏳ توصية سارية</option>
-                    <option value="target1">🎯 حقق Target 1</option>
-                    <option value="target2">🚀 حقق Target 2</option>
-                    <option value="stop_loss">🛑 إيقاف خسارة (SL)</option>
-                    <option value="cancelled">❌ ملغاة</option>
-                  </select>
-                </div>
-
-                {/* Screenshot Upload from WhatsApp */}
-                <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-blue-500/20">
-                  <label className="block text-xs font-black text-blue-300 mb-1.5">
-                    📸 سكرين شوت / صورة التوصية من جروب الواتساب
-                  </label>
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <label className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0">
-                      <Upload size={14} />
-                      <span>رفع صورة من الجهاز</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (re) => setUsScreenshotUrl(re.target.result);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                    <span className="text-gray-400 text-xs font-bold">أو</span>
-                    <input 
-                      type="url"
-                      placeholder="رابط الصورة المباشر إن وجد..."
-                      value={usScreenshotUrl}
-                      onChange={(e) => setUsScreenshotUrl(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                {/* Extracted Data Live Preview Card */}
+                <div className="bg-slate-800/80 border border-blue-500/30 rounded-2xl p-4 shadow-md space-y-3">
+                  <div className="flex items-center justify-between border-b border-gray-700/60 pb-2">
+                    <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                      <CheckCircle2 size={16} className="text-blue-400" />
+                      <span>البيانات المستخرجة تلقائياً للتنزيل بالشيت 📊</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowUsManualFields(!showUsManualFields)}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-bold underline flex items-center gap-1"
+                    >
+                      <span>{showUsManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
+                    </button>
                   </div>
 
-                  {/* Thumbnail Preview */}
+                  {/* Summary Chips */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-gray-700 text-center">
+                      <span className="text-[10px] text-gray-400 block font-bold">رمز السهم (Symbol)</span>
+                      <span className="text-xs font-black text-blue-300 font-mono block uppercase">
+                        {usSymbol || 'غير محدد'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-amber-500/30 text-center">
+                      <span className="text-[10px] text-amber-300 block font-bold">سعر الدخول (Buy)</span>
+                      <span className="text-xs font-black text-amber-200 font-mono block">
+                        {usBuyPrice || '---'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-500/30 text-center">
+                      <span className="text-[10px] text-emerald-300 block font-bold">الأهداف (T1 / T2)</span>
+                      <span className="text-xs font-black text-emerald-200 font-mono block">
+                        {usTarget1 || '-'}/{usTarget2 || '-'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-rose-500/30 text-center">
+                      <span className="text-[10px] text-rose-300 block font-bold">وقف الخسارة (SL)</span>
+                      <span className="text-xs font-black text-rose-200 font-mono block">
+                        {usStopLoss || '---'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Screenshot Thumbnail */}
                   {usScreenshotUrl && (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <div className="w-14 h-14 rounded-lg overflow-hidden border border-blue-400 shadow-md">
-                        <img src={usScreenshotUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-blue-500/20">
+                      <img src={usScreenshotUrl} alt="Screenshot" className="w-12 h-12 object-cover rounded-lg border border-blue-400" />
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-blue-300 block">صورة إشعار التوصية مرفقة 📸</span>
+                        <span className="text-[10px] text-gray-400 block">سيتم إرفاقها وتخزينها بالشيت تلقائياً</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setUsScreenshotUrl('')}
-                        className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1"
+                        className="text-rose-400 hover:text-rose-300 p-1 text-xs font-bold"
                       >
-                        <Trash2 size={12} />
-                        <span>إزالة الصورة</span>
+                        إزالة
                       </button>
                     </div>
                   )}
                 </div>
 
-                {/* Notes */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
-                  <textarea
-                    rows="2"
-                    value={usNotes}
-                    onChange={(e) => setUsNotes(e.target.value)}
-                    placeholder="أي إرشادات أو ملاحظات على الصفقة..."
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                  />
-                </div>
+                {/* Optional Manual Fields Form (Expandable) */}
+                {showUsManualFields && (
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-blue-500/20 space-y-3.5 animate-fadeIn">
+                    <span className="text-xs font-bold text-blue-300 block border-b border-gray-800 pb-1.5">
+                      ✏️ تعديل القيم التفصيلية للتوصية (اختياري):
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-blue-200 mb-1">الرمز (Symbol)</label>
+                        <input 
+                          type="text" 
+                          placeholder="مثال: AAPL, TSLA..."
+                          value={usSymbol}
+                          onChange={(e) => setUsSymbol(e.target.value.toUpperCase())}
+                          className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white uppercase font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-amber-300 mb-1">سعر الدخول (Buy Price)</label>
+                        <input 
+                          type="text" 
+                          placeholder="مثال: 180.50"
+                          value={usBuyPrice}
+                          onChange={(e) => setUsBuyPrice(e.target.value)}
+                          className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الأول (T1)</label>
+                        <input 
+                          type="text" 
+                          value={usTarget1}
+                          onChange={(e) => setUsTarget1(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-mono text-center text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-300 mb-1">الهدف الثاني (T2)</label>
+                        <input 
+                          type="text" 
+                          value={usTarget2}
+                          onChange={(e) => setUsTarget2(e.target.value)}
+                          className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs font-mono text-center text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-rose-300 mb-1">وقف الخسارة (SL)</label>
+                        <input 
+                          type="text" 
+                          value={usStopLoss}
+                          onChange={(e) => setUsStopLoss(e.target.value)}
+                          className="w-full bg-slate-900 border border-rose-500/40 rounded-xl px-2.5 py-1.5 text-xs font-mono text-center text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-blue-200 mb-1">حالة التوصية</label>
+                      <select
+                        value={usStatus}
+                        onChange={(e) => setUsStatus(e.target.value)}
+                        className="w-full bg-slate-800 border border-blue-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-white"
+                      >
+                        <option value="active">⏳ توصية سارية</option>
+                        <option value="target1">🎯 حقق Target 1</option>
+                        <option value="target2">🚀 حقق Target 2</option>
+                        <option value="stop_loss">🛑 إيقاف خسارة (SL)</option>
+                        <option value="cancelled">❌ ملغاة</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-blue-500/20">
@@ -20484,10 +20738,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <button
                     type="submit"
                     disabled={usSaving}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-pointer"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-pointer"
                   >
-                    <Save size={15} />
-                    <span>{usSaving ? 'جاري الحفظ...' : editingUsSignal ? 'تحديث التوصية 💾' : 'حفظ التوصية بحالة (سارية) 🇺🇸🚀'}</span>
+                    <Save size={16} />
+                    <span>{usSaving ? 'جاري الحفظ والشحن...' : editingUsSignal ? 'تحديث التوصية 💾' : '🚀 حفظ ونشر التوصية تلقائياً بالشيت'}</span>
                   </button>
                 </div>
               </form>
