@@ -6773,7 +6773,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
 
     // Reserved non-symbol words
-    const reservedWords = new Set(['BUY', 'SELL', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT', 'ST', 'STRIKE', 'EXP', 'EXPIRY', 'ENTRY']);
+    const reservedWords = new Set(['BUY', 'SELL', 'T', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT', 'ST', 'STRIKE', 'EXP', 'EXPIRY', 'ENTRY']);
 
     // Symbol extraction
     const symMatch = norm.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i) || norm.match(/Symbol\s*[:=]?\s*([A-Z]{1,5})/i);
@@ -6810,8 +6810,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       res.buyPrice = cleanNum(rawBuy);
     }
 
-    // Target 1
-    const t1Match = norm.match(/(?:\bT1[\.\:]?|Target\s*1[\.\:]?|Goal\s*1[\.\:]?|الهدف\s*1[\.\:]?|هدف\s*1[\.\:]?|الهدف\s*الأول)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    // Target 1 (Supports T1, T, Target 1, Goal 1, الهدف الأول)
+    const t1Match = norm.match(/(?:\bT1[\.\:]?|\bT[\.\:]?|Target\s*1[\.\:]?|Goal\s*1[\.\:]?|الهدف\s*1[\.\:]?|هدف\s*1[\.\:]?|الهدف\s*الأول)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
     if (t1Match) res.target1 = cleanNum(t1Match[1]);
 
     // Target 2
