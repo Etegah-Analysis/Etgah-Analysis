@@ -109,6 +109,29 @@ const formatDate = (val) => {
   });
 };
 
+// High-resolution cross-platform Country Flag components
+const SaudiFlagIcon = ({ className = "w-6 h-6", alt = "🇸🇦 السعودية" }) => (
+  <img 
+    src="https://flagcdn.com/w80/sa.png" 
+    srcSet="https://flagcdn.com/w160/sa.png 2x" 
+    alt={alt} 
+    className={`inline-block object-cover rounded-full shadow-md border border-emerald-400/50 align-middle shrink-0 ${className}`} 
+    onError={(e) => { e.target.onerror = null; e.target.src = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f1f8-1f1e6.svg"; }}
+    loading="lazy"
+  />
+);
+
+const UsFlagIcon = ({ className = "w-6 h-6", alt = "🇺🇸 أمريكا" }) => (
+  <img 
+    src="https://flagcdn.com/w80/us.png" 
+    srcSet="https://flagcdn.com/w160/us.png 2x" 
+    alt={alt} 
+    className={`inline-block object-cover rounded-full shadow-md border border-blue-400/50 align-middle shrink-0 ${className}`} 
+    onError={(e) => { e.target.onerror = null; e.target.src = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f1fa-1f1f8.svg"; }}
+    loading="lazy"
+  />
+);
+
 // Global smart helper to extract real customer names and strip call sentences, status notes, and numbers
 const extractCleanCustomerName = (raw) => {
   if (!raw || typeof raw !== 'string') return 'عميل جديد';
@@ -9534,11 +9557,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
               >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">🇸🇦</span>
+                <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                  <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                    <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>توصيات السوق السعودي</span>
+                  </p>
                 </div>
               </div>
 
@@ -9548,11 +9574,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                 title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
               >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">🇺🇸</span>
+                <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                  <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                    <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>توصيات السوق الأمريكي</span>
+                  </p>
                 </div>
               </div>
 
@@ -9786,11 +9815,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                   title="انقر لعرض ومتابعة توصيات السوق السعودي"
                 >
-                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                    <span className="text-2xl">🇸🇦</span>
+                  <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                    <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                      <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>توصيات السوق السعودي</span>
+                    </p>
                   </div>
                 </div>
               )}
@@ -9802,11 +9834,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                   title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
                 >
-                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                    <span className="text-2xl">🇺🇸</span>
+                  <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                    <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                      <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>توصيات السوق الأمريكي</span>
+                    </p>
                   </div>
                 </div>
               )}
@@ -10203,11 +10238,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                       title="انقر لعرض وإدارة توصيات السوق السعودي وإشعارات الواتساب"
                     >
-                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                        <span className="text-2xl">🇸🇦</span>
+                      <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                        <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                       </div>
                       <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇸🇦 توصيات السوق السعودي</p>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                          <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>توصيات السوق السعودي</span>
+                        </p>
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
                             {saudiRecommendations.length.toLocaleString()} توصية
@@ -10225,11 +10263,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                       title="انقر لعرض وإدارة توصيات السوق الأمريكي (أسهم وعقود)"
                     >
-                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                        <span className="text-2xl">🇺🇸</span>
+                      <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                        <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                       </div>
                       <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🇺🇸 توصيات السوق الأمريكي</p>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                          <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>توصيات السوق الأمريكي</span>
+                        </p>
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
                             {usRecommendations.length.toLocaleString()} توصية
@@ -13235,13 +13276,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Header Banner */}
               <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
-                    <span className="text-2xl">🇸🇦</span>
+                  <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40 flex items-center justify-center">
+                    <SaudiFlagIcon className="w-8 h-8" />
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>🇸🇦 توصيات السوق السعودي</span>
-
+                      <SaudiFlagIcon className="w-6 h-6" />
+                      <span>توصيات السوق السعودي</span>
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ومقاومات ودعوم أسهم السوق السعودي وحساب نسب الإنجاز التلقائي مقابل دعم 1
@@ -13474,7 +13515,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <tr>
                         <td colSpan="16" className="text-center py-10 text-gray-500">
                           <div className="flex flex-col items-center justify-center gap-2">
-                            <span className="text-3xl">🇸🇦</span>
+                            <SaudiFlagIcon className="w-10 h-10" />
                             <span className="font-bold">لا توجد توصيات مطابقة في السوق السعودي حالياً</span>
                             <button
                               onClick={() => handleOpenAddSaudiSignalModal()}
@@ -13665,13 +13706,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Header Banner */}
               <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-400/40">
-                    <span className="text-2xl">🇺🇸</span>
+                  <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40 flex items-center justify-center">
+                    <UsFlagIcon className="w-8 h-8" />
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                      <span>🇺🇸 توصيات السوق الأمريكي</span>
-
+                      <UsFlagIcon className="w-6 h-6" />
+                      <span>توصيات السوق الأمريكي</span>
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
                       متابعة أهداف ووقف خسارة أسهم وعقود السوق الأمريكي وحساب نسب الإنجاز التلقائي مقابل سعر الشراء (Buy)
@@ -13920,7 +13961,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <tr>
                         <td colSpan="13" className="text-center py-10 text-gray-500">
                           <div className="flex flex-col items-center justify-center gap-2">
-                            <span className="text-3xl">🇺🇸</span>
+                            <UsFlagIcon className="w-10 h-10" />
                             <span className="font-bold">لا توجد توصيات مطابقة في السوق الأمريكي حالياً</span>
                             <button
                               onClick={() => handleOpenAddUsSignalModal()}
@@ -20213,12 +20254,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Modal Header */}
               <div className="flex items-center gap-3 mb-4 border-b border-emerald-500/20 pb-3">
-                <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
-                  <span className="text-3xl">🇸🇦</span>
+                <div className="p-2 bg-emerald-500/20 rounded-2xl border border-emerald-400/30 flex items-center justify-center">
+                  <SaudiFlagIcon className="w-9 h-9" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-emerald-300">
-                    {editingSaudiSignal ? 'تعديل توصية السوق السعودي ✏️' : 'إضافة توصية جديدة للسوق السعودي 🇸🇦'}
+                  <h3 className="text-lg font-black text-emerald-300 inline-flex items-center gap-2">
+                    <span>{editingSaudiSignal ? 'تعديل توصية السوق السعودي ✏️' : 'إضافة توصية جديدة للسوق السعودي'}</span>
+                    <SaudiFlagIcon className="w-6 h-6" />
                   </h3>
                   <p className="text-xs text-emerald-200/80">
                     التحليل التلقائي الذكي: الصق نص الواتساب أو اضغط (Ctrl+V) لصق سكرين شوت الإشعار
@@ -20504,12 +20546,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Modal Header */}
               <div className="flex items-center gap-3 mb-4 border-b border-blue-500/20 pb-3">
-                <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
-                  <span className="text-3xl">🇺🇸</span>
+                <div className="p-2 bg-blue-500/20 rounded-2xl border border-blue-400/30 flex items-center justify-center">
+                  <UsFlagIcon className="w-9 h-9" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-blue-300">
-                    {editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي 🇺🇸'}
+                  <h3 className="text-lg font-black text-blue-300 inline-flex items-center gap-2">
+                    <span>{editingUsSignal ? 'تعديل توصية السوق الأمريكي ✏️' : 'إضافة توصية جديدة للسوق الأمريكي'}</span>
+                    <UsFlagIcon className="w-6 h-6" />
                   </h3>
                   <p className="text-xs text-blue-200/80">
                     التحليل التلقائي الذكي: الصق نص الواتساب أو اضغط (Ctrl+V) لصق سكرين شوت الإشعار
