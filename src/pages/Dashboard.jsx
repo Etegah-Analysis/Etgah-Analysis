@@ -6604,17 +6604,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   const calculateUsPercentage = (signal) => {
-    const buy = parseFloat(String(signal.buyPrice || '').replace(/[^0-9.]/g, ''));
+    const buyMatch = String(signal.buyPrice || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+    const buy = buyMatch ? parseFloat(buyMatch[0]) : NaN;
     if (!buy || isNaN(buy) || buy <= 0) return null;
 
     if (signal.status === 'target1') {
-      const t1 = parseFloat(String(signal.target1 || '').replace(/[^0-9.]/g, ''));
+      const t1Match = String(signal.target1 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      const t1 = t1Match ? parseFloat(t1Match[0]) : NaN;
       if (!isNaN(t1)) return ((t1 - buy) / buy) * 100;
     } else if (signal.status === 'target2') {
-      const t2 = parseFloat(String(signal.target2 || '').replace(/[^0-9.]/g, ''));
+      const t2Match = String(signal.target2 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      const t2 = t2Match ? parseFloat(t2Match[0]) : NaN;
       if (!isNaN(t2)) return ((t2 - buy) / buy) * 100;
     } else if (signal.status === 'stop_loss') {
-      const sl = parseFloat(String(signal.stopLoss || '').replace(/[^0-9.]/g, ''));
+      const slMatch = String(signal.stopLoss || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      const sl = slMatch ? parseFloat(slMatch[0]) : NaN;
       if (!isNaN(sl)) return ((sl - buy) / buy) * 100;
     }
     return null;
@@ -6642,13 +6646,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   // Helper to sanitize numeric entries and strip lone dots or invalid values
+  // Helper to sanitize numeric entries and strip lone dots or invalid values
   const cleanNum = (val) => {
     if (val === undefined || val === null) return '';
     let str = String(val).trim();
     if (!str || str === '.' || str === '-' || str === '—' || str === 'null' || str === 'undefined') return '';
+    // Normalize Arabic numbers & European decimal commas (e.g. 1,70 -> 1.70)
+    str = str.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.').replace(/(\d+),(\d+)/g, '$1.$2');
     if (str.endsWith('.')) str = str.slice(0, -1);
-    if (!str || isNaN(Number(str))) return '';
-    return str;
+    if (!isNaN(Number(str))) return str;
+    // Allow ranges or formatted numbers containing digits like "1.70 ~ 2.10"
+    if (/\d+(?:\.\d+)?/.test(str)) {
+      return str;
+    }
+    return '';
   };
 
   const parseSaudiWhatsAppText = (text) => {
@@ -6735,42 +6746,92 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   const parseUsWhatsAppText = (text) => {
     if (!text) return {};
     let norm = String(text).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.');
+    // Replace European commas between digits e.g. 1,70 -> 1.70 or 2,90 -> 2.90
+    norm = norm.replace(/(\d+),(\d+)/g, '$1.$2');
+
     const res = {};
-    
-    // Symbol
-    const symMatch = norm.match(/\b([A-Z]{1,5})\b/) || norm.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i);
-    if (symMatch && !['BUY', 'SELL', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT'].includes(symMatch[1].toUpperCase())) {
+
+    // Check for Options contract parameters (CALL / PUT / Strike / Expiration)
+    const callPutMatch = norm.match(/\b(CALL|PUT)\b/i);
+    const strikeMatch = norm.match(/(?:St|ST|Strike|إسترايك|استرايك|سترايك)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    const expiryMatch = norm.match(/\b(\d{2}[-/.]\d{2}[-/.]\d{4}|\d{4}[-/.]\d{2}[-/.]\d{2})\b/);
+
+    if (callPutMatch || strikeMatch || expiryMatch) {
+      res.marketType = 'options';
+      const optType = callPutMatch ? callPutMatch[1].toUpperCase() : '';
+      const strikeVal = strikeMatch ? strikeMatch[1] : '';
+      const expiryVal = expiryMatch ? expiryMatch[1] : '';
+
+      const notesParts = [];
+      if (optType) notesParts.push(optType);
+      if (strikeVal) notesParts.push(`ST ${strikeVal}`);
+      if (expiryVal) notesParts.push(`Exp: ${expiryVal}`);
+
+      if (notesParts.length > 0) {
+        res.notes = notesParts.join(' • ');
+      }
+    }
+
+    // Reserved non-symbol words
+    const reservedWords = new Set(['BUY', 'SELL', 'T1', 'T2', 'SL', 'STOP', 'TARGET', 'CALL', 'PUT', 'ST', 'STRIKE', 'EXP', 'EXPIRY', 'ENTRY']);
+
+    // Symbol extraction
+    const symMatch = norm.match(/رمز\s*[:=]?\s*([A-Z]{1,5})/i) || norm.match(/Symbol\s*[:=]?\s*([A-Z]{1,5})/i);
+    if (symMatch) {
       res.symbol = symMatch[1].toUpperCase();
     } else {
       const lines = norm.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length > 0 && /^[A-Za-z]{1,5}$/.test(lines[0])) {
-        res.symbol = lines[0].toUpperCase();
+      for (const line of lines) {
+        const cleanLine = line.toUpperCase().trim();
+        if (/^[A-Z]{1,5}$/.test(cleanLine) && !reservedWords.has(cleanLine)) {
+          res.symbol = cleanLine;
+          break;
+        }
+      }
+      if (!res.symbol) {
+        const words = norm.match(/\b([A-Z]{1,5})\b/g);
+        if (words) {
+          for (const w of words) {
+            const wUpper = w.toUpperCase();
+            if (!reservedWords.has(wUpper)) {
+              res.symbol = wUpper;
+              break;
+            }
+          }
+        }
       }
     }
 
     // Buy Price / Entry
-    const buyMatch = norm.match(/(?:Buy\s*at|Buy|Entry|دخول|شراء|سعر\s*الدخول|سعر\s*الشراء|دعم|@)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
-    if (buyMatch) res.buyPrice = cleanNum(buyMatch[1]);
+    const buyMatch = norm.match(/(?:Buy\s*at|Buy|Entry|دخول|شراء|سعر\s*الدخول|سعر\s*الشراء|دعم|@)\s*[:=≈]?\s*([\d\.\s\~\-]+)/i);
+    if (buyMatch) {
+      let rawBuy = buyMatch[1].trim();
+      rawBuy = rawBuy.replace(/[^\d\.\s\~\-]/g, '').trim();
+      res.buyPrice = cleanNum(rawBuy);
+    }
 
-    // Targets
-    const t1Match = norm.match(/(?:\bT1\b|Target\s*1\b|Goal\s*1\b|الهدف\s*1\b|هدف\s*1\b|الهدف\s*الأول)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    // Target 1
+    const t1Match = norm.match(/(?:\bT1[\.\:]?|Target\s*1[\.\:]?|Goal\s*1[\.\:]?|الهدف\s*1[\.\:]?|هدف\s*1[\.\:]?|الهدف\s*الأول)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
     if (t1Match) res.target1 = cleanNum(t1Match[1]);
 
-    const t2Match = norm.match(/(?:\bT2\b|Target\s*2\b|Goal\s*2\b|الهدف\s*2\b|هدف\s*2\b|الهدف\s*الثاني)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    // Target 2
+    const t2Match = norm.match(/(?:\bT2[\.\:]?|Target\s*2[\.\:]?|Goal\s*2[\.\:]?|الهدف\s*2[\.\:]?|هدف\s*2[\.\:]?|الهدف\s*الثاني)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
     if (t2Match) res.target2 = cleanNum(t2Match[1]);
 
-    // Targets List match like "Targets: 1.8 - 2.2" or "Targets 1.8 2.2"
-    const targetsListMatch = norm.match(/(?:Targets|Target|Goals|Goal|الأهداف|الاهداف|أهداف|اهداف)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
-    if (targetsListMatch) {
-      const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
-      if (numbers && numbers.length > 0) {
-        if (!res.target1 && numbers[0]) res.target1 = cleanNum(numbers[0]);
-        if (!res.target2 && numbers[1]) res.target2 = cleanNum(numbers[1]);
+    // Fallback: Targets list match
+    if (!res.target1 || !res.target2) {
+      const targetsListMatch = norm.match(/(?:Targets|Target|Goals|Goal|الأهداف|الاهداف|أهداف|اهداف)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
+      if (targetsListMatch) {
+        const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
+        if (numbers && numbers.length > 0) {
+          if (!res.target1 && numbers[0]) res.target1 = cleanNum(numbers[0]);
+          if (!res.target2 && numbers[1]) res.target2 = cleanNum(numbers[1]);
+        }
       }
     }
 
     // Stop Loss
-    const slMatch = norm.match(/(?:\bSL\b|Stop\s*Loss|Stop|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    const slMatch = norm.match(/(?:\bSL[\.\:]?|Stop\s*Loss[\.\:]?|\bStop[\.\:]?|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف)\s*[:=≈]?\s*\(?(\d+(?:\.\d+)?)\)?/i);
     if (slMatch) res.stopLoss = cleanNum(slMatch[1]);
 
     return res;
@@ -6801,6 +6862,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       if (parsed.target1) setUsTarget1(parsed.target1);
       if (parsed.target2) setUsTarget2(parsed.target2);
       if (parsed.stopLoss) setUsStopLoss(parsed.stopLoss);
+      if (parsed.marketType) setUsMarketType(parsed.marketType);
+      if (parsed.notes) setUsNotes(parsed.notes);
     }
   };
 
