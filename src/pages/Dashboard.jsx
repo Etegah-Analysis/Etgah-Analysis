@@ -13395,16 +13395,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
                   )}
-                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) && filteredSignals.length > 0 && (
-                  <button 
-                    onClick={handleDeleteAllSaudiSignals}
-                    className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                    title="مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات"
-                  >
-                    <Trash2 size={14} />
-                    <span>مسح جميع التوصيات 🗑️</span>
-                  </button>
-                  )}
                 </div>
               </div>
 
@@ -13824,16 +13814,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
-                  {filteredSignals.length > 0 && (
-                    <button 
-                      onClick={handleDeleteAllUsSignals}
-                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                      title="مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات"
-                    >
-                      <Trash2 size={14} />
-                      <span>مسح جميع التوصيات 🗑️</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -20625,22 +20605,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
               </div>
 
-              {/* Dedicated Market Type Badge / Switcher */}
+              {/* Dedicated Market Type Badge */}
               <div className="mb-4 bg-slate-800/80 p-2.5 rounded-2xl border border-blue-500/30 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-gray-300">القسم المستهدف:</span>
                   <span className={`px-3 py-1 rounded-xl text-xs font-black shadow-sm ${usMarketType === 'options' ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white'}`}>
                     {usMarketType === 'options' ? '⚡ شيت عقود الخيارات (Options)' : '📈 شيت الأسهم والشركات (Stocks)'}
                   </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setUsMarketType(usMarketType === 'options' ? 'stocks' : 'options')}
-                    className="text-[11px] text-amber-300 hover:text-amber-200 font-bold underline transition bg-slate-900/80 px-2.5 py-1 rounded-lg border border-amber-500/30"
-                  >
-                    {usMarketType === 'options' ? 'التحويل إلى إضافة شركة 📈' : 'التحويل إلى إضافة عقد ⚡'}
-                  </button>
                 </div>
               </div>
 
