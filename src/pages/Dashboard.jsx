@@ -3562,7 +3562,7 @@ const Dashboard = () => {
       return { total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
     };
 
-    if (isAgent) {
+    if (isAgent || isCustomerService) {
       const myUid = currentUser?.uid;
       const myMail = currentUser?.email?.toLowerCase();
       const empCrmLeads = (crmByUid.get(myUid) || []).concat(myMail ? (crmByMail.get(myMail) || []) : []);
@@ -11615,16 +11615,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
-                    <span>📁 {isAgent ? 'Added Leads' : 'Team Added Leads'}</span>
+                    <span>📁 {(isAgent || isCustomerService) ? 'Added Leads' : 'Team Added Leads'}</span>
                     <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                      {isAgent 
+                      {(isAgent || isCustomerService) 
                         ? `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Leads`
                         : (isAdmin || isCoordinator ? `${employeeLeads.length.toLocaleString()} Team Leads` : `${employeeLeads.filter(c => c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid)).length.toLocaleString()} Team Leads`)
                       }
                     </span>
                   </h2>
                   <p className="text-xs text-purple-200 mt-0.5 font-medium">
-                    {isAgent ? 'متابعة وإدارة العملاء والبيانات المضافة ومراجعة تفاصيلها' : 'متابعة وإدارة العملاء والبيانات المضافة يدوياً بواسطة أعضاء الفريق ومراجعة تفاصيلها'}
+                    {(isAgent || isCustomerService) ? 'متابعة وإدارة العملاء والبيانات المضافة ومراجعة تفاصيلها' : 'متابعة وإدارة العملاء والبيانات المضافة يدوياً بواسطة أعضاء الفريق ومراجعة تفاصيلها'}
                   </p>
                 </div>
               </div>
@@ -17029,7 +17029,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 </div>
 
-                {isAgent ? (
+                {(isAgent || isCustomerService) ? (
                   /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
                     const data = leadsAnalysisData;
