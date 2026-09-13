@@ -655,6 +655,7 @@ const Dashboard = () => {
   // Call Performance Analytics States
   const [callLogs, setCallLogs] = useState([]);
   const [isCallsAnalysisModalOpen, setIsCallsAnalysisModalOpen] = useState(false);
+  const [callsAnalysisModalMode, setCallsAnalysisModalMode] = useState('auto'); // 'auto', 'personal', 'all'
   const [callsDateRangeFilter, setCallsDateRangeFilter] = useState('all'); // 'all', 'today', 'yesterday', 'week', 'month', 'custom'
   const [callsCustomDateFrom, setCallsCustomDateFrom] = useState('');
   const [callsCustomDateTo, setCallsCustomDateTo] = useState('');
@@ -9655,7 +9656,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -9910,7 +9911,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
               >
@@ -10175,7 +10176,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('auto'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
                   >
@@ -10328,7 +10329,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
-                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('personal'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                       title="انقر لعرض تقرير وتحليل أداء مكالماتك اليوم"
                     >
@@ -10490,7 +10491,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                     <div 
-                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
                       title="انقر لمتابعة وتحليل سجل مكالمات كافة موظفي المنصة اليوم"
                     >
@@ -10647,7 +10648,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
                   <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('personal'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير وتحليل أداء مكالماتك اليوم"
                   >
@@ -18108,7 +18109,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {isCallsAnalysisModalOpen && (() => {
           // 1. Role Scoped Call Logs
           const roleLogs = callLogs.filter(log => {
-            if (isAdmin || isCoordinator || isCustomerService) return true;
+            if (callsAnalysisModalMode === 'personal') {
+              return log.employeeUid === currentUser?.uid || log.callerUid === currentUser?.uid;
+            }
+            if (isAdmin || isCoordinator || (isCustomerService && callsAnalysisModalMode === 'all')) return true;
             if (isLeader) {
               return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
             }
@@ -18178,7 +18182,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const uniqueCallers = new Set(filteredLogs.map(l => l.employeeUid).filter(Boolean)).size;
 
           // Per-Employee Analytics Breakdown (Excluding Admin and Coordinators like Waleed as they don't make calls)
-          const eligibleEmployees = (isAdmin || isCoordinator || isCustomerService)
+          const eligibleEmployees = (callsAnalysisModalMode === 'personal')
+            ? [currentEmpUser].filter(e => e && e.jobTitle !== 'Coordinator' && e.jobTitle !== 'منسق للإدارة' && e.role !== 'coordinator')
+            : (isAdmin || isCoordinator || (isCustomerService && callsAnalysisModalMode === 'all'))
             ? employees.filter(e => 
                 e.role !== 'admin' && 
                 !adminEmails.includes(e.email?.toLowerCase()) &&
@@ -18263,12 +18269,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
                         <span>تقرير وتحليل أداء المكالمات 📞</span>
                         <span className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-0.5 rounded-full font-bold">
-                          {isAdmin ? 'تحليل المنصة الشامل' : (isCoordinator || isCustomerService) ? 'خدمة العملاء والمنسق' : isLeader ? 'تحليل فريق العمل' : 'مكالماتي الشخصية'}
+                          {callsAnalysisModalMode === 'personal' ? 'مكالماتي الشخصية' : isAdmin ? 'تحليل المنصة الشامل' : (isCoordinator || isCustomerService) ? 'خدمة العملاء والمنسق (All Staff)' : isLeader ? 'تحليل فريق العمل' : 'مكالماتي الشخصية'}
                         </span>
                       </h2>
                       <p className="text-xs text-purple-300 font-medium mt-0.5">
-                        {isAdmin || isCoordinator || isCustomerService 
-                          ? 'تتبع دقيق ومفصل لمعدل المكالمات (تم الرد / لم يرد)، زمن المكالمات بالدقائق والثواني الصادرة من برنامج MicroSIP' 
+                        {callsAnalysisModalMode === 'personal' 
+                          ? 'سجل وتحليل مكالماتك ومعدل الرد وزمن المكالمات الصادرة الخاصة بك فقط'
+                          : (isAdmin || isCoordinator || isCustomerService)
+                          ? 'تتبع دقيق ومفصل لمعدل المكالمات (تم الرد / لم يرد)، زمن المكالمات بالدقائق والثواني الصادرة من برنامج MicroSIP على مستوى كافة الموظفين' 
                           : isLeader 
                           ? `تتبع ومتابعة أداء مكالماتك ومكالمات فريقك (${myTeamMembers.length} موظف)` 
                           : 'سجل وتحليل مكالماتك ومعدل الرد وزمن المكالمات الصادرة'}
@@ -18333,7 +18341,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
 
                     {/* Employee Selector (for Admin, Coordinator, Customer Service, Leader) */}
-                    {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
+                    {callsAnalysisModalMode !== 'personal' && (isAdmin || isCoordinator || isCustomerService || isLeader) && (
                       <div className="flex items-center gap-1.5 min-w-[200px]">
                         <select
                           value={callsSelectedEmpFilter}
