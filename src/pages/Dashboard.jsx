@@ -613,6 +613,7 @@ const Dashboard = () => {
     return '—';
   };
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
+  const [leadsAnalysisModalMode, setLeadsAnalysisModalMode] = useState('personal'); // 'personal' or 'all'
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
   const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
@@ -3562,7 +3563,7 @@ const Dashboard = () => {
       return { total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
     };
 
-    if (isAgent || isCustomerService) {
+    if ((isAgent || isCustomerService) && leadsAnalysisModalMode !== 'all') {
       const myUid = currentUser?.uid;
       const myMail = currentUser?.email?.toLowerCase();
       const empCrmLeads = (crmByUid.get(myUid) || []).concat(myMail ? (crmByMail.get(myMail) || []) : []);
@@ -3574,7 +3575,7 @@ const Dashboard = () => {
       return { type: 'agent', empCrmLeads: uniqueCrm, empAddedLeads: uniqueAdded, ...stats };
     }
 
-    if (isLeader) {
+    if (isLeader && leadsAnalysisModalMode !== 'all') {
       const teamUids = [currentUser?.uid, ...myTeamMembers.map(e => e.uid)].filter(Boolean);
       const teamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(e => e.email?.toLowerCase())].filter(Boolean);
       const teamNames = [currentUser?.displayName, currentEmpUser?.name, ...myTeamMembers.map(e => e.name)].filter(Boolean);
@@ -3693,7 +3694,7 @@ const Dashboard = () => {
       leadersList,
       leadersTeamData
     };
-  }, [isLeadsAnalysisModalOpen, leadsCrm, employeeLeads, employees, currentUser, currentEmpUser, myTeamMembers, isAdmin, isLeader, isCoordinator, isAgent, adminEmails]);
+  }, [isLeadsAnalysisModalOpen, leadsAnalysisModalMode, leadsCrm, employeeLeads, employees, currentUser, currentEmpUser, myTeamMembers, isAdmin, isLeader, isCoordinator, isAgent, isCustomerService, adminEmails]);
 
   // Memoized subscribed client counts for Subscribed Clients Tab
   const subscribedCountsByEmp = useMemo(() => {
@@ -9277,7 +9278,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Card 10: Leads CRM Analysis */}
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('all'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
               >
@@ -9510,7 +9511,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('all'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
               >
@@ -9904,7 +9905,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
-                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('personal'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                       title="انقر لعرض تحليل أداء ونسبة نجاح داتا خدمة العملاء الخاصة بك"
                     >
@@ -10060,7 +10061,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
-                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('all'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-cyan-400/50 md:hover:border-cyan-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(6,182,212,0.35)] flex items-center cursor-pointer transition-all transform"
                       title="انقر لمتابعة وتحليل تقرير أداء داتا كافة موظفي المنصة"
                     >
@@ -10217,7 +10218,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('personal'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
                   >
@@ -16990,10 +16991,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div>
                     <h2 className="text-xl font-black text-white flex items-center gap-2">
                       <span>Leads CRM Analysis 📊</span>
-                      {isLeader && <span className="text-xs bg-purple-500/30 text-purple-200 border border-purple-400/40 px-2.5 py-0.5 rounded-full font-bold">فريق العمل</span>}
+                      {leadsAnalysisModalMode === 'all' ? (
+                        <span className="text-xs bg-cyan-500/30 text-cyan-200 border border-cyan-400/40 px-2.5 py-0.5 rounded-full font-bold">كافة الموظفين (All Staff)</span>
+                      ) : isLeader ? (
+                        <span className="text-xs bg-purple-500/30 text-purple-200 border border-purple-400/40 px-2.5 py-0.5 rounded-full font-bold">فريق العمل</span>
+                      ) : null}
                     </h2>
                     <p className="text-xs text-purple-300 font-medium">
-                      {isAdmin 
+                      {leadsAnalysisModalMode === 'all'
+                        ? 'تقرير كفاءة وأداء جميع الموظفين والليدرز ونسبة تحويل العملاء بالمنصة (All Staff Monitoring)'
+                        : isAdmin 
                         ? 'تقرير كفاءة وأداء جميع الموظفين والليدرز ونسبة تحويل العملاء' 
                         : isCoordinator 
                         ? 'تقرير كفاءة وأداء جميع الموظفين ونسبة تحويل العملاء (منسق)'
@@ -17029,7 +17036,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 </div>
 
-                {(isAgent || isCustomerService) ? (
+                {((isAgent || isCustomerService) && leadsAnalysisModalMode !== 'all') ? (
                   /* --- 1. AGENT INDIVIDUAL ANALYSIS --- */
                   (() => {
                     const data = leadsAnalysisData;
@@ -17160,7 +17167,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     );
                   })()
-                ) : isLeader ? (
+                ) : (isLeader && leadsAnalysisModalMode !== 'all') ? (
                   /* --- 2. LEADER TEAM PERFORMANCE ANALYSIS --- */
                   (() => {
                     const data = leadsAnalysisData;
