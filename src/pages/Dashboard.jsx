@@ -613,7 +613,7 @@ const Dashboard = () => {
     return '—';
   };
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
-  const [leadsAnalysisModalMode, setLeadsAnalysisModalMode] = useState('personal'); // 'personal' or 'all'
+  const [leadsAnalysisModalMode, setLeadsAnalysisModalMode] = useState('auto'); // 'auto' or 'all'
   const [isSystemTotalClientsModalOpen, setIsSystemTotalClientsModalOpen] = useState(false);
   const [isPendingClientsModalOpen, setIsPendingClientsModalOpen] = useState(false);
   const [isCrmCampaignModalOpen, setIsCrmCampaignModalOpen] = useState(false);
@@ -9278,7 +9278,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Card 10: Leads CRM Analysis */}
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('all'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تحليلات الأداء الشاملة لكل الموظفين ونسبة النجاح"
               >
@@ -9511,7 +9511,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
               <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('all'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                 title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
               >
@@ -9752,7 +9752,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
                   >
@@ -9905,7 +9905,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                     <div 
-                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('personal'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                       title="انقر لعرض تحليل أداء ونسبة نجاح داتا خدمة العملاء الخاصة بك"
                     >
@@ -10218,7 +10218,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
                   <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('personal'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
                     title="انقر لعرض تحليل الأداء ونسبة النجاح الخاصة بك"
                   >
