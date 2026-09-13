@@ -6641,9 +6641,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     return '';
   };
 
+  // Helper to sanitize numeric entries and strip lone dots or invalid values
+  const cleanNum = (val) => {
+    if (val === undefined || val === null) return '';
+    let str = String(val).trim();
+    if (!str || str === '.' || str === '-' || str === '—' || str === 'null' || str === 'undefined') return '';
+    if (str.endsWith('.')) str = str.slice(0, -1);
+    if (!str || isNaN(Number(str))) return '';
+    return str;
+  };
+
   const parseSaudiWhatsAppText = (text) => {
     if (!text) return {};
-    // Normalize Arabic-Indic digits to ASCII numbers & normalize commas/dots
     let norm = String(text).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.');
     const res = {};
     
@@ -6684,41 +6693,41 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
     }
 
-    // 3. Supports (دعم 1 الأساسي / سعر الدخول / الشراء / Buy)
-    const sup1Match = norm.match(/(?:دعم\s*1|دعم\s*أول|الدعم\s*الأول|الدعم|دعم|دخول|سعر\s*الدخول|سعر\s*الشراء|شراء|نقطة\s*الشراء|Buy(?:\s*at)?)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (sup1Match) res.support1 = sup1Match[1];
+    // 3. Supports
+    const sup1Match = norm.match(/(?:دعم\s*1\b|دعم\s*أول|الدعم\s*الأول|الدعم|دعم|دخول|سعر\s*الدخول|سعر\s*الشراء|شراء|نقطة\s*الشراء|Buy(?:\s*at)?)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (sup1Match) res.support1 = cleanNum(sup1Match[1]);
 
-    const sup2Match = norm.match(/(?:دعم\s*2|دعم\s*ثان[يى]|الدعم\s*الثاني)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (sup2Match) res.support2 = sup2Match[1];
+    const sup2Match = norm.match(/(?:دعم\s*2\b|دعم\s*ثان[يى]|الدعم\s*الثاني)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (sup2Match) res.support2 = cleanNum(sup2Match[1]);
 
-    // 4. Resistances / Targets (مقاومات / أهداف)
-    const res1Match = norm.match(/(?:مقاومة\s*1|مقاومة\s*أول[ىي]|المقاومة\s*الأولى|هدف\s*1|الهدف\s*الأول|الهدف\s*1|Target\s*1|T1)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (res1Match) res.resistance1 = res1Match[1];
+    // 4. Resistances / Targets
+    const res1Match = norm.match(/(?:مقاومة\s*1\b|مقاومة\s*أول[ىي]|المقاومة\s*الأولى|هدف\s*1\b|الهدف\s*الأول|الهدف\s*1\b|Target\s*1\b|T1\b)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (res1Match) res.resistance1 = cleanNum(res1Match[1]);
 
-    const res2Match = norm.match(/(?:مقاومة\s*2|مقاومة\s*ثاني[ةه]|المقاومة\s*الثانية|هدف\s*2|الهدف\s*الثاني|الهدف\s*2|Target\s*2|T2)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (res2Match) res.resistance2 = res2Match[1];
+    const res2Match = norm.match(/(?:مقاومة\s*2\b|مقاومة\s*ثاني[ةه]|المقاومة\s*الثانية|هدف\s*2\b|الهدف\s*الثاني|الهدف\s*2\b|Target\s*2\b|T2\b)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (res2Match) res.resistance2 = cleanNum(res2Match[1]);
 
-    const res3Match = norm.match(/(?:مقاومة\s*3|مقاومة\s*ثالث[ةه]|المقاومة\s*الثالثة|هدف\s*3|الهدف\s*الثالث|الهدف\s*3|Target\s*3|T3)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (res3Match) res.resistance3 = res3Match[1];
+    const res3Match = norm.match(/(?:مقاومة\s*3\b|مقاومة\s*ثالث[ةه]|المقاومة\s*الثالثة|هدف\s*3\b|الهدف\s*الثالث|الهدف\s*3\b|Target\s*3\b|T3\b)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (res3Match) res.resistance3 = cleanNum(res3Match[1]);
 
-    const res4Match = norm.match(/(?:مقاومة\s*4|مقاومة\s*رابع[ةه]|المقاومة\s*الرابعة|هدف\s*4|الهدف\s*الرابع|الهدف\s*4|Target\s*4|T4)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (res4Match) res.resistance4 = res4Match[1];
+    const res4Match = norm.match(/(?:مقاومة\s*4\b|مقاومة\s*رابع[ةه]|المقاومة\s*الرابعة|هدف\s*4\b|الهدف\s*الرابع|الهدف\s*4\b|Target\s*4\b|T4\b)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (res4Match) res.resistance4 = cleanNum(res4Match[1]);
 
-    // Check list pattern like "الأهداف: 52.80 - 54.00 - 56.00 - 60.00" or "المقاومات: 52.80 / 54"
+    // Check targets list match
     const targetsListMatch = norm.match(/(?:الأهداف|الاهداف|أهداف|اهداف|المقاومات|مقاومات|Targets|Target)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
     if (targetsListMatch) {
       const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
       if (numbers && numbers.length > 0) {
-        if (!res.resistance1 && numbers[0]) res.resistance1 = numbers[0];
-        if (!res.resistance2 && numbers[1]) res.resistance2 = numbers[1];
-        if (!res.resistance3 && numbers[2]) res.resistance3 = numbers[2];
-        if (!res.resistance4 && numbers[3]) res.resistance4 = numbers[3];
+        if (!res.resistance1 && numbers[0]) res.resistance1 = cleanNum(numbers[0]);
+        if (!res.resistance2 && numbers[1]) res.resistance2 = cleanNum(numbers[1]);
+        if (!res.resistance3 && numbers[2]) res.resistance3 = cleanNum(numbers[2]);
+        if (!res.resistance4 && numbers[3]) res.resistance4 = cleanNum(numbers[3]);
       }
     }
 
-    // 5. Stop Loss (إيقاف الخسارة / الوقف / كسر الدعم تحت)
-    const slMatch = norm.match(/(?:كسر\s*الدعم\s*تحت|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف|Stop\s*Loss|SL)\s*[≈:=]?\s*\(?([\d\.]+)\)?/i);
-    if (slMatch) res.stopLoss = slMatch[1];
+    // 5. Stop Loss
+    const slMatch = norm.match(/(?:كسر\s*الدعم\s*تحت|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف|Stop\s*Loss|SL)\s*[:=≈]?\s*\(?(\d+(?:\.\d+)?)\)?/i);
+    if (slMatch) res.stopLoss = cleanNum(slMatch[1]);
 
     return res;
   };
@@ -6739,30 +6748,30 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
     }
 
-    // Buy Price
-    const buyMatch = norm.match(/(?:Buy\s*at|Buy|دخول|شراء|سعر\s*الدخول|سعر\s*الشراء|دعم)\s*[:=≈]?\s*([\d\.]+)/i);
-    if (buyMatch) res.buyPrice = buyMatch[1];
+    // Buy Price / Entry
+    const buyMatch = norm.match(/(?:Buy\s*at|Buy|Entry|دخول|شراء|سعر\s*الدخول|سعر\s*الشراء|دعم|@)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (buyMatch) res.buyPrice = cleanNum(buyMatch[1]);
 
     // Targets
-    const t1Match = norm.match(/(?:\bT1|Target\s*1|\bT\b|الهدف\s*1|هدف\s*1|الهدف\s*الأول)\s*[:=≈]?\s*([\d\.]+)/i);
-    if (t1Match) res.target1 = t1Match[1];
+    const t1Match = norm.match(/(?:\bT1\b|Target\s*1\b|Goal\s*1\b|الهدف\s*1\b|هدف\s*1\b|الهدف\s*الأول)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (t1Match) res.target1 = cleanNum(t1Match[1]);
 
-    const t2Match = norm.match(/(?:\bT2|Target\s*2|الهدف\s*2|هدف\s*2|الهدف\s*الثاني)\s*[:=≈]?\s*([\d\.]+)/i);
-    if (t2Match) res.target2 = t2Match[1];
+    const t2Match = norm.match(/(?:\bT2\b|Target\s*2\b|Goal\s*2\b|الهدف\s*2\b|هدف\s*2\b|الهدف\s*الثاني)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (t2Match) res.target2 = cleanNum(t2Match[1]);
 
-    // Targets List match
-    const targetsListMatch = norm.match(/(?:Targets|Target|الأهداف|الاهداف|أهداف|اهداف)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
+    // Targets List match like "Targets: 1.8 - 2.2" or "Targets 1.8 2.2"
+    const targetsListMatch = norm.match(/(?:Targets|Target|Goals|Goal|الأهداف|الاهداف|أهداف|اهداف)\s*[:=]?\s*([0-9\.\s\,\-\/]+)/i);
     if (targetsListMatch) {
       const numbers = targetsListMatch[1].match(/\d+(?:\.\d+)?/g);
       if (numbers && numbers.length > 0) {
-        if (!res.target1 && numbers[0]) res.target1 = numbers[0];
-        if (!res.target2 && numbers[1]) res.target2 = numbers[1];
+        if (!res.target1 && numbers[0]) res.target1 = cleanNum(numbers[0]);
+        if (!res.target2 && numbers[1]) res.target2 = cleanNum(numbers[1]);
       }
     }
 
     // Stop Loss
-    const slMatch = norm.match(/(?:\bSL\b|Stop\s*Loss|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف)\s*[≈:=]?\s*([\d\.]+)/i);
-    if (slMatch) res.stopLoss = slMatch[1];
+    const slMatch = norm.match(/(?:\bSL\b|Stop\s*Loss|Stop|إيقاف\s*الخسارة|وقف\s*الخسارة|الوقف|وقف)\s*[:=≈]?\s*(\d+(?:\.\d+)?)/i);
+    if (slMatch) res.stopLoss = cleanNum(slMatch[1]);
 
     return res;
   };
@@ -13579,31 +13588,31 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </td>
 
                             <td className="py-3 px-3 text-center font-bold text-amber-900 bg-amber-50/60 font-mono text-sm">
-                              {sig.support1 || '—'}
+                              {cleanNum(sig.support1) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono text-gray-700">
-                              {sig.support2 || '—'}
+                              {cleanNum(sig.support2) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.resistance1 || '—'}
+                              {cleanNum(sig.resistance1) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.resistance2 || '—'}
+                              {cleanNum(sig.resistance2) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.resistance3 || '—'}
+                              {cleanNum(sig.resistance3) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.resistance4 || '—'}
+                              {cleanNum(sig.resistance4) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-rose-700">
-                              {sig.stopLoss || '—'}
+                              {cleanNum(sig.stopLoss) || '—'}
                             </td>
 
                             {/* Status selector */}
@@ -14025,19 +14034,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             </td>
 
                             <td className="py-3 px-3 text-center font-bold text-amber-900 bg-amber-50/60 font-mono text-sm">
-                              {sig.buyPrice || '—'}
+                              {cleanNum(sig.buyPrice) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.target1 || '—'}
+                              {cleanNum(sig.target1) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
-                              {sig.target2 || '—'}
+                              {cleanNum(sig.target2) || '—'}
                             </td>
 
                             <td className="py-3 px-3 text-center font-mono font-bold text-rose-700">
-                              {sig.stopLoss || '—'}
+                              {cleanNum(sig.stopLoss) || '—'}
                             </td>
 
                             {/* Status selector */}
