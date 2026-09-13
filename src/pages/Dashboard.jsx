@@ -10071,7 +10071,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div>
                         <p className="text-[11px] sm:text-xs md:text-sm text-cyan-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis (All Staff)</p>
                         <h3 className="text-2xl font-black text-cyan-300">
-                          {leadsCrm.length.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Total Leads</span>
+                          {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                         </h3>
                         <span className="text-[10px] text-cyan-300 font-bold block mt-0.5" dir="rtl">
                           (متابعة أداء جميع الموظفين)
