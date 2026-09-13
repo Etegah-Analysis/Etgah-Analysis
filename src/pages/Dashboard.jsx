@@ -9790,7 +9790,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
-                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'team')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
                   >
@@ -9945,7 +9945,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                     <div 
-                      onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={(e) => handleCardClick(e, 'campaigns', 'personal')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                       title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                     >
@@ -10258,7 +10258,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
               {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
                   <div 
-                    onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={(e) => handleCardClick(e, 'campaigns', 'personal')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
                     title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الخاصة بك"
                   >
@@ -10300,10 +10300,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             return !isCrmSheetSource(msgOrSrc) && !isExcelSource(msgOrSrc);
           };
 
-          // Scope template messages by user role
+          // Scope template messages by user role & card scope filter ('all' | 'team' | 'personal')
           const roleScopedMessages = (() => {
-            if (isAdmin || isCoordinator) return templateMessages;
-            if (isLeader) {
+            if (isAdmin || isCoordinator || customerFilter === 'all') return templateMessages;
+            if (isLeader && customerFilter === 'team') {
               const leaderTeamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(m => m.email?.toLowerCase())].filter(Boolean);
               return templateMessages.filter(m => leaderTeamEmails.includes(m.senderEmail?.toLowerCase()) || m.senderUid === currentUser?.uid || myTeamMembers.some(tm => tm.uid === m.senderUid));
             }
