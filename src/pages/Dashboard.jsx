@@ -8792,13 +8792,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   // --- CALL PERFORMANCE ANALYTICS COMPUTATIONS ---
   const roleFilteredCallLogs = useMemo(() => {
     return callLogs.filter(log => {
-      if (isAdmin || isCoordinator) return true;
+      if (isAdmin || isCoordinator || isCustomerService) return true;
       if (isLeader) {
         return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
       }
       return log.employeeUid === currentUser?.uid;
     });
-  }, [callLogs, isAdmin, isCoordinator, isLeader, currentUser?.uid, myTeamMembers]);
+  }, [callLogs, isAdmin, isCoordinator, isCustomerService, isLeader, currentUser?.uid, myTeamMembers]);
 
   const todayCallLogsCount = useMemo(() => {
     const todayDateStr = new Date().toISOString().split('T')[0];
@@ -18108,7 +18108,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {isCallsAnalysisModalOpen && (() => {
           // 1. Role Scoped Call Logs
           const roleLogs = callLogs.filter(log => {
-            if (isAdmin || isCoordinator) return true;
+            if (isAdmin || isCoordinator || isCustomerService) return true;
             if (isLeader) {
               return log.employeeUid === currentUser?.uid || log.leaderUid === currentUser?.uid || myTeamMembers.some(m => m.uid === log.employeeUid);
             }
@@ -18178,7 +18178,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const uniqueCallers = new Set(filteredLogs.map(l => l.employeeUid).filter(Boolean)).size;
 
           // Per-Employee Analytics Breakdown (Excluding Admin and Coordinators like Waleed as they don't make calls)
-          const eligibleEmployees = (isAdmin || isCoordinator)
+          const eligibleEmployees = (isAdmin || isCoordinator || isCustomerService)
             ? employees.filter(e => 
                 e.role !== 'admin' && 
                 !adminEmails.includes(e.email?.toLowerCase()) &&
@@ -18263,11 +18263,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
                         <span>تقرير وتحليل أداء المكالمات 📞</span>
                         <span className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-0.5 rounded-full font-bold">
-                          {isAdmin ? 'تحليل المنصة الشامل' : isCoordinator ? 'منسق الإدارة' : isLeader ? 'تحليل فريق العمل' : 'مكالماتي الشخصية'}
+                          {isAdmin ? 'تحليل المنصة الشامل' : (isCoordinator || isCustomerService) ? 'خدمة العملاء والمنسق' : isLeader ? 'تحليل فريق العمل' : 'مكالماتي الشخصية'}
                         </span>
                       </h2>
                       <p className="text-xs text-purple-300 font-medium mt-0.5">
-                        {isAdmin || isCoordinator 
+                        {isAdmin || isCoordinator || isCustomerService 
                           ? 'تتبع دقيق ومفصل لمعدل المكالمات (تم الرد / لم يرد)، زمن المكالمات بالدقائق والثواني الصادرة من برنامج MicroSIP' 
                           : isLeader 
                           ? `تتبع ومتابعة أداء مكالماتك ومكالمات فريقك (${myTeamMembers.length} موظف)` 
@@ -18332,8 +18332,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       ))}
                     </div>
 
-                    {/* Employee Selector (for Admin, Coordinator, Leader) */}
-                    {(isAdmin || isCoordinator || isLeader) && (
+                    {/* Employee Selector (for Admin, Coordinator, Customer Service, Leader) */}
+                    {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
                       <div className="flex items-center gap-1.5 min-w-[200px]">
                         <select
                           value={callsSelectedEmpFilter}
