@@ -17034,7 +17034,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   (() => {
                     const data = leadsAnalysisData;
                     if (!data) return null;
-                    const { empCrmLeads, empAddedLeads, total, subscribed, trial, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate } = data;
+                    const { empCrmLeads, empAddedLeads, total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate } = data;
 
                     return (
                       <div className="space-y-5">
