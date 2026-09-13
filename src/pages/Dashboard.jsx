@@ -5696,11 +5696,12 @@ const Dashboard = () => {
       return;
     }
     try {
-      const { originalCollection, type, deletedAt, deletedBy, id, ...restData } = item;
-      const targetCol = originalCollection || (type === 'employee' ? 'users' : type === 'visitor' ? 'visitor_customers' : type === 'email' ? 'internal_emails' : 'بيانات_تسجيل_العملاء');
-      await setDoc(doc(db, targetCol, item.id), restData);
+      const { originalCollection, type, source, itemType, deletedAt, deletedBy, deletedAtFormatted, data, name, title, id, status, ...restData } = item;
+      const targetCol = originalCollection || item.source || (type === 'saudi_recommendations' ? 'saudi_recommendations' : type === 'us_recommendations' ? 'us_recommendations' : type === 'employee' ? 'users' : type === 'visitor' ? 'visitor_customers' : type === 'email' ? 'internal_emails' : 'بيانات_تسجيل_العملاء');
+      const restoreObj = data || restData;
+      await setDoc(doc(db, targetCol, item.id), restoreObj);
       await deleteDoc(doc(db, 'recycle_bin', item.id));
-      toast.success(`تم استرجاع (${item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح 🔄`);
+      toast.success(`تم استرجاع (${item.title || item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح 🔄`);
     } catch (e) {
       console.error(e);
       toast.error('حدث خطأ أثناء استرجاع العنصر');
@@ -7107,11 +7108,25 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   const handleDeleteSaudiSignal = async (signalId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه التوصية نهائياً؟')) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق السعودي 🔒');
+      return;
+    }
+    const item = saudiRecommendations.find(s => s.id === signalId);
+    if (!item) return;
+    if (!window.confirm(`هل أنت متأكد من مسح توصية (${item.stockName || item.stockCode || 'السهم'}) ونقلها لسلة المهملات لدى الإدارة؟`)) return;
+
     try {
+      // 1. Optimistic UI update
+      setSaudiRecommendations(prev => prev.filter(s => s.id !== signalId));
+      setSelectedSaudiIds(prev => prev.filter(x => x !== signalId));
+      toast.success('تم نقل التوصية إلى سلة المهملات لدى الإدارة بنجاح 🗑️✨');
+
+      // 2. Archive to recycle_bin & delete from saudi_recommendations
+      await handleSoftArchiveToRecycleBin([item], 'saudi_recommendations', 'توصيات السوق السعودي');
       await deleteDoc(doc(db, 'saudi_recommendations', signalId));
-      toast.success('تم حذف التوصية بنجاح 🗑️');
     } catch (err) {
+      console.error(err);
       toast.error('حدث خطأ أثناء الحذف');
     }
   };
@@ -7485,20 +7500,34 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   // --- V2.26 BULK DELETION & RECYCLE BIN ARCHIVING ---
   const handleSoftArchiveToRecycleBin = async (items, sourceKey, sourceTitle) => {
-    const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+    const userRole = isAdmin 
+      ? '👑 الإدارة' 
+      : isCoordinator 
+        ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || 'موظف'}`;
     const now = new Date().toISOString();
 
     const promises = items.map(item => {
       const binId = `recycle_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const titleStr = item.stockName 
+        ? `${item.stockName} (${item.stockCode || ''})` 
+        : item.symbol 
+          ? `${item.symbol} (${item.marketType === 'options' ? 'عقد خيارات' : 'سهم أمريكي'})` 
+          : item.empName || item.name || 'سجل محذوف';
+
       return setDoc(doc(db, 'recycle_bin', binId), {
         id: binId,
         source: sourceKey,
         sourceTitle: sourceTitle,
         itemType: sourceKey,
-        title: item.stockName || item.symbol || item.empName || item.name || 'سجل محذوف',
+        type: sourceKey,
+        title: titleStr,
+        name: titleStr,
         deletedBy: userRole,
         deletedAt: now,
-        deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+        deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         data: item,
         status: 'archived'
       });
@@ -8370,11 +8399,25 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   };
 
   const handleDeleteUsSignal = async (signalId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه التوصية نهائياً؟')) return;
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canDeleteUsStocks')) {
+      toast.error('غير مصرح لك بحذف توصيات السوق الأمريكي 🔒');
+      return;
+    }
+    const item = usRecommendations.find(s => s.id === signalId);
+    if (!item) return;
+    if (!window.confirm(`هل أنت متأكد من مسح توصية (${item.symbol || 'السهم'}) ونقلها لسلة المهملات لدى الإدارة؟`)) return;
+
     try {
+      // 1. Optimistic UI update
+      setUsRecommendations(prev => prev.filter(s => s.id !== signalId));
+      setSelectedUsIds(prev => prev.filter(x => x !== signalId));
+      toast.success('تم نقل التوصية إلى سلة المهملات لدى الإدارة بنجاح 🗑️✨');
+
+      // 2. Archive to recycle_bin & delete from us_recommendations
+      await handleSoftArchiveToRecycleBin([item], 'us_recommendations', 'توصيات السوق الأمريكي');
       await deleteDoc(doc(db, 'us_recommendations', signalId));
-      toast.success('تم حذف التوصية بنجاح 🗑️');
     } catch (err) {
+      console.error(err);
       toast.error('حدث خطأ أثناء الحذف');
     }
   };
@@ -16318,6 +16361,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               </h2>
               <div className="flex space-x-2 space-x-reverse">
                 <button onClick={() => setRbFilter('all')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>الكل</button>
+                <button onClick={() => setRbFilter('recommendations')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'recommendations' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>📈 توصيات (سعودي/أمريكي)</button>
                 <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'employee' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>موظفين</button>
                 <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'customer' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>عملاء</button>
                 <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'visitor' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>زوار (OTP)</button>
@@ -16364,17 +16408,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 <tbody className="divide-y divide-red-50">
                   {recycleBin.filter(item => {
                     const isVisitorItem = item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP');
+                    const isRecItem = item.type === 'saudi_recommendations' || item.type === 'us_recommendations' || item.source?.includes('recommendations') || item.source?.includes('توصيات');
                     const matchesType = rbFilter === 'all' 
                       ? true 
-                      : rbFilter === 'visitor' 
-                        ? isVisitorItem 
-                        : rbFilter === 'customer' 
-                          ? (item.type === 'customer' && !isVisitorItem) 
-                          : item.type === rbFilter;
+                      : rbFilter === 'recommendations'
+                        ? isRecItem
+                        : rbFilter === 'visitor' 
+                          ? isVisitorItem 
+                          : rbFilter === 'customer' 
+                            ? (item.type === 'customer' && !isVisitorItem) 
+                            : item.type === rbFilter;
                     if (!matchesType) return false;
                     if (!dashboardSearch.trim()) return true;
                     const term = dashboardSearch.toLowerCase();
-                    return item.name?.toLowerCase().includes(term) || item.firstName?.toLowerCase().includes(term) || item.email?.toLowerCase().includes(term) || item.phone?.includes(term) || item.phoneNumber?.includes(term);
+                    return item.name?.toLowerCase().includes(term) || item.title?.toLowerCase().includes(term) || item.firstName?.toLowerCase().includes(term) || item.email?.toLowerCase().includes(term) || item.phone?.includes(term) || item.phoneNumber?.includes(term);
                   }).map(item => (
                     <tr key={item.id} className={`transition ${selectedRecycleItems.includes(item.id) ? 'bg-red-50' : 'hover:bg-red-50/50'}`}>
                       <td className="p-4">
@@ -16386,6 +16433,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         />
                       </td>
                       <td className="p-4 text-sm font-bold text-gray-700">
+                        {item.type === 'saudi_recommendations' && <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold">🇸🇦 توصية سعودية</span>}
+                        {item.type === 'us_recommendations' && <span className="bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-1 rounded-lg text-xs font-bold">🇺🇸 توصية أمريكية</span>}
                         {item.type === 'employee' && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">👤 موظف</span>}
                         {item.type === 'customer' && item.originalCollection === 'leads_crm' && <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">🎯 Leads CRM</span>}
                         {item.type === 'customer' && item.originalCollection === 'employee_leads' && <span className="bg-cyan-100 text-cyan-800 px-2 py-1 rounded text-xs font-bold">📋 داتا موظف</span>}
@@ -16399,7 +16448,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">💬 رسالة شات</span>}
                       </td>
                       <td className="p-4 text-sm text-gray-800">
-                        {item.type === 'employee' && (<span>{item.name} ({item.email})</span>)}
+                        {(item.type === 'saudi_recommendations' || item.type === 'us_recommendations' || item.source?.includes('recommendations')) ? (
+                          <div className="space-y-0.5">
+                            <strong className="text-gray-950 font-mono text-xs block">📌 {item.title || item.name || 'توصية محذوفة'}</strong>
+                            <div className="text-[11px] text-gray-700 font-bold">
+                              {(item.data?.buyPrice || item.data?.support1) && <span className="text-amber-800 ml-2">سعر الدخول: {item.data.buyPrice || item.data.support1}</span>}
+                              {(item.data?.target1 || item.data?.resistance1) && <span className="text-emerald-800 ml-2">• T1: {item.data.target1 || item.data.resistance1}</span>}
+                              {item.data?.target2 && <span className="text-emerald-800 ml-2">• T2: {item.data.target2}</span>}
+                              {item.data?.stopLoss && <span className="text-rose-800 ml-2">• الوقف: {item.data.stopLoss}</span>}
+                            </div>
+                          </div>
+                        ) : item.type === 'employee' ? (<span>{item.name} ({item.email})</span>) : null}
                         {(item.type === 'visitor' || item.originalCollection === 'visitor_customers' || item.source?.includes('موقع') || item.source?.includes('OTP')) ? (
                           <span>
                             <strong className="text-gray-900">{item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'زائر موقع (OTP)'}</strong>{' '}
