@@ -13332,13 +13332,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
                   )}
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteSaudiStocks')) && filteredSignals.length > 0 && (
                   <button 
-                    onClick={() => handleOpenAddSaudiSignalModal()}
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                    onClick={handleDeleteAllSaudiSignals}
+                    className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title="مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات"
                   >
-                    <Plus size={16} />
-                    <span>+ إضافة توصية سعودية جديدة</span>
+                    <Trash2 size={14} />
+                    <span>مسح جميع التوصيات 🗑️</span>
                   </button>
                   )}
                 </div>
@@ -13385,8 +13386,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         <span className="text-base font-black text-rose-400">{slS}</span>
                       </div>
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-purple-500/30 text-center col-span-2 sm:col-span-1">
-                        <span className="text-[10px] text-purple-200 font-bold block">📊 إجمالي الصفقات</span>
-                        <span className="text-base font-black text-purple-300">{totalS}</span>
+                        <span className="text-[10px] text-purple-300 font-bold block">📊 إجمالي الصفقات</span>
+                        <span className="text-base font-black text-amber-300">{totalS}</span>
                       </div>
                     </div>
 
@@ -13405,55 +13406,54 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
                 {/* Month & Date Filter & Bulk Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm">
-                    <Calendar size={14} className="text-amber-600" />
-                    <span className="text-[11px] font-black text-gray-700">دورة الشهر (1):</span>
-                    <select
-                      value={selectedSaudiMonth}
-                      onChange={(e) => setSelectedSaudiMonth(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
-                    >
-                      <option value="all">📅 كل الشهور (الأرشيف)</option>
-                      {getAvailableMonthsForSignals(saudiRecommendations).map(m => (
-                        <option key={m.key} value={m.key}>{m.label}</option>
-                      ))}
-                    </select>
+                  {/* Compact Combined Calendar & Date Range Bar */}
+                  <div className="flex items-center gap-1.5 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm flex-wrap text-[11px]">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={13} className="text-amber-600 shrink-0" />
+                      <span className="font-black text-gray-700">دورة الشهر:</span>
+                      <select
+                        value={selectedSaudiMonth}
+                        onChange={(e) => setSelectedSaudiMonth(e.target.value)}
+                        className="bg-transparent border-none text-[11px] font-bold text-gray-800 focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">📅 الكل</option>
+                        {getAvailableMonthsForSignals(saudiRecommendations).map(m => (
+                          <option key={m.key} value={m.key}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-gray-300">|</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-gray-600">من:</span>
+                      <input
+                        type={saudiDateFrom ? "date" : "text"}
+                        onFocus={(e) => e.target.type = 'date'}
+                        onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                        value={saudiDateFrom}
+                        onChange={(e) => setSaudiDateFrom(e.target.value)}
+                        className="bg-white border border-amber-300/80 rounded px-1.5 py-0.5 text-[11px] font-bold text-gray-800 w-24"
+                      />
+                      <span className="font-bold text-gray-600">إلى:</span>
+                      <input
+                        type={saudiDateTo ? "date" : "text"}
+                        onFocus={(e) => e.target.type = 'date'}
+                        onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                        value={saudiDateTo}
+                        onChange={(e) => setSaudiDateTo(e.target.value)}
+                        className="bg-white border border-amber-300/80 rounded px-1.5 py-0.5 text-[11px] font-bold text-gray-800 w-24"
+                      />
+                    </div>
+                    {(saudiDateFrom || saudiDateTo) && (
+                      <button
+                        onClick={() => { setSaudiDateFrom(''); setSaudiDateTo(''); }}
+                        className="text-[10px] text-rose-600 hover:text-rose-800 font-bold underline"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <span>من:</span>
-                    <input
-                      type={saudiDateFrom ? "date" : "text"}
-                      onFocus={(e) => e.target.type = 'date'}
-                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
-                      placeholder=""
-                      value={saudiDateFrom}
-                      onChange={(e) => setSaudiDateFrom(e.target.value)}
-                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <span>إلى:</span>
-                    <input
-                      type={saudiDateTo ? "date" : "text"}
-                      onFocus={(e) => e.target.type = 'date'}
-                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
-                      placeholder=""
-                      value={saudiDateTo}
-                      onChange={(e) => setSaudiDateTo(e.target.value)}
-                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
-                    />
-                  </div>
-                  {(saudiDateFrom || saudiDateTo) && (
-                    <button
-                      onClick={() => { setSaudiDateFrom(''); setSaudiDateTo(''); }}
-                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline"
-                    >
-                      مسح التاريخ ✕
-                    </button>
-                  )}
-
-                  {/* Bulk Delete Buttons */}
+                  {/* Bulk Delete Selected */}
                   {selectedSaudiIds.length > 0 && (
                     <button
                       onClick={handleDeleteSelectedSaudiSignals}
@@ -13463,14 +13463,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <span>مسح المحدد ({selectedSaudiIds.length})</span>
                     </button>
                   )}
-                  {filteredSignals.length > 0 && (
-                    <button
-                      onClick={handleDeleteAllSaudiSignals}
-                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                      title="مسح جميع توصيات السوق السعودي ونقلها لسلة المهملات"
+
+                  {/* Add New Recommendation Button (Moved here from Header Banner) */}
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                    <button 
+                      onClick={() => handleOpenAddSaudiSignalModal()}
+                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
                     >
-                      <Trash2 size={13} />
-                      <span>مسح الكل</span>
+                      <Plus size={15} />
+                      <span>+ إضافة توصية سعودية جديدة</span>
                     </button>
                   )}
                 </div>
@@ -13760,6 +13761,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>
+                  {filteredSignals.length > 0 && (
+                    <button 
+                      onClick={handleDeleteAllUsSignals}
+                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                      title="مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات"
+                    >
+                      <Trash2 size={14} />
+                      <span>مسح جميع التوصيات 🗑️</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -13861,53 +13872,52 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                 {/* Month & Date Filter & Bulk Actions (v2.26) */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm">
-                    <Calendar size={14} className="text-amber-600" />
-                    <span className="text-[11px] font-black text-gray-700">دورة الشهر (1):</span>
-                    <select
-                      value={selectedUsMonth}
-                      onChange={(e) => setSelectedUsMonth(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-gray-800 focus:outline-none cursor-pointer"
-                    >
-                      <option value="all">📅 كل الشهور (الأرشيف)</option>
-                      {getAvailableMonthsForSignals(usRecommendations).map(m => (
-                        <option key={m.key} value={m.key}>{m.label}</option>
-                      ))}
-                    </select>
+                  {/* Compact Combined Calendar & Date Range Bar for US */}
+                  <div className="flex items-center gap-1.5 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm flex-wrap text-[11px]">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={13} className="text-amber-600 shrink-0" />
+                      <span className="font-black text-gray-700">دورة الشهر:</span>
+                      <select
+                        value={selectedUsMonth}
+                        onChange={(e) => setSelectedUsMonth(e.target.value)}
+                        className="bg-transparent border-none text-[11px] font-bold text-gray-800 focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">📅 الكل</option>
+                        {getAvailableMonthsForSignals(usRecommendations).map(m => (
+                          <option key={m.key} value={m.key}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-gray-300">|</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-gray-600">من:</span>
+                      <input
+                        type={usDateFrom ? "date" : "text"}
+                        onFocus={(e) => e.target.type = 'date'}
+                        onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                        value={usDateFrom}
+                        onChange={(e) => setUsDateFrom(e.target.value)}
+                        className="bg-white border border-amber-300/80 rounded px-1.5 py-0.5 text-[11px] font-bold text-gray-800 w-24"
+                      />
+                      <span className="font-bold text-gray-600">إلى:</span>
+                      <input
+                        type={usDateTo ? "date" : "text"}
+                        onFocus={(e) => e.target.type = 'date'}
+                        onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                        value={usDateTo}
+                        onChange={(e) => setUsDateTo(e.target.value)}
+                        className="bg-white border border-amber-300/80 rounded px-1.5 py-0.5 text-[11px] font-bold text-gray-800 w-24"
+                      />
+                    </div>
+                    {(usDateFrom || usDateTo) && (
+                      <button
+                        onClick={() => { setUsDateFrom(''); setUsDateTo(''); }}
+                        className="text-[10px] text-rose-600 hover:text-rose-800 font-bold underline"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <span>من:</span>
-                    <input
-                      type={usDateFrom ? "date" : "text"}
-                      onFocus={(e) => e.target.type = 'date'}
-                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
-                      placeholder=""
-                      value={usDateFrom}
-                      onChange={(e) => setUsDateFrom(e.target.value)}
-                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <span>إلى:</span>
-                    <input
-                      type={usDateTo ? "date" : "text"}
-                      onFocus={(e) => e.target.type = 'date'}
-                      onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
-                      placeholder=""
-                      value={usDateTo}
-                      onChange={(e) => setUsDateTo(e.target.value)}
-                      className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800"
-                    />
-                  </div>
-                  {(usDateFrom || usDateTo) && (
-                    <button
-                      onClick={() => { setUsDateFrom(''); setUsDateTo(''); }}
-                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline"
-                    >
-                      مسح التاريخ ✕
-                    </button>
-                  )}
 
                   {/* Bulk Delete Buttons for US */}
                   {selectedUsIds.length > 0 && (
@@ -13917,16 +13927,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     >
                       <Trash2 size={13} />
                       <span>مسح المحدد ({selectedUsIds.length})</span>
-                    </button>
-                  )}
-                  {filteredSignals.length > 0 && (
-                    <button
-                      onClick={handleDeleteAllUsSignals}
-                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                      title="مسح جميع توصيات السوق الأمريكي ونقلها لسلة المهملات"
-                    >
-                      <Trash2 size={13} />
-                      <span>مسح الكل</span>
                     </button>
                   )}
                   <div className="relative">
@@ -20348,55 +20348,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <span>جاري قراءة واستخراج بيانات التوصية من الصورة بالذكاء الاصطناعي...</span>
                     </div>
                   )}
-                </div>
-
-                {/* Extracted Data Live Preview Card */}
-                <div className="bg-slate-800/80 border border-emerald-500/30 rounded-2xl p-4 shadow-md space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-700/60 pb-2">
-                    <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                      <CheckCircle2 size={16} className="text-emerald-400" />
-                      <span>البيانات المستخرجة تلقائياً للتنزيل بالشيت 📊</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowSaudiManualFields(!showSaudiManualFields)}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1"
-                    >
-                      <span>{showSaudiManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
-                    </button>
-                  </div>
-
-                  {/* Summary Chips */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-gray-700 text-center">
-                      <span className="text-[10px] text-gray-400 block font-bold">اسم / كود السهم</span>
-                      <span className="text-xs font-black text-amber-300 truncate block">
-                        {saudiStockName || saudiStockCode ? `${saudiStockName || 'سهم'} (${saudiStockCode || '---'})` : 'غير محدد'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-amber-500/30 text-center">
-                      <span className="text-[10px] text-amber-300 block font-bold">دعم 1 / دعم 2</span>
-                      <span className="text-xs font-black text-amber-200 font-mono block">
-                        {saudiSupport1 || '---'} | {saudiSupport2 || '---'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-500/30 text-center">
-                      <span className="text-[10px] text-emerald-300 block font-bold">مقاومة 1 / 2 / 3 / 4</span>
-                      <span className="text-xs font-black text-emerald-200 font-mono block">
-                        {saudiResistance1 || '-'}/{saudiResistance2 || '-'}/{saudiResistance3 || '-'}/{saudiResistance4 || '-'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-rose-500/30 text-center">
-                      <span className="text-[10px] text-rose-300 block font-bold">إيقاف الخسارة</span>
-                      <span className="text-xs font-black text-rose-200 font-mono block">
-                        {saudiStopLoss || '---'}
-                      </span>
-                    </div>
-                  </div>
 
                   {/* Screenshot Thumbnail */}
                   {saudiScreenshotUrl && (
-                    <div className="flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-emerald-500/20">
+                    <div className="mt-2 flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-emerald-500/20">
                       <img src={saudiScreenshotUrl} alt="Screenshot" className="w-12 h-12 object-cover rounded-lg border border-emerald-400" />
                       <div className="flex-1">
                         <span className="text-xs font-bold text-emerald-300 block">صورة إشعار التوصية مرفقة 📸</span>
@@ -20411,6 +20366,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </button>
                     </div>
                   )}
+
+                  {/* Manual Fields Toggle Button */}
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowSaudiManualFields(!showSaudiManualFields)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1"
+                    >
+                      <span>{showSaudiManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Optional Manual Fields Form (Expandable) */}
@@ -20664,55 +20630,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <span>جاري قراءة واستخراج بيانات التوصية من الصورة بالذكاء الاصطناعي...</span>
                     </div>
                   )}
-                </div>
-
-                {/* Extracted Data Live Preview Card */}
-                <div className="bg-slate-800/80 border border-blue-500/30 rounded-2xl p-4 shadow-md space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-700/60 pb-2">
-                    <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
-                      <CheckCircle2 size={16} className="text-blue-400" />
-                      <span>البيانات المستخرجة تلقائياً للتنزيل بالشيت 📊</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowUsManualFields(!showUsManualFields)}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-bold underline flex items-center gap-1"
-                    >
-                      <span>{showUsManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
-                    </button>
-                  </div>
-
-                  {/* Summary Chips */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-gray-700 text-center">
-                      <span className="text-[10px] text-gray-400 block font-bold">رمز السهم (Symbol)</span>
-                      <span className="text-xs font-black text-blue-300 font-mono block uppercase">
-                        {usSymbol || 'غير محدد'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-amber-500/30 text-center">
-                      <span className="text-[10px] text-amber-300 block font-bold">سعر الدخول (Buy)</span>
-                      <span className="text-xs font-black text-amber-200 font-mono block">
-                        {usBuyPrice || '---'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-500/30 text-center">
-                      <span className="text-[10px] text-emerald-300 block font-bold">الأهداف (T1 / T2)</span>
-                      <span className="text-xs font-black text-emerald-200 font-mono block">
-                        {usTarget1 || '-'}/{usTarget2 || '-'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-rose-500/30 text-center">
-                      <span className="text-[10px] text-rose-300 block font-bold">وقف الخسارة (SL)</span>
-                      <span className="text-xs font-black text-rose-200 font-mono block">
-                        {usStopLoss || '---'}
-                      </span>
-                    </div>
-                  </div>
 
                   {/* Screenshot Thumbnail */}
                   {usScreenshotUrl && (
-                    <div className="flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-blue-500/20">
+                    <div className="mt-2 flex items-center gap-3 bg-slate-900/70 p-2 rounded-xl border border-blue-500/20">
                       <img src={usScreenshotUrl} alt="Screenshot" className="w-12 h-12 object-cover rounded-lg border border-blue-400" />
                       <div className="flex-1">
                         <span className="text-xs font-bold text-blue-300 block">صورة إشعار التوصية مرفقة 📸</span>
@@ -20727,6 +20648,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </button>
                     </div>
                   )}
+
+                  {/* Manual Fields Toggle Button */}
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowUsManualFields(!showUsManualFields)}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-bold underline flex items-center gap-1"
+                    >
+                      <span>{showUsManualFields ? 'إخفاء الخانات 🔼' : 'تعديل الخانات يدوياً ✏️ (اختياري)'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Optional Manual Fields Form (Expandable) */}
