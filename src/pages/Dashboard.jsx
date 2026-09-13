@@ -9698,10 +9698,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
                     <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>توصيات السوق السعودي</span>
                   </p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                      {saudiRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[11px] text-amber-400 font-bold">
+                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -9715,10 +9723,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
                     <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>توصيات السوق الأمريكي</span>
                   </p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                      {usRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[11px] text-amber-400 font-bold">
+                      ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -9860,8 +9876,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               hasPermission(currentEmpUser, 'show_card_calls_analytics') ||
               hasPermission(currentEmpUser, 'show_card_marketing_analytics') ||
               hasPermission(currentEmpUser, 'show_card_buffet') ||
-              (hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) ||
-              (hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) ||
+              hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+              hasPermission(currentEmpUser, 'show_card_us_stocks') ||
               hasPermission(currentEmpUser, 'show_card_attendance_payroll')) && (
               <>
                 <div className="flex items-center gap-2 pt-2">
@@ -9946,7 +9962,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
 
               {/* Saudi Recommendations Card for Coordinator */}
-              {(hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) && (
+              {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
                 <div 
                   onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                   className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -9973,7 +9989,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               )}
 
               {/* US Recommendations Card for Coordinator */}
-              {(hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (
+              {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
                 <div 
                   onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                   className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -10354,8 +10370,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 {/* LEVEL 3: كارت العملاء المشتركين + توصيات السوق السعودي والأمريكي (3 Cards) */}
                 {/* --------------------------------------------------------------------- */}
                 {(hasPermission(currentEmpUser, 'show_card_subscribed_clients') ||
-                  (hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) ||
-                  (hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks'))) && (
+                  hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+                  hasPermission(currentEmpUser, 'show_card_us_stocks')) && (
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
@@ -10385,7 +10401,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-              {(hasPermission(currentEmpUser, 'show_card_saudi_stocks') || hasPermission(currentEmpUser, 'canViewSaudiStocks')) && (
+              {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -10410,7 +10426,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
               )}
-              {(hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (
+              {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
                     <div 
                       onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                       className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
