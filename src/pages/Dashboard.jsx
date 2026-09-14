@@ -335,45 +335,11 @@ const extractCleanCustomerName = (raw) => {
 
 
 /**
- * استخراج الاسم الإنجليزي تلقائياً للموظف (آيجنت أو ليدر)
+ * استخراج اسم الموظف المسجل بالنظام (آيجنت أو ليدر) - يمنع استخدام الاسم المستعار في الداشبورد
  */
 export const getEnglishDisplayName = (empUser, fallback = 'Agent') => {
   if (!empUser) return fallback;
-  if (empUser.nameEn && empUser.nameEn.trim()) return empUser.nameEn.trim();
-  if (empUser.englishName && empUser.englishName.trim()) return empUser.englishName.trim();
-  
-  const rawName = (empUser.name || '').trim();
-  if (rawName && /^[a-zA-Z\s\.\-_]+$/.test(rawName)) {
-    return rawName.split(' ')[0];
-  }
-
-  const arabicMap = {
-    'عمرو': 'Amr', 'عمرو داتاي': 'Amr', 'عمرو داتا': 'Amr', 'احمد': 'Ahmed', 'أحمد': 'Ahmed',
-    'محمد': 'Mohamed', 'محمود': 'Mahmoud', 'مصطفى': 'Moustafa', 'مصطفي': 'Moustafa',
-    'سارة': 'Sara', 'ساره': 'Sara', 'منى': 'Mona', 'مني': 'Mona', 'نور': 'Nour',
-    'ياسمين': 'Yasmin', 'مريم': 'Mariam', 'خالد': 'Khaled', 'علي': 'Ali', 'على': 'Ali',
-    'عمر': 'Omar', 'حسين': 'Hussein', 'حسن': 'Hassan', 'إبراهيم': 'Ibrahim', 'ابراهيم': 'Ibrahim',
-    'طارق': 'Tarek', 'وليد': 'Waleed', 'كريم': 'Karim', 'زياد': 'Ziad', 'عبدالله': 'Abdallah',
-    'عبد الله': 'Abdallah', 'عبدالرحمن': 'Abdelrahman', 'عبد الرحمن': 'Abdelrahman',
-    'يوسف': 'Youssef', 'ماجد': 'Maged', 'هاني': 'Hany', 'هاني داتاي': 'Hany', 'هيثم': 'Haitham',
-    'رنا': 'Rana', 'شهد': 'Shahd', 'ندى': 'Nada', 'ندي': 'Nada', 'آية': 'Aya', 'اية': 'Aya',
-    'إيمان': 'Eman', 'ايمان': 'Eman', 'رانيا': 'Rania', 'دينا': 'Dina', 'هدير': 'Hadeer'
-  };
-
-  const firstName = rawName.split(' ')[0];
-  if (arabicMap[firstName]) return arabicMap[firstName];
-  if (arabicMap[rawName]) return arabicMap[rawName];
-
-  if (empUser.username && /^[a-zA-Z]/.test(empUser.username)) {
-    const cleanUser = empUser.username.split('@')[0].replace(/[^a-zA-Z]/g, '');
-    if (cleanUser) return cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1);
-  }
-  if (empUser.email && /^[a-zA-Z]/.test(empUser.email)) {
-    const cleanMail = empUser.email.split('@')[0].replace(/[^a-zA-Z]/g, '');
-    if (cleanMail) return cleanMail.charAt(0).toUpperCase() + cleanMail.slice(1);
-  }
-
-  return rawName || fallback;
+  return empUser.name || empUser.username || (empUser.email ? empUser.email.split('@')[0] : fallback);
 };
 
 /**
@@ -12293,7 +12259,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           })()}
                           {(isLeader ? myTeamMembers : assignableEmployees).map(emp => {
                             const count = empLeadsCountsByEmp[emp.uid] || 0;
-                            const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
+                            const empDisplayName = emp.name || emp.username;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-950 text-white">
                                 👤 {empDisplayName} ({count.toLocaleString()} Leads)
@@ -15371,7 +15337,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         })()}
                         {myTeamMembers.map(emp => {
                           const count = scopedCustomerPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
-                          const empDisplayName = emp.nameEn || emp.englishName || emp.username || emp.name;
+                          const empDisplayName = emp.name || emp.username;
                           return (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                               👤 {empDisplayName} ({count.toLocaleString()} Leads)
