@@ -8029,7 +8029,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return;
     }
 
-    const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
+    const targetEmployees = sortedEmployeesForTable;
     const logoUrl = window.location.origin + '/logo.jpg';
     const now = new Date();
     const dateFormatted = now.toLocaleDateString('ar-EG');
@@ -15477,7 +15477,7 @@ const handleExportBuffetToExcel = () => {
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
         {activeTab === 'payroll_attendance' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_attendance_payroll') && hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) && (() => {
-          const targetEmployees = (employees || []).filter(e => e.role !== 'admin');
+          const targetEmployees = sortedEmployeesForTable;
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
             if (!q) return true;
