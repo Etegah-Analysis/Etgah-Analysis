@@ -1942,7 +1942,7 @@ const Dashboard = () => {
       if (currentUser) {
         const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.username || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
-        await addDoc(collection(db, 'call_logs'), {
+        if (false) await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
           customerId: customer?.id || '',
           customerName: customer?.name || customer?.firstName || 'عميل',
@@ -11060,7 +11060,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {campaignsList.map((campaign, idx) => {
-                      const empName = employees.find(e => e.email === campaign.empEmail)?.name || campaign.empEmail.split('@')[0];
+                      const empObj = employees.find(e => e.email?.toLowerCase() === campaign.empEmail?.toLowerCase());
+                      const empName = empObj?.username || empObj?.name || campaign.empEmail.split('@')[0];
+                      const empJobTitle = empObj?.jobTitle === 'Leader' || empObj?.jobTitle === 'ليدر' ? '👑 Leader' : (empObj?.jobTitle === 'Team Leader' ? '👑 Team Leader' : (empObj?.jobTitle === 'Coordinator' ? '📋 Coordinator' : '👤 Agent'));
+                      const leaderObj = empObj?.leaderUid ? employees.find(l => l.uid === empObj.leaderUid) : null;
+                      const leaderName = leaderObj ? (leaderObj.username || leaderObj.name) : empObj?.leaderName || '';
                       const openRate = campaign.delivered > 0 ? Math.round((campaign.read / campaign.delivered) * 100) : 0;
                       return (
                         <tr key={idx} className="hover:bg-purple-50/30 transition">
@@ -11080,7 +11084,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               </span>
                             )}
                           </td>
-                          <td className="p-3.5 text-xs font-bold text-blue-700">{empName}</td>
+                          <td className="p-3.5 text-xs font-bold text-blue-700">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1 font-black text-gray-900">
+                                <span>{empName}</span>
+                                <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.5 rounded border border-purple-300">{empJobTitle}</span>
+                              </div>
+                              {leaderName && (
+                                <span className="text-[10px] text-amber-800 font-bold flex items-center gap-1">
+                                  <span>👑 Leader:</span>
+                                  <span>{leaderName}</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-3.5 text-xs font-black text-gray-800 text-center">{campaign.sent}</td>
                           <td className="p-3.5 text-xs font-bold text-blue-700 text-center bg-blue-50/30">{campaign.sentOnce}</td>
                           <td className="p-3.5 text-xs font-bold text-purple-700 text-center bg-purple-50/30">{campaign.sentTwice}</td>
@@ -11678,7 +11695,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             return (
                               <optgroup 
                                 key={leader.uid} 
-                                label={`👑 Leader Team: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
+                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
                                 className="bg-purple-950 text-amber-300 font-bold"
                               >
                                 <option value={leader.uid} className="bg-purple-950 text-white">
@@ -12419,7 +12436,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             return (
                               <optgroup 
                                 key={leader.uid} 
-                                label={`👑 Leader Team: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
+                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
                                 className="bg-slate-950 text-amber-300 font-bold"
                               >
                                 <option value={leader.uid} className="bg-slate-950 text-white">
@@ -13165,7 +13182,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             return (
                               <optgroup 
                                 key={leader.uid} 
-                                label={`👑 Leader Team: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount} Paid)`}
+                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount} Paid)`}
                                 className="bg-slate-900 text-amber-300 font-bold"
                               >
                                 <option value={leader.uid} className="bg-slate-900 text-white">
@@ -15537,7 +15554,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           return (
                             <optgroup 
                               key={leader.uid} 
-                              label={`👑 Leader Team: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
+                              label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
                               className="bg-slate-900 text-amber-300 font-bold"
                             >
                               <option value={leader.uid} className="bg-slate-900 text-white">
@@ -16079,7 +16096,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <div className="flex flex-col gap-1">
                               <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
                                 <span>👑</span>
-                                <span>{employees.find(l => l.uid === emp.leaderUid)?.username || employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'Leader Team'}</span>
+                                <span>{employees.find(l => l.uid === emp.leaderUid)?.username || employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'Team Leader'}</span>
                               </span>
                               {emp.leaderAssignedAt && (
                                 <span className="text-[10px] text-purple-700 font-mono flex items-center gap-1" title="تاريخ ووقت التعيين تحت هذا الليدر">
@@ -18849,7 +18866,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
                         <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
                           <span>🏆 تحليل ومقارنة أداء اتصالات الموظفين</span>
-                          {topCaller && <span className="text-[11px] text-amber-300 font-normal">الأعلى اتصالاً: <strong>{topCaller.emp.name}</strong> ({topCaller.periodCount} مكالمة)</span>}
+                          {topCaller && <span className="text-[11px] text-amber-300 font-normal">الأعلى اتصالاً: <strong>{topCaller.emp.username || topCaller.emp.name}</strong> ({topCaller.periodCount} مكالمة)</span>}
                         </h3>
                         <span className="text-[11px] text-purple-300 font-bold">{empBreakdown.length} موظف</span>
                       </div>
@@ -18875,7 +18892,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-400 text-black' : i === 1 ? 'bg-slate-300 text-black' : i === 2 ? 'bg-amber-700 text-white' : 'bg-purple-900 text-purple-200'}`}>
                                     {i + 1}
                                   </span>
-                                  <span className="text-white font-black">{emp.name}</span>
+                                  <span className="text-white font-black">{emp.username || emp.name}</span>
                                   {i === 0 && periodCount > 0 && <span className="text-amber-400 text-xs" title="الموظف الأول في الاتصال">👑</span>}
                                 </td>
                                 <td className="p-3">
@@ -18907,130 +18924,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </div>
                   )}
 
-                  {/* Detailed Call Timeline Log */}
-                  <div className="bg-slate-950 rounded-2xl border border-purple-500/20 overflow-hidden">
-                    <div className="p-3.5 sm:p-4 border-b border-purple-500/20 flex justify-between items-center bg-purple-950/40">
-                      <h3 className="text-xs sm:text-sm font-black text-purple-200 flex items-center gap-1.5">
-                        <Clock size={16} className="text-cyan-300" />
-                        <span>سجل المكالمات الصادرة وتوثيق الرد والمدة ({filteredLogs.length} مكالمة)</span>
-                      </h3>
-                      <span className="text-[11px] text-slate-400 font-bold">صفحة {validCallsPage} من {totalCallsPages}</span>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-right text-xs">
-                        <thead className="bg-slate-900 text-purple-300 border-b border-slate-800">
-                          <tr>
-                            <th className="p-3">#</th>
-                            <th className="p-3">وقت وتاريخ الاتصال</th>
-                            <th className="p-3">الموظف المتصل</th>
-                            <th className="p-3">اسم العميل</th>
-                            <th className="p-3 text-center">رقم الهاتف</th>
-                            <th className="p-3 text-center">نتيجة المكالمة</th>
-                            <th className="p-3 text-center">مدة المكالمة</th>
-                            <th className="p-3 text-center">المصدر</th>
-                            <th className="p-3 text-center">إجراء</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800 text-slate-200">
-                          {paginatedLogs.length === 0 ? (
-                            <tr>
-                              <td colSpan="9" className="p-8 text-center text-slate-400 font-bold">
-                                لا توجد مكالمات مسجلة مطابقة للبحث أو التصفية الحالية 📵
-                              </td>
-                            </tr>
-                          ) : (
-                            paginatedLogs.map((log, idx) => {
-                              const callTime = log.calledAt?.toDate ? log.calledAt.toDate() : (log.timestampMillis ? new Date(log.timestampMillis) : null);
-                              const outcome = getCallOutcomeInfo(log);
-                              const isAnswered = outcome.status === 'answered';
-                              const isNoAnswer = outcome.status === 'no_answer';
-                              const isBusy = outcome.status === 'busy';
-
-                              return (
-                                <tr key={log.id || idx} className="hover:bg-purple-900/20 transition">
-                                  <td className="p-3 text-slate-500 font-bold text-[10px]">
-                                    {startIndexCalls + idx + 1}
-                                  </td>
-                                  <td className="p-3 font-mono text-[11px] text-slate-300" dir="ltr">
-                                    {callTime ? callTime.toLocaleString('ar-EG') : '—'}
-                                  </td>
-                                  <td className="p-3 font-bold text-cyan-300">
-                                    <span>👤 {log.employeeName || 'موظف'}</span>
-                                    {log.employeeJobTitle && (
-                                      <span className="block text-[10px] text-purple-400 font-normal">({log.employeeJobTitle})</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-bold text-white">
-                                    {log.customerName || 'عميل'}
-                                  </td>
-                                  <td className="p-3 text-center font-mono font-bold text-slate-200" dir="ltr">
-                                    {log.phoneNumber}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <span className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-xl border text-[11px] font-black leading-tight shadow-xs select-none ${outcome.badge}`}>
-                                      <span>{outcome.label}</span>
-                                      <span className="text-[9px] opacity-80 font-medium">{outcome.enLabel}</span>
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-center font-mono font-bold text-cyan-300">
-                                    {outcome.status === 'calling' 
-                                      ? '📲 جاري الرنين...' 
-                                      : (log.durationFormatted && log.durationFormatted !== '00:00' 
-                                          ? log.durationFormatted 
-                                          : (log.durationSeconds > 0 ? formatCallDuration(log.durationSeconds) : isBusy ? 'مشغول 🔴' : 'لم يرد 📵'))}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <span className="bg-purple-900/40 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                      {log.customerSource || log.source || 'MicroSIP'}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    {!isCoordinator && log.phoneNumber && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCallViaMicroSip(log.phoneNumber, { name: log.customerName, id: log.customerId });
-                                        }}
-                                        className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white px-2.5 py-1 rounded-lg text-[11px] font-black shadow-sm active:scale-95 transition inline-flex items-center gap-1 cursor-pointer"
-                                        title="إعادة الاتصال بالعميل عبر MicroSIP"
-                                      >
-                                        <PhoneCall size={11} className="animate-pulse" />
-                                        <span>Call</span>
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalCallsPages > 1 && (
-                      <div className="p-3 bg-slate-900/60 border-t border-slate-800 flex justify-between items-center">
-                        <button
-                          disabled={validCallsPage <= 1}
-                          onClick={() => setCallsCurrentPage(p => Math.max(1, p - 1))}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${validCallsPage <= 1 ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
-                        >
-                          السابق
-                        </button>
-                        <span className="text-xs text-purple-300 font-bold">
-                          صفحة {validCallsPage} من {totalCallsPages}
-                        </span>
-                        <button
-                          disabled={validCallsPage >= totalCallsPages}
-                          onClick={() => setCallsCurrentPage(p => Math.min(totalCallsPages, p + 1))}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${validCallsPage >= totalCallsPages ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
-                        >
-                          التالي
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  
                 </div>
               </div>
             </div>, document.body

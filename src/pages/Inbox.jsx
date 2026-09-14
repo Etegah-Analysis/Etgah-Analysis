@@ -603,7 +603,8 @@ function InboxContent() {
       if (currentUser) {
         const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.username || currentEmpName || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
-        const docRef = await addDoc(collection(db, 'call_logs'), {
+        const docRef = null;
+        if (false) await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
           customerId: customer?.id || activeChat?.id || '',
           customerName: customer?.name || activeChat?.name || 'عميل',
