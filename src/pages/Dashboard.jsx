@@ -13871,9 +13871,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {/* Per-Month Percentage Breakdown Bar */}
                     {monthlyStatsS.length > 0 && (
                       <div className="mt-3 pt-2.5 border-t border-purple-500/20">
-                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
+                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex flex-wrap items-center justify-between gap-2 w-full">
                           <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-amber-200/70 font-normal hidden sm:inline">انقر على أي شهر لتصفية الكارت به 🖱️</span>
+                            {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                              <button 
+                                onClick={() => handleOpenAddSaudiSignalModal()}
+                                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                              >
+                                <Plus size={14} />
+                                <span>+ إضافة توصية سعودية جديدة</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
                           {monthlyStatsS.map(m => (
@@ -13899,40 +13910,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               {/* Filter & Search Bar */}
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap flex-1">
-                  {/* Status Filter Dropdown */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-amber-300 shrink-0">تصفية:</span>
-                    <select
-                      value={saudiSignalsFilter}
-                      onChange={(e) => setSaudiSignalsFilter(e.target.value)}
-                      className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-                    >
-                      <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
-                      <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === "active").length})</option>
-                      <option value="target1">🎯 حقق مقاومة 1 ({saudiRecommendations.filter(s => s.status === "target1").length})</option>
-                      <option value="target2">🎯🎯 حقق مقاومة 2 ({saudiRecommendations.filter(s => s.status === "target2").length})</option>
-                      <option value="target3">🚀 حقق مقاومة 3 ({saudiRecommendations.filter(s => s.status === "target3").length})</option>
-                      <option value="target4">🌟 حقق مقاومة 4 ({saudiRecommendations.filter(s => s.status === "target4").length})</option>
-                      <option value="stop_loss">🛑 إيقاف خسارة ({saudiRecommendations.filter(s => s.status === "stop_loss").length})</option>
-                      <option value="cancelled">❌ ملغاة ({saudiRecommendations.filter(s => s.status === "cancelled").length})</option>
-                    </select>
-                  </div>
-
-                  {/* Search Input (compact) */}
-                  <div className="relative w-full sm:w-56">
-                    <input 
-                      type="text" 
-                      placeholder="🔍 بحث (الرمز أو الاسم)..."
-                      value={saudiSignalsSearch}
-                      onChange={(e) => setSaudiSignalsSearch(e.target.value)}
-                      className="w-full bg-white border border-amber-300/60 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
-                    />
-                    {saudiSignalsSearch && (
-                      <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                    )}
-                  </div>
-
-                  {/* Date & Month Range Bar */}
+                  {/* Date & Month Range Bar (Start Right in RTL - Matching Image 4) */}
                   <div className="flex items-center gap-1.5 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm flex-wrap text-[11px]">
                     <div className="flex items-center gap-1">
                       <Calendar size={13} className="text-amber-600 shrink-0" />
@@ -13977,6 +13955,38 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         ✕
                       </button>
                     )}
+                  </div>
+
+                  {/* Search Input (Middle - Matching Image 4) */}
+                  <div className="relative w-full sm:w-56">
+                    <input 
+                      type="text" 
+                      placeholder="🔍 بحث بالرمز (AAPL, TSLA)..."
+                      value={saudiSignalsSearch}
+                      onChange={(e) => setSaudiSignalsSearch(e.target.value)}
+                      className="w-full bg-white border border-amber-300/60 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    />
+                    {saudiSignalsSearch && (
+                      <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    )}
+                  </div>
+
+                  {/* Status Filter Dropdown (End Left in RTL - Preserving total count number in Image 4) */}
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={saudiSignalsFilter}
+                      onChange={(e) => setSaudiSignalsFilter(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                    >
+                      <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
+                      <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === "active").length})</option>
+                      <option value="target1">🎯 حقق مقاومة 1 ({saudiRecommendations.filter(s => s.status === "target1").length})</option>
+                      <option value="target2">🎯🎯 حقق مقاومة 2 ({saudiRecommendations.filter(s => s.status === "target2").length})</option>
+                      <option value="target3">🚀 حقق مقاومة 3 ({saudiRecommendations.filter(s => s.status === "target3").length})</option>
+                      <option value="target4">🌟 حقق مقاومة 4 ({saudiRecommendations.filter(s => s.status === "target4").length})</option>
+                      <option value="stop_loss">🛑 إيقاف خسارة ({saudiRecommendations.filter(s => s.status === "stop_loss").length})</option>
+                      <option value="cancelled">❌ ملغاة ({saudiRecommendations.filter(s => s.status === "cancelled").length})</option>
+                    </select>
                   </div>
 
                   {/* Bulk Delete Selected */}
@@ -14825,15 +14835,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </button>
                   )}
 
-                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
-                    <button 
-                      onClick={() => setIsBuffetUploadModalOpen(true)}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer"
-                    >
-                      <Upload size={15} />
-                      <span>رفع سكرين / إكسيل 📎</span>
-                    </button>
-                  )}
+                  
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
                     <button 
@@ -21273,7 +21275,61 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">صورة / سكرين شوت للصنف (اختياري)</label>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">📋 مكان للصق نص أو صورة / سكرين شوت للصنف (اختياري)</label>
+                  <div 
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (items) {
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type.startsWith('image/')) {
+                            const file = items[i].getAsFile();
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
+                              reader.readAsDataURL(file);
+                              e.preventDefault();
+                              toast.success('تم لصق صورة/سكرين شوت الصنف بنجاح 🖼️✨');
+                              return;
+                            }
+                          }
+                        }
+                      }
+                      const pastedText = e.clipboardData?.getData('text');
+                      if (pastedText) {
+                        setBuffetItemNotes(prev => prev ? `${prev}\n${pastedText}` : pastedText);
+                        toast.success('تم لصق النص في الملاحظات بنجاح 📋✨');
+                      }
+                    }}
+                    className="w-full bg-slate-950/90 border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
+                  >
+                    <span className="text-xs text-emerald-300 font-bold">
+                      📌 إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-400/50 text-[10px] font-mono">Ctrl + V</kbd> للصق سكرين شوت أو نص مباشر
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="إضغط هنا للصق النص أو الصورة..."
+                      onPaste={(e) => {
+                        const items = e.clipboardData?.items;
+                        if (items) {
+                          for (let i = 0; i < items.length; i++) {
+                            if (items[i].type.startsWith('image/')) {
+                              const file = items[i].getAsFile();
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
+                                reader.readAsDataURL(file);
+                                e.preventDefault();
+                                toast.success('تم لصق صورة/سكرين شوت الصنف بنجاح 🖼️✨');
+                                return;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">رفع صورة للصنف (اختياري)</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
@@ -21419,7 +21475,61 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-blue-300 mb-1">صورة الفاتورة / الإيصال (اختياري)</label>
+                  <label className="block text-xs font-bold text-blue-300 mb-1">📋 مكان للصق نص أو صورة / سكرين شوت للفاتورة (اختياري)</label>
+                  <div 
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (items) {
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type.startsWith('image/')) {
+                            const file = items[i].getAsFile();
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
+                              reader.readAsDataURL(file);
+                              e.preventDefault();
+                              toast.success('تم لصق صورة/سكرين شوت الفاتورة بنجاح 🧾✨');
+                              return;
+                            }
+                          }
+                        }
+                      }
+                      const pastedText = e.clipboardData?.getData('text');
+                      if (pastedText) {
+                        setBuffetPurchaseNotes(prev => prev ? `${prev}\n${pastedText}` : pastedText);
+                        toast.success('تم لصق النص في ملاحظات المشترى بنجاح 📋✨');
+                      }
+                    }}
+                    className="w-full bg-slate-950/90 border-2 border-dashed border-blue-500/40 hover:border-blue-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
+                  >
+                    <span className="text-xs text-blue-300 font-bold">
+                      📌 إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-blue-400/50 text-[10px] font-mono">Ctrl + V</kbd> للصق سكرين شوت أو نص مباشر
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="إضغط هنا للصق النص أو الصورة..."
+                      onPaste={(e) => {
+                        const items = e.clipboardData?.items;
+                        if (items) {
+                          for (let i = 0; i < items.length; i++) {
+                            if (items[i].type.startsWith('image/')) {
+                              const file = items[i].getAsFile();
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
+                                reader.readAsDataURL(file);
+                                e.preventDefault();
+                                toast.success('تم لصق صورة/سكرين شوت الفاتورة بنجاح 🧾✨');
+                                return;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full bg-slate-800 border border-blue-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  <label className="block text-xs font-bold text-blue-300 mb-1">رفع صورة الفاتورة / الإيصال (اختياري)</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
