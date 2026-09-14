@@ -8533,7 +8533,144 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     setIsBuffetGoogleSheetModalOpen(false);
   };
 
-  const handleExportBuffetToExcel = () => {
+  
+  const handleExportBuffetPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF 📄');
+      return;
+    }
+    const logoUrl = window.location.origin + '/logo.jpg';
+    const totalItems = buffetInventory.length;
+    const totalPurchases = buffetPurchases.length;
+    const totalCost = buffetPurchases.reduce((acc, p) => acc + (parseFloat(p.cost) || 0), 0);
+
+    const invRowsHtml = buffetInventory.map((item, idx) => `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td>${item.itemName || '-'}</td>
+        <td style="text-align:center;">${item.totalQty || '-'}</td>
+        <td style="text-align:center;">${item.usedQty || '-'}</td>
+        <td style="text-align:center; font-weight:bold; color:#059669;">${item.remainingQty || '-'}</td>
+        <td>${item.notes || '-'}</td>
+        <td style="font-size:10px; color:#64748b;">${item.updatedDateTime || '-'}</td>
+      </tr>
+    `).join('');
+
+    const purchRowsHtml = buffetPurchases.map((p, idx) => `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td>${p.itemName || '-'}</td>
+        <td style="text-align:center;">${p.qty || '-'}</td>
+        <td style="text-align:center; font-weight:bold; color:#d97706;">${(parseFloat(p.cost) || 0).toLocaleString()} ج.م</td>
+        <td style="text-align:center;">${p.purchaseDate || '-'}</td>
+        <td>${p.notes || '-'}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8" />
+        <title>تقرير مصروفات ومحتويات البوفيه - منصة اتجاه</title>
+        <style>
+          @page { size: A4 portrait; margin: 12mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; color: #0f172a; background: #fff; direction: rtl; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 15px; }
+          .logo-box { display: flex; align-items: center; gap: 12px; }
+          .logo-box img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #8b5cf6; }
+          .title-box h1 { margin: 0; font-size: 18px; color: #1e1b4b; }
+          .title-box p { margin: 3px 0 0; font-size: 11px; color: #64748b; }
+          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+          .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; text-align: center; }
+          .stat-card .val { font-size: 18px; font-weight: bold; color: #4c1d95; }
+          .stat-card .lbl { font-size: 11px; color: #64748b; }
+          .section-title { font-size: 14px; font-weight: bold; color: #312e81; margin: 15px 0 8px 0; border-right: 4px solid #8b5cf6; padding-right: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; }
+          th { background: #f1f5f9; color: #334155; font-weight: bold; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-box">
+            <img src="${logoUrl}" onError="this.style.display='none'" />
+            <div class="title-box">
+              <h1>☕ تقرير مصروفات ومحتويات البوفيه</h1>
+              <p>منصة اتجاه التحليل الذكي للتداول - تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
+            </div>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="val">${totalItems}</div>
+            <div class="lbl">أصناف البوفيه المسجلة</div>
+          </div>
+          <div class="stat-card">
+            <div class="val">${totalPurchases}</div>
+            <div class="lbl">إجمالي عمليات الشراء</div>
+          </div>
+          <div class="stat-card">
+            <div class="val" style="color:#d97706;">${totalCost.toLocaleString()} ج.م</div>
+            <div class="lbl">إجمالي التكلفة والمصروفات</div>
+          </div>
+        </div>
+
+        <div class="section-title">📦 مخزون ومحتويات البوفيه</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px; text-align:center;">#</th>
+              <th>الصنف</th>
+              <th style="text-align:center;">العدد الإجمالي</th>
+              <th style="text-align:center;">المستخدم</th>
+              <th style="text-align:center;">المتبقي</th>
+              <th>ملحوظات</th>
+              <th>آخر تحديث</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invRowsHtml || '<tr><td colspan="7" style="text-align:center;">لا توجد أصناف مسجلة</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="section-title">🛒 سجل المشتريات والمصروفات الجديد</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px; text-align:center;">#</th>
+              <th>الصنف / البيان</th>
+              <th style="text-align:center;">العدد</th>
+              <th style="text-align:center;">التكلفة</th>
+              <th style="text-align:center;">تاريخ الشراء</th>
+              <th>ملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${purchRowsHtml || '<tr><td colspan="6" style="text-align:center;">لا توجد مشتريات مسجلة</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          تم استخراج هذا التقرير آلياً من منصة اتجاه - ${new Date().toLocaleString('ar-EG')}
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+const handleExportBuffetToExcel = () => {
     try {
       const invData = buffetInventory.map((item, idx) => ({
         '#': idx + 1,
@@ -9022,7 +9159,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     let empSelf = 0;
     for (let i = 0; i < employeeLeads.length; i++) {
       const c = employeeLeads[i];
-      if (c.assignedToUid || c.assignedTo) {
+      const isTransferred = (c.assignedBy && c.assignedByUid && c.assignedToUid && c.assignedByUid !== c.assignedToUid) ||
+                            (c.addedByUid && c.assignedToUid && c.addedByUid !== c.assignedToUid) ||
+                            (c.addedBy && c.assignedTo && c.addedBy !== c.assignedTo && !c.addedBy.includes(c.assignedTo) && !c.assignedTo.includes(c.addedBy));
+      if (isTransferred) {
         empAssigned++;
       } else {
         empSelf++;
@@ -11575,13 +11715,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     >
                       <Download size={14} /> 📊 تحميل الداتا إلى إكسيل
                     </button>
-                    <button 
-                      onClick={handleCleanLeadNames}
-                      className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تنظيف أسماء العملاء وحذف النص الزائد من البيانات المستوردة من vtiger"
-                    >
-                      🧹 تنظيف الأسماء
-                    </button>
+                    
 
                     <button 
                       onClick={() => setIsImportModalOpen(true)}
@@ -12309,13 +12443,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     >
                       <Download size={14} /> 📊 تحميل إكسيل
                     </button>
-                    <button 
-                      onClick={handleCleanEmpLeadNames}
-                      className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تنظيف أسماء العملاء وحذف النصوص الزائدة"
-                    >
-                      🧹 تنظيف الأسماء
-                    </button>
+                    
                   </>
                 )}
                 {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
@@ -14855,12 +14983,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportBuffet')) && (
                     <button 
-                      onClick={handleExportBuffetToExcel}
-                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تحميل شيت البوفيه بصيغة Excel"
+                      onClick={handleExportBuffetPdf}
+                      className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="تحميل شيت البوفيه بصيغة PDF"
                     >
                       <Download size={14} />
-                      <span>تحميل Excel</span>
+                      <span>تحميل PDF 📄</span>
                     </button>
                   )}
                 </div>
@@ -19387,12 +19515,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                       <div className="text-xs text-indigo-300/80 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20 mb-3" dir="rtl">
                         <div className="flex justify-between py-0.5">
-                          <span>👤 مسندة لموظف للمتابعة:</span>
-                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.empAssigned || 0).toLocaleString()} عميل</span>
+                          <span>📝 خاصة بالموظف الذي أضافها (إضافة ذاتية):</span>
+                          <span className="font-bold text-cyan-400">{(systemTotalClientsModalData?.empSelf || 0).toLocaleString()} عميل</span>
                         </div>
                         <div className="flex justify-between py-0.5">
-                          <span>📝 خاصة بالموظف الذي أضافها:</span>
-                          <span className="font-bold text-cyan-400">{(systemTotalClientsModalData?.empSelf || 0).toLocaleString()} عميل</span>
+                          <span>🔄 مسندة / متحولة من موظف آخر للمتابعة:</span>
+                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.empAssigned || 0).toLocaleString()} عميل</span>
                         </div>
                       </div>
                       <button
