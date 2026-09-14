@@ -15620,15 +15620,7 @@ const handleExportBuffetToExcel = () => {
 
                 {/* Bulk Delete & Security Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) && selectedPayrollEmpIds.length > 0 && (
-                    <button
-                      onClick={() => handleDeleteSelectedPayroll(filteredEmps)}
-                      className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                    >
-                      <Trash2 size={13} />
-                      <span>مسح المحدد ({selectedPayrollEmpIds.length})</span>
-                    </button>
-                  )}
+
                   <span className="text-[11px] text-gray-500 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl">
                     تتصفر المتغيرات يوم 20 ميلادياً تلقائياً مع ترحيل المرتب الأساسي 🔄
                   </span>
@@ -15640,17 +15632,7 @@ const handleExportBuffetToExcel = () => {
                 <table className="w-full text-right text-xs">
                   <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
                     <tr>
-                      <th className="py-3 px-3 text-center w-10 text-amber-300">
-                        <input
-                          type="checkbox"
-                          checked={filteredEmps.length > 0 && selectedPayrollEmpIds.length === filteredEmps.length}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedPayrollEmpIds(filteredEmps.map(emp => emp.uid || emp.id));
-                            else setSelectedPayrollEmpIds([]);
-                          }}
-                          className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
-                        />
-                      </th>
+
                       <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
                       <th className="py-3 px-3 text-amber-300 font-extrabold">الموظف</th>
                       <th className="py-3 px-3 text-center text-amber-300">تاريخ التعيين</th>
@@ -15669,7 +15651,7 @@ const handleExportBuffetToExcel = () => {
                   <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                     {filteredEmps.length === 0 ? (
                       <tr>
-                        <td colSpan="13" className="text-center py-10 text-gray-500 font-bold">
+                        <td colSpan="12" className="text-center py-10 text-gray-500 font-bold">
                           لا يوجد موظفين مطابقين للبحث
                         </td>
                       </tr>
@@ -15687,17 +15669,7 @@ const handleExportBuffetToExcel = () => {
 
                         return (
                           <tr key={empKey || idx} className="hover:bg-amber-50/40 transition">
-                            <td className="py-2.5 px-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedPayrollEmpIds.includes(empKey)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedPayrollEmpIds(prev => prev.includes(empKey) ? prev.filter(x => x !== empKey) : [...prev, empKey]);
-                                }}
-                                className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
-                              />
-                            </td>
+
                             <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
                               {idx + 1}
                             </td>
