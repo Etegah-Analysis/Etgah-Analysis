@@ -6605,6 +6605,52 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     return null;
   };
 
+  const calculateSaudiGainValue = (signal) => {
+    const sup1 = parseFloat(String(signal.support1 || '').replace(/[^0-9.]/g, ''));
+    if (!sup1 || isNaN(sup1) || sup1 <= 0) return null;
+
+    let exitPrice = null;
+    if (signal.status === 'target1') {
+      exitPrice = parseFloat(String(signal.resistance1 || '').replace(/[^0-9.]/g, ''));
+    } else if (signal.status === 'target2') {
+      exitPrice = parseFloat(String(signal.resistance2 || '').replace(/[^0-9.]/g, ''));
+    } else if (signal.status === 'target3') {
+      exitPrice = parseFloat(String(signal.resistance3 || '').replace(/[^0-9.]/g, ''));
+    } else if (signal.status === 'target4') {
+      exitPrice = parseFloat(String(signal.resistance4 || '').replace(/[^0-9.]/g, ''));
+    } else if (signal.status === 'stop_loss') {
+      exitPrice = parseFloat(String(signal.stopLoss || '').replace(/[^0-9.]/g, ''));
+    }
+
+    if (exitPrice !== null && !isNaN(exitPrice)) {
+      return exitPrice - sup1;
+    }
+    return null;
+  };
+
+  const calculateUsGainValue = (signal) => {
+    const buyMatch = String(signal.buyPrice || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+    const buy = buyMatch ? parseFloat(buyMatch[0]) : NaN;
+    if (!buy || isNaN(buy) || buy <= 0) return null;
+
+    let exitPrice = null;
+    if (signal.status === 'target1') {
+      const t1Match = String(signal.target1 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      exitPrice = t1Match ? parseFloat(t1Match[0]) : NaN;
+    } else if (signal.status === 'target2') {
+      const t2Match = String(signal.target2 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      exitPrice = t2Match ? parseFloat(t2Match[0]) : NaN;
+    } else if (signal.status === 'stop_loss') {
+      const slMatch = String(signal.stopLoss || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+      exitPrice = slMatch ? parseFloat(slMatch[0]) : NaN;
+    }
+
+    if (exitPrice !== null && !isNaN(exitPrice)) {
+      return exitPrice - buy;
+    }
+    return null;
+  };
+
   const calculateUsPercentage = (signal) => {
     const buyMatch = String(signal.buyPrice || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
     const buy = buyMatch ? parseFloat(buyMatch[0]) : NaN;
@@ -8055,6 +8101,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <th>${isSaudi ? 'مقاومة 2' : 'الهدف 2 (T2)'}</th>
               <th>وقف الخسارة (SL)</th>
               <th>حالة التوصية</th>
+              <th>${isSaudi ? 'المكسب (ر.س)' : 'المكسب ($)'}</th>
               <th>نسبة الإنجاز %</th>
               <th>وقت الرفع</th>
             </tr>
@@ -8072,7 +8119,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
                   <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
                   <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
-                  <td style="font-weight:bold; color:#047857;">${isSaudi ? calculateSaudiPercentage(sig).label : calculateUsPercentage(sig).label}</td>
+                  <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
+                  <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
                   <td>${sig.uploadedAtFormatted || '-'}</td>
                 </tr>
               `;
@@ -13669,6 +13717,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <th className="py-3 px-3 text-center text-amber-300">مقاومة 4</th>
                       <th className="py-3 px-3 text-amber-300 font-bold text-center">إيقاف الخسارة</th>
                       <th className="py-3 px-3 text-center min-w-[150px] text-amber-300">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[125px] bg-emerald-950/50 text-amber-300">الربح/الخسارة (ر.س)</th>
                       <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-amber-950/40 text-amber-300">نسبة الإنجاز %</th>
                       <th className="py-3 px-3 text-center text-amber-300">وقت الرفع</th>
                       <th className="py-3 px-3 text-center text-amber-300">آخر تعديل</th>
@@ -13766,7 +13815,32 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               </select>
                             </td>
 
-                            {/* Calculated percentage vs Support 1 */}
+                                                        {/* Calculated Gain/Loss in SAR (المكسب بالريال) */}
+                            <td className="py-3 px-3 text-center font-mono font-black bg-emerald-950/5">
+                              {sig.status === 'active' ? (
+                                <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                                  قيد التداول ⏳
+                                </span>
+                              ) : sig.status === 'cancelled' ? (
+                                <span className="text-gray-400 font-bold text-[11px]">ملغاة ❌</span>
+                              ) : (() => {
+                                const gainVal = calculateSaudiGainValue(sig);
+                                if (gainVal !== null) {
+                                  return gainVal >= 0 ? (
+                                    <span className="text-emerald-700 font-black text-xs bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 inline-block shadow-sm" dir="ltr">
+                                      +{gainVal.toFixed(2)} ر.س
+                                    </span>
+                                  ) : (
+                                    <span className="text-rose-700 font-black text-xs bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-300 inline-block shadow-sm" dir="ltr">
+                                      {gainVal.toFixed(2)} ر.س
+                                    </span>
+                                  );
+                                }
+                                return <span className="text-gray-400">—</span>;
+                              })()}
+                            </td>
+
+{/* Calculated percentage vs Support 1 */}
                             <td className="py-3 px-3 text-center font-mono font-black bg-emerald-950/5">
                               {sig.status === 'active' ? (
                                 <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
@@ -14108,6 +14182,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <th className="py-3 px-3 text-center text-amber-300">الهدف 2 (T2)</th>
                       <th className="py-3 px-3 text-amber-300 font-bold text-center">وقف الخسارة (SL)</th>
                       <th className="py-3 px-3 text-center min-w-[150px] text-amber-300">حالة التوصية</th>
+                      <th className="py-3 px-3 font-extrabold text-center min-w-[125px] bg-blue-950/50 text-amber-300">الربح/الخسارة ($)</th>
                       <th className="py-3 px-3 font-extrabold text-center min-w-[130px] bg-amber-950/40 text-amber-300">نسبة الإنجاز %</th>
                       <th className="py-3 px-3 text-center text-amber-300">وقت الرفع</th>
                       <th className="py-3 px-3 text-center text-amber-300">آخر تعديل</th>
@@ -14191,7 +14266,32 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               </select>
                             </td>
 
-                            {/* Calculated percentage vs Buy Price */}
+                                                        {/* Calculated Gain/Loss in USD (المكسب بالدولار) */}
+                            <td className="py-3 px-3 text-center font-mono font-black bg-blue-950/5">
+                              {sig.status === 'active' ? (
+                                <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                                  قيد التداول ⏳
+                                </span>
+                              ) : sig.status === 'cancelled' ? (
+                                <span className="text-gray-400 font-bold text-[11px]">ملغاة ❌</span>
+                              ) : (() => {
+                                const gainVal = calculateUsGainValue(sig);
+                                if (gainVal !== null) {
+                                  return gainVal >= 0 ? (
+                                    <span className="text-emerald-700 font-black text-xs bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 inline-block shadow-sm" dir="ltr">
+                                      +${gainVal.toFixed(2)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-rose-700 font-black text-xs bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-300 inline-block shadow-sm" dir="ltr">
+                                      -${Math.abs(gainVal).toFixed(2)}
+                                    </span>
+                                  );
+                                }
+                                return <span className="text-gray-400">—</span>;
+                              })()}
+                            </td>
+
+{/* Calculated percentage vs Buy Price */}
                             <td className="py-3 px-3 text-center font-mono font-black bg-blue-950/5">
                               {sig.status === 'active' ? (
                                 <span className="text-amber-600 font-bold text-[11px] bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
