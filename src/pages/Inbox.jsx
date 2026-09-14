@@ -685,6 +685,25 @@ function InboxContent() {
     return senderEmail.split('@')[0];
   };
 
+  const getCustomerChatDisplayName = (senderEmail) => {
+    if (!senderEmail) return 'الموظف';
+    const cleanSender = senderEmail.toLowerCase().trim();
+    if (adminEmails.includes(cleanSender)) return '👑 أدمن منصة اتجاه التحليل الذكي';
+
+    const emp = employees.find(e => 
+      e.email?.toLowerCase().trim() === cleanSender ||
+      e.email?.split('@')[0]?.toLowerCase().trim() === cleanSender.split('@')[0]
+    );
+
+    if (emp) {
+      const aliasName = emp.name || emp.nameEn || emp.englishName || emp.username || senderEmail.split('@')[0];
+      const title = ` (${formatJobTitle(emp.jobTitle)})`;
+      return `${aliasName}${title}`;
+    }
+
+    return senderEmail.split('@')[0];
+  };
+
   
   const [employeeAnalytics, setEmployeeAnalytics] = useState([]);
   const [showOnlyUnreplied, setShowOnlyUnreplied] = useState(false);
@@ -2074,7 +2093,7 @@ function InboxContent() {
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="font-black text-white text-[11px] truncate max-w-[100px] sm:max-w-[130px]" dir="ltr">
-                  {impersonatedEmp ? (impersonatedEmp.name || impersonatedEmp.username) : (userProfile?.name || userProfile?.username || currentEmpUser?.name || currentEmpUser?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
+                  {impersonatedEmp ? (impersonatedEmp.username || impersonatedEmp.name) : (userProfile?.username || userProfile?.name || currentEmpUser?.username || currentEmpUser?.name || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
                 </span>
                 {impersonatedEmp ? (
                   <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">
@@ -2277,7 +2296,7 @@ function InboxContent() {
             if (chat.isDirect) {
               const otherUid = (chat.members || []).find(m => m !== currentUser?.uid && m !== currentEmpUser?.uid) || chat.members?.[0];
               const otherEmp = employees.find(e => e.uid === otherUid || e.email?.toLowerCase() === String(otherUid).toLowerCase());
-              const otherName = otherEmp?.name || otherEmp?.username || chat.memberNames?.[otherUid] || chat.name || 'زميل عمل';
+              const otherName = otherEmp?.username || otherEmp?.name || chat.memberNames?.[otherUid] || chat.name || 'زميل عمل';
               const isOtherAdmin = isAdminMember(otherUid) || otherEmp?.role === 'admin' || otherUid === 'admin';
               const otherTitle = isOtherAdmin ? '👑 الإدارة' : formatJobTitle(otherEmp?.jobTitle || otherEmp?.role || chat.memberTitles?.[otherUid] || 'Agent');
 
@@ -2828,7 +2847,7 @@ function InboxContent() {
                                   </span>
                                 ) : (
                                   <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
-                                    👤 {getEmployeeDisplayName(msg.senderEmail)}
+                                    👤 {getCustomerChatDisplayName(msg.senderEmail)}
                                   </span>
                                 )}
                               </div>

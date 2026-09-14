@@ -2669,24 +2669,24 @@ const Dashboard = () => {
     if (isAdmin) {
       list.push({ uid: 'all', type: 'all', name: '📢 جميع الموظفين بالمنصة (All Staff)', role: 'all' });
       employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid).forEach(e => {
-        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
+        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.username || e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
       });
     } else if (isCoordinator) {
       list.push({ uid: 'all', type: 'all', name: '📢 جميع الموظفين بالمنصة (All Staff)', role: 'all' });
       list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
       employees.filter(e => e.role !== 'admin' && e.uid !== currentUser?.uid).forEach(e => {
-        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
+        list.push({ uid: e.uid, type: 'single', name: `👤 ${e.username || e.name} (${e.jobTitle || e.role})`, email: e.email, role: e.jobTitle || e.role });
       });
     } else if (isLeader) {
       list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
       const coord = employees.find(e => e.jobTitle === 'Coordinator' || e.jobTitle === 'منسق للإدارة');
       if (coord) {
-        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.name})`, email: coord.email, role: 'Coordinator' });
+        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.username || coord.name})`, email: coord.email, role: 'Coordinator' });
       }
       if (myTeamMembers.length > 0) {
         list.push({ uid: 'team', type: 'team', name: `👥 فريقي بالكامل (${myTeamMembers.length} موظف)`, role: 'team' });
         myTeamMembers.forEach(e => {
-          list.push({ uid: e.uid, type: 'single', name: `👤 ${e.name} (عضو بالفريق)`, email: e.email, role: 'Agent' });
+          list.push({ uid: e.uid, type: 'single', name: `👤 ${e.username || e.name} (عضو بالفريق)`, email: e.email, role: 'Agent' });
         });
       }
     } else {
@@ -2694,13 +2694,13 @@ const Dashboard = () => {
       list.push({ uid: 'admin', type: 'admin', name: '👑 الإدارة (Admin)', role: 'admin' });
       const coord = employees.find(e => e.jobTitle === 'Coordinator' || e.jobTitle === 'منسق للإدارة');
       if (coord) {
-        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.name})`, email: coord.email, role: 'Coordinator' });
+        list.push({ uid: coord.uid, type: 'coordinator', name: `📋 منسق الإدارة (${coord.username || coord.name})`, email: coord.email, role: 'Coordinator' });
       }
       const myLeaderUid = currentEmpUser?.leaderUid;
       if (myLeaderUid) {
         const leader = employees.find(e => e.uid === myLeaderUid);
         if (leader) {
-          list.push({ uid: leader.uid, type: 'leader', name: `👑 الليدر المشرف (${leader.name})`, email: leader.email, role: 'Leader' });
+          list.push({ uid: leader.uid, type: 'leader', name: `👑 الليدر المشرف (${leader.username || leader.name})`, email: leader.email, role: 'Leader' });
         }
       }
     }
@@ -2789,7 +2789,7 @@ const Dashboard = () => {
 
       const emailDoc = {
         senderUid: isAdmin ? 'admin' : (currentUser?.uid || ''),
-        senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'موظف'),
+        senderName: isAdmin ? '👑 الإدارة' : (currentEmpUser?.username || currentEmpUser?.name || 'موظف'),
         senderEmail: currentUser?.email || '',
         senderRole: isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isLeader ? 'leader' : 'agent',
         recipientType: isAll ? 'all' : (isTeam ? 'team' : (selectedRecipients.length === 1 ? selectedRecipients[0].type : 'multiple')),
@@ -9069,8 +9069,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             </div>
             <span className="text-[11px] sm:text-xs font-black text-amber-200 truncate max-w-[90px] sm:max-w-[130px]">
               {(() => {
-                if (realIsAdmin && impersonatedEmp) return impersonatedEmp.name || impersonatedEmp.username;
-                if (effectiveEmpUser?.name || effectiveEmpUser?.username) return effectiveEmpUser.name || effectiveEmpUser.username;
+                if (realIsAdmin && impersonatedEmp) return impersonatedEmp.username || impersonatedEmp.name;
+                if (effectiveEmpUser?.username || effectiveEmpUser?.name) return effectiveEmpUser.username || effectiveEmpUser.name;
                 const emp = employees.find(e => 
                   (e.uid && e.uid === currentUser?.uid) || 
                   (e.id && e.id === currentUser?.uid) || 
@@ -9078,7 +9078,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   (e.authEmail && e.authEmail?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
                   (e.username && currentUser?.email && currentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
                 );
-                if (emp?.name || emp?.username) return emp.name || emp.username;
+                if (emp?.username || emp?.name) return emp.username || emp.name;
                 if (isAdmin) return 'الإدارة';
                 if (currentUser?.displayName) return currentUser.displayName;
                 if (currentUser?.email) return currentUser.email.split('@')[0];
