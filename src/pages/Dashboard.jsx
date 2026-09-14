@@ -6668,6 +6668,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     } else if (signal.status === 'target2') {
       const t2Match = String(signal.target2 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
       exitPrice = t2Match ? parseFloat(t2Match[0]) : NaN;
+      } else if (signal.status === 'target3') {
+        const t3Match = String(signal.target3 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+        exitPrice = t3Match ? parseFloat(t3Match[0]) : NaN;
+      } else if (signal.status === 'target4') {
+        const t4Match = String(signal.target4 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+        exitPrice = t4Match ? parseFloat(t4Match[0]) : NaN;
     } else if (signal.status === 'stop_loss') {
       const slMatch = String(signal.stopLoss || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
       exitPrice = slMatch ? parseFloat(slMatch[0]) : NaN;
@@ -6692,6 +6698,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const t2Match = String(signal.target2 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
       const t2 = t2Match ? parseFloat(t2Match[0]) : NaN;
       if (!isNaN(t2)) return ((t2 - buy) / buy) * 100;
+      } else if (signal.status === 'target3') {
+        const t3Match = String(signal.target3 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+        const t3 = t3Match ? parseFloat(t3Match[0]) : NaN;
+        if (!isNaN(t3)) return ((t3 - buy) / buy) * 100;
+      } else if (signal.status === 'target4') {
+        const t4Match = String(signal.target4 || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
+        const t4 = t4Match ? parseFloat(t4Match[0]) : NaN;
+        if (!isNaN(t4)) return ((t4 - buy) / buy) * 100;
     } else if (signal.status === 'stop_loss') {
       const slMatch = String(signal.stopLoss || '').replace(/,/g, '.').match(/\d+(?:\.\d+)?/);
       const sl = slMatch ? parseFloat(slMatch[0]) : NaN;
@@ -7038,6 +7052,46 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const file = items[i].getAsFile();
           if (file) {
             handleImageProcessUs(file);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  const handleModalPasteBuffetItem = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setBuffetItemImage(reader.result);
+              toast.success('تم لزق الصورة من الحافظة بنجاح 📋📸');
+            };
+            reader.readAsDataURL(file);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  const handleModalPasteBuffetPurchase = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setBuffetPurchaseImage(reader.result);
+              toast.success('تم لزق الصورة من الحافظة بنجاح 📋📸');
+            };
+            reader.readAsDataURL(file);
             break;
           }
         }
@@ -13648,6 +13702,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 const slS = scopedSaudiSignals.filter(s => s.status === 'stop_loss').length;
                 const achievedS = t1S + t2S + t3S + t4S;
                 const winRateS = totalS > 0 ? Math.round((achievedS / totalS) * 100) : 0;
+                const totalProfitPctS = scopedSaudiSignals.reduce((acc, sig) => acc + (calculateSaudiPercentage(sig) || 0), 0);
 
                 const allMonthsS = getAvailableMonthsForSignals(saudiRecommendations);
                 const monthlyStatsS = allMonthsS.map(mObj => {
@@ -13662,7 +13717,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   const mTotal = mSignals.length;
                   const mAchieved = mSignals.filter(s => ['target1', 'target2', 'target3', 'target4'].includes(s.status) || s.status?.startsWith('target')).length;
                   const mRate = mTotal > 0 ? Math.round((mAchieved / mTotal) * 100) : 0;
-                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate };
+                  const mProfitPct = mSignals.reduce((acc, sig) => acc + (calculateSaudiPercentage(sig) || 0), 0);
+                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate, profitPct: mProfitPct };
                 });
 
                 return (
@@ -13677,13 +13733,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
-                        معدل النجاح {selectedSaudiMonth === 'all' ? 'العام' : 'للشهر'}: {winRateS}% ({achievedS}/{totalS} محقق) 📈
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                          معدل النجاح {selectedSaudiMonth === 'all' ? 'العام' : 'للشهر'}: {winRateS}% ({achievedS}/{totalS} محقق) 📈
+                        </span>
+                        <span className="text-[11px] font-black text-amber-300 bg-amber-950/70 px-3 py-1 rounded-full border border-amber-500/40">
+                          إجمالي الأرباح {selectedSaudiMonth === 'all' ? 'التراكمية' : 'للشهر'}: {totalProfitPctS >= 0 ? '+' : ''}{totalProfitPctS.toFixed(2)}% 📈
+                        </span>
+                      </div>
                     </div>
 
                     {/* Metrics Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-2.5">
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-emerald-500/30 text-center">
                         <span className="text-[10px] text-emerald-300 font-bold block">🎯 Target 1 محقق</span>
                         <span className="text-base font-black text-emerald-400">{t1S}</span>
@@ -13691,6 +13752,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-cyan-500/30 text-center">
                         <span className="text-[10px] text-cyan-300 font-bold block">🚀 Target 2 محقق</span>
                         <span className="text-base font-black text-cyan-400">{t2S}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-indigo-500/30 text-center">
+                        <span className="text-[10px] text-indigo-300 font-bold block">🌟 Target 3 محقق</span>
+                        <span className="text-base font-black text-indigo-400">{t3S}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-teal-500/30 text-center">
+                        <span className="text-[10px] text-teal-300 font-bold block">💎 Target 4 محقق</span>
+                        <span className="text-base font-black text-teal-400">{t4S}</span>
                       </div>
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-amber-500/30 text-center">
                         <span className="text-[10px] text-amber-300 font-bold block">⏳ سارية للتداول</span>
@@ -13708,6 +13777,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
                     {/* Candlestick visual bar */}
                     <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-purple-500/30 flex">
+                      <div style={{ width: `${totalS > 0 ? (t4S / totalS) * 100 : 0}%` }} className="bg-teal-400 h-full" title={`Target 4: ${t4S}`}></div>
+                      <div style={{ width: `${totalS > 0 ? (t3S / totalS) * 100 : 0}%` }} className="bg-indigo-400 h-full" title={`Target 3: ${t3S}`}></div>
                       <div style={{ width: `${totalS > 0 ? (t2S / totalS) * 100 : 0}%` }} className="bg-cyan-400 h-full" title={`Target 2: ${t2S}`}></div>
                       <div style={{ width: `${totalS > 0 ? (t1S / totalS) * 100 : 0}%` }} className="bg-emerald-500 h-full" title={`Target 1: ${t1S}`}></div>
                       <div style={{ width: `${totalS > 0 ? (activeS / totalS) * 100 : 0}%` }} className="bg-amber-400 h-full" title={`سارية: ${activeS}`}></div>
@@ -13718,7 +13789,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     {monthlyStatsS.length > 0 && (
                       <div className="mt-3 pt-2.5 border-t border-purple-500/20">
                         <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
-                          <span>📅 سجل معدل النجاح المئوي وتوزيع التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
                           <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -13731,7 +13802,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             >
                               <span>🗓️ {m.label}</span>
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
-                                {m.rate}% ({m.achieved}/{m.total} محقق)
+                                {m.rate}% ({m.achieved}/{m.total}) | {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}% 📈
                               </span>
                             </button>
                           ))}
@@ -13933,7 +14004,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               {cleanNum(sig.support1) || '—'}
                             </td>
 
-                            <td className="py-3 px-3 text-center font-mono text-gray-700">
+                            <td className="py-3 px-3 text-center font-bold text-amber-900 bg-amber-50/60 font-mono text-sm">
                               {cleanNum(sig.support2) || '—'}
                             </td>
 
@@ -14167,6 +14238,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 const slU = scopedUsSignals.filter(s => s.status === 'stop_loss').length;
                 const achievedU = t1U + t2U + t3U + t4U;
                 const winRateU = totalU > 0 ? Math.round((achievedU / totalU) * 100) : 0;
+                const totalProfitPctU = scopedUsSignals.reduce((acc, sig) => acc + (calculateUsPercentage(sig) || 0), 0);
 
                 const allMonthsU = getAvailableMonthsForSignals(usRecommendations);
                 const monthlyStatsU = allMonthsU.map(mObj => {
@@ -14181,7 +14253,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   const mTotal = mSignals.length;
                   const mAchieved = mSignals.filter(s => ['target1', 'target2', 'target3', 'target4'].includes(s.status) || s.status?.startsWith('target')).length;
                   const mRate = mTotal > 0 ? Math.round((mAchieved / mTotal) * 100) : 0;
-                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate };
+                  const mProfitPct = mSignals.reduce((acc, sig) => acc + (calculateUsPercentage(sig) || 0), 0);
+                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate, profitPct: mProfitPct };
                 });
 
                 return (
@@ -14196,12 +14269,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
-                        معدل النجاح {selectedUsMonth === 'all' ? 'العام' : 'للشهر'}: {winRateU}% ({achievedU}/{totalU} محقق) 📈
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                          معدل النجاح {selectedUsMonth === 'all' ? 'العام' : 'للشهر'}: {winRateU}% ({achievedU}/{totalU} محقق) 📈
+                        </span>
+                        <span className="text-[11px] font-black text-amber-300 bg-amber-950/70 px-3 py-1 rounded-full border border-amber-500/40">
+                          إجمالي الأرباح {selectedUsMonth === 'all' ? 'التراكمية' : 'للشهر'}: {totalProfitPctU >= 0 ? '+' : ''}{totalProfitPctU.toFixed(2)}% 📈
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-2.5">
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-2.5">
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-emerald-500/30 text-center">
                         <span className="text-[10px] text-emerald-300 font-bold block">🎯 Target 1 محقق</span>
                         <span className="text-base font-black text-emerald-400">{t1U}</span>
@@ -14209,6 +14288,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-cyan-500/30 text-center">
                         <span className="text-[10px] text-cyan-300 font-bold block">🚀 Target 2 محقق</span>
                         <span className="text-base font-black text-cyan-400">{t2U}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-indigo-500/30 text-center">
+                        <span className="text-[10px] text-indigo-300 font-bold block">🌟 Target 3 محقق</span>
+                        <span className="text-base font-black text-indigo-400">{t3U}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-teal-500/30 text-center">
+                        <span className="text-[10px] text-teal-300 font-bold block">💎 Target 4 محقق</span>
+                        <span className="text-base font-black text-teal-400">{t4U}</span>
                       </div>
                       <div className="bg-slate-900/80 p-2 rounded-xl border border-amber-500/30 text-center">
                         <span className="text-[10px] text-amber-300 font-bold block">⏳ سارية للتداول</span>
@@ -14224,11 +14311,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     </div>
 
+                    {/* Candlestick visual bar */}
+                    <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-purple-500/30 flex">
+                      <div style={{ width: `${totalU > 0 ? (t4U / totalU) * 100 : 0}%` }} className="bg-teal-400 h-full" title={`Target 4: ${t4U}`}></div>
+                      <div style={{ width: `${totalU > 0 ? (t3U / totalU) * 100 : 0}%` }} className="bg-indigo-400 h-full" title={`Target 3: ${t3U}`}></div>
+                      <div style={{ width: `${totalU > 0 ? (t2U / totalU) * 100 : 0}%` }} className="bg-cyan-400 h-full" title={`Target 2: ${t2U}`}></div>
+                      <div style={{ width: `${totalU > 0 ? (t1U / totalU) * 100 : 0}%` }} className="bg-emerald-500 h-full" title={`Target 1: ${t1U}`}></div>
+                      <div style={{ width: `${totalU > 0 ? (activeU / totalU) * 100 : 0}%` }} className="bg-amber-400 h-full" title={`سارية: ${activeU}`}></div>
+                      <div style={{ width: `${totalU > 0 ? (slU / totalU) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`وقف: ${slU}`}></div>
+                    </div>
+
                     {/* Per-Month Percentage Breakdown Bar */}
                     {monthlyStatsU.length > 0 && (
                       <div className="mt-3 pt-2.5 border-t border-purple-500/20">
                         <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
-                          <span>📅 سجل معدل النجاح المئوي وتوزيع التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
                           <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -14241,7 +14338,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             >
                               <span>🗓️ {m.label}</span>
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
-                                {m.rate}% ({m.achieved}/{m.total} محقق)
+                                {m.rate}% ({m.achieved}/{m.total}) | {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}% 📈
                               </span>
                             </button>
                           ))}
@@ -14774,12 +14871,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   >
                     <span>🛒 المشتريات الجديدة ({buffetPurchases.length})</span>
                   </button>
-                  <button
-                    onClick={() => setBuffetActiveSection('attachments')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'attachments' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-700 hover:bg-purple-100'}`}
-                  >
-                    <span>📎 المرفقات والسكرينات ({buffetAttachments.length})</span>
-                  </button>
                   {buffetGoogleSheetUrl && (
                     <button
                       onClick={() => setBuffetActiveSection('googlesheet')}
@@ -14998,105 +15089,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       </div>
                     )}
 
-                  </div>
-                )}
-
-                {/* ATTACHMENTS & SCREENSHOTS SECTION */}
-                {(buffetActiveSection === 'all' || buffetActiveSection === 'attachments') && (
-                  <div className="bg-white rounded-2xl border border-purple-500/30 p-5 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">📎</span>
-                        <div>
-                          <h3 className="text-sm font-black text-purple-950">الفواتير، السكرينات، وملفات الإكسيل المرفوعة</h3>
-                          <p className="text-[11px] text-gray-500">جميع الصور وفواتير البوفيه وملفات الجرد المرفوعة من المنسق والإدارة</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setIsBuffetUploadModalOpen(true)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
-                      >
-                        <Upload size={14} />
-                        <span>+ رفع ملف جديد</span>
-                      </button>
-                    </div>
-
-                    {buffetAttachments.length === 0 ? (
-                      <div className="p-8 text-center bg-purple-50/50 rounded-xl border border-dashed border-purple-200">
-                        <Paperclip className="mx-auto text-purple-300 mb-2" size={32} />
-                        <p className="text-xs font-bold text-gray-600">لا توجد صور أو ملفات مرفوعة حالياً</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">يمكنك رفع سكرينات الشيت الورقي، الفواتير، أو شيتات الإكسيل</p>
-                        <button
-                          onClick={() => setIsBuffetUploadModalOpen(true)}
-                          className="mt-3 bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold"
-                        >
-                          + رفع أول سكرين شوت أو ملف إكسيل
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {buffetAttachments.map(att => (
-                          <div key={att.id} className="bg-slate-50 border border-gray-200 rounded-xl p-3 flex flex-col justify-between hover:shadow-md transition">
-                            {att.type === 'image' ? (
-                              <div 
-                                onClick={() => setBuffetLightboxImg(att.url)}
-                                className="w-full h-36 bg-slate-900 rounded-lg overflow-hidden relative cursor-pointer group mb-2 border border-gray-200"
-                              >
-                                <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
-                                  <Eye size={16} />
-                                  <span>انقر للتكبير 🔍</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-full h-36 bg-gradient-to-br from-emerald-900 to-teal-950 rounded-lg flex flex-col items-center justify-center p-3 mb-2 text-white text-center">
-                                <FileSpreadsheet size={40} className="text-emerald-400 mb-1" />
-                                <span className="text-xs font-black truncate max-w-full">{att.name}</span>
-                                <span className="text-[10px] text-emerald-200/80">{att.size}</span>
-                              </div>
-                            )}
-
-                            <div>
-                              <p className="text-xs font-bold text-gray-900 truncate" title={att.name}>{att.name}</p>
-                              <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
-                                <span>{att.uploadedAt}</span>
-                                <span className="text-purple-700 font-semibold">{att.uploadedBy}</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between border-t border-gray-200 pt-2 mt-2">
-                              {att.type !== 'image' ? (
-                                <a
-                                  href={att.url}
-                                  download={att.name}
-                                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1"
-                                >
-                                  <Download size={13} />
-                                  <span>تحميل الملف</span>
-                                </a>
-                              ) : (
-                                <button
-                                  onClick={() => setBuffetLightboxImg(att.url)}
-                                  className="text-[11px] text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1"
-                                >
-                                  <Eye size={13} />
-                                  <span>معاينة مكبرة</span>
-                                </button>
-                              )}
-
-                              <button
-                                onClick={() => handleDeleteBuffetAttachment(att.id)}
-                                className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-0.5"
-                                title="حذف هذا المرفق"
-                              >
-                                <Trash2 size={13} />
-                                <span>حذف</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -21243,7 +21235,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         {/* ========================================================================= */}
         {/* 1. Modal: Add/Edit Buffet Inventory Item */}
         {isAddBuffetItemModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onPaste={handleModalPasteBuffetItem} onClick={(e) => { if (e.target === e.currentTarget) setIsAddBuffetItemModalOpen(false); }}>
             <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
               <button
                 onClick={() => setIsAddBuffetItemModalOpen(false)}
@@ -21389,7 +21381,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
         {/* 2. Modal: Add/Edit Buffet Purchase */}
         {isAddBuffetPurchaseModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onPaste={handleModalPasteBuffetPurchase} onClick={(e) => { if (e.target === e.currentTarget) setIsAddBuffetPurchaseModalOpen(false); }}>
             <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
               <button
                 onClick={() => setIsAddBuffetPurchaseModalOpen(false)}
