@@ -761,6 +761,7 @@ const Dashboard = () => {
   const [buffetItemUsedQty, setBuffetItemUsedQty] = useState('');
   const [buffetItemRemainingQty, setBuffetItemRemainingQty] = useState('');
   const [buffetItemNotes, setBuffetItemNotes] = useState('');
+  const [buffetItemImage, setBuffetItemImage] = useState(null);
 
   // Buffet Purchase Modal states
   const [isAddBuffetPurchaseModalOpen, setIsAddBuffetPurchaseModalOpen] = useState(false);
@@ -770,6 +771,7 @@ const Dashboard = () => {
   const [buffetPurchaseCost, setBuffetPurchaseCost] = useState('');
   const [buffetPurchaseDate, setBuffetPurchaseDate] = useState('');
   const [buffetPurchaseNotes, setBuffetPurchaseNotes] = useState('');
+  const [buffetPurchaseImage, setBuffetPurchaseImage] = useState(null);
 
   // Buffet Upload & Settings Modals
   const [isBuffetUploadModalOpen, setIsBuffetUploadModalOpen] = useState(false);
@@ -8178,6 +8180,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setBuffetItemUsedQty(item.usedQty || '');
       setBuffetItemRemainingQty(item.remainingQty || '');
       setBuffetItemNotes(item.notes || '');
+      setBuffetItemImage(item.imageUrl || null);
     } else {
       setEditingBuffetItem(null);
       setBuffetItemName('');
@@ -8185,6 +8188,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setBuffetItemUsedQty('');
       setBuffetItemRemainingQty('');
       setBuffetItemNotes('');
+      setBuffetItemImage(null);
     }
     setIsAddBuffetItemModalOpen(true);
   };
@@ -8216,10 +8220,27 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
         notes: buffetItemNotes.trim(),
+        imageUrl: buffetItemImage || '',
         updatedAt: serverTimestamp(),
         updatedBy: userRole,
         updatedDateTime: formattedNow
       };
+
+      if (buffetItemImage) {
+        const newAtt = {
+          id: 'att_' + Date.now(),
+          name: `صورة صنف: ${buffetItemName.trim()}`,
+          type: 'image',
+          url: buffetItemImage,
+          size: 'صورة مرفقة',
+          uploadedAt: formattedNow,
+          uploadedBy: userRole
+        };
+        const updatedAtts = [newAtt, ...buffetAttachments.filter(a => a.url !== buffetItemImage)];
+        setBuffetAttachments(updatedAtts);
+        localStorage.setItem('etegah_buffet_attachments', JSON.stringify(updatedAtts));
+        try { await addDoc(collection(db, 'buffet_attachments'), newAtt); } catch (e) {}
+      }
 
       if (editingBuffetItem && editingBuffetItem.id && !editingBuffetItem.id.startsWith('item_')) {
         await updateDoc(doc(db, 'buffet_inventory', editingBuffetItem.id), itemData);
@@ -8234,11 +8255,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
       setIsAddBuffetItemModalOpen(false);
       setEditingBuffetItem(null);
+      setBuffetItemImage(null);
     } catch (err) {
       console.error('Error saving buffet item:', err);
       const updatedList = editingBuffetItem 
-        ? buffetInventory.map(i => i.id === editingBuffetItem.id ? { ...i, itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim() } : i)
-        : [{ id: 'item_' + Date.now(), itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim(), order: buffetInventory.length + 1 }, ...buffetInventory];
+        ? buffetInventory.map(i => i.id === editingBuffetItem.id ? { ...i, itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim(), imageUrl: buffetItemImage || i.imageUrl } : i)
+        : [{ id: 'item_' + Date.now(), itemName: buffetItemName.trim(), totalQty: buffetItemTotalQty.trim(), usedQty: buffetItemUsedQty.trim(), remainingQty: buffetItemRemainingQty.trim(), notes: buffetItemNotes.trim(), imageUrl: buffetItemImage || '', order: buffetInventory.length + 1 }, ...buffetInventory];
       setBuffetInventory(updatedList);
       localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
       setIsAddBuffetItemModalOpen(false);
@@ -8275,6 +8297,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setBuffetPurchaseCost(purch.cost || '');
       setBuffetPurchaseDate(purch.purchaseDate || '');
       setBuffetPurchaseNotes(purch.notes || '');
+      setBuffetPurchaseImage(purch.imageUrl || purch.receiptUrl || null);
     } else {
       setEditingBuffetPurchase(null);
       setBuffetPurchaseName('');
@@ -8282,6 +8305,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setBuffetPurchaseCost('');
       setBuffetPurchaseDate(new Date().toISOString().slice(0, 10));
       setBuffetPurchaseNotes('');
+      setBuffetPurchaseImage(null);
     }
     setIsAddBuffetPurchaseModalOpen(true);
   };
@@ -8304,10 +8328,28 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         cost: buffetPurchaseCost.trim() || '',
         purchaseDate: buffetPurchaseDate || now.toISOString().slice(0, 10),
         notes: buffetPurchaseNotes.trim(),
+        imageUrl: buffetPurchaseImage || '',
+        receiptUrl: buffetPurchaseImage || '',
         updatedAt: serverTimestamp(),
         updatedBy: userRole,
         updatedDateTime: formattedNow
       };
+
+      if (buffetPurchaseImage) {
+        const newAtt = {
+          id: 'att_' + Date.now(),
+          name: `فاتورة/إيصال: ${buffetPurchaseName.trim()}`,
+          type: 'image',
+          url: buffetPurchaseImage,
+          size: 'إيصال شراء',
+          uploadedAt: formattedNow,
+          uploadedBy: userRole
+        };
+        const updatedAtts = [newAtt, ...buffetAttachments.filter(a => a.url !== buffetPurchaseImage)];
+        setBuffetAttachments(updatedAtts);
+        localStorage.setItem('etegah_buffet_attachments', JSON.stringify(updatedAtts));
+        try { await addDoc(collection(db, 'buffet_attachments'), newAtt); } catch (e) {}
+      }
 
       if (editingBuffetPurchase && editingBuffetPurchase.id && !editingBuffetPurchase.id.startsWith('purch_')) {
         await updateDoc(doc(db, 'buffet_purchases', editingBuffetPurchase.id), purchData);
@@ -8322,11 +8364,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
       setIsAddBuffetPurchaseModalOpen(false);
       setEditingBuffetPurchase(null);
+      setBuffetPurchaseImage(null);
     } catch (err) {
       console.error('Error saving buffet purchase:', err);
       const updatedList = editingBuffetPurchase
-        ? buffetPurchases.map(p => p.id === editingBuffetPurchase.id ? { ...p, itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim() } : p)
-        : [{ id: 'purch_' + Date.now(), itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim(), order: buffetPurchases.length + 1 }, ...buffetPurchases];
+        ? buffetPurchases.map(p => p.id === editingBuffetPurchase.id ? { ...p, itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim(), imageUrl: buffetPurchaseImage || p.imageUrl } : p)
+        : [{ id: 'purch_' + Date.now(), itemName: buffetPurchaseName.trim(), qty: buffetPurchaseQty.trim(), cost: buffetPurchaseCost.trim(), purchaseDate: buffetPurchaseDate, notes: buffetPurchaseNotes.trim(), imageUrl: buffetPurchaseImage || '', order: buffetPurchases.length + 1 }, ...buffetPurchases];
       setBuffetPurchases(updatedList);
       localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
       setIsAddBuffetPurchaseModalOpen(false);
@@ -13575,13 +13618,52 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Visual Candlestick & Performance Analytics Banner (v2.25) */}
               {(() => {
-                const totalS = saudiRecommendations.length;
-                const activeS = saudiRecommendations.filter(s => s.status === 'active').length;
-                const t1S = saudiRecommendations.filter(s => s.status === 'target1').length;
-                const t2S = saudiRecommendations.filter(s => s.status === 'target2').length;
-                const slS = saudiRecommendations.filter(s => s.status === 'stop_loss').length;
-                const winCountS = t1S + t2S;
-                const winRateS = totalS > 0 ? Math.round((winCountS / (totalS - activeS || totalS)) * 100) : 0;
+                const scopedSaudiSignals = saudiRecommendations.filter(sig => {
+                  if (selectedSaudiMonth !== 'all') {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && !isNaN(dVal.getTime())) {
+                      const y = dVal.getFullYear();
+                      const m = dVal.getMonth() + 1;
+                      const k = `${y}-${m < 10 ? '0' + m : m}`;
+                      if (k !== selectedSaudiMonth) return false;
+                    }
+                  }
+                  if (saudiDateFrom) {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && dVal < new Date(saudiDateFrom)) return false;
+                  }
+                  if (saudiDateTo) {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && dVal > new Date(saudiDateTo + 'T23:59:59')) return false;
+                  }
+                  return true;
+                });
+
+                const totalS = scopedSaudiSignals.length;
+                const activeS = scopedSaudiSignals.filter(s => s.status === 'active').length;
+                const t1S = scopedSaudiSignals.filter(s => s.status === 'target1').length;
+                const t2S = scopedSaudiSignals.filter(s => s.status === 'target2').length;
+                const t3S = scopedSaudiSignals.filter(s => s.status === 'target3').length;
+                const t4S = scopedSaudiSignals.filter(s => s.status === 'target4').length;
+                const slS = scopedSaudiSignals.filter(s => s.status === 'stop_loss').length;
+                const achievedS = t1S + t2S + t3S + t4S;
+                const winRateS = totalS > 0 ? Math.round((achievedS / totalS) * 100) : 0;
+
+                const allMonthsS = getAvailableMonthsForSignals(saudiRecommendations);
+                const monthlyStatsS = allMonthsS.map(mObj => {
+                  const mSignals = saudiRecommendations.filter(sig => {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (!dVal || isNaN(dVal.getTime())) return false;
+                    const y = dVal.getFullYear();
+                    const m = dVal.getMonth() + 1;
+                    const k = `${y}-${m < 10 ? '0' + m : m}`;
+                    return k === mObj.key;
+                  });
+                  const mTotal = mSignals.length;
+                  const mAchieved = mSignals.filter(s => ['target1', 'target2', 'target3', 'target4'].includes(s.status) || s.status?.startsWith('target')).length;
+                  const mRate = mTotal > 0 ? Math.round((mAchieved / mTotal) * 100) : 0;
+                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate };
+                });
 
                 return (
                   <div className="p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/50 border-b border-amber-500/20">
@@ -13589,9 +13671,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="flex items-center gap-2">
                         <BarChart3 className="text-amber-400" size={17} />
                         <span className="text-xs font-black text-amber-300">📊 تحليل كفاءة ونسب نجاح توصيات السوق السعودي (Candlestick Analytics)</span>
+                        {selectedSaudiMonth !== 'all' && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold">
+                            الشهر المقتطع: {selectedSaudiMonth}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
-                        معدل النجاح العام: {winRateS}% 📈
+                        معدل النجاح {selectedSaudiMonth === 'all' ? 'العام' : 'للشهر'}: {winRateS}% ({achievedS}/{totalS} محقق) 📈
                       </span>
                     </div>
 
@@ -13626,6 +13713,31 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div style={{ width: `${totalS > 0 ? (activeS / totalS) * 100 : 0}%` }} className="bg-amber-400 h-full" title={`سارية: ${activeS}`}></div>
                       <div style={{ width: `${totalS > 0 ? (slS / totalS) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`وقف: ${slS}`}></div>
                     </div>
+
+                    {/* Per-Month Percentage Breakdown Bar */}
+                    {monthlyStatsS.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20">
+                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
+                          <span>📅 سجل معدل النجاح المئوي وتوزيع التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                          {monthlyStatsS.map(m => (
+                            <button
+                              key={m.key}
+                              type="button"
+                              onClick={() => setSelectedSaudiMonth(selectedSaudiMonth === m.key ? 'all' : m.key)}
+                              className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer ${selectedSaudiMonth === m.key ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-300 shadow-md font-black ring-2 ring-amber-400/50' : 'bg-slate-900/90 text-amber-200 border-amber-500/30 hover:bg-slate-800'}`}
+                            >
+                              <span>🗓️ {m.label}</span>
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
+                                {m.rate}% ({m.achieved}/{m.total} محقق)
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -14024,13 +14136,53 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Visual Candlestick & Performance Analytics Banner for US (v2.26) */}
               {(() => {
-                const totalU = usRecommendations.length;
-                const activeU = usRecommendations.filter(s => s.status === 'active').length;
-                const t1U = usRecommendations.filter(s => s.status === 'target1').length;
-                const t2U = usRecommendations.filter(s => s.status === 'target2').length;
-                const slU = usRecommendations.filter(s => s.status === 'stop_loss').length;
-                const winCountU = t1U + t2U;
-                const winRateU = totalU > 0 ? Math.round((winCountU / (totalU - activeU || totalU)) * 100) : 0;
+                const scopedUsSignals = usRecommendations.filter(sig => {
+                  if (selectedUsMonth !== 'all') {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && !isNaN(dVal.getTime())) {
+                      const y = dVal.getFullYear();
+                      const m = dVal.getMonth() + 1;
+                      const k = `${y}-${m < 10 ? '0' + m : m}`;
+                      if (k !== selectedUsMonth) return false;
+                    }
+                  }
+                  if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
+                  if (usDateFrom) {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && dVal < new Date(usDateFrom)) return false;
+                  }
+                  if (usDateTo) {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (dVal && dVal > new Date(usDateTo + 'T23:59:59')) return false;
+                  }
+                  return true;
+                });
+
+                const totalU = scopedUsSignals.length;
+                const activeU = scopedUsSignals.filter(s => s.status === 'active').length;
+                const t1U = scopedUsSignals.filter(s => s.status === 'target1').length;
+                const t2U = scopedUsSignals.filter(s => s.status === 'target2').length;
+                const t3U = scopedUsSignals.filter(s => s.status === 'target3').length;
+                const t4U = scopedUsSignals.filter(s => s.status === 'target4').length;
+                const slU = scopedUsSignals.filter(s => s.status === 'stop_loss').length;
+                const achievedU = t1U + t2U + t3U + t4U;
+                const winRateU = totalU > 0 ? Math.round((achievedU / totalU) * 100) : 0;
+
+                const allMonthsU = getAvailableMonthsForSignals(usRecommendations);
+                const monthlyStatsU = allMonthsU.map(mObj => {
+                  const mSignals = usRecommendations.filter(sig => {
+                    const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+                    if (!dVal || isNaN(dVal.getTime())) return false;
+                    const y = dVal.getFullYear();
+                    const m = dVal.getMonth() + 1;
+                    const k = `${y}-${m < 10 ? '0' + m : m}`;
+                    return k === mObj.key;
+                  });
+                  const mTotal = mSignals.length;
+                  const mAchieved = mSignals.filter(s => ['target1', 'target2', 'target3', 'target4'].includes(s.status) || s.status?.startsWith('target')).length;
+                  const mRate = mTotal > 0 ? Math.round((mAchieved / mTotal) * 100) : 0;
+                  return { ...mObj, total: mTotal, achieved: mAchieved, rate: mRate };
+                });
 
                 return (
                   <div className="p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/50 border-b border-amber-500/20">
@@ -14038,9 +14190,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="flex items-center gap-2">
                         <BarChart3 className="text-amber-400" size={17} />
                         <span className="text-xs font-black text-amber-300">📊 تحليل كفاءة ونسب نجاح توصيات السوق الأمريكي (Candlestick Analytics)</span>
+                        {selectedUsMonth !== 'all' && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold">
+                            الشهر المقتطع: {selectedUsMonth}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-black text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
-                        معدل النجاح العام: {winRateU}% 📈
+                        معدل النجاح {selectedUsMonth === 'all' ? 'العام' : 'للشهر'}: {winRateU}% ({achievedU}/{totalU} محقق) 📈
                       </span>
                     </div>
 
@@ -14066,6 +14223,31 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         <span className="text-base font-black text-amber-300">{totalU}</span>
                       </div>
                     </div>
+
+                    {/* Per-Month Percentage Breakdown Bar */}
+                    {monthlyStatsU.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20">
+                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
+                          <span>📅 سجل معدل النجاح المئوي وتوزيع التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                          {monthlyStatsU.map(m => (
+                            <button
+                              key={m.key}
+                              type="button"
+                              onClick={() => setSelectedUsMonth(selectedUsMonth === m.key ? 'all' : m.key)}
+                              className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer ${selectedUsMonth === m.key ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-300 shadow-md font-black ring-2 ring-amber-400/50' : 'bg-slate-900/90 text-amber-200 border-amber-500/30 hover:bg-slate-800'}`}
+                            >
+                              <span>🗓️ {m.label}</span>
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
+                                {m.rate}% ({m.achieved}/{m.total} محقق)
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -15128,16 +15310,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     >
                       <Trash2 size={13} />
                       <span>مسح المحدد ({selectedPayrollEmpIds.length})</span>
-                    </button>
-                  )}
-                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteAttendancePayroll')) && filteredEmps.length > 0 && (
-                    <button
-                      onClick={() => handleDeleteAllPayroll(filteredEmps)}
-                      className="bg-slate-800 hover:bg-rose-900 border border-rose-500/40 text-rose-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                      title="مسح وتصفير بيانات الدورة ونقلها لسلة المهملات"
-                    >
-                      <Trash2 size={13} />
-                      <span>تصفير الدورة لسلة المهملات 🗑️</span>
                     </button>
                   )}
                   <span className="text-[11px] text-gray-500 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl">
@@ -21151,6 +21323,47 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   />
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">صورة / سكرين شوت للصنف (اختياري)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="buffet-item-img-input"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="buffet-item-img-input"
+                      className="cursor-pointer bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
+                    >
+                      <Upload size={14} />
+                      <span>{buffetItemImage ? 'تغيير الصورة 🖼️' : 'إرفاق صورة / سكرين شوت 📷'}</span>
+                    </label>
+                    {buffetItemImage && (
+                      <button
+                        type="button"
+                        onClick={() => setBuffetItemImage(null)}
+                        className="text-rose-400 hover:text-rose-300 text-xs font-bold underline"
+                      >
+                        إلغاء الصورة ✕
+                      </button>
+                    )}
+                  </div>
+                  {buffetItemImage && (
+                    <div className="mt-2 w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-emerald-500/30 relative flex items-center justify-center p-1">
+                      <img src={buffetItemImage} alt="Buffet item preview" className="max-h-full object-contain rounded" />
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
                   <button
                     type="button"
@@ -21254,6 +21467,47 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     onChange={(e) => setBuffetPurchaseNotes(e.target.value)}
                     className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-blue-300 mb-1">صورة الفاتورة / الإيصال (اختياري)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="buffet-purch-img-input"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="buffet-purch-img-input"
+                      className="cursor-pointer bg-blue-950/80 hover:bg-blue-900 border border-blue-500/40 text-blue-300 text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
+                    >
+                      <Upload size={14} />
+                      <span>{buffetPurchaseImage ? 'تغيير صورة الإيصال 🧾' : 'إرفاق صورة الفاتورة / الإيصال 🧾'}</span>
+                    </label>
+                    {buffetPurchaseImage && (
+                      <button
+                        type="button"
+                        onClick={() => setBuffetPurchaseImage(null)}
+                        className="text-rose-400 hover:text-rose-300 text-xs font-bold underline"
+                      >
+                        إلغاء الصورة ✕
+                      </button>
+                    )}
+                  </div>
+                  {buffetPurchaseImage && (
+                    <div className="mt-2 w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-blue-500/30 relative flex items-center justify-center p-1">
+                      <img src={buffetPurchaseImage} alt="Receipt preview" className="max-h-full object-contain rounded" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
