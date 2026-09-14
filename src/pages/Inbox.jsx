@@ -255,6 +255,16 @@ function InboxContent() {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState('hide');
 
+  useEffect(() => {
+    if (!realIsAdmin && impersonatedEmp) {
+      setImpersonatedEmp(null);
+      try {
+        sessionStorage.removeItem('impersonatedEmp');
+        localStorage.removeItem('impersonatedEmp');
+      } catch (_) {}
+    }
+  }, [realIsAdmin, impersonatedEmp]);
+
   const currentEmpUser = (realIsAdmin && impersonatedEmp)
     ? impersonatedEmp
     : employees.find(e => 

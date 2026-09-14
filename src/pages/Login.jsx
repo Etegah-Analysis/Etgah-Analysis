@@ -150,6 +150,11 @@ export default function Login() {
         console.warn('User profile check warning:', metaErr);
       }
 
+      try {
+        sessionStorage.removeItem('impersonatedEmp');
+        localStorage.removeItem('impersonatedEmp');
+      } catch (_) {}
+
       // Navigate to destination
       navigate('/dashboard');
     } catch (err) {

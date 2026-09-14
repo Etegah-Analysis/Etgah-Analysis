@@ -1271,6 +1271,17 @@ const Dashboard = () => {
   const currentUser = effectiveUser;
   const isAdmin = realIsAdmin && !impersonatedEmp;
   const currentEmpUser = effectiveEmpUser;
+
+  // Auto-clear leftover impersonation when a non-admin logs in
+  useEffect(() => {
+    if (!realIsAdmin && impersonatedEmp) {
+      setImpersonatedEmp(null);
+      try {
+        sessionStorage.removeItem('impersonatedEmp');
+        localStorage.removeItem('impersonatedEmp');
+      } catch (_) {}
+    }
+  }, [realIsAdmin, impersonatedEmp]);
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || (currentEmpUser?.role === 'coordinator' && (!currentEmpUser?.jobTitle || currentEmpUser?.jobTitle === 'Coordinator')));
   const isCustomerService = !isAdmin && (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.jobTitle === 'خدمة العملاء' || currentEmpUser?.role === 'customer_service');
   const isLeader = !isAdmin && !isCustomerService && !isCoordinator && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || (currentEmpUser?.role === 'leader' && (!currentEmpUser?.jobTitle || currentEmpUser?.jobTitle === 'Leader')));
@@ -9092,7 +9103,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             </div>
             <span className="text-[11px] sm:text-xs font-black text-amber-200 truncate max-w-[90px] sm:max-w-[130px]">
               {(() => {
-                if (impersonatedEmp) return impersonatedEmp.name || impersonatedEmp.username;
+                if (realIsAdmin && impersonatedEmp) return impersonatedEmp.name || impersonatedEmp.username;
                 if (effectiveEmpUser?.name || effectiveEmpUser?.username) return effectiveEmpUser.name || effectiveEmpUser.username;
                 const emp = employees.find(e => 
                   (e.uid && e.uid === currentUser?.uid) || 
