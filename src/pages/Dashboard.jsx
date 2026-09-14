@@ -15628,7 +15628,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <th className="p-4 w-12 text-center">
                       <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-amber-500 rounded accent-amber-500" />
                     </th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">اسم الموظف / الكود</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">اسم الموظف المستعار / الكود</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">التدرج الوظيفي</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">Team / Leader</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">بيانات الدخول (م/س)</th>
@@ -15654,7 +15654,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           <div className="flex items-center gap-2">
                             {emp.isActive === false && <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" title="موقوف"></span>}
                             {emp.isActive !== false && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="نشط"></span>}
-                            <span>{emp.username || emp.name}</span>
+                            <span>{emp.name || emp.username}</span>
                             {emp.empCode && (
                               <span className="bg-gray-100 text-gray-700 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-200" dir="ltr">
                                 #{emp.empCode}
@@ -16621,7 +16621,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               <form onSubmit={handleAddEmployee} className="space-y-4" autoComplete="off">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف (الظاهر للعملاء والسيستم)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف المستعار (الظاهر في شات الواتساب للعملاء)</label>
                   <input 
                     type="text" 
                     autoComplete="off"
@@ -16675,7 +16675,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول مع الباسورد)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول للسيستم مع الباسورد)</label>
                   <input 
                     type="text" 
                     required
@@ -16756,7 +16756,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               <form onSubmit={handleEditEmployee} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف (الظاهر للعملاء والسيستم)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف المستعار (الظاهر في شات الواتساب للعملاء)</label>
                   <input 
                     type="text" 
                     required
@@ -16808,7 +16808,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول مع الباسورد)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول للسيستم مع الباسورد)</label>
                   <input 
                     type="text" 
                     required
