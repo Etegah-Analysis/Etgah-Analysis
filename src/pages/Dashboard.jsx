@@ -13741,15 +13741,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
                   </button>)}
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                    <button 
-                      onClick={() => handleOpenAddSaudiSignalModal()}
-                      className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                    >
-                      <Plus size={15} />
-                      <span>+ إضافة توصية سعودية جديدة</span>
-                    </button>
-                  )}
+
                 </div>
               </div>
 
@@ -13873,20 +13865,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <div className="mt-3 pt-2.5 border-t border-purple-500/20">
                         <div className="text-[11px] font-black text-amber-300 mb-1.5 flex flex-wrap items-center justify-between gap-2 w-full">
                           <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-amber-200/70 font-normal hidden sm:inline">انقر على أي شهر لتصفية الكارت به 🖱️</span>
-                            {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                              <button 
-                                onClick={() => handleOpenAddSaudiSignalModal()}
-                                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                              >
-                                <Plus size={14} />
-                                <span>+ إضافة توصية سعودية جديدة</span>
-                              </button>
-                            )}
-                          </div>
+                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                          {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                            <button 
+                              onClick={() => handleOpenAddSaudiSignalModal()}
+                              className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                            >
+                              <Plus size={14} />
+                              <span>+ إضافة توصية سعودية جديدة</span>
+                            </button>
+                          )}
                           {monthlyStatsS.map(m => (
                             <button
                               key={m.key}
@@ -14554,7 +14544,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     onChange={(e) => setUsSignalsStatusFilter(e.target.value)}
                     className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
-                    <option value="all">🌐 كل الحالات</option>
+                    <option value="all">🌐 كل الحالات ({usRecommendations.length})</option>
                     <option value="active">⏳ توصية سارية ({usRecommendations.filter(s => s.status === 'active').length})</option>
                     <option value="target1">🎯 حقق Target 1 ({usRecommendations.filter(s => s.status === 'target1').length})</option>
                     <option value="target2">🚀 حقق Target 2 ({usRecommendations.filter(s => s.status === 'target2').length})</option>
@@ -18695,12 +18685,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   <div className="flex items-center gap-2 self-end sm:self-auto">
                     {isAdmin && (
                       <button 
-                        onClick={() => handleExportCallLogsToExcel(filteredLogs)}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
-                        title="تحميل المكالمات المعروضة إلى ملف Excel"
+                        onClick={() => handleExportCallsPdf(empBreakdown, { totalCallsInPeriod, answeredCallsCount, totalMinutes, answerRate })}
+                        className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
+                        title="تحميل تقرير تحليل المكالمات كـ PDF"
                       >
                         <Download size={14} />
-                        <span>تحميل Excel</span>
+                        <span>تحميل PDF 📄</span>
                       </button>
                     )}
                     <button 
