@@ -339,7 +339,7 @@ const extractCleanCustomerName = (raw) => {
  */
 export const getEnglishDisplayName = (empUser, fallback = 'Agent') => {
   if (!empUser) return fallback;
-  return empUser.name || empUser.username || (empUser.email ? empUser.email.split('@')[0] : fallback);
+  return empUser.username || empUser.name || (empUser.email ? empUser.email.split('@')[0] : fallback);
 };
 
 /**
@@ -1212,7 +1212,7 @@ const Dashboard = () => {
   // Impersonation: When Admin enters an employee account, UI behaves 100% as that employee
   const effectiveUser = useMemo(() => {
     return (realIsAdmin && impersonatedEmp)
-      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name || impersonatedEmp.username }
+      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.username || impersonatedEmp.name }
       : realCurrentUser;
   }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
 
@@ -1938,7 +1938,7 @@ const Dashboard = () => {
     // Save Call Log in Firestore (Directly counted and linked to the application & employee system)
     try {
       if (currentUser) {
-        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || currentEmpUser?.username || currentUser.email?.split('@')[0] || 'موظف');
+        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.username || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
         await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
@@ -5312,6 +5312,25 @@ const Dashboard = () => {
         createdAt: new Date()
       });
       secondaryAuth.signOut();
+
+      const createdEmpObj = {
+        uid: user.uid,
+        id: user.uid,
+        email: user.email,
+        username: newEmpUsername,
+        password: newEmpPassword,
+        name: newEmpName || newEmpUsername,
+        empCode: newEmpCode || '',
+        jobTitle: newEmpJobTitle || 'Agent',
+        leaderUid: leaderObj ? leaderObj.uid : '',
+        leaderName: leaderObj ? (leaderObj.username || leaderObj.name) : '',
+        role: 'employee',
+        isActive: true,
+        createdAt: new Date()
+      };
+      setEmployees(prev => [createdEmpObj, ...prev.filter(e => e.uid !== user.uid)]);
+      toast.success('تمت إضافة الموظف وحفظ البيانات في السيستم فوراً ⚡✨');
+
       setIsAddEmployeeOpen(false);
       setNewEmpUsername('');
       setNewEmpPassword('');
@@ -5375,7 +5394,7 @@ const Dashboard = () => {
       // 1. Update Firestore document directly (Always succeeds!)
       await setDoc(doc(db, 'users', editEmp.uid), updateData, { merge: true });
 
-            // 2. Try updating Auth password / email in background using secondaryAuth
+      // 2. Try updating Auth password / email in background using secondaryAuth
       try {
         const candidateAuthEmails = [];
         const pushAuthEmail = (em) => {
@@ -5414,6 +5433,10 @@ const Dashboard = () => {
         console.warn('Secondary auth update skipped/failed, but Firestore profile updated successfully:', authErr);
       }
       
+      // Update local state instantly (0ms latency feedback)
+      setEmployees(prev => prev.map(emp => (emp.uid === editEmp.uid || emp.id === editEmp.uid || emp.id === editEmp.id) ? { ...emp, ...updateData } : emp));
+      toast.success('تم حفظ وتحديث بيانات الموظف في السيستم فوراً ⚡✨');
+
       setIsEditEmployeeOpen(false);
       setEditEmp(null);
       setEditEmpPassword('');
@@ -7345,7 +7368,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
     const docData = {
       empId: empKey,
-      empName: editingPayrollEmp.name || editingPayrollEmp.username,
+      empName: editingPayrollEmp.username || editingPayrollEmp.name,
       jobTitle: editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف',
       baseSalary: payrollBaseSalary,
       advances: payrollAdvances,
@@ -9010,7 +9033,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             <div className="text-xs sm:text-sm font-black">
               <span>أنت تتصفح لوحة التحكم حالياً كـ: </span>
               <span className="bg-amber-950/60 px-2.5 py-0.5 rounded-lg border border-amber-300 text-amber-200 font-mono">
-                {impersonatedEmp.name || impersonatedEmp.username}
+                {impersonatedEmp.username || impersonatedEmp.name}
               </span>
               <span className="text-amber-200 text-xs mr-2 font-normal">
                 ({impersonatedEmp.jobTitle || impersonatedEmp.role || 'موظف'})
@@ -15752,7 +15775,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     <th className="p-4 w-12 text-center">
                       <input type="checkbox" checked={selectedEmployees.length > 0 && selectedEmployees.length === employees.filter(e => e.role !== 'admin').length} onChange={toggleAllEmployees} className="w-4 h-4 text-amber-500 rounded accent-amber-500" />
                     </th>
-                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">اسم الموظف المستعار / الكود</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">اسم الدخول للنظام (Username) / الكود</th>
+                    <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">الاسم المستعار (الواتساب للعملاء)</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">التدرج الوظيفي</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">Team / Leader</th>
                     <th className="p-4 font-extrabold text-amber-300 text-xs whitespace-nowrap">بيانات الدخول (م/س)</th>
@@ -15765,7 +15789,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   {employees.filter(emp => {
                     if (!tableSearch.trim() && !dashboardSearch.trim()) return true;
                     const term = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
-                    return emp.name?.toLowerCase().includes(term) || emp.email?.toLowerCase().includes(term) || emp.empCode?.toLowerCase().includes(term);
+                    return emp.username?.toLowerCase().includes(term) || emp.name?.toLowerCase().includes(term) || emp.email?.toLowerCase().includes(term) || emp.empCode?.toLowerCase().includes(term);
                   }).map(emp => {
                     if (emp.role === 'admin') return null;
                     const teamMembersCount = employees.filter(e => e.leaderUid === emp.uid).length;
@@ -15778,13 +15802,23 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           <div className="flex items-center gap-2">
                             {emp.isActive === false && <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" title="موقوف"></span>}
                             {emp.isActive !== false && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="نشط"></span>}
-                            <span>{emp.username || emp.name}</span>
+                            <span className="font-extrabold text-purple-900">{emp.username || emp.name}</span>
                             {emp.empCode && (
-                              <span className="bg-gray-100 text-gray-700 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-200" dir="ltr">
+                              <span className="bg-purple-100 text-purple-800 font-mono text-[11px] px-2 py-0.5 rounded border border-purple-200" dir="ltr">
                                 #{emp.empCode}
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="p-4 text-sm font-bold text-gray-700 whitespace-nowrap">
+                          {emp.name ? (
+                            <span className="inline-flex items-center gap-1 bg-cyan-50 text-cyan-800 border border-cyan-200 text-xs px-2.5 py-1 rounded-lg font-bold">
+                              <span>💬</span>
+                              <span>{emp.name}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs font-normal">غير محدد</span>
+                          )}
                         </td>
                         <td className="p-4 text-sm whitespace-nowrap">
                           {emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' ? (
@@ -18069,7 +18103,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
                                       <td className="p-3 font-bold flex items-center gap-2">
                                         <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
-                                        <span>{leader.name || leader.username}</span>
+                                        <span>{leader.username || leader.name}</span>
                                       </td>
                                       <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
                                       <td className="p-3 text-center font-black">
@@ -19362,7 +19396,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <tr key={leader.uid || idx} className="hover:bg-amber-950/20 transition">
                               <td className="p-3 font-bold flex items-center gap-2">
                                 <span className="w-5 h-5 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
-                                <span>{leader.name || leader.username}</span>
+                                <span>{leader.username || leader.name}</span>
                               </td>
                               <td className="p-3 text-center font-bold text-amber-400">{teamMembersCount} موظف</td>
                               <td className="p-3 text-center font-bold text-purple-400">{crmCount.toLocaleString()}</td>
@@ -21432,7 +21466,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                 </div>
                 <div>
                   <h3 className="text-base font-black text-amber-300">
-                    تعديل راتب وبصمة: {editingPayrollEmp.name || editingPayrollEmp.username} ✏️
+                    تعديل راتب وبصمة: {editingPayrollEmp.username || editingPayrollEmp.name} ✏️
                   </h3>
                   <p className="text-xs text-amber-200/70">
                     المسمى: {editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف'} • التعيين: {formatDate(editingPayrollEmp.createdAt)}

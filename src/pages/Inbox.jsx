@@ -104,7 +104,7 @@ function InboxContent() {
         const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', auth.currentUser.uid)));
         if (!userDoc.empty) {
           const userData = userDoc.docs[0].data();
-          setCurrentEmpName(userData.name || userData.username || '');
+          setCurrentEmpName(userData.username || userData.name || '');
         }
       } catch (err) { console.error(err); }
     };
@@ -247,7 +247,7 @@ function InboxContent() {
   // If Admin is impersonating an employee, evaluate identity & permissions strictly as that employee
   const currentUser = React.useMemo(() => {
     return (realIsAdmin && impersonatedEmp)
-      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.name || impersonatedEmp.username }
+      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.username || impersonatedEmp.name }
       : realCurrentUser;
   }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
 
@@ -601,7 +601,7 @@ function InboxContent() {
     // Save Call Log in Firestore
     try {
       if (currentUser) {
-        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
+        const callerName = isAdmin ? '👑 الإدارة' : (currentEmpUser?.username || currentEmpName || currentEmpUser?.name || currentUser.email?.split('@')[0] || 'موظف');
         const callerRole = isAdmin ? 'Admin' : (currentEmpUser?.jobTitle || currentEmpUser?.role || 'Agent');
         const docRef = await addDoc(collection(db, 'call_logs'), {
           phoneNumber: cleanPhone,
@@ -833,7 +833,7 @@ function InboxContent() {
         // Check if chat belongs to employee or admin
         const empUid = currentUser?.uid;
         const empEmail = currentUser?.email?.toLowerCase();
-        const empName = currentEmpUser?.name || currentUser?.displayName;
+        const empName = currentEmpUser?.username || currentEmpUser?.name || currentUser?.displayName;
         const empUsername = currentEmpUser?.username;
 
         const isAssignedToThisEmp = 
@@ -1124,7 +1124,7 @@ function InboxContent() {
 
     try {
       const myName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف');
-      const targetName = isAdminIdentifier(targetEmp.email) || targetEmp.role === 'admin' || targetId === 'admin' ? '👑 الإدارة' : (targetEmp.name || targetEmp.username || 'موظف');
+      const targetName = isAdminIdentifier(targetEmp.email) || targetEmp.role === 'admin' || targetId === 'admin' ? '👑 الإدارة' : (targetEmp.username || targetEmp.name || 'موظف');
       
       const chatRef = doc(db, 'internal_groups', directChatId);
       const chatSnap = await getDoc(chatRef);
@@ -1190,7 +1190,7 @@ function InboxContent() {
       });
 
       const actorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser.email?.split('@')[0] || 'موظف');
-      const addedName = empToAdd.name || empToAdd.username || empToAdd.email;
+      const addedName = empToAdd.username || empToAdd.name || empToAdd.email;
 
       await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
         conversationId: activeChat.id,
@@ -1233,7 +1233,7 @@ function InboxContent() {
     }
 
     const targetEmp = employees.find(e => e.uid === memberUid);
-    const targetName = targetEmp ? (targetEmp.name || targetEmp.username) : 'الموظف';
+    const targetName = targetEmp ? (targetEmp.username || targetEmp.name) : 'الموظف';
 
     if (!window.confirm(`هل أنت متأكد من إخراج (${targetName}) من الجروب؟`)) return;
 
@@ -1810,7 +1810,7 @@ function InboxContent() {
         try {
           const empCleanId = fullPhone.replace(/[^0-9]/g, '');
           const empUser = employees?.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
-          const empName = empUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف';
+          const empName = empUser?.username || empUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف';
           
           await setDoc(doc(db, 'employee_leads', empCleanId), {
             phoneNumber: fullPhone,
@@ -1975,7 +1975,7 @@ function InboxContent() {
             <div className="text-xs sm:text-sm font-black flex items-center gap-1.5 flex-wrap">
               <span>أنت تتصفح الواتساب حالياً كـ:</span>
               <span className="bg-amber-950/80 px-3 py-0.5 rounded-lg border border-amber-300 text-amber-200 font-bold">
-                {impersonatedEmp.name || impersonatedEmp.username}
+                {impersonatedEmp.username || impersonatedEmp.name}
               </span>
               <span className="text-amber-200 text-xs font-semibold">
                 ({impersonatedEmp.jobTitle || impersonatedEmp.role || 'موظف'})
@@ -2010,7 +2010,7 @@ function InboxContent() {
       {/* Anti-Screenshot & Window Blur Frosted Shield + Security Watermark on Blur / Screenshot */}
       {!isAdmin && currentUser && (() => {
         const currentEmp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
-        const empName = currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee';
+        const empName = currentEmp?.username || currentEmp?.name || currentUser?.email?.split('@')[0] || 'Employee';
         const empJob = currentEmp?.jobTitle || (currentEmp?.role === 'coordinator' ? 'Coordinator' : 'Agent');
         const empEmail = currentUser?.email || '';
         const empCode = currentEmp?.empCode ? `#${currentEmp.empCode}` : '';
