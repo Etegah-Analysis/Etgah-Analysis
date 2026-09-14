@@ -257,7 +257,13 @@ function InboxContent() {
 
   const currentEmpUser = (realIsAdmin && impersonatedEmp)
     ? impersonatedEmp
-    : employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+    : employees.find(e => 
+        (e.uid && e.uid === currentUser?.uid) || 
+        (e.id && e.id === currentUser?.uid) || 
+        (e.email && e.email?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+        (e.authEmail && e.authEmail?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+        (e.username && currentUser?.email && currentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
+      );
 
   const isCoordinator = !isAdmin && (currentEmpUser?.jobTitle === 'Coordinator' || currentEmpUser?.jobTitle === 'منسق للإدارة' || currentEmpUser?.role === 'coordinator');
   const isLeader = !isAdmin && (currentEmpUser?.jobTitle === 'Leader' || currentEmpUser?.jobTitle === 'ليدر' || currentEmpUser?.role === 'leader');
@@ -2058,7 +2064,7 @@ function InboxContent() {
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="font-black text-white text-[11px] truncate max-w-[100px] sm:max-w-[130px]" dir="ltr">
-                  {impersonatedEmp ? (impersonatedEmp.name || impersonatedEmp.username) : (userProfile?.name || userProfile?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
+                  {impersonatedEmp ? (impersonatedEmp.name || impersonatedEmp.username) : (userProfile?.name || userProfile?.username || currentEmpUser?.name || currentEmpUser?.username || (isAdmin ? 'etegah-analysis' : currentUser?.email?.split('@')[0]))}
                 </span>
                 {impersonatedEmp ? (
                   <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs shrink-0 bg-blue-600/40 text-blue-200 border border-blue-400/40">

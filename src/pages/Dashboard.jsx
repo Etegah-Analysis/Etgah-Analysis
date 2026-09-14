@@ -1262,7 +1262,9 @@ const Dashboard = () => {
     return employees.find(e => 
       (e.uid && e.uid === realCurrentUser?.uid) || 
       (e.id && e.id === realCurrentUser?.uid) || 
-      (e.email && e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase())
+      (e.email && e.email?.toLowerCase() === realCurrentUser?.email?.toLowerCase()) ||
+      (e.authEmail && e.authEmail?.toLowerCase() === realCurrentUser?.email?.toLowerCase()) ||
+      (e.username && realCurrentUser?.email && realCurrentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
     );
   }, [realIsAdmin, impersonatedEmp, employees, realCurrentUser]);
 
@@ -9089,11 +9091,32 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <img src="/logo.jpg" alt="Logo" className="relative w-4 h-4 rounded-full object-cover border border-amber-300" />
             </div>
             <span className="text-[11px] sm:text-xs font-black text-amber-200 truncate max-w-[90px] sm:max-w-[130px]">
-              {isAdmin ? 'الإدارة' : (employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase())?.name || 'موظف')}
+              {(() => {
+                if (impersonatedEmp) return impersonatedEmp.name || impersonatedEmp.username;
+                if (effectiveEmpUser?.name || effectiveEmpUser?.username) return effectiveEmpUser.name || effectiveEmpUser.username;
+                const emp = employees.find(e => 
+                  (e.uid && e.uid === currentUser?.uid) || 
+                  (e.id && e.id === currentUser?.uid) || 
+                  (e.email && e.email?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                  (e.authEmail && e.authEmail?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                  (e.username && currentUser?.email && currentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
+                );
+                if (emp?.name || emp?.username) return emp.name || emp.username;
+                if (isAdmin) return 'الإدارة';
+                if (currentUser?.displayName) return currentUser.displayName;
+                if (currentUser?.email) return currentUser.email.split('@')[0];
+                return 'موظف';
+              })()}
             </span>
             <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
               {isAdmin ? '👑 Admin' : (() => {
-                const emp = employees.find(e => e.uid === currentUser?.uid || e.email?.toLowerCase() === currentUser?.email?.toLowerCase());
+                const emp = effectiveEmpUser || employees.find(e => 
+                  (e.uid && e.uid === currentUser?.uid) || 
+                  (e.id && e.id === currentUser?.uid) || 
+                  (e.email && e.email?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                  (e.authEmail && e.authEmail?.toLowerCase() === currentUser?.email?.toLowerCase()) ||
+                  (e.username && currentUser?.email && currentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
+                );
                 const r = emp?.jobTitle || emp?.role || 'Agent';
                 return getJobTitleEnglish(r);
               })()}
