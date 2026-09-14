@@ -39,7 +39,7 @@ export default function Login() {
         candidateEmails.push('admin@etegah.com');
         candidateEmails.push(`${safeInput}@etegah.com`);
       } else {
-        // Employee Login
+                // Employee Login
         try {
           const usersSnap = await getDocs(collection(db, 'users'));
           usersSnap.forEach(docSnap => {
@@ -49,18 +49,34 @@ export default function Login() {
             const dbName = (data.name || '').trim().toLowerCase();
             const dbNameClean = dbName.replace(/\s+/g, '');
             const dbEmail = (data.email || '').trim().toLowerCase();
+            const dbEmailClean = dbEmail.replace(/\s+/g, '');
+            const dbAuthEmail = (data.authEmail || '').trim().toLowerCase().replace(/\s+/g, '');
+            const dbEmpCode = (data.empCode || '').trim().toLowerCase();
 
-            if (
+            const isMatch =
               dbUsername === rawInput.toLowerCase() ||
               dbUsernameClean === safeInput ||
               dbName === rawInput.toLowerCase() ||
               dbNameClean === safeInput ||
               dbEmail === rawInput.toLowerCase() ||
-              dbEmail === `${safeInput}@etegah.com`
-            ) {
-              if (data.email && !candidateEmails.includes(data.email.toLowerCase())) {
-                candidateEmails.push(data.email.toLowerCase());
-              }
+              dbEmailClean === safeInput ||
+              dbEmailClean === `${safeInput}@etegah.com` ||
+              (dbEmpCode && dbEmpCode === rawInput.toLowerCase());
+
+            if (isMatch) {
+              const pushEmail = (em) => {
+                if (em) {
+                  const cleanEm = em.trim().toLowerCase().replace(/\s+/g, '');
+                  if (cleanEm && !candidateEmails.includes(cleanEm)) {
+                    candidateEmails.push(cleanEm);
+                  }
+                }
+              };
+
+              pushEmail(data.authEmail);
+              pushEmail(data.email);
+              if (dbUsernameClean) pushEmail(`${dbUsernameClean}@etegah.com`);
+              if (dbNameClean) pushEmail(`${dbNameClean}@etegah.com`);
             }
           });
         } catch (dbErr) {

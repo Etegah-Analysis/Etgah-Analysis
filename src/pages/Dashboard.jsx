@@ -5362,7 +5362,8 @@ const Dashboard = () => {
     setLoadingEdit(true);
     setErrorEdit('');
     try {
-      const emailToCreate = editEmpUsername.includes('@') ? editEmpUsername.trim() : `${editEmpUsername.trim()}@etegah.com`;
+      const safeUsername = editEmpUsername.trim().replace(/\s+/g, '').toLowerCase();
+      const emailToCreate = editEmpUsername.includes('@') ? editEmpUsername.trim().toLowerCase() : `${safeUsername}@etegah.com`;
       const leaderObj = editEmpJobTitle === 'Agent' && editEmpLeaderUid ? employees.find(l => l.uid === editEmpLeaderUid) : null;
       const currentLeaderUid = editEmp.leaderUid || '';
       const newLeaderUid = leaderObj ? leaderObj.uid : '';
@@ -5395,14 +5396,37 @@ const Dashboard = () => {
       // 1. Update Firestore document directly (Always succeeds!)
       await setDoc(doc(db, 'users', editEmp.uid), updateData, { merge: true });
 
-      // 2. Try updating Auth password / email in background if secondary auth credentials exist
+            // 2. Try updating Auth password / email in background using secondaryAuth
       try {
-        if (editEmp.email && editEmp.password) {
-          await signInWithEmailAndPassword(secondaryAuth, editEmp.email, editEmp.password);
+        const candidateAuthEmails = [];
+        const pushAuthEmail = (em) => {
+          if (em) {
+            const clean = em.trim().toLowerCase().replace(/\s+/g, '');
+            if (clean && !candidateAuthEmails.includes(clean)) candidateAuthEmails.push(clean);
+          }
+        };
+
+        pushAuthEmail(editEmp.authEmail);
+        pushAuthEmail(editEmp.email);
+        pushAuthEmail(emailToCreate);
+        if (editEmp.username) pushAuthEmail(`${editEmp.username.replace(/\s+/g, '')}@etegah.com`);
+        if (editEmp.name) pushAuthEmail(`${editEmp.name.replace(/\s+/g, '')}@etegah.com`);
+
+        let secCred = null;
+        for (const authEm of candidateAuthEmails) {
+          try {
+            secCred = await signInWithEmailAndPassword(secondaryAuth, authEm, editEmp.password);
+            if (secCred) break;
+          } catch (e) {
+            // try next candidate email
+          }
+        }
+
+        if (secCred && secondaryAuth.currentUser) {
           if (editEmpPassword !== editEmp.password && editEmpPassword.length >= 6) {
             await updatePassword(secondaryAuth.currentUser, editEmpPassword);
           }
-          if (emailToCreate !== editEmp.email) {
+          if (emailToCreate.toLowerCase() !== secondaryAuth.currentUser.email?.toLowerCase()) {
             await updateEmail(secondaryAuth.currentUser, emailToCreate);
           }
           secondaryAuth.signOut();
