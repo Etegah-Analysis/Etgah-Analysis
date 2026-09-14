@@ -5704,27 +5704,36 @@ const Dashboard = () => {
       return;
     }
     const empDisplayName = emp.username || emp.name || emp.email;
-    if (!window.confirm(`هل أنت متأكد من مسح الموظف (${empDisplayName}) ونقله إلى سلة المهملات، وتحويل جميع داتاه تلقائياً لليدر المشرف عليه بواسطة الإدارة؟`)) return;
+    const isLeaderRole = emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' || emp.role === 'leader';
+    const isCoordinatorRole = emp.jobTitle === 'Coordinator' || emp.jobTitle === 'منسق' || emp.role === 'coordinator';
+    const isCustomerServiceRole = emp.jobTitle === 'Customer Service' || emp.role === 'customer_service';
+
+    const empRoleLabel = isLeaderRole ? 'الليدر' : (isCoordinatorRole ? 'المنسق' : (isCustomerServiceRole ? 'خدمة العملاء' : 'الموظف (Agent)'));
+
+    if (!window.confirm(`هل أنت متأكد من مسح ${empRoleLabel} (${empDisplayName}) ونقله إلى سلة المهملات، وتحويل جميع داتاه تلقائياً بواسطة الإدارة؟`)) return;
 
     try {
-      // 1. Identify target Leader (the last leader this employee was under)
       const empUid = emp.uid || emp.id;
       const empEmail = emp.email?.toLowerCase();
       const empLeaderUid = emp.leaderUid || emp.leaderId;
 
-      const targetLeader = employees.find(e => 
-        (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') &&
-        e.role !== 'admin' &&
-        ((empLeaderUid && (e.uid === empLeaderUid || e.id === empLeaderUid)) ||
-         (emp.leaderEmail && e.email?.toLowerCase() === emp.leaderEmail.toLowerCase()) ||
-         (emp.leaderName && (e.name === emp.leaderName || e.username === emp.leaderName)))
-      );
+      // Only Agents with a leader transfer to their leader. Leaders, Coordinators, and CS transfer directly to Admin/الإدارة العليا.
+      let targetLeader = null;
+      if (!isLeaderRole && !isCoordinatorRole && !isCustomerServiceRole) {
+        targetLeader = employees.find(e => 
+          (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') &&
+          e.role !== 'admin' &&
+          ((empLeaderUid && (e.uid === empLeaderUid || e.id === empLeaderUid)) ||
+           (emp.leaderEmail && e.email?.toLowerCase() === emp.leaderEmail.toLowerCase()) ||
+           (emp.leaderName && (e.name === emp.leaderName || e.username === emp.leaderName)))
+        );
+      }
 
       const targetAssigneeUid = targetLeader ? targetLeader.uid : 'admin';
       const targetAssigneeEmail = targetLeader ? (targetLeader.email || targetLeader.name || 'الإدارة') : 'الإدارة';
       const targetAssigneeName = targetLeader ? (targetLeader.username || targetLeader.name || targetLeader.email) : '👑 الإدارة العليا';
 
-      // 2. Find all matching leads/customers across all pools
+      // Collect matching leads/customers across all collections
       const leadsCrmToTransfer = leadsCrm.filter(l => 
         (empUid && l.assignedToUid === empUid) ||
         (empEmail && l.assignedTo?.toLowerCase() === empEmail) ||
@@ -5747,11 +5756,11 @@ const Dashboard = () => {
       );
 
       const logObj = {
-        from: empDisplayName,
+        from: `${empRoleLabel} (${empDisplayName})`,
         to: targetAssigneeName,
         assignedBy: '👑 الإدارة العليا (تحويل تلقائي عقب المسح)',
         date: new Date().toISOString(),
-        reason: 'نقل تلقائي لداتا الموظف المحذوف إلى الليدر المشرف بواسطة الإدارة'
+        reason: `نقل تلقائي لداتا ${empRoleLabel} المحذوف إلى ${targetLeader ? `الليدر (${targetAssigneeName})` : 'الإدارة العليا'} بواسطة الإدارة`
       };
 
       const updatePayload = {
@@ -5764,7 +5773,7 @@ const Dashboard = () => {
         assignmentHistory: arrayUnion(logObj)
       };
 
-      // 3. Batch commit to Firestore in chunks of 400
+      // Batch update leads/customers in chunks of 400
       const allItemsToTransfer = [
         ...leadsCrmToTransfer.map(item => ({ col: 'leads_crm', id: item.id })),
         ...empLeadsToTransfer.map(item => ({ col: 'employee_leads', id: item.id })),
@@ -5780,7 +5789,24 @@ const Dashboard = () => {
         await batch.commit().catch(err => console.error('Error committing transferred leads batch:', err));
       }
 
-      // 4. Save employee to recycle bin & remove from users collection
+      // If a Leader was deleted, unassign their team members' leaderUid in Firestore
+      if (isLeaderRole) {
+        const teamMembersToUnassign = employees.filter(e => e.leaderUid === empUid || e.leaderUid === emp.id);
+        if (teamMembersToUnassign.length > 0) {
+          const teamBatch = writeBatch(db);
+          teamMembersToUnassign.forEach(m => {
+            teamBatch.update(doc(db, 'users', m.id), {
+              leaderUid: null,
+              leaderName: '',
+              leaderEmail: '',
+              updatedAt: serverTimestamp()
+            });
+          });
+          await teamBatch.commit().catch(err => console.error('Error unassigning team members leader:', err));
+        }
+      }
+
+      // Move employee to recycle_bin & delete from users collection
       await setDoc(doc(db, 'recycle_bin', emp.id), {
         ...emp,
         originalCollection: 'users',
@@ -5793,12 +5819,12 @@ const Dashboard = () => {
 
       toast.success(
         targetLeader
-          ? `تم نقل الموظف لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الليدر (${targetAssigneeName}) بنجاح 🎯`
-          : `تم نقل الموظف لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الإدارة العليا 🎯`
+          ? `تم نقل ${empRoleLabel} لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الليدر (${targetAssigneeName}) بنجاح 🎯`
+          : `تم نقل ${empRoleLabel} لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الإدارة العليا بنجاح 🎯`
       );
     } catch (e) {
       console.error('Error deleting employee and transferring data:', e);
-      toast.error('حدث خطأ أثناء مسح الموظف ونقل بياناته');
+      toast.error('حدث خطأ أثناء مسح الحساب ونقل بياناته');
     }
   };
 
@@ -9324,6 +9350,47 @@ const handleExportBuffetToExcel = () => {
       leadersCount: leaders.length
     };
   }, [isSystemTotalClientsModalOpen, isAdmin, leadsCrm, customers, employeeLeads, whatsappVisitorsCount, employees]);
+
+  // Dynamic Grouping of Employees Table: Group each Leader followed directly by their Team Members
+  const sortedEmployeesForTable = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+    const nonAdminEmps = employees.filter(e => e.role !== 'admin');
+    const leaders = nonAdminEmps.filter(e => e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader');
+
+    const orderedList = [];
+    const processedUids = new Set();
+
+    leaders.forEach(leader => {
+      const leaderKey = leader.uid || leader.id;
+      if (!processedUids.has(leaderKey)) {
+        orderedList.push(leader);
+        processedUids.add(leaderKey);
+
+        const teamMembers = nonAdminEmps.filter(e => {
+          const mKey = e.uid || e.id;
+          if (processedUids.has(mKey)) return false;
+          return (e.leaderUid && (e.leaderUid === leader.uid || e.leaderUid === leader.id)) ||
+                 (e.leaderEmail && leader.email && e.leaderEmail.toLowerCase() === leader.email.toLowerCase()) ||
+                 (e.leaderName && (e.leaderName === leader.name || e.leaderName === leader.username));
+        });
+
+        teamMembers.forEach(member => {
+          orderedList.push(member);
+          processedUids.add(member.uid || member.id);
+        });
+      }
+    });
+
+    nonAdminEmps.forEach(emp => {
+      const empKey = emp.uid || emp.id;
+      if (!processedUids.has(empKey)) {
+        orderedList.push(emp);
+        processedUids.add(empKey);
+      }
+    });
+
+    return orderedList;
+  }, [employees]);
 
   return (
     <div 
@@ -16171,7 +16238,11 @@ const handleExportBuffetToExcel = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-black text-amber-300">قائمة الموظفين وإدارة الصلاحيات</h2>
+                
+
+
+
+<h2 className="text-lg font-black text-amber-300">قائمة الموظفين وإدارة الصلاحيات</h2>
 
                 {/* Admin Master Emergency System Lock Button */}
                 {isAdmin && (
@@ -16233,7 +16304,7 @@ const handleExportBuffetToExcel = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {employees.filter(emp => {
+                  {sortedEmployeesForTable.filter(emp => {
                     if (!tableSearch.trim() && !dashboardSearch.trim()) return true;
                     const term = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
                     return emp.username?.toLowerCase().includes(term) || emp.name?.toLowerCase().includes(term) || emp.email?.toLowerCase().includes(term) || emp.empCode?.toLowerCase().includes(term);
