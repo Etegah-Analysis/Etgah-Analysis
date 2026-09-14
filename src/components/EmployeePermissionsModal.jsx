@@ -147,7 +147,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
         }
       }
 
-      toast.success(`تم حفظ وتطبيق صلاحيات (${employee.name || employee.username}) فوراً في النظام 🔐✨`);
+      toast.success(`تم حفظ وتطبيق صلاحيات (${employee.username || employee.name}) فوراً في النظام 🔐✨`);
       if (onSaveSuccess) {
         onSaveSuccess(permissions, empDocId);
       }
@@ -201,7 +201,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 p-0.5 shadow-lg shadow-amber-500/20 shrink-0">
               <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-amber-300 font-black text-xl sm:text-2xl">
-                {(employee.name || employee.username || 'م').charAt(0).toUpperCase()}
+                {(employee.username || employee.name || 'م').charAt(0).toUpperCase()}
               </div>
             </div>
             <div>
@@ -210,7 +210,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
                   لوحة تحكم الصلاحيات والكروت 🔐
                 </h2>
                 <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold">
-                  {employee.name || employee.username}
+                  {employee.username || employee.name}
                 </span>
                 <span className="bg-purple-500/20 text-purple-300 border border-purple-400/30 text-xs px-2.5 py-0.5 rounded-full font-bold">
                   {employee.jobTitle || getRoleArabicTitle(roleKey)}
@@ -486,7 +486,7 @@ export default function EmployeePermissionsModal({ isOpen, onClose, employee, on
         {/* MODAL FOOTER */}
         <div className="p-4 sm:p-5 border-t border-purple-500/20 bg-slate-950/80 flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-purple-300/80">
-            <span>التعديلات تُطبق فوراً على حساب الموظف <strong>{employee.name || employee.username}</strong> بمجرد الحفظ.</span>
+            <span>التعديلات تُطبق فوراً على حساب الموظف <strong>{employee.username || employee.name}</strong> بمجرد الحفظ.</span>
           </div>
 
           <div className="flex items-center gap-3">

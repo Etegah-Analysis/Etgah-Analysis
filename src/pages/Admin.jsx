@@ -77,7 +77,7 @@ export default function Admin() {
                     <td style={{ padding: '15px' }}>
                       <div className="flex items-center gap-2">
                         <User size={16} color="var(--primary-blue)" />
-                        {user.name || '-'}
+                        {user.username || user.name || '-'}
                       </div>
                     </td>
                     <td style={{ padding: '15px' }}>

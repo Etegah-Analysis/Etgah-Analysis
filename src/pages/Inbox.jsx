@@ -3063,7 +3063,7 @@ function InboxContent() {
                   <select value={selectedAssigneeUid} onChange={(e) => setSelectedAssigneeUid(e.target.value)} className="w-full bg-slate-700 text-white border border-white/20 rounded-lg p-2.5 text-sm">
                     <option value="">-- اختياري (تلقائي حسابي) --</option>
                     {employees.map(emp => (
-                      <option key={emp.uid} value={emp.uid}>{emp.name}</option>
+                      <option key={emp.uid} value={emp.uid}>{emp.username || emp.name}</option>
                     ))}
                   </select>
                 </div>
@@ -3419,7 +3419,7 @@ function InboxContent() {
 
                   if (directSearchTerm.trim()) {
                     const t = directSearchTerm.trim().toLowerCase();
-                    const n = (emp.name || emp.username || '').toLowerCase();
+                    const n = (emp.username || emp.name || '').toLowerCase();
                     const em = (emp.email || '').toLowerCase();
                     const j = (emp.jobTitle || emp.role || '').toLowerCase();
                     return n.includes(t) || em.includes(t) || j.includes(t);
@@ -3440,7 +3440,7 @@ function InboxContent() {
                         </div>
                         <div className="overflow-hidden">
                           <span className="text-xs font-bold text-white block truncate group-hover:text-cyan-300 transition">
-                            {emp.name || emp.username}
+                            {emp.username || emp.name}
                           </span>
                           <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
                             {emp.email}
@@ -3591,7 +3591,7 @@ function InboxContent() {
                           />
                           <div className="overflow-hidden">
                             <span className="text-xs font-bold text-white block truncate">
-                              {emp.name || emp.username}
+                              {emp.username || emp.name}
                             </span>
                             <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
                               {emp.email}
@@ -3688,7 +3688,7 @@ function InboxContent() {
                         .filter(emp => !activeChat.members?.includes(emp.uid))
                         .map(emp => (
                           <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                            {emp.name || emp.username} ({formatJobTitle(emp.jobTitle)})
+                            {emp.username || emp.name} ({formatJobTitle(emp.jobTitle)})
                           </option>
                         ))}
                     </select>
@@ -3750,11 +3750,11 @@ function InboxContent() {
                       >
                         <div className="flex items-center gap-2 overflow-hidden">
                           <div className="w-8 h-8 rounded-full bg-purple-900/60 text-purple-200 flex items-center justify-center font-bold text-xs shrink-0">
-                            {emp ? (emp.name ? emp.name.charAt(0) : '👤') : '👤'}
+                            {emp ? ((emp.username || emp.name) ? (emp.username || emp.name).charAt(0) : '👤') : '👤'}
                           </div>
                           <div className="overflow-hidden">
                             <span className="text-xs font-bold text-white block truncate">
-                              {emp?.name || emp?.username || 'موظف'}
+                              {emp?.username || emp?.name || 'موظف'}
                             </span>
                             <span className="text-[10px] text-gray-400 font-mono block truncate" dir="ltr">
                               {emp?.email || memberUid}

@@ -794,16 +794,16 @@ const Dashboard = () => {
     if (!nameOrEmail) return 'الإدارة';
     if (isAdminIdentifier(nameOrEmail)) return 'الإدارة';
     const emp = employees.find(e => e.email?.toLowerCase() === String(nameOrEmail).toLowerCase() || e.uid === nameOrEmail);
-    if (emp) return emp.name || emp.username;
+    if (emp) return emp.username || emp.name;
     return nameOrEmail;
   };
 
   // Assignment Assigner Display & Role Helper
   const getAssignerDisplay = () => {
     if (isAdmin) return '👑 الإدارة';
-    if (isCoordinator) return `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})`;
-    if (isLeader) return `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-    return `👤 ${currentEmpUser?.name || 'موظف'}`;
+    if (isCoordinator) return `📋 منسق الإدارة (${currentEmpUser?.username || currentEmpUser?.name || 'منسق'})`;
+    if (isLeader) return `👑 ليدر الفريق (${currentEmpUser?.username || currentEmpUser?.name || 'ليدر'})`;
+    return `👤 ${currentEmpUser?.username || currentEmpUser?.name || 'موظف'}`;
   };
 
   const getAssignerRole = () => {
@@ -4339,7 +4339,7 @@ const Dashboard = () => {
     setSelectedLeadsCrm([]);
     setSelectedTeamTrackingLeads([]);
     setAssignLoading(false);
-    toast.success(isTargetAdmin ? `تم إرجاع ${assignedCount} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${assignedCount} عميل محدد دفعة واحدة إلى الموظف ${emp.name} بنجاح 🚀`);
+    toast.success(isTargetAdmin ? `تم إرجاع ${assignedCount} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${assignedCount} عميل محدد دفعة واحدة إلى الموظف ${emp.username || emp.name} بنجاح 🚀`);
 
     // 3. Fast writeBatch execution in background without delaying user
     (async () => {
@@ -4367,7 +4367,7 @@ const Dashboard = () => {
               assignmentHistory: arrayUnion(logObj)
             });
           } else {
-            const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
+            const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.username || emp.name})` : `👤 ${emp.username || emp.name}`;
             const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
             batch.update(leadRef, {
               assignedTo: emp.email,
@@ -5542,7 +5542,7 @@ const Dashboard = () => {
 
   const toggleEmployeeActive = async (emp) => {
     const newStatus = emp.isActive === false ? true : false;
-    if (!newStatus && !window.confirm(`هل أنت متأكد من إيقاف الموظف ${emp.name} عن العمل؟ سيتم طرده فوراً ولن يتمكن من الدخول.`)) return;
+    if (!newStatus && !window.confirm(`هل أنت متأكد من إيقاف الموظف ${emp.username || emp.name} عن العمل؟ سيتم طرده فوراً ولن يتمكن من الدخول.`)) return;
     await setDoc(doc(db, 'users', emp.uid), { isActive: newStatus }, { merge: true });
   };
 
@@ -5678,7 +5678,7 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من مسح الموظف (${emp.name}) ونقله إلى سلة المهملات؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من مسح الموظف (${emp.username || emp.name}) ونقله إلى سلة المهملات؟`)) return;
     try {
       await setDoc(doc(db, 'recycle_bin', emp.id), {
         ...emp,
@@ -5849,7 +5849,7 @@ const Dashboard = () => {
       } else {
         const emp = employees.find(e => e.uid === empUid);
         if (!emp) return;
-        const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `👤 ${emp.name}`;
+        const targetEmpName = emp.role === 'admin' ? `👑 الإدارة (${emp.username || emp.name})` : `👤 ${emp.username || emp.name}`;
         const logObj = createAssignmentLog(prevEmpName, targetEmpName, assignerDisplay);
 
         // 1. Update customer in 'بيانات_تسجيل_العملاء'
@@ -5889,7 +5889,7 @@ const Dashboard = () => {
           assignmentHistory: arrayUnion(logObj)
         }, { merge: true });
 
-        toast.success(`تم تحويل العميل إلى Leads CRM الخاص بـ ${emp.name} على الداش بورد 🎯`);
+        toast.success(`تم تحويل العميل إلى Leads CRM الخاص بـ ${emp.username || emp.name} على الداش بورد 🎯`);
       }
     } catch (error) {
       console.error("خطأ في إسناد المحادثة:", error);
@@ -7435,7 +7435,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
         return {
           '#': idx + 1,
-          'اسم الموظف': emp.name || emp.username,
+          'اسم الموظف': emp.username || emp.name,
           'تاريخ التعيين': formatDate(emp.createdAt),
           'التدرج الوظيفي': emp.jobTitle || (emp.role === 'coordinator' ? 'منسق إدارة' : emp.role === 'leader' ? 'ليدر' : emp.role === 'customer_service' ? 'خدمة عملاء' : 'موظف'),
           'المرتب الثابت (ج.م)': p.baseSalary || 0,
@@ -7867,7 +7867,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return `
         <tr>
           <td>${index + 1}</td>
-          <td style="font-weight: bold;">${emp.name || emp.username}</td>
+          <td style="font-weight: bold;">${emp.username || emp.name}</td>
           <td>${emp.jobTitle || 'موظف'}</td>
           <td>${hireDate}</td>
           <td style="font-weight: bold; color: #1e293b;">${b > 0 ? b.toLocaleString() + ' ج.م' : '-'}</td>
@@ -11105,7 +11105,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       const empLeadsCount = leadsCrm.filter(c => c.assignedToUid === emp.uid || (emp.email && c.assignedTo?.toLowerCase() === emp.email.toLowerCase())).length;
                       return (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} ({empLeadsCount})
+                          👤 {emp.username || emp.name} ({empLeadsCount})
                         </option>
                       );
                     })}
@@ -11554,7 +11554,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             const count = employeeLeadCounts[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
-                                👤 {emp.name || emp.username} ({count.toLocaleString()} عميل)
+                                👤 {emp.username || emp.name} ({count.toLocaleString()} عميل)
                               </option>
                             );
                           })}
@@ -12259,7 +12259,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           })()}
                           {(isLeader ? myTeamMembers : assignableEmployees).map(emp => {
                             const count = empLeadsCountsByEmp[emp.uid] || 0;
-                            const empDisplayName = emp.name || emp.username;
+                            const empDisplayName = emp.username || emp.name;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-950 text-white">
                                 👤 {empDisplayName} ({count.toLocaleString()} Leads)
@@ -12593,10 +12593,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     >
                                       {isLeader ? (
                                         <>
-                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.username || currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                                           {myTeamMembers.map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
-                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)})
+                                              👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                                             </option>
                                           ))}
                                         </>
@@ -12970,7 +12970,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                👤 {emp.name || emp.username} ({count} مشترك)
+                                👤 {emp.username || emp.name} ({count} مشترك)
                               </option>
                             );
                           })}
@@ -12987,17 +12987,17 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             return (
                               <optgroup 
                                 key={leader.uid} 
-                                label={`👑 فريق الليدر: ${leader.name || leader.username || 'ليدر'} (إجمالي: ${teamTotalCount} مشترك)`}
+                                label={`👑 فريق الليدر: ${leader.username || leader.name || 'ليدر'} (إجمالي: ${teamTotalCount} مشترك)`}
                                 className="bg-slate-900 text-amber-300 font-bold"
                               >
                                 <option value={leader.uid} className="bg-slate-900 text-white">
-                                  👑 الليدر: {leader.name || leader.username} (خاص به: {leaderOwnCount} مشترك)
+                                  👑 الليدر: {leader.username || leader.name} (خاص به: {leaderOwnCount} مشترك)
                                 </option>
                                 {teamMembers.map(member => {
                                   const memberCount = subscribedCountsByEmp[member.uid] || 0;
                                   return (
                                     <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
-                                      👤 {member.name || member.username} ({memberCount} مشترك)
+                                      👤 {member.username || member.name} ({memberCount} مشترك)
                                     </option>
                                   );
                                 })}
@@ -13008,7 +13008,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             const count = subscribedCountsByEmp[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                🏢 {emp.name || emp.username} (مباشر للإدارة - {count} مشترك)
+                                🏢 {emp.username || emp.name} (مباشر للإدارة - {count} مشترك)
                               </option>
                             );
                           })}
@@ -13252,9 +13252,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     >
                                       {isLeader ? (
                                         <>
-                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.username || currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                                           {myTeamMembers.map(empItem => (
-                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)})</option>
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.username || empItem.name} ({getJobTitleEnglish(empItem.jobTitle)})</option>
                                           ))}
                                         </>
                                       ) : (
@@ -14953,7 +14953,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
             if (!q) return true;
-            return (emp.name || emp.username || '').toLowerCase().includes(q) || (emp.jobTitle || '').toLowerCase().includes(q);
+            return (emp.username || emp.name || '').toLowerCase().includes(q) || (emp.name || '').toLowerCase().includes(q) || (emp.jobTitle || '').toLowerCase().includes(q);
           });
 
           // Calculate totals for selected cycle
@@ -15192,9 +15192,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <td className="py-2.5 px-3 font-extrabold text-gray-900">
                               <div className="flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-900 to-purple-900 text-amber-300 font-bold flex items-center justify-center text-xs shrink-0 border border-amber-400/40">
-                                  {(emp.name || emp.username || 'M')[0].toUpperCase()}
+                                  {(emp.username || emp.name || 'M')[0].toUpperCase()}
                                 </div>
-                                <span className="truncate max-w-[140px]">{emp.name || emp.username}</span>
+                                <span className="truncate max-w-[140px]">{emp.username || emp.name}</span>
                               </div>
                             </td>
                             <td className="py-2.5 px-3 text-center text-[11px] text-gray-500 font-mono">
@@ -15308,7 +15308,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           const count = customerCountsByEmp[emp.uid] || 0;
                           return (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              {emp.role === 'admin' ? `👑 الإدارة (${emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.name}`} — ({count} Leads)
+                              {emp.role === 'admin' ? `👑 الإدارة (${emp.username || emp.name})` : `${emp.jobTitle === 'Leader' ? '👑 Leader:' : '👤 Agent:'} ${emp.username || emp.name}`} — ({count} Leads)
                             </option>
                           );
                         })}
@@ -15337,7 +15337,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         })()}
                         {myTeamMembers.map(emp => {
                           const count = scopedCustomerPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
-                          const empDisplayName = emp.name || emp.username;
+                          const empDisplayName = emp.username || emp.name;
                           return (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
                               👤 {empDisplayName} ({count.toLocaleString()} Leads)
@@ -15778,7 +15778,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           <div className="flex items-center gap-2">
                             {emp.isActive === false && <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" title="موقوف"></span>}
                             {emp.isActive !== false && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="نشط"></span>}
-                            <span>{emp.name || emp.username}</span>
+                            <span>{emp.username || emp.name}</span>
                             {emp.empCode && (
                               <span className="bg-gray-100 text-gray-700 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-200" dir="ltr">
                                 #{emp.empCode}
@@ -15856,7 +15856,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   sessionStorage.setItem('impersonatedEmp', JSON.stringify(freshEmp));
                                   setImpersonatedEmp(freshEmp);
                                   setActiveTab('leads_crm');
-                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
+                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.username || emp.name}) بصلاحياته فقط 🖥️✨`);
                                   scrollToTable();
                                 }}
                                 onTouchEnd={(e) => {
@@ -15864,12 +15864,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
                                   setImpersonatedEmp(emp);
                                   setActiveTab('leads_crm');
-                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.name || emp.username}) بصلاحياته فقط 🖥️✨`);
+                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.username || emp.name}) بصلاحياته فقط 🖥️✨`);
                                   scrollToTable();
                                 }}
                                 style={{ touchAction: 'manipulation' }}
                                 className="p-2 sm:px-2.5 sm:py-1.5 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40 shrink-0"
-                                title={`دخول ومعاينة لوحة تحكم ${emp.name || emp.username} (كأنك مسجل دخوله بحسابه)`}
+                                title={`دخول ومعاينة لوحة تحكم ${emp.username || emp.name} (كأنك مسجل دخوله بحسابه)`}
                               >
                                 <Monitor size={16} />
                                 <span className="text-[11px] font-black inline">دخول شاشته</span>
@@ -17888,7 +17888,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
-                                      <span>{emp.name || emp.username}</span>
+                                      <span>{emp.username || emp.name}</span>
                                       {emp.uid === currentUser?.uid && (
                                         <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0.2 rounded">أنت (الليدر)</span>
                                       )}
@@ -18168,7 +18168,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   <tr key={emp.uid || i} className="hover:bg-purple-900/20 transition">
                                     <td className="p-3 font-bold flex items-center gap-2">
                                       <span className="w-5 h-5 rounded-full bg-purple-900 text-purple-200 flex items-center justify-center text-[10px] font-black">{i + 1}</span>
-                                      <span>{emp.name || emp.username}</span>
+                                      <span>{emp.username || emp.name}</span>
                                     </td>
                                     <td className="p-3 text-center text-xs text-purple-300">
                                        {emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' ? (
