@@ -5703,19 +5703,102 @@ const Dashboard = () => {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من مسح الموظف (${emp.username || emp.name}) ونقله إلى سلة المهملات؟`)) return;
+    const empDisplayName = emp.username || emp.name || emp.email;
+    if (!window.confirm(`هل أنت متأكد من مسح الموظف (${empDisplayName}) ونقله إلى سلة المهملات، وتحويل جميع داتاه تلقائياً لليدر المشرف عليه بواسطة الإدارة؟`)) return;
+
     try {
+      // 1. Identify target Leader (the last leader this employee was under)
+      const empUid = emp.uid || emp.id;
+      const empEmail = emp.email?.toLowerCase();
+      const empLeaderUid = emp.leaderUid || emp.leaderId;
+
+      const targetLeader = employees.find(e => 
+        (e.jobTitle === 'Leader' || e.jobTitle === 'ليدر' || e.role === 'leader') &&
+        e.role !== 'admin' &&
+        ((empLeaderUid && (e.uid === empLeaderUid || e.id === empLeaderUid)) ||
+         (emp.leaderEmail && e.email?.toLowerCase() === emp.leaderEmail.toLowerCase()) ||
+         (emp.leaderName && (e.name === emp.leaderName || e.username === emp.leaderName)))
+      );
+
+      const targetAssigneeUid = targetLeader ? targetLeader.uid : 'admin';
+      const targetAssigneeEmail = targetLeader ? (targetLeader.email || targetLeader.name || 'الإدارة') : 'الإدارة';
+      const targetAssigneeName = targetLeader ? (targetLeader.username || targetLeader.name || targetLeader.email) : '👑 الإدارة العليا';
+
+      // 2. Find all matching leads/customers across all pools
+      const leadsCrmToTransfer = leadsCrm.filter(l => 
+        (empUid && l.assignedToUid === empUid) ||
+        (empEmail && l.assignedTo?.toLowerCase() === empEmail) ||
+        (emp.name && l.assignedTo === emp.name) ||
+        (emp.username && l.assignedTo === emp.username)
+      );
+
+      const empLeadsToTransfer = employeeLeads.filter(l => 
+        (empUid && l.assignedToUid === empUid) ||
+        (empEmail && l.assignedTo?.toLowerCase() === empEmail) ||
+        (emp.name && l.assignedTo === emp.name) ||
+        (emp.username && l.assignedTo === emp.username)
+      );
+
+      const customersToTransfer = customers.filter(l => 
+        (empUid && l.assignedToUid === empUid) ||
+        (empEmail && l.assignedTo?.toLowerCase() === empEmail) ||
+        (emp.name && l.assignedTo === emp.name) ||
+        (emp.username && l.assignedTo === emp.username)
+      );
+
+      const logObj = {
+        from: empDisplayName,
+        to: targetAssigneeName,
+        assignedBy: '👑 الإدارة العليا (تحويل تلقائي عقب المسح)',
+        date: new Date().toISOString(),
+        reason: 'نقل تلقائي لداتا الموظف المحذوف إلى الليدر المشرف بواسطة الإدارة'
+      };
+
+      const updatePayload = {
+        assignedToUid: targetAssigneeUid,
+        assignedTo: targetAssigneeEmail,
+        assignedBy: '👑 الإدارة العليا',
+        assignedByRole: 'Admin',
+        assignedByUid: 'admin',
+        assignedAt: serverTimestamp(),
+        assignmentHistory: arrayUnion(logObj)
+      };
+
+      // 3. Batch commit to Firestore in chunks of 400
+      const allItemsToTransfer = [
+        ...leadsCrmToTransfer.map(item => ({ col: 'leads_crm', id: item.id })),
+        ...empLeadsToTransfer.map(item => ({ col: 'employee_leads', id: item.id })),
+        ...customersToTransfer.map(item => ({ col: 'visitor_customers', id: item.id }))
+      ];
+
+      for (let i = 0; i < allItemsToTransfer.length; i += 400) {
+        const chunk = allItemsToTransfer.slice(i, i + 400);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+          batch.update(doc(db, item.col, item.id), updatePayload);
+        });
+        await batch.commit().catch(err => console.error('Error committing transferred leads batch:', err));
+      }
+
+      // 4. Save employee to recycle bin & remove from users collection
       await setDoc(doc(db, 'recycle_bin', emp.id), {
         ...emp,
         originalCollection: 'users',
         type: 'employee',
-        deletedAt: serverTimestamp()
+        deletedAt: serverTimestamp(),
+        transferredDataTo: targetAssigneeName,
+        transferredDataCount: allItemsToTransfer.length
       });
       await deleteDoc(doc(db, 'users', emp.id));
-      toast.success('تم نقل الموظف إلى سلة المهملات بنجاح');
+
+      toast.success(
+        targetLeader
+          ? `تم نقل الموظف لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الليدر (${targetAssigneeName}) بنجاح 🎯`
+          : `تم نقل الموظف لسلة المهملات، وتوليت الإدارة تحويل ${allItemsToTransfer.length} عميل إلى الإدارة العليا 🎯`
+      );
     } catch (e) {
-      console.error(e);
-      toast.error('حدث خطأ أثناء مسح الموظف');
+      console.error('Error deleting employee and transferring data:', e);
+      toast.error('حدث خطأ أثناء مسح الموظف ونقل بياناته');
     }
   };
 
@@ -13996,15 +14079,6 @@ const handleExportBuffetToExcel = () => {
                           <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                          {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                            <button 
-                              onClick={() => handleOpenAddSaudiSignalModal()}
-                              className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                            >
-                              <Plus size={14} />
-                              <span>+ إضافة توصية سعودية جديدة</span>
-                            </button>
-                          )}
                           {monthlyStatsS.map(m => (
                             <button
                               key={m.key}
@@ -14018,6 +14092,15 @@ const handleExportBuffetToExcel = () => {
                               </span>
                             </button>
                           ))}
+                          {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                            <button 
+                              onClick={() => handleOpenAddSaudiSignalModal()}
+                              className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                            >
+                              <Plus size={14} />
+                              <span>+ إضافة توصية سعودية جديدة</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
