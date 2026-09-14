@@ -4370,7 +4370,7 @@ const Dashboard = () => {
         const batch = writeBatch(db);
 
         for (const lead of batchChunk) {
-          const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+          const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.username || employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
           const leadRef = doc(db, 'leads_crm', lead.id);
 
           if (isTargetAdmin) {
@@ -4437,7 +4437,7 @@ const Dashboard = () => {
     if (!lead) return;
     try {
       const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
-      const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
+      const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead.assignedTo || 'الموظف');
       const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
       const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
@@ -4494,7 +4494,7 @@ const Dashboard = () => {
           for (const leadId of chunk) {
             const lead = leadsCrm.find(l => l.id === leadId);
             const currentEmp = employees.find(e => e.uid === lead?.assignedToUid || e.email === lead?.assignedTo);
-            const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead?.assignedTo || 'الموظف');
+            const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead?.assignedTo || 'الموظف');
             const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
             batch.update(doc(db, 'leads_crm', leadId), {
@@ -4552,7 +4552,7 @@ const Dashboard = () => {
           const batch = writeBatch(db);
           for (const lead of chunk) {
             const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
-            const empName = currentEmp ? `👤 ${currentEmp.name}` : (lead.assignedTo || 'الموظف');
+            const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead.assignedTo || 'الموظف');
             const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
             batch.update(doc(db, 'leads_crm', lead.id), {
@@ -4581,7 +4581,7 @@ const Dashboard = () => {
     if (!customer) return;
     try {
       const currentEmp = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo);
-      const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer.assignedTo || 'الموظف');
+      const prevEmpName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (customer.assignedTo || 'الموظف');
       const assignerDisplay = isAdmin ? '👑 الإدارة' : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
       const assignerRole = isAdmin ? 'admin' : 'leader';
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -4662,7 +4662,7 @@ const Dashboard = () => {
           for (const leadId of chunk) {
             const customer = employeeLeads.find(l => l.id === leadId);
             const currentEmp = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo);
-            const prevEmpName = currentEmp ? `👤 ${currentEmp.name}` : (customer?.assignedTo || 'الموظف');
+            const prevEmpName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (customer?.assignedTo || 'الموظف');
             const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
 
             batch.update(doc(db, 'employee_leads', leadId), {
@@ -5326,7 +5326,7 @@ const Dashboard = () => {
         empCode: newEmpCode || '',
         jobTitle: newEmpJobTitle || 'Agent',
         leaderUid: leaderObj ? leaderObj.uid : '',
-        leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : '',
+        leaderName: leaderObj ? (leaderObj.username || leaderObj.name) : '',
         leaderAssignedAt: leaderObj ? serverTimestamp() : null,
         role: 'employee',
         isActive: true,
@@ -5385,7 +5385,7 @@ const Dashboard = () => {
         jobTitle: editEmpJobTitle || 'Agent',
         role: normalizedRole,
         leaderUid: newLeaderUid,
-        leaderName: leaderObj ? (leaderObj.name || leaderObj.username) : ''
+        leaderName: leaderObj ? (leaderObj.username || leaderObj.name) : ''
       };
 
       if (isLeaderChanged) {
@@ -5823,7 +5823,7 @@ const Dashboard = () => {
     if (!empUid) return;
     try {
       const customer = customers.find(c => c.id === chatId);
-      const prevEmpName = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo)?.name || (customer?.assignedTo === 'admin' || customer?.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+      const prevEmpName = employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo)?.username || employees.find(e => e.uid === customer?.assignedToUid || e.email === customer?.assignedTo)?.name || (customer?.assignedTo === 'admin' || customer?.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
       const assignerDisplay = getAssignerDisplay();
       const assignerRole = getAssignerRole();
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -5907,7 +5907,7 @@ const Dashboard = () => {
     try {
       const excelData = leadsCrm.map((lead, idx) => {
         const emp = employees.find(e => e.uid === lead.assignedToUid || e.email?.toLowerCase() === lead.assignedTo?.toLowerCase());
-        const empName = emp ? (emp.name || emp.username) : (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : 'غير محدد');
+        const empName = emp ? (emp.username || emp.name) : (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : 'غير محدد');
         const statusLabel = CRM_STATUS_MAP[lead.crmStatus]?.label || lead.crmStatus || '⏳ في الانتظار';
         
         let compiledNotes = '';
@@ -5956,7 +5956,7 @@ const Dashboard = () => {
     try {
       const excelData = employeeLeads.map((lead, idx) => {
         const emp = employees.find(e => e.uid === lead.assignedToUid || e.email?.toLowerCase() === lead.assignedTo?.toLowerCase());
-        const empName = emp ? (emp.name || emp.username) : (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : (lead.assignedTo || 'غير محدد'));
+        const empName = emp ? (emp.username || emp.name) : (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : (lead.assignedTo || 'غير محدد'));
         const statusLabel = CRM_STATUS_MAP[lead.crmStatus]?.label || lead.crmStatus || '⏳ في الانتظار';
         
         let compiledNotes = '';
@@ -8438,7 +8438,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     try {
       const excelData = scopeList.map((client, idx) => {
         const emp = employees.find(e => e.uid === client.assignedToUid || e.email?.toLowerCase() === client.assignedTo?.toLowerCase());
-        const empName = emp ? (emp.name || emp.username) : (client.assignedTo === 'admin' || client.assignedTo === 'الإدارة' ? '👑 الإدارة' : (client.assignedTo || 'غير محدد'));
+        const empName = emp ? (emp.username || emp.name) : (client.assignedTo === 'admin' || client.assignedTo === 'الإدارة' ? '👑 الإدارة' : (client.assignedTo || 'غير محدد'));
         const sub = client.subscriptionDetails || {};
 
         let paymentLabel = 'غير محدد';
@@ -11198,7 +11198,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <td className="p-3.5">
                               <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold px-2.5 py-1 rounded-full text-xs shadow-sm">
                                 <span>👤</span>
-                                <span>{assignedEmp?.name || customer.assignedTo || 'Team Member'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
+                                <span>{assignedEmp?.username || assignedEmp?.name || customer.assignedTo || 'Team Member'} ({getJobTitleEnglish(assignedEmp?.jobTitle)})</span>
                               </span>
                             </td>
                             <td className="px-2 py-2 text-center text-gray-500 text-[11px] font-mono whitespace-nowrap">
@@ -11798,7 +11798,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
                                   onChange={async (e) => {
                                     const uid = e.target.value;
-                                    const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || '👑 الإدارة';
+                                    const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.username || employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || '👑 الإدارة';
                                     const assignerDisplay = getAssignerDisplay();
                                     const assignerRole = getAssignerRole();
                                     const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -11856,7 +11856,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       <option value="admin">👑 الإدارة (Admin 👑)</option>
                                       {assignableEmployees.map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
-                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
+                                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                         </option>
                                       ))}
                                     </>
@@ -12477,7 +12477,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
                                       onChange={async (e) => {
                                         const uid = e.target.value;
-                                        const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
+                                        const prevEmpName = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.username || employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo)?.name || (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
                                         const assignerDisplay = getAssignerDisplay();
                                         const assignerRole = getAssignerRole();
                                         const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -12533,7 +12533,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                           <option value="admin">👑 الإدارة (Admin 👑)</option>
                                           {assignableEmployees.map(emp => (
                                             <option key={emp.uid} value={emp.uid}>
-                                              👤 {emp.name || emp.username} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
+                                              👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                             </option>
                                           ))}
                                         </>
@@ -13123,7 +13123,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             const sub = customer.subscriptionDetails || {};
                             const hasCompleteSub = sub.startDate && sub.receiptProof;
                             const emp = employees.find(e => e.uid === customer.assignedToUid || e.email?.toLowerCase() === customer.assignedTo?.toLowerCase());
-                            const empName = emp ? (emp.name || emp.username) : (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : (customer.assignedTo || 'غير محدد'));
+                            const empName = emp ? (emp.username || emp.name) : (customer.assignedTo === 'admin' || customer.assignedTo === 'الإدارة' ? '👑 الإدارة' : (customer.assignedTo || 'غير محدد'));
 
                             return (
                               <tr key={customer.id || idx} className="hover:bg-emerald-50/40 transition">
@@ -13156,7 +13156,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       value={isLeadWithAdmin(customer) ? "admin" : customer.assignedToUid}
                                       onChange={async (e) => {
                                         const uid = e.target.value;
-                                        const prevEmpName = employees.find(x => x.uid === customer.assignedToUid || x.email === customer.assignedTo)?.name || '👑 الإدارة';
+                                        const prevEmpName = employees.find(x => x.uid === customer.assignedToUid || x.email === customer.assignedTo)?.username || employees.find(x => x.uid === customer.assignedToUid || x.email === customer.assignedTo)?.name || '👑 الإدارة';
                                         const assignerDisplay = getAssignerDisplay();
                                         const assignerRole = getAssignerRole();
                                         const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -13189,7 +13189,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                         <>
                                           <option value="admin">👑 الإدارة (Admin 👑)</option>
                                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.username || empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
                                           ))}
                                         </>
                                       )}
@@ -15363,7 +15363,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               <option value="admin">👑 الإدارة (Admin 👑)</option>
                               {assignableEmployees.map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
-                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
+                                  👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                                 </option>
                               ))}
                             </>
@@ -15694,7 +15694,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <div className="flex flex-col gap-1">
                               <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 w-fit">
                                 <span>👑</span>
-                                <span>{employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'Leader Team'}</span>
+                                <span>{employees.find(l => l.uid === emp.leaderUid)?.username || employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'Leader Team'}</span>
                               </span>
                               {emp.leaderAssignedAt && (
                                 <span className="text-[10px] text-purple-700 font-mono flex items-center gap-1" title="تاريخ ووقت التعيين تحت هذا الليدر">
@@ -15967,7 +15967,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               const vObj = visitors.find(x => x.id === vId) || customers.find(x => x.id === vId);
                               const isVisDoc = visitors.some(x => x.id === vId);
                               const coll = isVisDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء';
-                              const prevEmp = employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.name || '👑 الإدارة';
+                              const prevEmp = employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.username || employees.find(x => x.uid === vObj?.assignedToUid || x.email === vObj?.assignedTo)?.name || '👑 الإدارة';
                               const logObj = createAssignmentLog(prevEmp, targetName, assignerDisplay);
 
                               batch.update(doc(db, coll, vId), {
@@ -16034,7 +16034,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                         <>
                           <option value="admin">👑 الإدارة (Admin 👑)</option>
                           {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                            <option key={empItem.uid} value={empItem.uid}>👤 {empItem.username || empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
                           ))}
                         </>
                       )}
@@ -16236,7 +16236,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                   value={isLeadWithAdmin(visitor) ? "admin" : visitor.assignedToUid}
                                   onChange={async (e) => {
                                     const uid = e.target.value;
-                                    const prevEmpName = employees.find(x => x.uid === visitor.assignedToUid || x.email === visitor.assignedTo)?.name || '👑 الإدارة';
+                                    const prevEmpName = employees.find(x => x.uid === visitor.assignedToUid || x.email === visitor.assignedTo)?.username || employees.find(x => x.uid === visitor.assignedToUid || x.email === visitor.assignedTo)?.name || '👑 الإدارة';
                                     const assignerDisplay = getAssignerDisplay();
                                     const assignerRole = getAssignerRole();
                                     const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
@@ -16319,7 +16319,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                     <>
                                       <option value="admin">👑 الإدارة (Admin 👑)</option>
                                       {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(empItem => (
-                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
+                                        <option key={empItem.uid} value={empItem.uid}>👤 {empItem.username || empItem.name} ({getJobTitleEnglish(empItem.jobTitle)}{empItem.leaderName ? ` - فريق ${empItem.leaderName}` : ''})</option>
                                       ))}
                                     </>
                                   )}
@@ -16339,7 +16339,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               <span className="text-xs font-bold text-gray-700">
                                 {(() => {
                                   const vEmp = employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo);
-                                  return `👤 ${vEmp?.name || '👑 الإدارة'} (${getJobTitleEnglish(vEmp?.jobTitle || (visitor.assignedToUid === 'admin' ? 'Admin' : 'Agent'))})`;
+                                  return `👤 ${vEmp?.username || vEmp?.name || '👑 الإدارة'} (${getJobTitleEnglish(vEmp?.jobTitle || (visitor.assignedToUid === 'admin' ? 'Admin' : 'Agent'))})`;
                                 })()}
                               </span>
                             )}
@@ -17143,7 +17143,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <option value="admin">👑 الإدارة (Admin 👑)</option>
                       {assignableEmployees.map(emp => (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
+                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
                         </option>
                       ))}
                     </>
@@ -18052,7 +18052,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                        ) : emp.jobTitle === 'Customer Service' || emp.jobTitle === 'خدمة العملاء' ? (
                                          <span className="inline-flex items-center gap-1 whitespace-nowrap bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0">🎧 Customer Service</span>
                                        ) : emp.leaderUid ? (
-                                        <span className="text-purple-300 font-medium">👑 {employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'ليدر'}</span>
+                                        <span className="text-purple-300 font-medium">👑 {employees.find(l => l.uid === emp.leaderUid)?.username || employees.find(l => l.uid === emp.leaderUid)?.name || emp.leaderName || 'ليدر'}</span>
                                       ) : (
                                         <span className="text-slate-500 text-[10px]">مباشر للإدارة</span>
                                       )}
