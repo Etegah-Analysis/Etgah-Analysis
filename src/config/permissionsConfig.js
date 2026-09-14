@@ -196,14 +196,6 @@ export const CARDS_PERMISSIONS_CONFIG = [
         defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false }
       },
       {
-        id: 'canDeleteAttendancePayroll',
-        title: 'حذف سجلات الحضور وسلة المهملات',
-        description: 'حذف بيانات موظف من دورة الرواتب مع الحفظ في سلة المهملات.',
-        riskLevel: 'critical',
-        riskLabel: 'سيادي للإدارة',
-        defaultByRole: { admin: true, coordinator: false, leader: false, agent: false, customer_service: false }
-      },
-      {
         id: 'canExportAttendancePayrollPdf',
         title: 'تحميل مسير الرواتب PDF بالعلامة المائية الرسمية',
         description: 'توليد وطباعة ملف PDF لمسير الرواتب بلوجو منصة اتجاه وعلامة مائية معتمدة.',
