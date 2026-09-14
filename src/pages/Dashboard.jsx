@@ -7531,9 +7531,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelRows);
-      XLSX.utils.book_append_sheet(wb, ws, 'مسير الرواتب والبصمة');
-      XLSX.writeFile(wb, `مسير_رواتب_وحضور_الموظفين_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      toast.success('تم تحميل مسير الرواتب المعتمد إلى Excel بنجاح 📥');
+      XLSX.utils.book_append_sheet(wb, ws, 'جدول الرواتب والبصمة');
+      XLSX.writeFile(wb, `جدول_رواتب_وحضور_الموظفين_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success('تم تحميل جدول الرواتب المعتمد إلى Excel بنجاح 📥');
     } catch(e) {
       toast.error('حدث خطأ أثناء تحميل ملف الرواتب');
     }
@@ -7916,7 +7916,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   // --- V2.26 ADMIN WATERMARK PDF FOR PAYROLL ---
   const handleExportPayrollPdf = () => {
     if (!isAdmin) {
-      toast.error('تحميل مسير الرواتب المعتمد PDF متاح للإدارة فقط 🔒');
+      toast.error('تحميل جدول الرواتب المعتمد PDF متاح للإدارة فقط 🔒');
       return;
     }
 
@@ -7971,7 +7971,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       <html dir="rtl" lang="ar">
       <head>
         <meta charset="utf-8" />
-        <title>مسير رواتب وحضور وانصراف الموظفين - منصة اتجاه للتحليل الذكي</title>
+        <title>جدول رواتب وحضور وانصراف الموظفين - منصة اتجاه للتحليل الذكي</title>
         <style>
           @page { size: A4 landscape; margin: 8mm; }
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; color: #0f172a; background: #fff; direction: rtl; position: relative; }
@@ -8019,7 +8019,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               <img src="${logoUrl}" alt="لوجو اتجاه" />
               <div class="title-box">
                 <h1>منصة اتجاه للتحليل الذكي</h1>
-                <p>مسير رواتب وحضور وانصراف الموظفين المعتمد • ${getPayrollCycleLabel(selectedPayrollCycle)} • تاريخ الاستخراج: ${dateFormatted} - ${timeFormatted}</p>
+                <p>جدول رواتب وحضور وانصراف الموظفين المعتمد • ${getPayrollCycleLabel(selectedPayrollCycle)} • تاريخ الاستخراج: ${dateFormatted} - ${timeFormatted}</p>
               </div>
             </div>
             <div class="badge-gov">
@@ -13723,7 +13723,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   >
                     <Download size={14} />
                     <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
-                  </button>
+                  </button>)}
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                    <button 
+                      onClick={() => handleOpenAddSaudiSignalModal()}
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>+ إضافة توصية سعودية جديدة</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -13873,9 +13881,41 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               {/* Filter & Search Bar */}
               <div className="p-4 bg-purple-950/20 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
-                {/* Month & Date Filter & Bulk Actions */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Compact Combined Calendar & Date Range Bar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap flex-1">
+                  {/* Status Filter Dropdown */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-amber-300 shrink-0">تصفية:</span>
+                    <select
+                      value={saudiSignalsFilter}
+                      onChange={(e) => setSaudiSignalsFilter(e.target.value)}
+                      className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                    >
+                      <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
+                      <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === "active").length})</option>
+                      <option value="target1">🎯 حقق مقاومة 1 ({saudiRecommendations.filter(s => s.status === "target1").length})</option>
+                      <option value="target2">🎯🎯 حقق مقاومة 2 ({saudiRecommendations.filter(s => s.status === "target2").length})</option>
+                      <option value="target3">🚀 حقق مقاومة 3 ({saudiRecommendations.filter(s => s.status === "target3").length})</option>
+                      <option value="target4">🌟 حقق مقاومة 4 ({saudiRecommendations.filter(s => s.status === "target4").length})</option>
+                      <option value="stop_loss">🛑 إيقاف خسارة ({saudiRecommendations.filter(s => s.status === "stop_loss").length})</option>
+                      <option value="cancelled">❌ ملغاة ({saudiRecommendations.filter(s => s.status === "cancelled").length})</option>
+                    </select>
+                  </div>
+
+                  {/* Search Input (compact) */}
+                  <div className="relative w-full sm:w-56">
+                    <input 
+                      type="text" 
+                      placeholder="🔍 بحث (الرمز أو الاسم)..."
+                      value={saudiSignalsSearch}
+                      onChange={(e) => setSaudiSignalsSearch(e.target.value)}
+                      className="w-full bg-white border border-amber-300/60 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    />
+                    {saudiSignalsSearch && (
+                      <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    )}
+                  </div>
+
+                  {/* Date & Month Range Bar */}
                   <div className="flex items-center gap-1.5 bg-white/90 px-2 py-1 rounded-xl border border-amber-300 shadow-sm flex-wrap text-[11px]">
                     <div className="flex items-center gap-1">
                       <Calendar size={13} className="text-amber-600 shrink-0" />
@@ -13932,53 +13972,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <span>مسح المحدد ({selectedSaudiIds.length})</span>
                     </button>
                   )}
-
-                  {/* Add New Recommendation Button (Moved here from Header Banner) */}
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                    <button 
-                      onClick={() => handleOpenAddSaudiSignalModal()}
-                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                    >
-                      <Plus size={15} />
-                      <span>+ إضافة توصية سعودية جديدة</span>
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
-                  <div className="relative w-full">
-                    <input 
-                      type="text" 
-                      placeholder="🔍 بحث باسم السهم أو الكود (مثال: الراجحي أو 1120)..."
-                      value={saudiSignalsSearch}
-                      onChange={(e) => setSaudiSignalsSearch(e.target.value)}
-                      className="w-full bg-white border border-amber-300/60 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
-                    />
-                    {saudiSignalsSearch && (
-                      <button onClick={() => setSaudiSignalsSearch('')} className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-amber-300">تصفية حسب الحالة:</span>
-                  <select
-                    value={saudiSignalsFilter}
-                    onChange={(e) => setSaudiSignalsFilter(e.target.value)}
-                    className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="all">🌐 كل الحالات ({saudiRecommendations.length})</option>
-                    <option value="active">⏳ توصية سارية ({saudiRecommendations.filter(s => s.status === 'active').length})</option>
-                    <option value="target1">🎯 حقق مقاومة 1 ({saudiRecommendations.filter(s => s.status === 'target1').length})</option>
-                    <option value="target2">🎯🎯 حقق مقاومة 2 ({saudiRecommendations.filter(s => s.status === 'target2').length})</option>
-                    <option value="target3">🚀 حقق مقاومة 3 ({saudiRecommendations.filter(s => s.status === 'target3').length})</option>
-                    <option value="target4">🌟 حقق مقاومة 4 ({saudiRecommendations.filter(s => s.status === 'target4').length})</option>
-                    <option value="stop_loss">🛑 إيقاف خسارة ({saudiRecommendations.filter(s => s.status === 'stop_loss').length})</option>
-                    <option value="cancelled">❌ ملغاة ({saudiRecommendations.filter(s => s.status === 'cancelled').length})</option>
-                  </select>
                 </div>
               </div>
-
-              {/* Table Body */}
               <div className="overflow-x-auto">
                 <table className="w-full text-right text-xs">
                   <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px]">
@@ -14884,15 +14879,6 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 </div>
 
-                <div className="bg-purple-950/20 border border-purple-500/30 rounded-xl p-3 flex items-center gap-3">
-                  <div className="p-2.5 bg-purple-500/20 text-purple-400 rounded-xl">
-                    <Paperclip size={20} />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-gray-500 font-bold block">الفواتير والمرفقات</span>
-                    <span className="text-base font-black text-purple-600">{buffetAttachments.length} مرفق</span>
-                  </div>
-                </div>
 
                 <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
                   <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
@@ -15256,22 +15242,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                     </button>
                   )}
 
-                  <button 
-                    onClick={handleExportPayrollToExcel}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                  >
-                    <Download size={14} />
-                    <span>تحميل مسير الرواتب (Excel) 📥</span>
-                  </button>
+                  
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportAttendancePayrollPdf')) && (
                     <button 
                       onClick={handleExportPayrollPdf}
                       className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer"
-                      title="تحميل وطباعة مسير الرواتب بصيغة PDF مع العلامة المائية واللوجو للإدارة"
+                      title="تحميل وطباعة جدول الرواتب بصيغة PDF مع العلامة المائية واللوجو للإدارة"
                     >
                       <Download size={14} />
-                      <span>تحميل مسير الرواتب (PDF مع علامة مائية) 📄</span>
+                      <span>تحميل جدول الرواتب (PDF مع علامة مائية) 📄</span>
                     </button>
                   )}
                 </div>
