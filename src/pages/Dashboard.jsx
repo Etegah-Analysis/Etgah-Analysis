@@ -12081,7 +12081,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                                       <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                                       {myTeamMembers.map(emp => (
                                         <option key={emp.uid} value={emp.uid}>
-                                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
+                                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                                         </option>
                                       ))}
                                     </>
@@ -15747,7 +15747,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                               <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                               {myTeamMembers.map(emp => (
                                 <option key={emp.uid} value={emp.uid}>
-                                  👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
+                                  👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                                 </option>
                               ))}
                             </>
@@ -17538,7 +17538,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                       <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
                       {myTeamMembers.map(emp => (
                         <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.name} ({getJobTitleEnglish(emp.jobTitle)})
+                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
                         </option>
                       ))}
                     </>
@@ -18045,7 +18045,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <span className="text-sm font-black text-amber-300 block break-words leading-tight">
                               {topTeamMember ? (
                                 <>
-                                  <span className="text-white">{topTeamMember.emp.name}</span>{' '}
+                                  <span className="text-white">{topTeamMember.emp.username || topTeamMember.emp.name}</span>{' '}
                                   <span className="text-amber-400 font-extrabold">({topTeamMember.successRate}%)</span>
                                 </>
                               ) : 'لا يوجد'}
@@ -18271,7 +18271,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                             <span className="text-sm sm:text-base font-black text-amber-300 block break-words leading-tight">
                               {topEmp ? (
                                 <>
-                                  <span className="text-white">{topEmp.emp.name}</span>{' '}
+                                  <span className="text-white">{topEmp.emp.username || topEmp.emp.name}</span>{' '}
                                   <span className="text-amber-400 font-extrabold">({topEmp.successRate}%)</span>
                                 </>
                               ) : 'لا يوجد'}
@@ -18762,7 +18762,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                           <option value="">👤 جميع الموظفين (All Staff)</option>
                           {eligibleEmployees.map(emp => (
                             <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              👤 {emp.name} ({emp.jobTitle === 'Leader' ? '👑 Leader' : 'Agent'})
+                              👤 {emp.username || emp.name} ({emp.jobTitle === 'Leader' || emp.jobTitle === 'ليدر' ? '👑 Leader' : emp.jobTitle === 'Team Leader' ? '👑 Team Leader' : 'Agent'})
                             </option>
                           ))}
                         </select>
