@@ -16621,16 +16621,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               <form onSubmit={handleAddEmployee} className="space-y-4" autoComplete="off">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف (الظاهر للعملاء والسيستم)</label>
                   <input 
                     type="text" 
+                    autoComplete="off"
                     required
-                    autoComplete="new-username"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left"
-                    value={newEmpUsername}
-                    onChange={(e) => setNewEmpUsername(e.target.value)}
-                    placeholder="مثال: ahmed"
-                    dir="ltr"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-bold"
+                    value={newEmpName}
+                    onChange={(e) => setNewEmpName(e.target.value)}
+                    placeholder="مثال: مصطفى أحمد"
                   />
                 </div>
                 <div>
@@ -16676,14 +16675,16 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول مع الباسورد)</label>
                   <input 
                     type="text" 
-                    autoComplete="off"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-                    value={newEmpName}
-                    onChange={(e) => setNewEmpName(e.target.value)}
-                    placeholder="مثال: أحمد محمد"
+                    required
+                    autoComplete="new-username"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-left font-semibold"
+                    value={newEmpUsername}
+                    onChange={(e) => setNewEmpUsername(e.target.value)}
+                    placeholder="مثال: mostafa"
+                    dir="ltr"
                   />
                 </div>
                 <div>
@@ -16755,14 +16756,14 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
               <form onSubmit={handleEditEmployee} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف (الظاهر للعملاء والسيستم)</label>
                   <input 
                     type="text" 
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-left"
-                    value={editEmpUsername}
-                    onChange={(e) => setEditEmpUsername(e.target.value)}
-                    dir="ltr"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-bold"
+                    value={editEmpName}
+                    onChange={(e) => setEditEmpName(e.target.value)}
+                    placeholder="مثال: مصطفى أحمد"
                   />
                 </div>
                 <div>
@@ -16807,12 +16808,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم (للدخول مع الباسورد)</label>
                   <input 
                     type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                    value={editEmpName}
-                    onChange={(e) => setEditEmpName(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-left font-semibold"
+                    value={editEmpUsername}
+                    onChange={(e) => setEditEmpUsername(e.target.value)}
+                    placeholder="مثال: mostafa"
+                    dir="ltr"
                   />
                 </div>
                 <div>
