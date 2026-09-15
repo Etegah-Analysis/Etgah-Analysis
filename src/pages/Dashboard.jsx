@@ -8503,7 +8503,6 @@ const handleModalPasteBuffetItem = (e) => {
           <td>${index + 1}</td>
           <td style="font-weight: bold;">${emp.username || emp.name}</td>
           <td>${emp.jobTitle || 'موظف'}</td>
-          <td>${hireDate}</td>
           <td style="font-weight: bold; color: #1e293b;">${b > 0 ? b.toLocaleString() + ' ج.م' : '-'}</td>
           <td>${p.lateDays || '0'} يوم (${l > 0 ? l.toLocaleString() + ' ج.م' : '0'})</td>
           <td>${a > 0 ? a.toLocaleString() + ' ج.م' : '0'}</td>
@@ -8610,7 +8609,6 @@ const handleModalPasteBuffetItem = (e) => {
                 <th style="width: 30px;">#</th>
                 <th>اسم الموظف</th>
                 <th>المسمى الوظيفي</th>
-                <th>تاريخ التعيين</th>
                 <th>المرتب الثابت</th>
                 <th>أيام وخصم التأخير</th>
                 <th>السلف</th>
@@ -8625,7 +8623,7 @@ const handleModalPasteBuffetItem = (e) => {
             </tbody>
             <tfoot>
               <tr style="background: #e2e8f0; font-weight: 900;">
-                <td colspan="4" style="text-align: right; padding-right: 12px;">الإجمالي العام</td>
+                <td colspan="3" style="text-align: right; padding-right: 12px;">الإجمالي العام</td>
                 <td>${totalBase.toLocaleString()} ج.م</td>
                 <td>${totalLate.toLocaleString()} ج.م</td>
                 <td>${totalAdv.toLocaleString()} ج.م</td>
@@ -16570,7 +16568,6 @@ const handleExportBuffetToExcel = () => {
 
                       <th className="py-3 px-3 text-center w-10 text-amber-300">#</th>
                       <th className="py-3 px-3 text-amber-300 font-extrabold">الموظف</th>
-                      <th className="py-3 px-3 text-center text-amber-300">تاريخ التعيين</th>
                       <th className="py-3 px-3 text-center text-amber-300">التدرج الوظيفي</th>
                       <th className="py-3 px-3 text-center text-amber-300 font-black bg-amber-950/30">المرتب الثابت</th>
                       <th className="py-3 px-3 text-center text-amber-300">سجل البصمة</th>
@@ -16586,7 +16583,7 @@ const handleExportBuffetToExcel = () => {
                   <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                     {filteredEmps.length === 0 ? (
                       <tr>
-                        <td colSpan="12" className="text-center py-10 text-gray-500 font-bold">
+                        <td colSpan="11" className="text-center py-10 text-gray-500 font-bold">
                           لا يوجد موظفين مطابقين للبحث
                         </td>
                       </tr>
@@ -16620,9 +16617,6 @@ const handleExportBuffetToExcel = () => {
                                   </span>
                                 )}
                               </div>
-                            </td>
-                            <td className="py-2.5 px-3 text-center text-[11px] text-gray-500 font-mono">
-                              {formatDate(emp.createdAt) || 'غير مسجل'}
                             </td>
                             <td className="py-2.5 px-3 text-center">
                               <span className="inline-block px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[10px]">
