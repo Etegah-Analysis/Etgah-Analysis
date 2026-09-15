@@ -9626,6 +9626,43 @@ const handleExportBuffetToExcel = () => {
     return false;
   };
 
+  const getCrmCampaignAvailableCount = (targetStatusFilter = 'all') => {
+    let sourceList = [];
+
+    if (Array.isArray(crmCampaignCustomLeads) && crmCampaignCustomLeads.length > 0) {
+      sourceList = crmCampaignCustomLeads;
+    } else if (crmCampaignTargetPool === 'employee_leads') {
+      sourceList = employeeLeads;
+    } else if (crmCampaignTargetPool === 'subscribed_clients') {
+      sourceList = (isAgent || isCustomerService) 
+        ? agentSubscribedClients 
+        : (isLeader ? leaderSubscribedClients : allSubscribedClients);
+    } else {
+      sourceList = leadsCrm;
+    }
+
+    let candidateLeads = sourceList.filter(isLeadBelongsToEmpOrTeam);
+    if (candidateLeads.length === 0 && sourceList.length > 0) {
+      candidateLeads = sourceList;
+    }
+
+    const availableLeads = candidateLeads.filter(c => 
+      c && 
+      (c.phoneNumber || c.phone) && 
+      String(c.phoneNumber || c.phone).replace(/[^0-9]/g, '').length >= 8 &&
+      !isLeadInCampaignCooldown(c)
+    );
+
+    if (!targetStatusFilter || targetStatusFilter === 'all') {
+      return availableLeads.length;
+    }
+
+    return availableLeads.filter(c => {
+      const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+      return st === targetStatusFilter;
+    }).length;
+  };
+
   const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize, targetStatusFilter = crmCampaignStatusFilter) => {
     let sourceList = [];
     let selectedIds = [];
@@ -9658,18 +9695,19 @@ const handleExportBuffetToExcel = () => {
       }
     }
 
-    // Apply Status Filter if selected
+    const validLeads = candidateLeads.filter(c => c && (c.phoneNumber || c.phone) && String(c.phoneNumber || c.phone).replace(/[^0-9]/g, '').length >= 8);
+    const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
+
+    let filteredByStatus = availableLeads;
     if (targetStatusFilter && targetStatusFilter !== 'all') {
-      candidateLeads = candidateLeads.filter(c => {
+      filteredByStatus = availableLeads.filter(c => {
         const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
         return st === targetStatusFilter;
       });
     }
 
-    const validLeads = candidateLeads.filter(c => c && (c.phoneNumber || c.phone) && String(c.phoneNumber || c.phone).replace(/[^0-9]/g, '').length >= 8);
-    const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
     const count = Math.min(15, Math.max(1, batchCount));
-    return availableLeads.slice(0, count);
+    return filteredByStatus.slice(0, count);
   };
 
   const openCrmCampaignModal = (poolType = 'leads_crm', specificLeads = null) => {
@@ -20120,15 +20158,15 @@ const handleExportBuffetToExcel = () => {
                   <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/20 shadow-inner">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                       <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                        <span>1️⃣ اختر عدد العملاء لإرسال الحملة (من 1 إلى 10 أرقام):</span>
+                        <span>1️⃣ اختر عدد العملاء لإرسال الحملة (من 1 إلى 15 رقم):</span>
                       </span>
                       <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-black border border-emerald-400/40">
                         المحدد للإرسال: {selectedTargets.length} من {currentTargets.length} عميل
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-15 gap-1.5">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(num => (
                         <button
                           key={num}
                           type="button"
@@ -20146,7 +20184,7 @@ const handleExportBuffetToExcel = () => {
                       ))}
                     </div>
 
-                    {/* Status Filter Selector */}
+                    {/* Status Filter Selector with Dynamic Available Lead Counts (Excluding 3-day Cooldown) */}
                     <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800 flex-wrap">
                       <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                         <span>🔍</span>
@@ -20164,16 +20202,16 @@ const handleExportBuffetToExcel = () => {
                         }}
                         className="bg-slate-900 border border-emerald-500/40 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                       >
-                        <option value="all">🌐 كل الحالات (الكل)</option>
-                        <option value="unassigned">⏳ لم يتم التواصل / جديد</option>
-                        <option value="no_answer">📞 لم يتم الرد</option>
-                        <option value="interested">🌟 مهتم</option>
-                        <option value="not_interested">❌ غير مهتم</option>
-                        <option value="whatsapp_contacted">💬 تم التواصل واتساب</option>
-                        <option value="call_later">⏰ الاتصال لاحقاً</option>
-                        <option value="registered">🎯 تم الاشتراك</option>
-                        <option value="subscribed">🎉 مشترك فعلي</option>
-                        <option value="junk_lead">🗑️ رقم خطأ / داتا تالفة</option>
+                        <option value="all">🌐 كل الحالات ({getCrmCampaignAvailableCount('all')})</option>
+                        <option value="unassigned">⏳ لم يتم التواصل / جديد ({getCrmCampaignAvailableCount('unassigned')})</option>
+                        <option value="no_answer">📞 لم يتم الرد ({getCrmCampaignAvailableCount('no_answer')})</option>
+                        <option value="interested">🌟 مهتم ({getCrmCampaignAvailableCount('interested')})</option>
+                        <option value="not_interested">❌ غير مهتم ({getCrmCampaignAvailableCount('not_interested')})</option>
+                        <option value="whatsapp_contacted">💬 تم التواصل واتساب ({getCrmCampaignAvailableCount('whatsapp_contacted')})</option>
+                        <option value="call_later">⏰ الاتصال لاحقاً ({getCrmCampaignAvailableCount('call_later')})</option>
+                        <option value="registered">🎯 تم الاشتراك ({getCrmCampaignAvailableCount('registered')})</option>
+                        <option value="subscribed">🎉 مشترك فعلي ({getCrmCampaignAvailableCount('subscribed')})</option>
+                        <option value="junk_lead">🗑️ رقم خطأ / داتا تالفة ({getCrmCampaignAvailableCount('junk_lead')})</option>
                       </select>
                     </div>
                   </div>
