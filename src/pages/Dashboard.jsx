@@ -15473,31 +15473,9 @@ const handleExportBuffetToExcel = () => {
 
                   
 
-                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
-                    <button 
-                      onClick={() => {
-                        setTempGoogleSheetUrl(buffetGoogleSheetUrl);
-                        setIsBuffetGoogleSheetModalOpen(true);
-                      }}
-                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                    >
-                      <ExternalLink size={15} />
-                      <span>ربط Google Sheet 🔗</span>
-                    </button>
-                  )}
 
-                  {buffetGoogleSheetUrl && (
-                    <a 
-                      href={buffetGoogleSheetUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-sm"
-                      title="فتح رابط Google Sheet في تبويب جديد"
-                    >
-                      <ExternalLink size={14} />
-                      <span>فتح في Google Sheets ↗️</span>
-                    </a>
-                  )}
+
+
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportBuffet')) && (
                     <button 
@@ -15514,7 +15492,7 @@ const handleExportBuffetToExcel = () => {
 
               {/* Quick Summary Highlights (4 Cards) */}
               {/* Quick Summary Highlights (3 Financial Cards as requested in Image 2) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
                 <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
                   <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl">
                     <Coffee size={22} />
@@ -15545,20 +15523,7 @@ const handleExportBuffetToExcel = () => {
                   </div>
                 </div>
 
-                <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl">
-                    <FileSpreadsheet size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-gray-500 font-extrabold block">Google Sheets شيت الإكسيل</span>
-                    <span className="text-xs font-black text-amber-600 block mt-0.5">
-                      {buffetGoogleSheetUrl ? '🟢 متصل ومفعل تلقائياً' : '⚪ غير مرتبط'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-bold block mt-0.5">
-                      تزامن فوري للمخزون والمشتريات
-                    </span>
-                  </div>
-                </div>
+                
               </div>
 
               {/* Section Tabs & Search Filter */}
@@ -15583,14 +15548,7 @@ const handleExportBuffetToExcel = () => {
                   >
                     <span>🛒 المشتريات الجديدة ({buffetPurchases.length})</span>
                   </button>
-                  {buffetGoogleSheetUrl && (
-                    <button
-                      onClick={() => setBuffetActiveSection('googlesheet')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'googlesheet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-indigo-100'}`}
-                    >
-                      <span>🌐 معاينة جوجل شيت</span>
-                    </button>
-                  )}
+
                 </div>
 
                 {/* Search Bar */}
@@ -15862,7 +15820,7 @@ const handleExportBuffetToExcel = () => {
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
         {activeTab === 'payroll_attendance' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_attendance_payroll') && hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) && (() => {
-          const targetEmployees = sortedEmployeesForTable;
+          const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees];
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
             if (!q) return true;
