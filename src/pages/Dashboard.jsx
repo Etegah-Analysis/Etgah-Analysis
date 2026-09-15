@@ -7499,10 +7499,11 @@ const handleModalPasteBuffetItem = (e) => {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
           if (file) {
+            if (e && e.stopPropagation) e.stopPropagation();
             const reader = new FileReader();
             reader.onloadend = () => {
               setBuffetItemImage(reader.result);
-              toast.success('تم لزق الصورة من الحافظة بنجاح 📋📸');
+              toast.success('تم لصق صورة الفاتورة بنجاح 🖼️✨', { id: 'single-buffet-paste-toast' });
             };
             reader.readAsDataURL(file);
             break;
@@ -7519,10 +7520,11 @@ const handleModalPasteBuffetItem = (e) => {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
           if (file) {
+            if (e && e.stopPropagation) e.stopPropagation();
             const reader = new FileReader();
             reader.onloadend = () => {
               setBuffetPurchaseImage(reader.result);
-              toast.success('تم لزق الصورة من الحافظة بنجاح 📋📸');
+              toast.success('تم لصق صورة الفاتورة بنجاح 🖼️✨', { id: 'single-buffet-paste-toast' });
             };
             reader.readAsDataURL(file);
             break;
@@ -21956,7 +21958,7 @@ const handleExportBuffetToExcel = () => {
                   {/* Dedicated Interactive Paste Box Container */}
                   <div 
                     tabIndex="0"
-                    onPaste={(e) => {
+                    onPaste={(e) => { if (e && e.stopPropagation) e.stopPropagation();
                       const items = e.clipboardData?.items;
                       if (items) {
                         for (let i = 0; i < items.length; i++) {
@@ -21966,7 +21968,7 @@ const handleExportBuffetToExcel = () => {
                               const reader = new FileReader();
                               reader.onload = (ev) => {
                                 setBuffetItemImage(ev.target?.result);
-                                toast.success('تم لصق صورة/سكرين شوت الفاتورة بنجاح 🖼️✨ اضغط "حفظ الصنف" لسحب الأصناف فوراً!');
+                                toast.success('تم لصق صورة الفاتورة بنجاح 🖼️✨', { id: 'single-buffet-paste-toast' });
                               };
                               reader.readAsDataURL(file);
                               e.preventDefault();
@@ -21998,7 +22000,7 @@ const handleExportBuffetToExcel = () => {
                     <input
                       type="text"
                       placeholder="إضغط هنا للصق النص أو الصورة الفاتورة مباشرة (Ctrl + V)..."
-                      onPaste={(e) => {
+                      onPaste={(e) => { if (e && e.stopPropagation) e.stopPropagation();
                         const items = e.clipboardData?.items;
                         if (items) {
                           for (let i = 0; i < items.length; i++) {
@@ -22008,7 +22010,7 @@ const handleExportBuffetToExcel = () => {
                                 const reader = new FileReader();
                                 reader.onload = (ev) => {
                                   setBuffetItemImage(ev.target?.result);
-                                  toast.success('تم لصق صورة/سكرين شوت الصنف بنجاح 🖼️✨');
+                                  toast.success('تم لصق صورة الفاتورة بنجاح 🖼️✨', { id: 'single-buffet-paste-toast' });
                                 };
                                 reader.readAsDataURL(file);
                                 e.preventDefault();
@@ -22046,7 +22048,7 @@ const handleExportBuffetToExcel = () => {
                           reader.onload = (ev) => {
                             const imgData = ev.target?.result;
                             setBuffetItemImage(imgData);
-                            toast.success('تم إرفاق صورة الفاتورة 🖼️ اضغط حفظ الصنف لسحب الأصناف للشيت فوراً!');
+                            toast.success('تم إرفاق صورة الفاتورة بنجاح 🖼️✨', { id: 'single-buffet-paste-toast' });
                           };
                           reader.readAsDataURL(file);
                         }
