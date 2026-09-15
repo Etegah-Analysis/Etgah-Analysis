@@ -9912,8 +9912,8 @@ const handleExportBuffetToExcel = () => {
           text: msgText || (fileName ? `📎 ${fileName}` : 'مرفق ترويجي'),
           templateName: 'رسالة ترويجية مخصصة',
           isTemplate: true,
-          campaignSource: 'crm_sheet',
-          source: 'crm_sheet',
+          campaignSource: crmCampaignTargetPool || 'crm_sheet',
+          source: crmCampaignTargetPool || 'crm_sheet',
           poolSource: crmCampaignTargetPool,
           sender: 'agent',
           senderName: senderName,
@@ -11939,21 +11939,17 @@ const handleExportBuffetToExcel = () => {
         <div ref={tableSectionRef} id="dashboard-table-section" className="scroll-mt-20 sm:scroll-mt-24">
         {/* Campaigns Analytics Tab (Role-scoped) */}
         {activeTab === 'campaigns' && (() => {
-          // Unified helpers to categorize campaign message sources accurately
-          const isCrmSheetSource = (msgOrSrc) => {
-            if (!msgOrSrc) return false;
-            const src = typeof msgOrSrc === 'string' ? msgOrSrc : (msgOrSrc.campaignSource || msgOrSrc.source || '');
-            return src === 'crm_sheet' || src === 'leads_crm' || src === 'employee_leads';
-          };
+          // Unified helper to categorize campaign message sources accurately
+          const getMsgSourceKey = (msgOrSrc) => {
+            if (!msgOrSrc) return 'direct';
+            const raw = typeof msgOrSrc === 'string' ? msgOrSrc : (msgOrSrc.campaignSource || msgOrSrc.source || msgOrSrc.poolSource || '');
+            const src = String(raw).toLowerCase();
 
-          const isExcelSource = (msgOrSrc) => {
-            if (!msgOrSrc) return false;
-            const src = typeof msgOrSrc === 'string' ? msgOrSrc : (msgOrSrc.campaignSource || msgOrSrc.source || '');
-            return src === 'excel_import' || src === 'excel';
-          };
-
-          const isDirectSource = (msgOrSrc) => {
-            return !isCrmSheetSource(msgOrSrc) && !isExcelSource(msgOrSrc);
+            if (src === 'employee_leads' || src === 'added_leads' || src.includes('مضاف') || src.includes('added')) return 'employee_leads';
+            if (src === 'subscribed_clients' || src === 'subscribed' || src.includes('مشترك')) return 'subscribed_clients';
+            if (src === 'excel_import' || src === 'excel' || src.includes('إكسيل') || src.includes('اكسيل')) return 'excel_import';
+            if (src === 'crm_sheet' || src === 'leads_crm' || src === 'main_crm' || src.includes('crm') || src.includes('شيت')) return 'crm_sheet';
+            return 'direct';
           };
 
           // Scope template messages by user role & card scope filter ('all' | 'team' | 'personal')
@@ -11966,18 +11962,17 @@ const handleExportBuffetToExcel = () => {
             return templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
           })();
 
-          // Calculate source metrics (100% matched: Total = CRM Sheet + Excel + Direct)
-          const crmSheetMsgs = roleScopedMessages.filter(m => isCrmSheetSource(m));
-          const excelMsgs = roleScopedMessages.filter(m => isExcelSource(m));
-          const directMsgs = roleScopedMessages.filter(m => isDirectSource(m));
+          // Calculate source metrics for all sources
+          const crmSheetMsgs = roleScopedMessages.filter(m => getMsgSourceKey(m) === 'crm_sheet');
+          const employeeLeadsMsgs = roleScopedMessages.filter(m => getMsgSourceKey(m) === 'employee_leads');
+          const subscribedClientsMsgs = roleScopedMessages.filter(m => getMsgSourceKey(m) === 'subscribed_clients');
+          const excelMsgs = roleScopedMessages.filter(m => getMsgSourceKey(m) === 'excel_import');
+          const directMsgs = roleScopedMessages.filter(m => getMsgSourceKey(m) === 'direct');
 
           // Filter by active source tab
           const filteredMessages = roleScopedMessages.filter(msg => {
             if (campaignSourceFilter === 'all') return true;
-            if (campaignSourceFilter === 'crm_sheet') return isCrmSheetSource(msg);
-            if (campaignSourceFilter === 'excel_import') return isExcelSource(msg);
-            if (campaignSourceFilter === 'direct') return isDirectSource(msg);
-            return true;
+            return getMsgSourceKey(msg) === campaignSourceFilter;
           });
 
           // Group template messages by template name, employee, and normalized source
@@ -11986,9 +11981,21 @@ const handleExportBuffetToExcel = () => {
           filteredMessages.forEach(msg => {
             const templateName = msg.templateName || (msg.text?.match(/\[قالب.*?:(.*?)\]/)?.[1]?.trim() || 'رسالة ترويجية');
             const empEmail = msg.senderEmail || 'مجهول';
-            const rawSrc = msg.campaignSource || msg.source || 'direct';
-            const src = isCrmSheetSource(rawSrc) ? 'crm_sheet' : isExcelSource(rawSrc) ? 'excel_import' : 'direct';
+            const src = getMsgSourceKey(msg);
             const chatId = msg.conversationId || msg.recipientPhone || msg.to || 'unknown';
+
+            const msgTimestampMillis = (() => {
+              if (msg.timestamp?.toMillis) return msg.timestamp.toMillis();
+              if (msg.timestamp?.seconds) return msg.timestamp.seconds * 1000;
+              if (typeof msg.timestamp === 'number') return msg.timestamp;
+              if (msg.createdAt?.toMillis) return msg.createdAt.toMillis();
+              if (msg.createdAt?.seconds) return msg.createdAt.seconds * 1000;
+              if (msg.createdAt) {
+                const t = new Date(msg.createdAt).getTime();
+                if (!isNaN(t)) return t;
+              }
+              return 0;
+            })();
             
             const key = `${templateName}_${empEmail}_${src}`;
             if (!groupedCampaigns[key]) {
@@ -11999,6 +12006,7 @@ const handleExportBuffetToExcel = () => {
                 sent: 0,
                 delivered: 0,
                 read: 0,
+                lastSentAtMillis: 0,
                 chatMap: {}
               };
             }
@@ -12006,6 +12014,10 @@ const handleExportBuffetToExcel = () => {
             groupedCampaigns[key].sent++;
             if (msg.status === 'delivered' || msg.status === 'read' || msg.status === 'sent') groupedCampaigns[key].delivered++;
             if (msg.status === 'read') groupedCampaigns[key].read++;
+
+            if (msgTimestampMillis > groupedCampaigns[key].lastSentAtMillis) {
+              groupedCampaigns[key].lastSentAtMillis = msgTimestampMillis;
+            }
 
             groupedCampaigns[key].chatMap[chatId] = (groupedCampaigns[key].chatMap[chatId] || 0) + 1;
           });
@@ -12018,7 +12030,7 @@ const handleExportBuffetToExcel = () => {
               else if (cnt >= 3) sentMore++;
             });
             return { ...campaign, sentOnce, sentTwice, sentMore };
-          }).sort((a,b) => b.sent - a.sent);
+          }).sort((a,b) => (b.lastSentAtMillis || 0) - (a.lastSentAtMillis || 0) || b.sent - a.sent);
 
           const totalSentAll = roleScopedMessages.length;
           const totalDeliveredAll = roleScopedMessages.filter(m => m.status === 'delivered' || m.status === 'read' || m.status === 'sent').length;
@@ -12042,18 +12054,20 @@ const handleExportBuffetToExcel = () => {
                         <span>📢 تحليلات وإحصائيات أداء الحملات التسويقية</span>
                       </h2>
                       <p className="text-xs text-purple-200 font-semibold mt-0.5">
-                        مقارنة أداء حملات شيت CRM مقابل حملات إكسيل الواتساب والقوالب الفردية
+                        تحليل تفصيلي شامل لكافة مصادر الحملات (شيت CRM، Added Leads، المشتركين، إكسيل الواتساب، والرسائل المباشرة)
                       </p>
                     </div>
                   </div>
 
-                  {/* Filter Tabs */}
+                  {/* Filter Tabs for ALL Sources */}
                   <div className="flex items-center gap-1.5 flex-wrap bg-white/80 p-1 rounded-xl border border-purple-200 shadow-sm">
                     {[
                       { key: 'all', label: 'الكل 📊', count: totalSentAll },
-                      { key: 'crm_sheet', label: '🎯 حملات شيت CRM', count: crmSheetMsgs.length },
-                      { key: 'excel_import', label: '📁 حملات إكسيل الواتساب', count: excelMsgs.length },
-                      { key: 'direct', label: '💬 Marketing Messages المحادثات', count: directMsgs.length },
+                      { key: 'crm_sheet', label: '🎯 شيت Leads CRM', count: crmSheetMsgs.length },
+                      { key: 'employee_leads', label: '📁 شيت Added Leads', count: employeeLeadsMsgs.length },
+                      { key: 'subscribed_clients', label: '🎉 شيت المشتركين', count: subscribedClientsMsgs.length },
+                      { key: 'excel_import', label: '📊 إكسيل الواتساب', count: excelMsgs.length },
+                      { key: 'direct', label: '💬 المحادثات المباشرة', count: directMsgs.length },
                     ].map(tab => (
                       <button
                         key={tab.key}
@@ -12075,23 +12089,31 @@ const handleExportBuffetToExcel = () => {
                   </div>
                 </div>
 
-                {/* 4 Summary KPI Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-white/80 border border-purple-200/80 p-3 rounded-xl shadow-xs">
-                    <span className="text-[11px] font-bold text-gray-500 block">📊 إجمالي الإرسال</span>
-                    <span className="text-lg font-black text-purple-900">{totalSentAll.toLocaleString()} رسالة</span>
+                {/* Summary KPI Cards Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                  <div className="bg-white/80 border border-purple-200/80 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-gray-500 block">📊 إجمالي الإرسال</span>
+                    <span className="text-base font-black text-purple-900">{totalSentAll.toLocaleString()} رسالة</span>
                   </div>
-                  <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl shadow-xs">
-                    <span className="text-[11px] font-bold text-emerald-700 block">🎯 حملات شيت CRM</span>
-                    <span className="text-lg font-black text-emerald-900">{crmSheetMsgs.length.toLocaleString()} رسالة</span>
+                  <div className="bg-emerald-50/80 border border-emerald-200 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-700 block">🎯 شيت Leads CRM</span>
+                    <span className="text-base font-black text-emerald-900">{crmSheetMsgs.length.toLocaleString()}</span>
                   </div>
-                  <div className="bg-blue-50/80 border border-blue-200 p-3 rounded-xl shadow-xs">
-                    <span className="text-[11px] font-bold text-blue-700 block">📁 حملات إكسيل الواتساب</span>
-                    <span className="text-lg font-black text-blue-900">{excelMsgs.length.toLocaleString()} رسالة</span>
+                  <div className="bg-indigo-50/80 border border-indigo-200 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-indigo-700 block">📁 شيت Added Leads</span>
+                    <span className="text-base font-black text-indigo-900">{employeeLeadsMsgs.length.toLocaleString()}</span>
                   </div>
-                  <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-xl shadow-xs">
-                    <span className="text-[11px] font-bold text-amber-700 block">📈 نسبة الفتح والتسليم</span>
-                    <span className="text-lg font-black text-amber-900">%{avgOpenRateAll} فتح ({totalDeliveredAll} مسلّم)</span>
+                  <div className="bg-pink-50/80 border border-pink-200 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-pink-700 block">🎉 شيت المشتركين</span>
+                    <span className="text-base font-black text-pink-900">{subscribedClientsMsgs.length.toLocaleString()}</span>
+                  </div>
+                  <div className="bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-blue-700 block">📊 إكسيل الواتساب</span>
+                    <span className="text-base font-black text-blue-900">{excelMsgs.length.toLocaleString()}</span>
+                  </div>
+                  <div className="bg-amber-50/80 border border-amber-200 p-2.5 rounded-xl shadow-xs">
+                    <span className="text-[10px] font-bold text-amber-700 block">📈 الفتح والتسليم</span>
+                    <span className="text-base font-black text-amber-900">%{avgOpenRateAll} ({totalDeliveredAll} مسلّم)</span>
                   </div>
                 </div>
               </div>
@@ -12102,11 +12124,11 @@ const handleExportBuffetToExcel = () => {
                     <tr className="bg-slate-900 text-amber-300 border-b border-purple-500/30 text-xs font-extrabold">
                       <th className="p-3.5 font-extrabold text-amber-300">اسم القالب / الرسالة</th>
                       <th className="p-3.5 font-extrabold text-amber-300 text-center">نوع الحملة ومصدرها</th>
-                      <th className="p-3.5 font-extrabold text-amber-300">الموظف المُرسل</th>
-                      <th className="p-3.5 font-extrabold text-amber-300 text-center">إجمالي الإرسال</th>
-                      <th className="p-3.5 font-extrabold text-blue-400 text-center">مرة واحدة 📩</th>
-                      <th className="p-3.5 font-extrabold text-purple-300 text-center">مرتين 📩📩</th>
-                      <th className="p-3.5 font-extrabold text-amber-300 text-center">3+ مرات 📩🔥</th>
+                      <th className="p-3.5 font-extrabold text-amber-300">الموظف المُرسل وآخر موعد إرسال</th>
+                      <th className="p-3.5 font-extrabold text-amber-300 text-center">إجمالي العملاء</th>
+                      <th className="p-3.5 font-extrabold text-blue-400 text-center">مرة واحدة (أول حملة) 📩</th>
+                      <th className="p-3.5 font-extrabold text-purple-300 text-center">مرتين (ثاني حملة) 📩📩</th>
+                      <th className="p-3.5 font-extrabold text-amber-300 text-center">3+ مرات (حملة مكررة) 📩🔥</th>
                       <th className="p-3.5 font-extrabold text-emerald-400 text-center">تم التسليم (✔️✔️)</th>
                       <th className="p-3.5 font-extrabold text-cyan-300 text-center">تم الفتح (✔️✔️)</th>
                       <th className="p-3.5 font-extrabold text-amber-200 text-center">معدل الفتح</th>
@@ -12148,27 +12170,51 @@ const handleExportBuffetToExcel = () => {
 
                       const leaderName = leaderObj ? (leaderObj.username || leaderObj.name) : (empObj?.leaderName || empObj?.leader || '');
                       const openRate = campaign.delivered > 0 ? Math.round((campaign.read / campaign.delivered) * 100) : 0;
+                      
+                      const formattedLastSent = campaign.lastSentAtMillis > 0
+                        ? new Date(campaign.lastSentAtMillis).toLocaleString('ar-EG', {
+                            year: 'numeric',
+                            month: 'numeric',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })
+                        : null;
+
                       return (
                         <tr key={idx} className="hover:bg-purple-50/30 transition">
                           <td className="p-3.5 text-xs font-black text-gray-900">{campaign.templateName}</td>
                           <td className="p-3.5 text-center">
-                            {(campaign.source === 'crm_sheet' || campaign.source === 'leads_crm' || campaign.source === 'employee_leads') ? (
+                            {campaign.source === 'crm_sheet' && (
                               <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
-                                🎯 شيت CRM
+                                🎯 شيت Leads CRM
                               </span>
-                            ) : (campaign.source === 'excel_import' || campaign.source === 'excel') ? (
+                            )}
+                            {campaign.source === 'employee_leads' && (
+                              <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 border border-indigo-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
+                                📁 شيت Added Leads
+                              </span>
+                            )}
+                            {campaign.source === 'subscribed_clients' && (
+                              <span className="inline-flex items-center gap-1 bg-pink-100 text-pink-800 border border-pink-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
+                                🎉 شيت المشتركين
+                              </span>
+                            )}
+                            {campaign.source === 'excel_import' && (
                               <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
-                                📁 إكسيل واتساب
+                                📊 إكسيل الواتساب
                               </span>
-                            ) : (
+                            )}
+                            {campaign.source === 'direct' && (
                               <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-800 border border-purple-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-xs">
                                 💬 محادثة مباشرة
                               </span>
                             )}
                           </td>
                           <td className="p-3.5 text-xs font-bold text-blue-700">
-                            <div className="flex flex-col gap-0.5">
-                              <div className="flex items-center gap-1 font-black text-gray-900">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 font-black text-gray-900">
                                 <span>{empName}</span>
                                 <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.5 rounded border border-purple-300">{empJobTitle}</span>
                               </div>
@@ -12182,6 +12228,12 @@ const handleExportBuffetToExcel = () => {
                                   <span>👑 Leader:</span>
                                   <span className="text-amber-800 font-extrabold bg-amber-100 px-1 py-0.2 rounded border border-amber-300">غير محدد (لم يتم التعيين)</span>
                                 </span>
+                              )}
+                              {formattedLastSent && (
+                                <div className="mt-0.5 text-[10px] font-black text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1 w-fit shadow-xs">
+                                  <span>⏰ آخر إرسال:</span>
+                                  <span>{formattedLastSent}</span>
+                                </div>
                               )}
                             </div>
                           </td>
@@ -12211,8 +12263,6 @@ const handleExportBuffetToExcel = () => {
                   </tbody>
                 </table>
               </div>
-
-
             </div>
           );
         })()}
