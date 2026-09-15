@@ -16698,22 +16698,6 @@ const handleExportBuffetToExcel = () => {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Items per page selector dropdown */}
-                    <div className="flex items-center gap-1.5 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
-                      <span className="text-[11px] text-amber-200 font-bold">عرض:</span>
-                      <select
-                        value={payrollItemsPerPage}
-                        onChange={(e) => { setPayrollItemsPerPage(Number(e.target.value)); setPayrollCurrentPage(1); }}
-                        className="bg-slate-950 border border-amber-500/40 rounded-lg px-2 py-0.5 font-bold text-amber-300 text-xs outline-none cursor-pointer"
-                      >
-                        <option value={10}>10 موظفين</option>
-                        <option value={20}>20 موظف</option>
-                        <option value={25}>25 موظف</option>
-                        <option value={50}>50 موظف</option>
-                        <option value={1000}>الكل</option>
-                      </select>
-                    </div>
-
                     {/* Custom Page Jump Input */}
                     <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
                       <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
