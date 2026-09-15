@@ -7555,24 +7555,22 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       updatedDateTime: formattedNow
     };
 
-    // Update local state and localStorage for ALL key variations instantly
+    // Update local state and localStorage ONLY for cycle-specific keys to guarantee 100% isolation
     const updatedPayrollMap = { ...employeePayrollData };
     empKeys.forEach(k => {
-      updatedPayrollMap[k] = docData;
       updatedPayrollMap[`${k}_${selectedPayrollCycle}`] = docData;
     });
     setEmployeePayrollData(updatedPayrollMap);
     localStorage.setItem('etegah_employee_payroll', JSON.stringify(updatedPayrollMap));
 
     try {
-      // Save to Firestore employee_payroll collection under ALL key variations
+      // Save strictly under cycle-specific keys in Firestore employee_payroll collection
       const savePromises = [];
       empKeys.forEach(k => {
         savePromises.push(setDoc(doc(db, 'employee_payroll', `${k}_${selectedPayrollCycle}`), docData, { merge: true }));
-        savePromises.push(setDoc(doc(db, 'employee_payroll', k), docData, { merge: true }));
       });
 
-      // Also update the employee document directly in 'users' collection for permanent baseSalary, checkIn, checkOut
+      // Update permanent baseSalary and shift times on employee document in 'users' collection
       if (empDocId) {
         savePromises.push(
           updateDoc(doc(db, 'users', empDocId), {
@@ -7585,7 +7583,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
 
       await Promise.all(savePromises);
-      toast.success(`تم تحديث راتب وبيانات الموظف (${editingPayrollEmp.name || editingPayrollEmp.username}) بنجاح 💾`);
+      toast.success(`تم تحديث راتب وبيانات الموظف (${editingPayrollEmp.name || editingPayrollEmp.username}) لدورة (${getPayrollCycleLabel(selectedPayrollCycle)}) بنجاح 💾`);
     } catch (err) {
       console.error('Error saving payroll:', err);
       toast.success(`تم حفظ بيانات الموظف بنجاح 💾`);
@@ -7710,9 +7708,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     if (!emp) return {};
     const empId = emp.id || emp.uid;
     const empUid = emp.uid || emp.id;
-    const currentCycle = getPayrollCycleKey();
 
-    // 1. Check exact cycle key for empId or empUid
+    // 1. Strict check for exact cycle-specific document
     if (cycleKey && employeePayrollData[`${empId}_${cycleKey}`]) {
       return employeePayrollData[`${empId}_${cycleKey}`];
     }
@@ -7720,27 +7717,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return employeePayrollData[`${empUid}_${cycleKey}`];
     }
 
-    // 2. Check legacy/global keys for empId or empUid
+    // 2. Legacy check: only if the legacy doc matches the requested cycle
     const legacy = (empId && employeePayrollData[empId]) || (empUid && employeePayrollData[empUid]);
-    if (legacy) {
-      if (!legacy.cycle || legacy.cycle === cycleKey) {
-        return legacy;
-      }
-      if (cycleKey === currentCycle) {
-        return {
-          baseSalary: legacy.baseSalary !== undefined ? legacy.baseSalary : (emp.baseSalary || ''),
-          advances: '',
-          kpiDeduction: '',
-          lateDays: '',
-          lateDeduction: '',
-          checkIn: legacy.checkIn || emp.checkIn || '09:00 AM',
-          checkOut: legacy.checkOut || emp.checkOut || '05:00 PM',
-          notes: ''
-        };
-      }
+    if (legacy && legacy.cycle === cycleKey) {
+      return legacy;
     }
 
-    // 3. Fallback to emp profile values
+    // 3. Fallback for new unedited cycle: baseSalary & shifts from emp profile, deductions default to blank
     return {
       baseSalary: emp.baseSalary || '',
       advances: '',
