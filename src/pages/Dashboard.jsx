@@ -8503,6 +8503,8 @@ const handleModalPasteBuffetItem = (e) => {
       `;
     }).join('');
 
+    toast.success('📄 فتح تقرير الـ PDF بنجاح! لحفظ الملف على جهازك، اختر (حفظ بتنسيق PDF / Save as PDF) من نافذة الطباعة 💾', { duration: 6000 });
+    toast.success('📄 فتح تقرير الـ PDF بنجاح! لحفظ الملف على جهازك، اختر (حفظ بتنسيق PDF / Save as PDF) من نافذة الطباعة 💾', { duration: 6000 });
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF');
@@ -9254,6 +9256,7 @@ const handleModalPasteBuffetItem = (e) => {
   };
 
     const handleExportBuffetPdf = () => {
+    toast.success('📄 فتح تقرير الـ PDF بنجاح! لحفظ الملف على جهازك، اختر (حفظ بتنسيق PDF / Save as PDF) من نافذة الطباعة 💾', { duration: 6000 });
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF 📄');
