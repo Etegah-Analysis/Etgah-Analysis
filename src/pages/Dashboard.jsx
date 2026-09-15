@@ -16306,46 +16306,80 @@ const handleExportBuffetToExcel = () => {
                     </table>
                   </div>
 
-                  {/* Pagination Controls Bar matching Leads Style */}
+                  {/* Buffet Inventory Pagination Bar matching Recommendations Style */}
                   {filteredInventory.length > 0 && (
-                    <div className="px-4 py-3 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/30 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-amber-300">عرض:</span>
-                        <select
-                          value={buffetItemsPerPage}
-                          onChange={(e) => { setBuffetItemsPerPage(Number(e.target.value)); setBuffetCurrentPage(1); }}
-                          className="bg-slate-900 border border-amber-400/50 rounded-lg px-2 py-1 font-bold text-amber-300 outline-none cursor-pointer"
-                        >
-                          <option value={10}>10 أصناف</option>
-                          <option value={25}>25 صنف</option>
-                          <option value={50}>50 صنف</option>
-                          <option value={1000}>الكل</option>
-                        </select>
-                        <span className="text-gray-300 font-bold">
-                          إجمالي: <strong className="text-amber-300 font-mono">{filteredInventory.length}</strong> صنف
-                        </span>
+                    <div className="px-6 py-4 border-t border-amber-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+                      <div className="text-xs font-bold text-amber-200">
+                        عرض <span className="text-amber-300 font-black">{(safeBuffetPage - 1) * buffetItemsPerPage + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(safeBuffetPage * buffetItemsPerPage, filteredInventory.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredInventory.length}</span> صنف
                       </div>
 
-                      {/* Page Buttons */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Custom Page Jump Input */}
+                        <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                          <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
+                          <input 
+                            type="number"
+                            min="1"
+                            max={totalPagesBuffet}
+                            defaultValue=""
+                            placeholder={String(safeBuffetPage)}
+                            className="w-14 text-center text-xs font-black border border-amber-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const val = parseInt(e.target.value, 10);
+                                if (val >= 1 && val <= totalPagesBuffet) {
+                                  setBuffetCurrentPage(val);
+                                } else {
+                                  toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesBuffet}`);
+                                }
+                              }
+                            }}
+                          />
+                          <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesBuffet}</span>
+                        </div>
+
+                        {/* Prev Page Button */}
                         <button
+                          type="button"
                           disabled={safeBuffetPage <= 1}
                           onClick={() => setBuffetCurrentPage(prev => Math.max(1, prev - 1))}
-                          className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/40 disabled:opacity-30 disabled:hover:bg-amber-500/20 text-amber-300 rounded-lg font-bold transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
                         >
-                          ◀ السابق
+                          <ChevronRight size={14} />
+                          <span>السابقة</span>
                         </button>
 
-                        <span className="font-bold text-amber-200 px-2">
-                          الصفحة <strong className="text-white font-mono">{safeBuffetPage}</strong> من <strong className="text-white font-mono">{totalPagesBuffet}</strong>
-                        </span>
+                        {/* Page Numbers */}
+                        {Array.from({ length: Math.min(5, totalPagesBuffet) }, (_, i) => {
+                          let pNum = safeBuffetPage - 2 + i;
+                          if (safeBuffetPage <= 3) pNum = i + 1;
+                          if (pNum > totalPagesBuffet) return null;
+                          if (pNum <= 0) return null;
+                          return (
+                            <button
+                              key={pNum}
+                              type="button"
+                              onClick={() => setBuffetCurrentPage(pNum)}
+                              className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                                pNum === safeBuffetPage
+                                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
+                                  : 'bg-slate-900 text-amber-300 hover:bg-amber-950/60 border border-amber-500/20'
+                              }`}
+                            >
+                              {pNum}
+                            </button>
+                          );
+                        })}
 
+                        {/* Next Page Button */}
                         <button
+                          type="button"
                           disabled={safeBuffetPage >= totalPagesBuffet}
                           onClick={() => setBuffetCurrentPage(prev => Math.min(totalPagesBuffet, prev + 1))}
-                          className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/40 disabled:opacity-30 disabled:hover:bg-amber-500/20 text-amber-300 rounded-lg font-bold transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
                         >
-                          التالي ▶
+                          <span>التالية</span>
+                          <ChevronLeft size={14} />
                         </button>
                       </div>
                     </div>
