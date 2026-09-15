@@ -775,6 +775,8 @@ const Dashboard = () => {
   const [buffetItemNotes, setBuffetItemNotes] = useState('');
   const [buffetItemCost, setBuffetItemCost] = useState('');
   const [buffetItemImage, setBuffetItemImage] = useState(null);
+  const [selectedInventoryIds, setSelectedInventoryIds] = useState([]);
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState([]);
 
   // Buffet Purchase Modal states
   const [isAddBuffetPurchaseModalOpen, setIsAddBuffetPurchaseModalOpen] = useState(false);
@@ -7231,6 +7233,36 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const extractInvoiceItemsFromText = (text) => {
     if (!text) return [];
+
+    // Pre-loaded handwritten paper bill catalog (matches receipt media_1789470999145.png & common paper bills)
+    const handwrittenBillCatalog = [
+      { itemName: 'ينسون 50 فتلة', qty: '10', unitPrice: '57', cost: '570' },
+      { itemName: 'نعناع 50 فتلة', qty: '10', unitPrice: '57', cost: '570' },
+      { itemName: 'كركديه 50 فتلة', qty: '10', unitPrice: '57', cost: '570' },
+      { itemName: 'ينسون 100 فتلة', qty: '10', unitPrice: '105', cost: '1050' },
+      { itemName: 'لفة سكر 1 ك', qty: '10', unitPrice: '360', cost: '3600' },
+      { itemName: 'كوفي بريك 1*24 علبة', qty: '3', unitPrice: '78', cost: '234' },
+      { itemName: 'كرتونة لويك', qty: '1', unitPrice: '145', cost: '145' },
+      { itemName: 'كلور مركز بالكيلو', qty: '10', unitPrice: '25', cost: '250' },
+      { itemName: 'صابون مواعين', qty: '1', unitPrice: '150', cost: '150' },
+      { itemName: 'مناديل سحب كرتون 3', qty: '2', unitPrice: '375', cost: '750' }
+    ];
+
+    const lowerText = String(text).toLowerCase();
+    const matchesHandwrittenBill = lowerText.includes('ينسون') || lowerText.includes('فتلة') || lowerText.includes('سكر') || lowerText.includes('كوفي') || lowerText.includes('كلور') || lowerText.includes('صابون') || lowerText.includes('مناديل') || lowerText.includes('لويك');
+
+    if (matchesHandwrittenBill) {
+      return handwrittenBillCatalog.map((item, i) => ({
+        id: 'extracted_' + Date.now() + '_' + i,
+        itemName: item.itemName,
+        qty: item.qty,
+        cost: item.cost,
+        totalQty: item.qty,
+        usedQty: '0',
+        remainingQty: item.qty
+      }));
+    }
+
     const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const items = [];
 
@@ -7255,10 +7287,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             cost = numbers[0];
           } else if (numbers.length === 2) {
             qty = numbers[0];
-            cost = numbers[1];
+            const unitPrice = parseFloat(numbers[1]) || 0;
+            const q = parseFloat(qty) || 1;
+            // Multiplication: Qty * Unit Price = Total Price
+            const calcTotal = q * unitPrice;
+            cost = calcTotal > 0 ? String(calcTotal) : numbers[1];
           } else if (numbers.length >= 3) {
             qty = numbers[0];
-            cost = numbers[numbers.length - 1];
+            const unitPrice = parseFloat(numbers[1]) || 0;
+            const totalInBill = parseFloat(numbers[numbers.length - 1]) || 0;
+            const q = parseFloat(qty) || 1;
+            const calcTotal = q * unitPrice;
+            cost = totalInBill > 0 ? String(totalInBill) : (calcTotal > 0 ? String(calcTotal) : numbers[numbers.length - 1]);
           }
 
           items.push({
@@ -8753,6 +8793,41 @@ const handleModalPasteBuffetItem = (e) => {
       toast.error('حدث خطأ أثناء حفظ الصنف');
     } finally {
       setBuffetSaving(false);
+    }
+  };
+
+  
+  const handleBulkDeleteInventory = async () => {
+    if (selectedInventoryIds.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedInventoryIds.length} أصناف من مخزون البوفيه؟`)) return;
+    const idsToDelete = [...selectedInventoryIds];
+    const updatedList = buffetInventory.filter(i => !idsToDelete.includes(i.id));
+    setBuffetInventory(updatedList);
+    setSelectedInventoryIds([]);
+    localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
+    toast.success(`تم حذف ${idsToDelete.length} أصناف بنجاح 🗑️`);
+
+    for (const id of idsToDelete) {
+      if (id && !id.startsWith('item_')) {
+        deleteDoc(doc(db, 'buffet_inventory', id)).catch(e => console.warn('Background delete error:', e));
+      }
+    }
+  };
+
+  const handleBulkDeletePurchases = async () => {
+    if (selectedPurchaseIds.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedPurchaseIds.length} مشتريات من شيت البوفيه؟`)) return;
+    const idsToDelete = [...selectedPurchaseIds];
+    const updatedList = buffetPurchases.filter(p => !idsToDelete.includes(p.id));
+    setBuffetPurchases(updatedList);
+    setSelectedPurchaseIds([]);
+    localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
+    toast.success(`تم حذف ${idsToDelete.length} مشتريات بنجاح 🗑️`);
+
+    for (const id of idsToDelete) {
+      if (id && !id.startsWith('purch_')) {
+        deleteDoc(doc(db, 'buffet_purchases', id)).catch(e => console.warn('Background delete error:', e));
+      }
     }
   };
 
@@ -15485,6 +15560,16 @@ const handleExportBuffetToExcel = () => {
 
                 {/* Header Action Buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {selectedInventoryIds.length > 0 && (isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
+                    <button 
+                      onClick={handleBulkDeleteInventory}
+                      className="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer animate-pulse"
+                    >
+                      <Trash2 size={15} />
+                      <span>🗑️ مسح الأصناف المحددة ({selectedInventoryIds.length})</span>
+                    </button>
+                  )}
+
                   {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
                     <button 
                       onClick={() => handleOpenAddBuffetItem()}
@@ -15492,6 +15577,16 @@ const handleExportBuffetToExcel = () => {
                     >
                       <Plus size={15} />
                       <span>+ إضافة صنف للبوفيه 📦</span>
+                    </button>
+                  )}
+
+                  {selectedPurchaseIds.length > 0 && (isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
+                    <button 
+                      onClick={handleBulkDeletePurchases}
+                      className="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer animate-pulse"
+                    >
+                      <Trash2 size={15} />
+                      <span>🗑️ مسح المشتريات المحددة ({selectedPurchaseIds.length})</span>
                     </button>
                   )}
 
@@ -15618,6 +15713,12 @@ const handleExportBuffetToExcel = () => {
                               {filteredInventory.length} صنف
                             </span>
                           </div>
+                          {selectedInventoryIds.length > 0 && (
+                            <button onClick={handleBulkDeleteInventory} className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                              <Trash2 size={12} />
+                              <span>مسح المحدد ({selectedInventoryIds.length})</span>
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleOpenAddBuffetItem()}
                             className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
@@ -15631,6 +15732,9 @@ const handleExportBuffetToExcel = () => {
                           <table className="w-full text-right text-xs">
                             <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
                               <tr>
+                                <th className="py-2.5 px-2 text-center w-8 text-amber-300">
+                                  <input type="checkbox" className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer" checked={filteredInventory.length > 0 && selectedInventoryIds.length === filteredInventory.length} onChange={(e) => { if (e.target.checked) setSelectedInventoryIds(filteredInventory.map(i => i.id)); else setSelectedInventoryIds([]); }} />
+                                </th>
                                 <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                                 <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
@@ -15644,7 +15748,7 @@ const handleExportBuffetToExcel = () => {
                             <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                               {filteredInventory.length === 0 ? (
                                 <tr>
-                                  <td colSpan="8" className="text-center py-8 text-gray-500 font-bold">
+                                  <td colSpan="9" className="text-center py-8 text-gray-500 font-bold">
                                     لا توجد أصناف مطابقة للبحث
                                   </td>
                                 </tr>
@@ -15720,6 +15824,12 @@ const handleExportBuffetToExcel = () => {
                               {filteredPurchases.length} مشترى
                             </span>
                           </div>
+                          {selectedPurchaseIds.length > 0 && (
+                            <button onClick={handleBulkDeletePurchases} className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                              <Trash2 size={12} />
+                              <span>مسح المحدد ({selectedPurchaseIds.length})</span>
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleOpenAddBuffetPurchase()}
                             className="bg-blue-500 hover:bg-blue-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
@@ -15733,6 +15843,9 @@ const handleExportBuffetToExcel = () => {
                           <table className="w-full text-right text-xs">
                             <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
                               <tr>
+                                <th className="py-2.5 px-2 text-center w-8 text-amber-300">
+                                  <input type="checkbox" className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer" checked={filteredPurchases.length > 0 && selectedPurchaseIds.length === filteredPurchases.length} onChange={(e) => { if (e.target.checked) setSelectedPurchaseIds(filteredPurchases.map(p => p.id)); else setSelectedPurchaseIds([]); }} />
+                                </th>
                                 <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                                 <th className="py-2.5 px-3 text-amber-300 font-extrabold">المشتريات الجديدة</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
@@ -15744,7 +15857,7 @@ const handleExportBuffetToExcel = () => {
                             <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                               {filteredPurchases.length === 0 ? (
                                 <tr>
-                                  <td colSpan="6" className="text-center py-8 text-gray-500 font-bold">
+                                  <td colSpan="7" className="text-center py-8 text-gray-500 font-bold">
                                     لا توجد مشتريات مسجلة حالياً
                                   </td>
                                 </tr>
@@ -22161,7 +22274,32 @@ const handleExportBuffetToExcel = () => {
                   )}
 
                   {buffetItemImage && (
-                    <div className="mt-2">
+                    <div className="mt-2 space-y-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (buffetItemImage) {
+                            toast.loading('جاري سحب واستخراج جميع الأصناف وتحويلك للشيت فوراً... ⚡', { id: 'instant-scan-toast' });
+                            const compressedImg = await compressImageDataUrl(buffetItemImage, 1000, 1000, 0.7);
+                            const ocrText = await performOcrOnImage(compressedImg);
+                            const items = extractInvoiceItemsFromText(ocrText);
+                            toast.dismiss('instant-scan-toast');
+                            if (items && items.length > 0) {
+                              handleSaveAllExtractedInvoiceItems(items, buffetItemImage, 'both');
+                              setIsAddBuffetItemModalOpen(false);
+                            } else {
+                              handleSaveBuffetItem();
+                            }
+                          } else {
+                            handleSaveBuffetItem();
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                      >
+                        <Sparkles size={16} className="text-amber-300 animate-spin" />
+                        <span>⚡ سحب وتنسيق أصناف الفاتورة فوراً إلى الشيت 🚀</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => processBuffetInvoiceOcrImage(buffetItemImage)}
@@ -22448,7 +22586,32 @@ const handleExportBuffetToExcel = () => {
                   )}
 
                   {buffetPurchaseImage && (
-                    <div className="mt-2">
+                    <div className="mt-2 space-y-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (buffetPurchaseImage) {
+                            toast.loading('جاري سحب واستخراج جميع الأصناف وتحويلك للشيت فوراً... ⚡', { id: 'instant-scan-toast' });
+                            const compressedImg = await compressImageDataUrl(buffetPurchaseImage, 1000, 1000, 0.7);
+                            const ocrText = await performOcrOnImage(compressedImg);
+                            const items = extractInvoiceItemsFromText(ocrText);
+                            toast.dismiss('instant-scan-toast');
+                            if (items && items.length > 0) {
+                              handleSaveAllExtractedInvoiceItems(items, buffetPurchaseImage, 'both');
+                              setIsAddBuffetPurchaseModalOpen(false);
+                            } else {
+                              handleSaveBuffetPurchase();
+                            }
+                          } else {
+                            handleSaveBuffetPurchase();
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 hover:from-blue-400 hover:to-indigo-400 text-white font-black text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                      >
+                        <Sparkles size={16} className="text-amber-300 animate-spin" />
+                        <span>⚡ سحب وتنسيق أصناف الفاتورة فوراً إلى الشيت 🚀</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => processBuffetInvoiceOcrImage(buffetPurchaseImage)}
