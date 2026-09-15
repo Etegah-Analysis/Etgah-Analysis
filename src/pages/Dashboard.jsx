@@ -8391,10 +8391,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleSaveBuffetItem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!buffetItemName.trim()) {
-      toast.error('يرجى كتابة اسم الصنف للبوفيه ☕');
-      return;
+
+    let finalName = buffetItemName.trim();
+    if (!finalName) {
+      if (buffetItemImage) {
+        finalName = '🧾 فاتورة / سكرين شوت صنف بوفيه';
+      } else if (buffetItemNotes.trim()) {
+        finalName = `📝 ${buffetItemNotes.trim().slice(0, 30)}`;
+      } else {
+        finalName = '☕ صنف بوفيه جديد';
+      }
     }
+
     setBuffetSaving(true);
     try {
       const now = new Date();
@@ -8411,7 +8419,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       }
 
       const itemData = {
-        itemName: buffetItemName.trim(),
+        itemName: finalName,
         totalQty: buffetItemTotalQty.trim() || '-',
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
@@ -8425,7 +8433,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       if (buffetItemImage) {
         const newAtt = {
           id: 'att_' + Date.now(),
-          name: `صورة صنف: ${buffetItemName.trim()}`,
+          name: `صورة صنف: ${finalName}`,
           type: 'image',
           url: buffetItemImage,
           size: 'صورة مرفقة',
@@ -8508,10 +8516,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const handleSaveBuffetPurchase = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!buffetPurchaseName.trim()) {
-      toast.error('يرجى إدخال اسم المشتريات الجديدة 🛒');
-      return;
+
+    let finalName = buffetPurchaseName.trim();
+    if (!finalName) {
+      if (buffetPurchaseImage) {
+        finalName = '🧾 فاتورة / إيصال مشتريات بوفيه';
+      } else if (buffetPurchaseNotes.trim()) {
+        finalName = `📝 ${buffetPurchaseNotes.trim().slice(0, 30)}`;
+      } else {
+        finalName = '🛒 مشتريات بوفيه جديدة';
+      }
     }
+
     setBuffetSaving(true);
     try {
       const now = new Date();
@@ -8519,7 +8535,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
 
       const purchData = {
-        itemName: buffetPurchaseName.trim(),
+        itemName: finalName,
         qty: buffetPurchaseQty.trim() || '-',
         cost: buffetPurchaseCost.trim() || '',
         purchaseDate: buffetPurchaseDate || now.toISOString().slice(0, 10),
@@ -8534,7 +8550,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       if (buffetPurchaseImage) {
         const newAtt = {
           id: 'att_' + Date.now(),
-          name: `فاتورة/إيصال: ${buffetPurchaseName.trim()}`,
+          name: `فاتورة/إيصال: ${finalName}`,
           type: 'image',
           url: buffetPurchaseImage,
           size: 'إيصال شراء',
@@ -21496,11 +21512,10 @@ const handleExportBuffetToExcel = () => {
 
               <form onSubmit={handleSaveBuffetItem} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف *</label>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف (اختياري عند رفع صورة فاتورة)</label>
                   <input
                     type="text"
-                    required
-                    placeholder="مثال: بن، شاي ليبتون، سكر 10 ك..."
+                    placeholder="مثال: بن، شاي، سكر أو اتركه فارغاً عند رفع صورة فاتورة..."
                     value={buffetItemName}
                     onChange={(e) => setBuffetItemName(e.target.value)}
                     className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -21696,11 +21711,10 @@ const handleExportBuffetToExcel = () => {
 
               <form onSubmit={handleSaveBuffetPurchase} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-blue-300 mb-1">المشتريات الجديدة *</label>
+                  <label className="block text-xs font-bold text-blue-300 mb-1">المشتريات الجديدة (اختياري عند رفع صورة فاتورة)</label>
                   <input
                     type="text"
-                    required
-                    placeholder="مثال: مناديل، فوط، بن، معالق حديد..."
+                    placeholder="مثال: مناديل، بن، سكر أو اتركه فارغاً عند رفع صورة فاتورة..."
                     value={buffetPurchaseName}
                     onChange={(e) => setBuffetPurchaseName(e.target.value)}
                     className="w-full bg-slate-800 border border-blue-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
