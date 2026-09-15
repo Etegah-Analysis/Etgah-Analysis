@@ -12114,11 +12114,22 @@ const handleExportBuffetToExcel = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {campaignsList.map((campaign, idx) => {
-                      const empObj = employees.find(e => e.email?.toLowerCase() === campaign.empEmail?.toLowerCase());
-                      const empName = empObj?.username || empObj?.name || campaign.empEmail.split('@')[0];
+                      const empEmailLower = (campaign.empEmail || '').toLowerCase();
+                      const empObj = employees.find(e => {
+                        if (!e) return false;
+                        if (e.email && e.email.toLowerCase() === empEmailLower) return true;
+                        if (e.username && e.username.toLowerCase() === empEmailLower) return true;
+                        if (e.name && e.name.toLowerCase() === empEmailLower) return true;
+                        if (e.uid && e.uid === campaign.empEmail) return true;
+                        if (empEmailLower.includes('@') && e.email && e.email.toLowerCase() === empEmailLower) return true;
+                        if (!empEmailLower.includes('@') && e.email && e.email.split('@')[0].toLowerCase() === empEmailLower) return true;
+                        return false;
+                      });
+                      const empName = empObj?.username || empObj?.name || (campaign.empEmail?.includes('@') ? campaign.empEmail.split('@')[0] : campaign.empEmail) || 'مجهول';
                       const empJobTitle = empObj?.jobTitle === 'Leader' || empObj?.jobTitle === 'ليدر' ? '👑 Leader' : (empObj?.jobTitle === 'Team Leader' ? '👑 Team Leader' : (empObj?.jobTitle === 'Coordinator' ? '📋 Coordinator' : '👤 Agent'));
-                      const leaderObj = empObj?.leaderUid ? employees.find(l => l.uid === empObj.leaderUid) : null;
-                      const leaderName = leaderObj ? (leaderObj.username || leaderObj.name) : empObj?.leaderName || '';
+                      const empLeaderUid = empObj?.leaderUid || empObj?.leaderId;
+                      const leaderObj = empLeaderUid ? employees.find(l => l.uid === empLeaderUid || l.id === empLeaderUid || l.username?.toLowerCase() === String(empLeaderUid).toLowerCase()) : null;
+                      const leaderName = leaderObj ? (leaderObj.username || leaderObj.name) : (empObj?.leaderName || empObj?.leader || '');
                       const openRate = campaign.delivered > 0 ? Math.round((campaign.read / campaign.delivered) * 100) : 0;
                       return (
                         <tr key={idx} className="hover:bg-purple-50/30 transition">
