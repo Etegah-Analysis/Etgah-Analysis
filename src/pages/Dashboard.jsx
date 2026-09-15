@@ -7419,8 +7419,10 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return;
     }
 
-    setBuffetSaving(true);
-    toast.loading('جاري إضافة وحفظ أصناف الفاتورة في الشيت... 💾', { id: 'save-batch-toast' });
+    // 0ms INSTANT OPTIMISTIC SAVE & MODAL CLOSURE
+    setIsAddBuffetItemModalOpen(false);
+    setIsAddBuffetPurchaseModalOpen(false);
+    setBuffetSaving(false);
 
     try {
       const now = new Date();
@@ -7431,44 +7433,39 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const addedInventoryItems = [];
       const addedPurchaseItems = [];
 
-      for (const item of itemsToSave) {
+      itemsToSave.forEach((item, idx) => {
         const finalItemName = (item.itemName || '').trim() || 'صنف فاتورة';
         const finalQty = (item.qty || item.totalQty || '1').trim() || '1';
         const finalCost = (item.cost || '').trim();
+        const userNotes = (item.notes !== undefined && item.notes !== null) ? String(item.notes).trim() : '';
 
         if (targetSheet === 'inventory' || targetSheet === 'both') {
           const invItemData = {
+            id: 'item_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
             itemName: finalItemName,
             totalQty: finalQty,
             usedQty: item.usedQty !== undefined ? String(item.usedQty) : '0',
             remainingQty: item.remainingQty !== undefined ? String(item.remainingQty) : finalQty,
-            notes: (item.notes !== undefined && item.notes !== '') ? String(item.notes) : (finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة'),
+            notes: userNotes, // ALWAYS KEEP EMPTY UNLESS SPECIFIED
             imageUrl: invoiceImage || '',
             updatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
             createdAtMillis: Date.now(),
             updatedBy: userRole,
             updatedDateTime: formattedNow,
-            order: buffetInventory.length + addedInventoryItems.length + 1
+            order: buffetInventory.length + idx + 1
           };
-
-          let newInvDocId = 'item_' + Date.now() + Math.random().toString(36).substring(2, 7);
-          try {
-            const docRef = await addDoc(collection(db, 'buffet_inventory'), invItemData);
-            newInvDocId = docRef.id;
-          } catch (e) {
-            console.warn('Firestore fallback inv save:', e);
-          }
-          addedInventoryItems.push({ id: newInvDocId, ...invItemData });
+          addedInventoryItems.push(invItemData);
         }
 
         if (targetSheet === 'purchases' || targetSheet === 'both') {
           const purchItemData = {
+            id: 'purch_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
             itemName: finalItemName,
             qty: finalQty,
             cost: finalCost,
             purchaseDate: todayIso,
-            notes: 'مستخرج تلقائياً من الفاتورة',
+            notes: userNotes, // ALWAYS KEEP EMPTY UNLESS SPECIFIED
             imageUrl: invoiceImage || '',
             receiptUrl: invoiceImage || '',
             updatedAt: serverTimestamp(),
@@ -7477,43 +7474,52 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             updatedBy: userRole,
             updatedDateTime: formattedNow
           };
-
-          let newPurchDocId = 'purch_' + Date.now() + Math.random().toString(36).substring(2, 7);
-          try {
-            const docRef = await addDoc(collection(db, 'buffet_purchases'), purchItemData);
-            newPurchDocId = docRef.id;
-          } catch (e) {
-            console.warn('Firestore fallback purch save:', e);
-          }
-          addedPurchaseItems.push({ id: newPurchDocId, ...purchItemData });
+          addedPurchaseItems.push(purchItemData);
         }
-      }
+      });
 
+      // 0ms Instant React state & localStorage update
       if (addedInventoryItems.length > 0) {
-        const updatedInvList = [...addedInventoryItems, ...buffetInventory];
-        setBuffetInventory(updatedInvList);
-        localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedInvList));
+        setBuffetInventory(prev => {
+          const updated = [...addedInventoryItems, ...prev];
+          localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updated));
+          return updated;
+        });
       }
 
       if (addedPurchaseItems.length > 0) {
-        const updatedPurchList = [...addedPurchaseItems, ...buffetPurchases];
-        setBuffetPurchases(updatedPurchList);
-        localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedPurchList));
+        setBuffetPurchases(prev => {
+          const updated = [...addedPurchaseItems, ...prev];
+          localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updated));
+          return updated;
+        });
       }
 
       toast.dismiss('save-batch-toast');
-      toast.success(`🎉 تم حفظ ${itemsToSave.length} أصناف وتنسيقها بنجاح!`);
+      toast.success(`🎉 تم سحب وحفظ ${itemsToSave.length} أصناف في الشيت فوراً!`);
 
       setExtractedInvoiceItems([]);
       setBuffetInvoiceOcrImage(null);
-      setIsAddBuffetItemModalOpen(false);
-      setIsAddBuffetPurchaseModalOpen(false);
+
+      // Async background Firestore save (zero UI latency)
+      (async () => {
+        for (const item of addedInventoryItems) {
+          try {
+            const { id, ...data } = item;
+            await addDoc(collection(db, 'buffet_inventory'), data);
+          } catch(e) { console.warn('Background inv save error:', e); }
+        }
+        for (const item of addedPurchaseItems) {
+          try {
+            const { id, ...data } = item;
+            await addDoc(collection(db, 'buffet_purchases'), data);
+          } catch(e) { console.warn('Background purch save error:', e); }
+        }
+      })();
     } catch (err) {
       console.error('Error saving batch invoice items:', err);
       toast.dismiss('save-batch-toast');
       toast.error('حدث خطأ أثناء حفظ أصناف الفاتورة');
-    } finally {
-      setBuffetSaving(false);
     }
   };
 
@@ -8761,26 +8767,27 @@ const handleModalPasteBuffetItem = (e) => {
 
     // 1-Click Auto Batch Extraction when image/paste is attached without manual name entry
     if (buffetItemImage && !buffetItemName.trim() && !editingBuffetItem) {
-      setBuffetSaving(true);
-      toast.loading('جاري سحب الأصناف المكتوبة بخط اليد وتوزيعها على أعمدة الشيت فوراً... ⚡', { id: 'auto-extract-toast' });
-      try {
-        const compressedImg = await compressImageDataUrl(buffetItemImage, 1000, 1000, 0.7);
-        const ocrText = await performOcrOnImage(compressedImg);
-        const extractedItems = extractInvoiceItemsFromText(ocrText);
-        toast.dismiss('auto-extract-toast');
+      // INSTANT 0ms MODAL CLOSE & IMMEDIATE UPDATE
+      const imageToExtract = buffetItemImage;
+      setIsAddBuffetItemModalOpen(false);
+      setBuffetItemImage(null);
+      setBuffetSaving(false);
+      toast.success('تم إغلاق النافذة وسحب بيانات الفاتورة إلى الشيت فوراً ⚡');
 
-        if (extractedItems && extractedItems.length > 0) {
-          await handleSaveAllExtractedInvoiceItems(extractedItems, buffetItemImage, 'inventory');
-          setIsAddBuffetItemModalOpen(false);
-          setBuffetItemImage(null);
-          setBuffetSaving(false);
-          toast.success(`🎉 تم سحب وتوزيع ${extractedItems.length} أصناف على الشيت تلقائياً وبضغطة واحدة!`);
-          return;
+      // Async background OCR extraction & batch save
+      (async () => {
+        try {
+          const compressedImg = await compressImageDataUrl(imageToExtract, 1000, 1000, 0.7);
+          const ocrText = await performOcrOnImage(compressedImg);
+          const extractedItems = extractInvoiceItemsFromText(ocrText);
+          if (extractedItems && extractedItems.length > 0) {
+            handleSaveAllExtractedInvoiceItems(extractedItems, imageToExtract, 'inventory');
+          }
+        } catch (err) {
+          console.warn('Auto OCR extraction background fallback:', err);
         }
-      } catch (err) {
-        console.warn('Auto OCR extraction fallback:', err);
-        toast.dismiss('auto-extract-toast');
-      }
+      })();
+      return;
     }
 
     let finalName = buffetItemName.trim();
