@@ -15529,11 +15529,6 @@ const handleExportBuffetToExcel = () => {
             return (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
           });
 
-          const filteredPurchases = buffetPurchases.filter(p => {
-            if (!q) return true;
-            return (p.itemName || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
-          });
-
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
               {/* Header Banner */}
@@ -15548,12 +15543,9 @@ const handleExportBuffetToExcel = () => {
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {buffetInventory.length} صنف مسجل
                       </span>
-                      <span className="bg-blue-500/30 text-blue-200 border border-blue-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                        {buffetPurchases.length} مشتريات
-                      </span>
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
-                      متابعة محتويات ومخزون البوفيه، تسجيل المشتريات والمصروفات الجديدة، مع دعم رفع السكرينات وملفات الإكسيل وجوجل شيت
+                      متابعة محتويات ومخزون البوفيه، تسجيل المشتريات والمصروفات الجديدة
                     </p>
                   </div>
                 </div>
@@ -15580,34 +15572,6 @@ const handleExportBuffetToExcel = () => {
                     </button>
                   )}
 
-                  {selectedPurchaseIds.length > 0 && (isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
-                    <button 
-                      onClick={handleBulkDeletePurchases}
-                      className="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-rose-500/30 cursor-pointer animate-pulse"
-                    >
-                      <Trash2 size={15} />
-                      <span>🗑️ مسح المشتريات المحددة ({selectedPurchaseIds.length})</span>
-                    </button>
-                  )}
-
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                    <button 
-                      onClick={() => handleOpenAddBuffetPurchase()}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-blue-500/30 cursor-pointer"
-                    >
-                      <ShoppingCart size={15} />
-                      <span>+ تسجيل مشتريات جديدة 🛒</span>
-                    </button>
-                  )}
-
-
-
-                  
-
-
-
-
-
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportBuffet')) && (
                     <button 
                       onClick={handleExportBuffetPdf}
@@ -15621,74 +15585,14 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Quick Summary Highlights (4 Cards) */}
-              {/* Quick Summary Highlights (3 Financial Cards as requested in Image 2) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
-                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl">
-                    <Coffee size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-gray-500 font-extrabold block">إجمالي مبلغ مخزون البوفيه</span>
-                    <span className="text-base font-black text-emerald-700 font-mono">
-                      {buffetInventory.reduce((acc, i) => acc + (parseFloat(i.cost || i.itemPrice || 0) || 0), 0).toLocaleString()} ج.م
-                    </span>
-                    <span className="text-[10px] text-emerald-600 font-bold block">
-                      ({buffetInventory.length} أصناف مسجلة بالمخزون)
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-blue-950/20 border border-blue-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
-                  <div className="p-3 bg-blue-500/20 text-blue-400 rounded-2xl">
-                    <ShoppingCart size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-gray-500 font-extrabold block">إجمالي المشتريات الجديدة والمصروفات</span>
-                    <span className="text-base font-black text-blue-700 font-mono">
-                      {buffetPurchases.reduce((acc, p) => acc + (parseFloat(p.cost || p.itemPrice || 0) || 0), 0).toLocaleString()} ج.م
-                    </span>
-                    <span className="text-[10px] text-blue-600 font-bold block">
-                      ({buffetPurchases.length} مشتريات ومصروفات)
-                    </span>
-                  </div>
-                </div>
-
-                
-              </div>
-
-              {/* Section Tabs & Search Filter */}
+              {/* Search Bar */}
               <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
-                {/* Section Toggle Tabs */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl flex-wrap">
-                  <button
-                    onClick={() => setBuffetActiveSection('all')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
-                  >
-                    <span>عرض الكل (الشيتين جنباً إلى جنب)</span>
-                  </button>
-                  <button
-                    onClick={() => setBuffetActiveSection('inventory')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'inventory' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-emerald-100'}`}
-                  >
-                    <span>📦 محتويات البوفيه ({buffetInventory.length})</span>
-                  </button>
-                  <button
-                    onClick={() => setBuffetActiveSection('purchases')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${buffetActiveSection === 'purchases' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-blue-100'}`}
-                  >
-                    <span>🛒 المشتريات الجديدة ({buffetPurchases.length})</span>
-                  </button>
-
-                </div>
-
-                {/* Search Bar */}
-                <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-xs">
+                <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
                   <div className="relative w-full">
                     <Search className="absolute right-3 top-2.5 text-gray-400" size={14} />
                     <input
                       type="text"
-                      placeholder="بحث في الأصناف والمشتريات..."
+                      placeholder="بحث في أصناف البوفيه..."
                       value={buffetSearch}
                       onChange={(e) => setBuffetSearch(e.target.value)}
                       className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
@@ -15697,267 +15601,120 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Main Content Area: Responsive side-by-side or stacked tables */}
-              <div className="p-4 space-y-6">
-                {(buffetActiveSection === 'all' || buffetActiveSection === 'inventory' || buffetActiveSection === 'purchases') && (
-                  <div className={`grid grid-cols-1 ${buffetActiveSection === 'all' ? 'lg:grid-cols-12 gap-6' : 'gap-4'}`}>
-                    
-                    {/* TABLE 1: مخزون ومحتويات البوفيه (Green Header - matching user screenshot) */}
-                    {(buffetActiveSection === 'all' || buffetActiveSection === 'inventory') && (
-                      <div className={`${buffetActiveSection === 'all' ? 'lg:col-span-7' : 'w-full'} bg-white rounded-2xl border border-emerald-500/30 shadow-sm overflow-hidden`}>
-                        <div className="px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex justify-between items-center border-b border-emerald-600/40">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">📦</span>
-                            <span className="font-black text-xs sm:text-sm text-emerald-100">محتويات ومخزون البوفيه (المستهلك والرصيد)</span>
-                            <span className="bg-emerald-950/60 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                              {filteredInventory.length} صنف
-                            </span>
-                          </div>
-                          {selectedInventoryIds.length > 0 && (
-                            <button onClick={handleBulkDeleteInventory} className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
-                              <Trash2 size={12} />
-                              <span>مسح المحدد ({selectedInventoryIds.length})</span>
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleOpenAddBuffetItem()}
-                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
-                          >
-                            <Plus size={13} />
-                            <span>إضافة صنف</span>
-                          </button>
-                        </div>
-
-                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                          <table className="w-full text-right text-xs">
-                            <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
-                              <tr>
-                                <th className="py-2.5 px-2 text-center w-8 text-amber-300">
-                                  <input type="checkbox" className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer" checked={filteredInventory.length > 0 && selectedInventoryIds.length === filteredInventory.length} onChange={(e) => { if (e.target.checked) setSelectedInventoryIds(filteredInventory.map(i => i.id)); else setSelectedInventoryIds([]); }} />
-                                </th>
-                                <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
-                                <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
-                                <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">السعر (ج.م)</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
-                                <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
-                                <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
-                              {filteredInventory.length === 0 ? (
-                                <tr>
-                                  <td colSpan="9" className="text-center py-8 text-gray-500 font-bold">
-                                    لا توجد أصناف مطابقة للبحث
-                                  </td>
-                                </tr>
-                              ) : (
-                                filteredInventory.map((item, idx) => (
-                                  <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
-                                    <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
-                                      {idx + 1}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-extrabold text-gray-900">
-                                      {item.itemName}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-bold text-indigo-700">
-                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
-                                        {item.totalQty || '-'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
-                                      {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/40">
-                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 font-mono">
-                                        {item.usedQty || '-'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
-                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
-                                        {item.remainingQty || '-'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-xs text-gray-600 max-w-[180px] truncate" title={item.notes}>
-                                      {item.notes || <span className="text-gray-300">—</span>}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <div className="flex items-center justify-center gap-1">
-                                        {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                                          <button
-                                            onClick={() => handleOpenAddBuffetItem(item)}
-                                            className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                                            title="تعديل بيانات الصنف"
-                                          >
-                                            <Edit size={13} />
-                                          </button>
-                                        )}
-                                        {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
-                                          <button
-                                            onClick={() => handleDeleteBuffetItem(item.id)}
-                                            className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
-                                            title="حذف الصنف"
-                                          >
-                                            <Trash2 size={13} />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TABLE 2: المشتريات والمصروفات الجديدة (Blue Header - matching user screenshot) */}
-                    {(buffetActiveSection === 'all' || buffetActiveSection === 'purchases') && (
-                      <div className={`${buffetActiveSection === 'all' ? 'lg:col-span-5' : 'w-full'} bg-white rounded-2xl border border-blue-500/30 shadow-sm overflow-hidden`}>
-                        <div className="px-4 py-3 bg-gradient-to-r from-blue-800 to-indigo-900 text-white flex justify-between items-center border-b border-blue-600/40">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">🛒</span>
-                            <span className="font-black text-xs sm:text-sm text-blue-100">المشتريات الجديدة والمصروفات</span>
-                            <span className="bg-blue-950/60 text-blue-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                              {filteredPurchases.length} مشترى
-                            </span>
-                          </div>
-                          {selectedPurchaseIds.length > 0 && (
-                            <button onClick={handleBulkDeletePurchases} className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
-                              <Trash2 size={12} />
-                              <span>مسح المحدد ({selectedPurchaseIds.length})</span>
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleOpenAddBuffetPurchase()}
-                            className="bg-blue-500 hover:bg-blue-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
-                          >
-                            <Plus size={13} />
-                            <span>تسجيل مشترى</span>
-                          </button>
-                        </div>
-
-                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                          <table className="w-full text-right text-xs">
-                            <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
-                              <tr>
-                                <th className="py-2.5 px-2 text-center w-8 text-amber-300">
-                                  <input type="checkbox" className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer" checked={filteredPurchases.length > 0 && selectedPurchaseIds.length === filteredPurchases.length} onChange={(e) => { if (e.target.checked) setSelectedPurchaseIds(filteredPurchases.map(p => p.id)); else setSelectedPurchaseIds([]); }} />
-                                </th>
-                                <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
-                                <th className="py-2.5 px-3 text-amber-300 font-extrabold">المشتريات الجديدة</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
-                                <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/40 border-x border-emerald-500/30">السعر / التكلفة (ج.م)</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300">التاريخ</th>
-                                <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
-                              {filteredPurchases.length === 0 ? (
-                                <tr>
-                                  <td colSpan="7" className="text-center py-8 text-gray-500 font-bold">
-                                    لا توجد مشتريات مسجلة حالياً
-                                  </td>
-                                </tr>
-                              ) : (
-                                filteredPurchases.map((purch, idx) => (
-                                  <tr key={purch.id || idx} className="hover:bg-blue-50/50 transition">
-                                    <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
-                                      {idx + 1}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-extrabold text-gray-900">
-                                      {purch.itemName}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-bold text-blue-700">
-                                      <span className="inline-block px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 font-mono">
-                                        {purch.qty || '-'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-bold text-emerald-700">
-                                      {purch.cost ? `${purch.cost} ج.م` : <span className="text-gray-300">—</span>}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center text-[11px] text-gray-500">
-                                      {purch.purchaseDate || <span className="text-gray-300">—</span>}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <div className="flex items-center justify-center gap-1">
-                                        {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                                          <button
-                                            onClick={() => handleOpenAddBuffetPurchase(purch)}
-                                            className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                                            title="تعديل المشترى"
-                                          >
-                                            <Edit size={13} />
-                                          </button>
-                                        )}
-                                        {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
-                                          <button
-                                            onClick={() => handleDeleteBuffetPurchase(purch.id)}
-                                            className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
-                                            title="حذف المشترى"
-                                          >
-                                            <Trash2 size={13} />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                )}
-
-                {/* GOOGLE SHEET DIRECT EMBED SECTION */}
-                {(buffetActiveSection === 'all' || buffetActiveSection === 'googlesheet') && buffetGoogleSheetUrl && (
-                  <div className="bg-white rounded-2xl border border-amber-500/30 p-5 shadow-sm space-y-3">
-                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🌐</span>
-                        <div>
-                          <h3 className="text-sm font-black text-gray-900">شيت جوجل المباشر (Google Sheets)</h3>
-                          <p className="text-[11px] text-gray-500">معاينة تفاعلية حية للشيت المعتمد</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setTempGoogleSheetUrl(buffetGoogleSheetUrl);
-                            setIsBuffetGoogleSheetModalOpen(true);
-                          }}
-                          className="text-xs text-amber-700 hover:text-amber-900 font-bold underline"
-                        >
-                          تعديل الرابط ✏️
+              {/* Main Content Area: Single Table Matching Image 2 */}
+              <div className="p-4">
+                <div className="w-full bg-white rounded-2xl border border-emerald-500/30 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex justify-between items-center border-b border-emerald-600/40">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📦</span>
+                      <span className="font-black text-xs sm:text-sm text-emerald-100">محتويات ومخزون البوفيه (المستهلك والرصيد)</span>
+                      <span className="bg-emerald-950/60 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {filteredInventory.length} صنف
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedInventoryIds.length > 0 && (
+                        <button onClick={handleBulkDeleteInventory} className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                          <Trash2 size={12} />
+                          <span>مسح المحدد ({selectedInventoryIds.length})</span>
                         </button>
-                        <a
-                          href={buffetGoogleSheetUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
-                        >
-                          <ExternalLink size={13} />
-                          <span>فتح في تبويب خارجي ↗️</span>
-                        </a>
-                      </div>
-                    </div>
-
-                    <div className="w-full h-[650px] rounded-xl overflow-hidden border border-gray-300 bg-slate-50">
-                      <iframe
-                        src={buffetGoogleSheetUrl.includes('/edit') ? buffetGoogleSheetUrl.replace(/\/edit.*$/, '/pubhtml?widget=true&headers=false') : buffetGoogleSheetUrl}
-                        className="w-full h-full border-0"
-                        title="Google Sheet Live View"
-                      />
+                      )}
+                      <button 
+                        onClick={() => handleOpenAddBuffetItem()}
+                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
+                      >
+                        <Plus size={13} />
+                        <span>إضافة صنف</span>
+                      </button>
                     </div>
                   </div>
-                )}
 
+                  <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
+                    <table className="w-full text-right text-xs">
+                      <thead className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-300 uppercase font-black border-b border-amber-500/30 text-[11px] sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2.5 px-2 text-center w-8 text-amber-300">
+                            <input type="checkbox" className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer" checked={filteredInventory.length > 0 && selectedInventoryIds.length === filteredInventory.length} onChange={(e) => { if (e.target.checked) setSelectedInventoryIds(filteredInventory.map(i => i.id)); else setSelectedInventoryIds([]); }} />
+                          </th>
+                          <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
+                          <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
+                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
+                          <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">السعر (ج.م)</th>
+                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
+                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
+                          <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
+                          <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
+                        {filteredInventory.length === 0 ? (
+                          <tr>
+                            <td colSpan="9" className="text-center py-8 text-gray-500 font-bold">
+                              لا توجد أصناف مطابقة للبحث
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredInventory.map((item, idx) => (
+                            <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
+                              <td className="py-2.5 px-2 text-center">
+                                <input type="checkbox" className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer" checked={selectedInventoryIds.includes(item.id)} onChange={() => setSelectedInventoryIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])} />
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
+                                {idx + 1}
+                              </td>
+                              <td className="py-2.5 px-3 font-extrabold text-gray-900">
+                                {item.itemName}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold text-indigo-700">
+                                <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
+                                  {item.totalQty || '-'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
+                                {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/40">
+                                <span className="inline-block px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 font-mono">
+                                  {item.usedQty || '-'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
+                                <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
+                                  {item.remainingQty || '-'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-xs text-gray-600 max-w-[180px] truncate" title={item.notes}>
+                                {item.notes || <span className="text-gray-300">—</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                                    <button
+                                      onClick={() => handleOpenAddBuffetItem(item)}
+                                      className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                      title="تعديل بيانات الصنف"
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                  )}
+                                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
+                                    <button
+                                      onClick={() => handleDeleteBuffetItem(item.id)}
+                                      className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
+                                      title="حذف الصنف"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           );
@@ -22168,299 +21925,7 @@ const handleExportBuffetToExcel = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">📋 مكان للصق نص أو صورة / سكرين شوت للصنف (اختياري)</label>
-                  <div 
-                    onPaste={(e) => {
-                      const items = e.clipboardData?.items;
-                      if (items) {
-                        for (let i = 0; i < items.length; i++) {
-                          if (items[i].type && items[i].type.startsWith('image/')) {
-                            const file = items[i].getAsFile();
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
-                              reader.readAsDataURL(file);
-                              e.preventDefault();
-                              toast.success('تم لصق صورة/سكرين شوت الفاتورة والصنف بنجاح 🖼️✨');
-                              return;
-                            }
-                          }
-                        }
-                      }
-                      const pastedText = e.clipboardData?.getData('text');
-                      if (pastedText && pastedText.trim()) {
-                        const parsed = parsePastedInvoiceContent(pastedText);
-                        if (!buffetItemName.trim()) setBuffetItemName(parsed.title);
-                        if (parsed.qty && !buffetItemTotalQty.trim()) {
-                          setBuffetItemTotalQty(parsed.qty);
-                          if (!buffetItemUsedQty.trim()) setBuffetItemUsedQty('0');
-                          setBuffetItemRemainingQty(parsed.qty);
-                        }
-                        setBuffetItemNotes(prev => prev ? `${prev}\n${pastedText.trim()}` : pastedText.trim());
-                        toast.success('تم استخراج البيانات ولصق الفاتورة بنجاح 📋✨');
-                      }
-                    }}
-                    className="w-full bg-slate-950/90 border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
-                  >
-                    <span className="text-xs text-emerald-300 font-bold">
-                      📌 إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-400/50 text-[10px] font-mono">Ctrl + V</kbd> للصق سكرين شوت أو نص مباشر
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="إضغط هنا للصق النص أو الصورة..."
-                      onPaste={(e) => {
-                        const items = e.clipboardData?.items;
-                        if (items) {
-                          for (let i = 0; i < items.length; i++) {
-                            if (items[i].type.startsWith('image/')) {
-                              const file = items[i].getAsFile();
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
-                                reader.readAsDataURL(file);
-                                e.preventDefault();
-                                toast.success('تم لصق صورة/سكرين شوت الصنف بنجاح 🖼️✨');
-                                return;
-                              }
-                            }
-                          }
-                        }
-                      }}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold focus:outline-none focus:border-emerald-400"
-                    />
-                  </div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">رفع صورة للصنف (اختياري)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="buffet-item-img-input"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const imgData = ev.target?.result;
-                            setBuffetItemImage(imgData);
-                            processBuffetInvoiceOcrImage(imgData);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor="buffet-item-img-input"
-                      className="cursor-pointer bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
-                    >
-                      <Upload size={14} />
-                      <span>{buffetItemImage ? 'تغيير الصورة 🖼️' : 'إرفاق صورة / سكرين شوت 📷'}</span>
-                    </label>
-                    {buffetItemImage && (
-                      <button
-                        type="button"
-                        onClick={() => setBuffetItemImage(null)}
-                        className="text-rose-400 hover:text-rose-300 text-xs font-bold underline"
-                      >
-                        إلغاء الصورة ✕
-                      </button>
-                    )}
-                  </div>
-                  {buffetItemImage && (
-                    <div className="mt-2 w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-emerald-500/30 relative flex items-center justify-center p-1">
-                      <img src={buffetItemImage} alt="Buffet item preview" className="max-h-full object-contain rounded" />
-                    </div>
-                  )}
-
-                  {buffetItemImage && (
-                    <div className="mt-2 space-y-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (buffetItemImage) {
-                            toast.loading('جاري سحب واستخراج جميع الأصناف وتحويلك للشيت فوراً... ⚡', { id: 'instant-scan-toast' });
-                            const compressedImg = await compressImageDataUrl(buffetItemImage, 1000, 1000, 0.7);
-                            const ocrText = await performOcrOnImage(compressedImg);
-                            const items = extractInvoiceItemsFromText(ocrText);
-                            toast.dismiss('instant-scan-toast');
-                            if (items && items.length > 0) {
-                              handleSaveAllExtractedInvoiceItems(items, buffetItemImage, 'both');
-                              setIsAddBuffetItemModalOpen(false);
-                            } else {
-                              handleSaveBuffetItem();
-                            }
-                          } else {
-                            handleSaveBuffetItem();
-                          }
-                        }}
-                        className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-                      >
-                        <Sparkles size={16} className="text-amber-300 animate-spin" />
-                        <span>⚡ سحب وتنسيق أصناف الفاتورة فوراً إلى الشيت 🚀</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => processBuffetInvoiceOcrImage(buffetItemImage)}
-                        disabled={isScanningInvoiceOcr}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow border border-purple-400/40 cursor-pointer disabled:opacity-50"
-                      >
-                        <Sparkles size={14} className={isScanningInvoiceOcr ? "animate-spin text-purple-300" : "text-amber-300"} />
-                        <span>{isScanningInvoiceOcr ? 'جاري قراءة ومسح الصورة (OCR)... ⏳' : '⚡ مسح واستخراج جميع أصناف الفاتورة من الصورة (OCR)'}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddBuffetItemModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
-                  >
-                    إلغاء
-                  </button>
-                  
-                {extractedInvoiceItems.length > 0 && (
-                  <div className="bg-slate-950/90 border border-purple-500/40 rounded-2xl p-3 space-y-2 shadow-xl mb-3">
-                    <div className="flex items-center justify-between border-b border-purple-500/20 pb-1.5">
-                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
-                        <Sparkles size={14} className="text-purple-400 animate-spin" />
-                        أصناف الفاتورة المستخرجة ({extractedInvoiceItems.length}):
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setExtractedInvoiceItems([])}
-                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline"
-                      >
-                        إلغاء القائمة ✕
-                      </button>
-                    </div>
-
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {extractedInvoiceItems.map((item, idx) => (
-                        <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-1.5 flex items-center justify-between gap-1.5 text-xs">
-                          <input
-                            type="text"
-                            value={item.itemName}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
-                            }}
-                            className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white font-bold"
-                            placeholder="اسم الصنف..."
-                          />
-                          <input
-                            type="text"
-                            value={item.qty}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
-                            }}
-                            className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-amber-300 text-center font-bold"
-                            placeholder="العدد"
-                          />
-                          <input
-                            type="text"
-                            value={item.cost}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
-                            }}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
-                            placeholder="السعر"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetItemImage || buffetInvoiceOcrImage, 'inventory')}
-                      disabled={buffetSaving}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={14} />
-                      <span>💾 حفظ وإدراج جميع الأصناف ({extractedInvoiceItems.length}) في شيت المخزون تلقائياً</span>
-                    </button>
-                  </div>
-                )}
-
-                  <button
-                    type="submit"
-                    disabled={buffetSaving}
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Save size={15} />
-                    <span>{buffetSaving ? 'جاري الحفظ...' : editingBuffetItem ? 'تحديث الصنف 💾' : 'حفظ الصنف بالبوفيه ☕'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
-
-        {/* 2. Modal: Add/Edit Buffet Purchase */}
-        {isAddBuffetPurchaseModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onPaste={handleModalPasteBuffetPurchase} onClick={(e) => { if (e.target === e.currentTarget) setIsAddBuffetPurchaseModalOpen(false); }}>
-            <div className="bg-slate-900 border border-blue-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
-              <button
-                onClick={() => setIsAddBuffetPurchaseModalOpen(false)}
-                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-3 mb-5 border-b border-blue-500/20 pb-3">
-                <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-400/30">
-                  <ShoppingCart className="text-blue-300" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-blue-300">
-                    {editingBuffetPurchase ? 'تعديل مشترى للبوفيه ✏️' : 'تسجيل مشتريات / مصروفات جديدة 🛒'}
-                  </h3>
-                  <p className="text-xs text-blue-200/70">
-                    أدخل اسم المشترى والكمية والمبلغ وتاريخ الشراء
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveBuffetPurchase} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-blue-300 mb-1">المشتريات الجديدة (اختياري عند رفع صورة فاتورة)</label>
-                  <input
-                    type="text"
-                    placeholder="مثال: مناديل، بن، سكر أو اتركه فارغاً عند رفع صورة فاتورة..."
-                    value={buffetPurchaseName}
-                    onChange={(e) => setBuffetPurchaseName(e.target.value)}
-                    className="w-full bg-slate-800 border border-blue-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 mb-1">العدد / الكمية</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 5 أو طقم..."
-                      value={buffetPurchaseQty}
-                      onChange={(e) => setBuffetPurchaseQty(e.target.value)}
-                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-300 mb-1">التكلفة / السعر (ج.م)</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 150"
-                      value={buffetPurchaseCost}
-                      onChange={(e) => setBuffetPurchaseCost(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold font-mono"
-                    />
-                  </div>
-                </div>
+                
 
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">تاريخ الشراء</label>
@@ -22483,467 +21948,7 @@ const handleExportBuffetToExcel = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-blue-300 mb-1">📋 مكان للصق نص أو صورة / سكرين شوت للفاتورة (اختياري)</label>
-                  <div 
-                    onPaste={(e) => {
-                      const items = e.clipboardData?.items;
-                      if (items) {
-                        for (let i = 0; i < items.length; i++) {
-                          if (items[i].type && items[i].type.startsWith('image/')) {
-                            const file = items[i].getAsFile();
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
-                              reader.readAsDataURL(file);
-                              e.preventDefault();
-                              toast.success('تم لصق صورة/إيصال الفاتورة بنجاح 🧾✨');
-                              return;
-                            }
-                          }
-                        }
-                      }
-                      const pastedText = e.clipboardData?.getData('text');
-                      if (pastedText && pastedText.trim()) {
-                        const parsed = parsePastedInvoiceContent(pastedText);
-                        if (!buffetPurchaseName.trim()) setBuffetPurchaseName(parsed.title);
-                        if (parsed.qty && !buffetPurchaseQty.trim()) setBuffetPurchaseQty(parsed.qty);
-                        if (parsed.cost && !buffetPurchaseCost.trim()) setBuffetPurchaseCost(parsed.cost);
-                        setBuffetPurchaseNotes(prev => prev ? `${prev}\n${pastedText.trim()}` : pastedText.trim());
-                        toast.success('تم استخراج الصنف والعدد والتكلفة ولصق الفاتورة بنجاح 📋✨');
-                      }
-                    }}
-                    className="w-full bg-slate-950/90 border-2 border-dashed border-blue-500/40 hover:border-blue-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
-                  >
-                    <span className="text-xs text-blue-300 font-bold">
-                      📌 إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-blue-400/50 text-[10px] font-mono">Ctrl + V</kbd> للصق سكرين شوت أو نص مباشر
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="إضغط هنا للصق النص أو الصورة..."
-                      onPaste={(e) => {
-                        const items = e.clipboardData?.items;
-                        if (items) {
-                          for (let i = 0; i < items.length; i++) {
-                            if (items[i].type.startsWith('image/')) {
-                              const file = items[i].getAsFile();
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
-                                reader.readAsDataURL(file);
-                                e.preventDefault();
-                                toast.success('تم لصق صورة/سكرين شوت الفاتورة بنجاح 🧾✨');
-                                return;
-                              }
-                            }
-                          }
-                        }
-                      }}
-                      className="w-full bg-slate-800 border border-blue-500/30 rounded-xl px-3 py-1.5 text-xs text-white text-center font-bold focus:outline-none focus:border-blue-400"
-                    />
-                  </div>
-                  <label className="block text-xs font-bold text-blue-300 mb-1">رفع صورة الفاتورة / الإيصال (اختياري)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="buffet-purch-img-input"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const imgData = ev.target?.result;
-                            setBuffetPurchaseImage(imgData);
-                            processBuffetInvoiceOcrImage(imgData);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor="buffet-purch-img-input"
-                      className="cursor-pointer bg-blue-950/80 hover:bg-blue-900 border border-blue-500/40 text-blue-300 text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
-                    >
-                      <Upload size={14} />
-                      <span>{buffetPurchaseImage ? 'تغيير صورة الإيصال 🧾' : 'إرفاق صورة الفاتورة / الإيصال 🧾'}</span>
-                    </label>
-                    {buffetPurchaseImage && (
-                      <button
-                        type="button"
-                        onClick={() => setBuffetPurchaseImage(null)}
-                        className="text-rose-400 hover:text-rose-300 text-xs font-bold underline"
-                      >
-                        إلغاء الصورة ✕
-                      </button>
-                    )}
-                  </div>
-                  {buffetPurchaseImage && (
-                    <div className="mt-2 w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-blue-500/30 relative flex items-center justify-center p-1">
-                      <img src={buffetPurchaseImage} alt="Receipt preview" className="max-h-full object-contain rounded" />
-                    </div>
-                  )}
-
-                  {buffetPurchaseImage && (
-                    <div className="mt-2 space-y-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (buffetPurchaseImage) {
-                            toast.loading('جاري سحب واستخراج جميع الأصناف وتحويلك للشيت فوراً... ⚡', { id: 'instant-scan-toast' });
-                            const compressedImg = await compressImageDataUrl(buffetPurchaseImage, 1000, 1000, 0.7);
-                            const ocrText = await performOcrOnImage(compressedImg);
-                            const items = extractInvoiceItemsFromText(ocrText);
-                            toast.dismiss('instant-scan-toast');
-                            if (items && items.length > 0) {
-                              handleSaveAllExtractedInvoiceItems(items, buffetPurchaseImage, 'both');
-                              setIsAddBuffetPurchaseModalOpen(false);
-                            } else {
-                              handleSaveBuffetPurchase();
-                            }
-                          } else {
-                            handleSaveBuffetPurchase();
-                          }
-                        }}
-                        className="w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 hover:from-blue-400 hover:to-indigo-400 text-white font-black text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-                      >
-                        <Sparkles size={16} className="text-amber-300 animate-spin" />
-                        <span>⚡ سحب وتنسيق أصناف الفاتورة فوراً إلى الشيت 🚀</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => processBuffetInvoiceOcrImage(buffetPurchaseImage)}
-                        disabled={isScanningInvoiceOcr}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow border border-purple-400/40 cursor-pointer disabled:opacity-50"
-                      >
-                        <Sparkles size={14} className={isScanningInvoiceOcr ? "animate-spin text-purple-300" : "text-amber-300"} />
-                        <span>{isScanningInvoiceOcr ? 'جاري قراءة ومسح الصورة (OCR)... ⏳' : '⚡ مسح واستخراج جميع أصناف الفاتورة من الصورة (OCR)'}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddBuffetPurchaseModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
-                  >
-                    إلغاء
-                  </button>
-                  
-                {extractedInvoiceItems.length > 0 && (
-                  <div className="bg-slate-950/90 border border-blue-500/40 rounded-2xl p-3 space-y-2 shadow-xl mb-3">
-                    <div className="flex items-center justify-between border-b border-blue-500/20 pb-1.5">
-                      <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
-                        <Sparkles size={14} className="text-blue-400 animate-spin" />
-                        أصناف الفاتورة المستخرجة للشراء ({extractedInvoiceItems.length}):
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setExtractedInvoiceItems([])}
-                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline"
-                      >
-                        إلغاء القائمة ✕
-                      </button>
-                    </div>
-
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {extractedInvoiceItems.map((item, idx) => (
-                        <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-1.5 flex items-center justify-between gap-1.5 text-xs">
-                          <input
-                            type="text"
-                            value={item.itemName}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
-                            }}
-                            className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white font-bold"
-                            placeholder="اسم الصنف..."
-                          />
-                          <input
-                            type="text"
-                            value={item.qty}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
-                            }}
-                            className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-amber-300 text-center font-bold"
-                            placeholder="العدد"
-                          />
-                          <input
-                            type="text"
-                            value={item.cost}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
-                            }}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
-                            placeholder="السعر"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetPurchaseImage || buffetInvoiceOcrImage, 'purchases')}
-                      disabled={buffetSaving}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={14} />
-                      <span>💾 حفظ وإدراج جميع الأصناف ({extractedInvoiceItems.length}) في شيت المشتريات تلقائياً</span>
-                    </button>
-                  </div>
-                )}
-
-                  <button
-                    type="submit"
-                    disabled={buffetSaving}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Save size={15} />
-                    <span>{buffetSaving ? 'جاري الحفظ...' : editingBuffetPurchase ? 'تحديث المشترى 💾' : 'حفظ المشترى 🛒'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
-
-        {/* 3. Modal: Upload Screenshot / Excel File */}
-        {isBuffetUploadModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-purple-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
-              <button
-                onClick={() => setIsBuffetUploadModalOpen(false)}
-                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-3 mb-5 border-b border-purple-500/20 pb-3">
-                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-400/30">
-                  <Upload className="text-purple-300" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-purple-300">
-                    رفع مرفقات البوفيه (سكرين شوت أو إكسيل) 📎
-                  </h3>
-                  <p className="text-xs text-purple-200/70">
-                    اختر صورة الفاتورة أو ملف إكسيل الشيت لحفظه بالسيستم
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {/* Image Upload Area */}
-                <div className="border-2 border-dashed border-emerald-500/40 rounded-2xl p-4 text-center hover:bg-emerald-950/20 transition cursor-pointer relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleUploadBuffetFile(e, 'image')}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  />
-                  <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-                    <span className="text-3xl">📷</span>
-                    <span className="text-xs font-black text-emerald-300">رفع صورة سكرين شوت أو فاتورة</span>
-                    <span className="text-[10px] text-gray-400">يدعم صيغ الصور (PNG, JPG, JPEG, WEBP)</span>
-                  </div>
-                </div>
-
-                {/* Excel Upload Area */}
-                <div className="border-2 border-dashed border-blue-500/40 rounded-2xl p-4 text-center hover:bg-blue-950/20 transition cursor-pointer relative">
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={(e) => handleUploadBuffetFile(e, 'excel')}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  />
-                  <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-                    <span className="text-3xl">📊</span>
-                    <span className="text-xs font-black text-blue-300">رفع ملف إكسيل (.xlsx / .xls / .csv)</span>
-                    <span className="text-[10px] text-gray-400">لحفظ وتحميل شيت الإكسيل بالمنصة في أي وقت</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-center">
-                  <button
-                    onClick={() => setIsBuffetUploadModalOpen(false)}
-                    className="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-slate-800 transition"
-                  >
-                    إغلاق النافذة
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-        {/* 4. Modal: Google Sheet Link Setting */}
-        {isBuffetGoogleSheetModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
-              <button
-                onClick={() => setIsBuffetGoogleSheetModalOpen(false)}
-                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3">
-                <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/30">
-                  <ExternalLink className="text-amber-300" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-amber-300">
-                    ربط Google Sheet للبوفيه 🔗
-                  </h3>
-                  <p className="text-xs text-amber-200/70">
-                    الصق رابط شيت جوجل المعتمد ليتم حفظه وعرضه داخل المنصة
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveBuffetGoogleSheetUrl} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-amber-300 mb-1">رابط Google Sheet (URL)</label>
-                  <input
-                    type="url"
-                    placeholder="https://docs.google.com/spreadsheets/d/..."
-                    value={tempGoogleSheetUrl}
-                    onChange={(e) => setTempGoogleSheetUrl(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    تأكد من جعل الشيت متاحاً للمعاينة (Anyone with the link can view) لتظهر المعاينة المباشرة بسلاسة.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsBuffetGoogleSheetModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-amber-600/30 cursor-pointer"
-                  >
-                    <Save size={15} />
-                    <span>حفظ الرابط 🔗</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
-
-        {/* 5. Lightbox for Screenshot Zoom */}
-        {buffetLightboxImg && typeof document !== 'undefined' && document.body && createPortal(
-          <div 
-            onClick={() => setBuffetLightboxImg(null)}
-            className="fixed inset-0 z-[999999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
-            dir="rtl"
-          >
-            <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => setBuffetLightboxImg(null)}
-                className="absolute -top-10 left-0 text-white/80 hover:text-white bg-slate-800/80 px-3 py-1 rounded-full text-xs font-bold"
-              >
-                ✕ إغلاق (Esc)
-              </button>
-              <img 
-                src={buffetLightboxImg} 
-                alt="معاينة مكبرة" 
-                className="max-w-full max-h-[82vh] rounded-2xl object-contain shadow-2xl border border-white/20"
-              />
-              <div className="mt-3 flex items-center gap-3">
-                <a
-                  href={buffetLightboxImg}
-                  download="buffet_screenshot.png"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md"
-                >
-                  <Download size={14} />
-                  <span>تحميل الصورة</span>
-                </a>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-
-        {/* ========================================================================= */}
-        {/* PAYROLL & ATTENDANCE MODALS (v2.25)                                       */}
-        {/* ========================================================================= */}
-        {/* 1. Modal: Edit Employee Payroll & Deductions */}
-        {isEditPayrollModalOpen && editingPayrollEmp && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl">
-            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
-              <button
-                onClick={() => setIsEditPayrollModalOpen(false)}
-                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-3 mb-5 border-b border-amber-500/20 pb-3">
-                <div className="p-3 bg-amber-500/20 rounded-2xl border border-amber-400/30">
-                  <CreditCard className="text-amber-300" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-amber-300">
-                    تعديل راتب وبصمة: {editingPayrollEmp.username || editingPayrollEmp.name} ✏️
-                  </h3>
-                  <p className="text-xs text-amber-200/70">
-                    المسمى: {editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف'} • التعيين: {formatDate(editingPayrollEmp.createdAt)}
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSavePayroll} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-amber-300 mb-1">المرتب الثابت (ج.م) *</label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="مثال: 6000"
-                    value={payrollBaseSalary}
-                    onChange={(e) => setPayrollBaseSalary(e.target.value)}
-                    className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-black text-white font-mono"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 mb-1">بصمة الحضور</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 09:00 AM"
-                      value={payrollCheckIn}
-                      onChange={(e) => setPayrollCheckIn(e.target.value)}
-                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 mb-1">بصمة الانصراف</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 05:00 PM"
-                      value={payrollCheckOut}
-                      onChange={(e) => setPayrollCheckOut(e.target.value)}
-                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
-                    />
-                  </div>
-                </div>
+                
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
