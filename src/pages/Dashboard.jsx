@@ -12642,8 +12642,7 @@ const handleExportBuffetToExcel = () => {
                   <UserPlus size={14} /> ➕ إضافة عميل يدوي
                 </button>
 
-                {!isCoordinator && (
-                  <button 
+                <button 
                     onClick={() => openCrmCampaignModal('leads_crm')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
                     title="إرسال رسائل وحملات واتساب ترويجية لعملاء الشيت الحاليين (من 1 إلى 10 عملاء)"
@@ -12651,7 +12650,6 @@ const handleExportBuffetToExcel = () => {
                     <MessageSquare size={14} className="text-emerald-200" />
                     <span>📢 إرسال حملة واتساب (CRM)</span>
                   </button>
-                )}
 
                 {isAdmin && (
                   <>
@@ -13364,8 +13362,7 @@ const handleExportBuffetToExcel = () => {
                   <UserPlus size={14} /> ➕ إضافة عميل يدوي
                 </button>
 
-                {!isCoordinator && (
-                  <button 
+                <button 
                     onClick={() => openCrmCampaignModal('employee_leads')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
                     title="إرسال رسائل وحملات واتساب ترويجية لعملاء الداتا المضافة (من 1 إلى 10 عملاء)"
@@ -13373,7 +13370,6 @@ const handleExportBuffetToExcel = () => {
                     <MessageSquare size={14} className="text-emerald-200" />
                     <span>📢 إرسال حملة واتساب (CRM)</span>
                   </button>
-                )}
 
                 <button 
                   onClick={() => setIsImportModalOpen(true)}
@@ -14216,14 +14212,7 @@ const handleExportBuffetToExcel = () => {
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
-                  <button 
-                    onClick={() => openCrmCampaignModal('subscribed_clients')}
-                    className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء المشتركين والدفعات"
-                  >
-                    <MessageSquare size={14} className="text-emerald-200" />
-                    <span>📢 إرسال حملة واتساب (CRM)</span>
-                  </button>
+                  
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter */}
                     {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
@@ -18854,14 +18843,7 @@ const handleExportBuffetToExcel = () => {
                   </div>
                 </div>
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => openCrmCampaignModal('leads_crm')}
-                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                      title="إرسال حملة واتساب ترويجية لعملاء شيت التحليل"
-                    >
-                      <MessageSquare size={14} className="text-emerald-200" />
-                      <span>📢 إرسال حملة واتساب (CRM)</span>
-                    </button>
+                    
                     <button 
                       type="button"
                       onClick={(e) => {
@@ -18943,16 +18925,7 @@ const handleExportBuffetToExcel = () => {
                         </div>
 
                         {/* Progress Bar */}
-                        <div className="flex justify-end my-2">
-                          <button 
-                            onClick={() => openCrmCampaignModal('custom', leadsAnalysisData?.empCrmLeads || [])}
-                            className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                            title="إرسال رسائل وحملات واتساب ترويجية لداتا هذا الموظف"
-                          >
-                            <MessageSquare size={14} className="text-emerald-200" />
-                            <span>📢 إرسال حملة واتساب (CRM)</span>
-                          </button>
-                        </div>
+                        
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs font-bold text-purple-200">
                             <span>مؤشر التفاعل والإنجاز</span>
