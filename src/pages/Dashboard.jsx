@@ -478,6 +478,7 @@ const Dashboard = () => {
 
   // Pagination State (20 items per page)
   const ITEMS_PER_PAGE = 20;
+  const RECOMMENDATIONS_PER_PAGE = 20;
   const [currentPageLeads, setCurrentPageLeads] = useState(1);
   const [currentPageCustomers, setCurrentPageCustomers] = useState(1);
   const [currentPageTeamTracking, setCurrentPageTeamTracking] = useState(1);
@@ -14825,7 +14826,7 @@ const handleExportBuffetToExcel = () => {
             return true;
           });
 
-          const RECOMMENDATIONS_PER_PAGE = 20;
+          // RECOMMENDATIONS_PER_PAGE is declared at top level
           const totalPagesSaudi = Math.max(1, Math.ceil(filteredSignals.length / RECOMMENDATIONS_PER_PAGE));
           const validPageSaudi = Math.min(Math.max(1, currentPageSaudi), totalPagesSaudi);
           const startIndexSaudi = (validPageSaudi - 1) * RECOMMENDATIONS_PER_PAGE;
