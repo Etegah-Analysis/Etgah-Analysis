@@ -629,6 +629,8 @@ const Dashboard = () => {
   const [callsSelectedEmpFilter, setCallsSelectedEmpFilter] = useState('');
   const [callsSearchTerm, setCallsSearchTerm] = useState('');
   const [callsCurrentPage, setCallsCurrentPage] = useState(1);
+  const [currentPageSaudi, setCurrentPageSaudi] = useState(1);
+  const [currentPageUs, setCurrentPageUs] = useState(1);
   const [activeCallSession, setActiveCallSession] = useState(null); // { callDocId, phoneNumber, customerName, startedAt }
   const [activeCallTimer, setActiveCallTimer] = useState(0);
 
@@ -12130,6 +12132,85 @@ const handleExportBuffetToExcel = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Saudi Market Recommendations Pagination Bar */}
+              {filteredSignals.length > 0 && (
+                <div className="px-6 py-4 border-t border-amber-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
+                  <div className="text-xs font-bold text-amber-200">
+                    عرض <span className="text-amber-300 font-black">{startIndexSaudi + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexSaudi + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Custom Page Jump Input */}
+                    <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                      <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
+                      <input 
+                        type="number"
+                        min="1"
+                        max={totalPagesSaudi}
+                        defaultValue=""
+                        placeholder={String(validPageSaudi)}
+                        className="w-14 text-center text-xs font-black border border-amber-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPagesSaudi) {
+                              setCurrentPageSaudi(val);
+                            } else {
+                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesSaudi}`);
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesSaudi}</span>
+                    </div>
+
+                    {/* Prev Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageSaudi(prev => Math.max(1, prev - 1))}
+                      disabled={validPageSaudi <= 1}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <ChevronRight size={14} />
+                      <span>السابقة</span>
+                    </button>
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(5, totalPagesSaudi) }, (_, i) => {
+                      let pNum = validPageSaudi - 2 + i;
+                      if (validPageSaudi <= 3) pNum = i + 1;
+                      if (pNum > totalPagesSaudi) return null;
+                      if (pNum <= 0) return null;
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => setCurrentPageSaudi(pNum)}
+                          className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                            pNum === validPageSaudi
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
+                              : 'bg-slate-900 text-amber-300 hover:bg-amber-950/60 border border-amber-500/20'
+                          }`}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageSaudi(prev => Math.min(totalPagesSaudi, prev + 1))}
+                      disabled={validPageSaudi >= totalPagesSaudi}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <span>التالية</span>
+                      <ChevronLeft size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -14710,6 +14791,12 @@ const handleExportBuffetToExcel = () => {
             return true;
           });
 
+          const RECOMMENDATIONS_PER_PAGE = 20;
+          const totalPagesSaudi = Math.max(1, Math.ceil(filteredSignals.length / RECOMMENDATIONS_PER_PAGE));
+          const validPageSaudi = Math.min(Math.max(1, currentPageSaudi), totalPagesSaudi);
+          const startIndexSaudi = (validPageSaudi - 1) * RECOMMENDATIONS_PER_PAGE;
+          const paginatedSaudiSignals = filteredSignals.slice(startIndexSaudi, startIndexSaudi + RECOMMENDATIONS_PER_PAGE);
+
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
               {/* Header Banner */}
@@ -15000,10 +15087,11 @@ const handleExportBuffetToExcel = () => {
                       <th className="py-3 px-3 text-center w-10 text-amber-300">
                         <input
                           type="checkbox"
-                          checked={filteredSignals.length > 0 && selectedSaudiIds.length === filteredSignals.length}
+                          checked={paginatedSaudiSignals.length > 0 && paginatedSaudiSignals.every(s => selectedSaudiIds.includes(s.id))}
                           onChange={(e) => {
-                            if (e.target.checked) setSelectedSaudiIds(filteredSignals.map(s => s.id));
-                            else setSelectedSaudiIds([]);
+                            const pIds = paginatedSaudiSignals.map(s => s.id);
+                            if (e.target.checked) setSelectedSaudiIds(prev => [...new Set([...prev, ...pIds])]);
+                            else setSelectedSaudiIds(prev => prev.filter(id => !pIds.includes(id)));
                           }}
                           className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                         />
@@ -15043,7 +15131,7 @@ const handleExportBuffetToExcel = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredSignals.map((sig, idx) => {
+                      paginatedSaudiSignals.map((sig, idx) => {
                         const pct = calculateSaudiPercentage(sig);
 
                         return (
@@ -15059,7 +15147,7 @@ const handleExportBuffetToExcel = () => {
                                 className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                               />
                             </td>
-                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{startIndexSaudi + idx + 1}</td>
 
                             <td className="py-3 px-3 font-extrabold text-emerald-950 text-sm">
                               {sig.stockName}
@@ -15213,6 +15301,85 @@ const handleExportBuffetToExcel = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* US Market Recommendations Pagination Bar */}
+              {filteredSignals.length > 0 && (
+                <div className="px-6 py-4 border-t border-blue-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
+                  <div className="text-xs font-bold text-amber-200">
+                    عرض <span className="text-amber-300 font-black">{startIndexUs + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexUs + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Custom Page Jump Input */}
+                    <div className="flex items-center gap-1 bg-slate-900 border border-blue-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                      <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
+                      <input 
+                        type="number"
+                        min="1"
+                        max={totalPagesUs}
+                        defaultValue=""
+                        placeholder={String(validPageUs)}
+                        className="w-14 text-center text-xs font-black border border-blue-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPagesUs) {
+                              setCurrentPageUs(val);
+                            } else {
+                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesUs}`);
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesUs}</span>
+                    </div>
+
+                    {/* Prev Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageUs(prev => Math.max(1, prev - 1))}
+                      disabled={validPageUs <= 1}
+                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <ChevronRight size={14} />
+                      <span>السابقة</span>
+                    </button>
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(5, totalPagesUs) }, (_, i) => {
+                      let pNum = validPageUs - 2 + i;
+                      if (validPageUs <= 3) pNum = i + 1;
+                      if (pNum > totalPagesUs) return null;
+                      if (pNum <= 0) return null;
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => setCurrentPageUs(pNum)}
+                          className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                            pNum === validPageUs
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
+                              : 'bg-slate-900 text-amber-300 hover:bg-slate-800 border border-blue-500/20'
+                          }`}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageUs(prev => Math.min(totalPagesUs, prev + 1))}
+                      disabled={validPageUs >= totalPagesUs}
+                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <span>التالية</span>
+                      <ChevronLeft size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -15223,24 +15390,10 @@ const handleExportBuffetToExcel = () => {
         {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
         {/* ========================================================================= */}
         {activeTab === 'us_signals' && (isAdmin || hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (() => {
-          const filteredSignals = usRecommendations.filter(sig => {
-            if (selectedUsMonth !== 'all') {
-              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
-              if (dVal && !isNaN(dVal.getTime())) {
-                const y = dVal.getFullYear();
-                const m = dVal.getMonth() + 1;
-                const k = `${y}-${m < 10 ? '0' + m : m}`;
-                if (k !== selectedUsMonth) return false;
-              }
-            }
-            if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
-            if (usSignalsStatusFilter !== 'all' && sig.status !== usSignalsStatusFilter) return false;
-            if (usSignalsSearch.trim()) {
-              const q = usSignalsSearch.trim().toUpperCase();
-              if (!(sig.symbol || '').toUpperCase().includes(q)) return false;
-            }
-            return true;
-          });
+          const totalPagesUs = Math.max(1, Math.ceil(filteredSignals.length / RECOMMENDATIONS_PER_PAGE));
+          const validPageUs = Math.min(Math.max(1, currentPageUs), totalPagesUs);
+          const startIndexUs = (validPageUs - 1) * RECOMMENDATIONS_PER_PAGE;
+          const paginatedUsSignals = filteredSignals.slice(startIndexUs, startIndexUs + RECOMMENDATIONS_PER_PAGE);
 
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
@@ -15564,10 +15717,11 @@ const handleExportBuffetToExcel = () => {
                       <th className="py-3 px-3 text-center w-10 text-amber-300">
                         <input
                           type="checkbox"
-                          checked={filteredSignals.length > 0 && selectedUsIds.length === filteredSignals.length}
+                          checked={paginatedUsSignals.length > 0 && paginatedUsSignals.every(s => selectedUsIds.includes(s.id))}
                           onChange={(e) => {
-                            if (e.target.checked) setSelectedUsIds(filteredSignals.map(s => s.id));
-                            else setSelectedUsIds([]);
+                            const pIds = paginatedUsSignals.map(s => s.id);
+                            if (e.target.checked) setSelectedUsIds(prev => [...new Set([...prev, ...pIds])]);
+                            else setSelectedUsIds(prev => prev.filter(id => !pIds.includes(id)));
                           }}
                           className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                         />
@@ -15604,7 +15758,7 @@ const handleExportBuffetToExcel = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredSignals.map((sig, idx) => {
+                      paginatedUsSignals.map((sig, idx) => {
                         const pct = calculateUsPercentage(sig);
 
                         return (
@@ -15620,7 +15774,7 @@ const handleExportBuffetToExcel = () => {
                                 className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                               />
                             </td>
-                            <td className="py-3 px-3 text-center font-bold text-gray-400">{idx + 1}</td>
+                            <td className="py-3 px-3 text-center font-bold text-gray-400">{startIndexUs + idx + 1}</td>
 
                             <td className="py-3 px-3 font-black text-blue-950 text-sm font-mono tracking-wider">
                               {sig.symbol}
