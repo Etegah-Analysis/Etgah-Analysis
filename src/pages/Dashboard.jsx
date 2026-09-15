@@ -15386,6 +15386,35 @@ const handleExportBuffetToExcel = () => {
         {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
         {/* ========================================================================= */}
         {activeTab === 'us_signals' && (isAdmin || hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (() => {
+          const filteredSignals = usRecommendations.filter(sig => {
+            if (selectedUsMonth !== 'all') {
+              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+              if (dVal && !isNaN(dVal.getTime())) {
+                const y = dVal.getFullYear();
+                const m = dVal.getMonth() + 1;
+                const k = `${y}-${m < 10 ? '0' + m : m}`;
+                if (k !== selectedUsMonth) return false;
+              }
+            }
+            if (usDateFrom) {
+              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+              if (dVal && dVal < new Date(usDateFrom)) return false;
+            }
+            if (usDateTo) {
+              const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
+              if (dVal && dVal > new Date(usDateTo + 'T23:59:59')) return false;
+            }
+            if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
+            if (usSignalsStatusFilter !== 'all' && sig.status !== usSignalsStatusFilter) return false;
+            if (usSignalsSearch.trim()) {
+              const q = usSignalsSearch.trim().toLowerCase();
+              const symbolMatch = (sig.symbol || '').toLowerCase().includes(q);
+              const notesMatch = (sig.notes || sig.name || '').toLowerCase().includes(q);
+              if (!symbolMatch && !notesMatch) return false;
+            }
+            return true;
+          });
+
           const totalPagesUs = Math.max(1, Math.ceil(filteredSignals.length / RECOMMENDATIONS_PER_PAGE));
           const validPageUs = Math.min(Math.max(1, currentPageUs), totalPagesUs);
           const startIndexUs = (validPageUs - 1) * RECOMMENDATIONS_PER_PAGE;
