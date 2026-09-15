@@ -21529,7 +21529,15 @@ const handleExportBuffetToExcel = () => {
                       type="text"
                       placeholder="مثال: 10 أو 20 ك"
                       value={buffetItemTotalQty}
-                      onChange={(e) => setBuffetItemTotalQty(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBuffetItemTotalQty(val);
+                        const t = parseFloat(val);
+                        const u = parseFloat(buffetItemUsedQty);
+                        if (!isNaN(t) && !isNaN(u)) {
+                          setBuffetItemRemainingQty(String(Math.max(0, t - u)));
+                        }
+                      }}
                       className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
                     />
                   </div>
@@ -21539,7 +21547,15 @@ const handleExportBuffetToExcel = () => {
                       type="text"
                       placeholder="مثال: 2 أو 5 ك"
                       value={buffetItemUsedQty}
-                      onChange={(e) => setBuffetItemUsedQty(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBuffetItemUsedQty(val);
+                        const t = parseFloat(buffetItemTotalQty);
+                        const u = parseFloat(val);
+                        if (!isNaN(t) && !isNaN(u)) {
+                          setBuffetItemRemainingQty(String(Math.max(0, t - u)));
+                        }
+                      }}
                       className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
                     />
                   </div>
