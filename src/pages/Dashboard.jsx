@@ -12179,84 +12179,7 @@ const handleExportBuffetToExcel = () => {
                 </table>
               </div>
 
-              {/* Saudi Market Recommendations Pagination Bar */}
-              {filteredSignals.length > 0 && (
-                <div className="px-6 py-4 border-t border-amber-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
-                  <div className="text-xs font-bold text-amber-200">
-                    عرض <span className="text-amber-300 font-black">{startIndexSaudi + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexSaudi + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
-                  </div>
-                  
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Custom Page Jump Input */}
-                    <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
-                      <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
-                      <input 
-                        type="number"
-                        min="1"
-                        max={totalPagesSaudi}
-                        defaultValue=""
-                        placeholder={String(validPageSaudi)}
-                        className="w-14 text-center text-xs font-black border border-amber-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const val = parseInt(e.target.value, 10);
-                            if (val >= 1 && val <= totalPagesSaudi) {
-                              setCurrentPageSaudi(val);
-                            } else {
-                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesSaudi}`);
-                            }
-                          }
-                        }}
-                      />
-                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesSaudi}</span>
-                    </div>
 
-                    {/* Prev Page Button */}
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPageSaudi(prev => Math.max(1, prev - 1))}
-                      disabled={validPageSaudi <= 1}
-                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    >
-                      <ChevronRight size={14} />
-                      <span>السابقة</span>
-                    </button>
-
-                    {/* Page Numbers */}
-                    {Array.from({ length: Math.min(5, totalPagesSaudi) }, (_, i) => {
-                      let pNum = validPageSaudi - 2 + i;
-                      if (validPageSaudi <= 3) pNum = i + 1;
-                      if (pNum > totalPagesSaudi) return null;
-                      if (pNum <= 0) return null;
-                      return (
-                        <button
-                          key={pNum}
-                          type="button"
-                          onClick={() => setCurrentPageSaudi(pNum)}
-                          className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
-                            pNum === validPageSaudi
-                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
-                              : 'bg-slate-900 text-amber-300 hover:bg-amber-950/60 border border-amber-500/20'
-                          }`}
-                        >
-                          {pNum}
-                        </button>
-                      );
-                    })}
-
-                    {/* Next Page Button */}
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPageSaudi(prev => Math.min(totalPagesSaudi, prev + 1))}
-                      disabled={validPageSaudi >= totalPagesSaudi}
-                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    >
-                      <span>التالية</span>
-                      <ChevronLeft size={14} />
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -12691,10 +12614,10 @@ const handleExportBuffetToExcel = () => {
                 <button 
                     onClick={() => openCrmCampaignModal('leads_crm')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء الشيت الحاليين (من 1 إلى 10 عملاء)"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء Leads CRM (من 1 إلى 15 عميل)"
                   >
                     <MessageSquare size={14} className="text-emerald-200" />
-                    <span>📢 إرسال حملة واتساب (CRM)</span>
+                    <span>📢 إرسال حملة واتساب (Leads CRM)</span>
                   </button>
 
                 {isAdmin && (
@@ -13411,10 +13334,10 @@ const handleExportBuffetToExcel = () => {
                 <button 
                     onClick={() => openCrmCampaignModal('employee_leads')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء الداتا المضافة (من 1 إلى 10 عملاء)"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء Added Leads (من 1 إلى 15 عميل)"
                   >
                     <MessageSquare size={14} className="text-emerald-200" />
-                    <span>📢 إرسال حملة واتساب (CRM)</span>
+                    <span>📢 إرسال حملة واتساب (Added Leads)</span>
                   </button>
 
                 <button 
