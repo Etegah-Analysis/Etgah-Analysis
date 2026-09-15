@@ -756,6 +756,9 @@ const Dashboard = () => {
 
   // Buffet Item Modal states
   const [isAddBuffetItemModalOpen, setIsAddBuffetItemModalOpen] = useState(false);
+  const [buffetCurrentPage, setBuffetCurrentPage] = useState(1);
+  const [buffetItemsPerPage, setBuffetItemsPerPage] = useState(10);
+  const [buffetFinancialMonthFilter, setBuffetFinancialMonthFilter] = useState('all');
   const [externalPayrollEmployees, setExternalPayrollEmployees] = useState([]);
   const [isAddExternalPayrollEmpModalOpen, setIsAddExternalPayrollEmpModalOpen] = useState(false);
   const [externalEmpName, setExternalEmpName] = useState('');
@@ -3159,6 +3162,29 @@ const Dashboard = () => {
       if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
       if (emp.name) empByName.set(emp.name, emp.uid);
     }
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    let todayDistributedCrmLeads = 0;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      const assignedTime = getTimestampMillis(c.assignedAt) || getTimestampMillis(c.createdAt) || c.timestampMillis;
+      const assignedDate = assignedTime ? new Date(assignedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
+      if (assignedDate === todayDateStr) {
+        todayDistributedCrmLeads++;
+      }
+    }
+
+    let todayAddedEmpLeads = 0;
+    if (employeeLeads) {
+      for (let i = 0; i < employeeLeads.length; i++) {
+        const c = employeeLeads[i];
+        const addedTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.assignedAt) || c.timestampMillis;
+        const addedDate = addedTime ? new Date(addedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
+        if (addedDate === todayDateStr) {
+          todayAddedEmpLeads++;
+        }
+      }
+    }
+
     for (let i = 0; i < leadsCrm.length; i++) {
       const c = leadsCrm[i];
       const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
@@ -3581,9 +3607,11 @@ const Dashboard = () => {
         const item = leadsList[i];
         const st = getStatus(item);
         if (st === 'started_trial') {
-          const updTime = getTimestampMillis(item.statusUpdatedAt) || getTimestampMillis(item.updatedAt) || getTimestampMillis(item.createdAt) || item.timestampMillis;
-          const updDate = updTime ? new Date(updTime).toISOString().split('T')[0] : (item.dateStr || item.actionDateStr);
-          if (updDate === todayDateStr || item.trialStartDate === todayDateStr || item.demoTodayDate === todayDateStr) {
+          // Strictly check demo conversion date or trial start date, isolating comments/edits
+          const demoConvertedDate = item.demoConvertedDateStr || item.trialStartDate || item.demoTodayDate;
+          const statusChangeTime = getTimestampMillis(item.statusUpdatedAt) || getTimestampMillis(item.demoConvertedAt);
+          const statusChangeDate = statusChangeTime ? new Date(statusChangeTime).toISOString().split('T')[0] : null;
+          if (demoConvertedDate === todayDateStr || statusChangeDate === todayDateStr) {
             todayDemo++;
           }
         }
@@ -3593,7 +3621,7 @@ const Dashboard = () => {
       const contactedCount = total - pending;
       const successRate = total > 0 ? Math.round((successfulCount / total) * 100) : 0;
       const interactionRate = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-      return { total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate };
+      return { total, subscribed, trial, todayDemo, interested, callBack, noAnswer, notInterested, pending, successfulCount, contactedCount, successRate, interactionRate, todayDistributedCrmLeads, todayAddedEmpLeads, todayTotalData: todayDistributedCrmLeads + todayAddedEmpLeads };
     };
 
     if ((isAgent || isCustomerService) && leadsAnalysisModalMode !== 'all') {
@@ -7440,6 +7468,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         const userNotes = (item.notes !== undefined && item.notes !== null) ? String(item.notes).trim() : '';
 
         if (targetSheet === 'inventory' || targetSheet === 'both') {
+          const currentFinancialMonth = new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
           const invItemData = {
             id: 'item_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
             itemName: finalItemName,
@@ -7448,10 +7477,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             remainingQty: item.remainingQty !== undefined ? String(item.remainingQty) : finalQty,
             notes: userNotes, // ALWAYS KEEP EMPTY UNLESS SPECIFIED
             imageUrl: invoiceImage || '',
+            financialMonth: item.financialMonth || currentFinancialMonth,
             updatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
             createdAtMillis: Date.now(),
-            updatedBy: userRole,
+            updatedBy: currentEmpUser?.name ? `${currentEmpUser.name} (${isAdmin ? '👑 الإدارة' : 'موظف'})` : userRole,
             updatedDateTime: formattedNow,
             order: buffetInventory.length + idx + 1
           };
@@ -15597,10 +15627,30 @@ const handleExportBuffetToExcel = () => {
         {/* ========================================================================= */}
         {activeTab === 'buffet_inventory' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_buffet') && hasPermission(currentEmpUser, 'canViewBuffet'))) && (() => {
           const q = buffetSearch.trim().toLowerCase();
-          const filteredInventory = buffetInventory.filter(item => {
-            if (!q) return true;
-            return (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+
+          // Financial Months List
+          const availableFinancialMonths = Array.from(new Set(buffetInventory.map(item => item.financialMonth).filter(Boolean)));
+          
+          let filteredInventory = buffetInventory.filter(item => {
+            const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+            const matchesMonth = buffetFinancialMonthFilter === 'all' || item.financialMonth === buffetFinancialMonthFilter;
+            return matchesSearch && matchesMonth;
           });
+
+          // Calculate Total Cost & Items for Selected Financial Month
+          let financialMonthTotalCost = 0;
+          let financialMonthTotalItems = 0;
+          filteredInventory.forEach(item => {
+            const c = parseFloat(item.cost || item.itemPrice) || 0;
+            const q = parseFloat(item.totalQty) || 1;
+            financialMonthTotalCost += (c * q > 0 ? c * q : c);
+            financialMonthTotalItems += 1;
+          });
+
+          // Pagination calculation
+          const totalPagesBuffet = Math.max(1, Math.ceil(filteredInventory.length / buffetItemsPerPage));
+          const safeBuffetPage = Math.min(buffetCurrentPage, totalPagesBuffet);
+          const paginatedInventory = filteredInventory.slice((safeBuffetPage - 1) * buffetItemsPerPage, safeBuffetPage * buffetItemsPerPage);
 
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
@@ -15658,7 +15708,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Search Bar */}
+              {/* Search Bar & Financial Month Filter */}
               <div className="p-4 bg-purple-950/10 border-b border-purple-500/10 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
                   <div className="relative w-full">
@@ -15667,9 +15717,34 @@ const handleExportBuffetToExcel = () => {
                       type="text"
                       placeholder="بحث في أصناف البوفيه..."
                       value={buffetSearch}
-                      onChange={(e) => setBuffetSearch(e.target.value)}
+                      onChange={(e) => { setBuffetSearch(e.target.value); setBuffetCurrentPage(1); }}
                       className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
                     />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Financial Month Selector */}
+                  <div className="flex items-center gap-1.5 bg-white border border-amber-300 rounded-xl px-3 py-1 shadow-sm text-xs font-bold">
+                    <Calendar size={14} className="text-amber-600" />
+                    <span className="text-gray-700">الشهر المالي:</span>
+                    <select
+                      value={buffetFinancialMonthFilter}
+                      onChange={(e) => { setBuffetFinancialMonthFilter(e.target.value); setBuffetCurrentPage(1); }}
+                      className="bg-transparent font-black text-purple-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">📅 كافة الشهور المالية</option>
+                      {availableFinancialMonths.map(m => (
+                        <option key={m} value={m}>📅 {m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Financial Month Stat Summary */}
+                  <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white px-3.5 py-1.5 rounded-xl border border-emerald-500/40 shadow-sm text-xs font-black flex items-center gap-2">
+                    <span>💰 مصروفات {buffetFinancialMonthFilter === 'all' ? 'الكل' : buffetFinancialMonthFilter}:</span>
+                    <span className="text-amber-300 font-mono text-sm">{financialMonthTotalCost.toLocaleString()} ج.م</span>
+                    <span className="text-[10px] bg-emerald-950/60 px-2 py-0.5 rounded-full text-emerald-200">({financialMonthTotalItems} صنف)</span>
                   </div>
                 </div>
               </div>
@@ -15716,24 +15791,25 @@ const handleExportBuffetToExcel = () => {
                           <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
                           <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
+                          <th className="py-2.5 px-3 text-center text-amber-300 font-extrabold bg-indigo-950/60">التاريخ والوقت والموظف 🕒</th>
                           <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
-                        {filteredInventory.length === 0 ? (
+                        {paginatedInventory.length === 0 ? (
                           <tr>
-                            <td colSpan="9" className="text-center py-8 text-gray-500 font-bold">
-                              لا توجد أصناف مطابقة للبحث
+                            <td colSpan="10" className="text-center py-8 text-gray-500 font-bold">
+                              لا توجد أصناف مطابقة للبحث والشهر المالي المختار
                             </td>
                           </tr>
                         ) : (
-                          filteredInventory.map((item, idx) => (
+                          paginatedInventory.map((item, idx) => (
                             <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
                               <td className="py-2.5 px-2 text-center">
                                 <input type="checkbox" className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer" checked={selectedInventoryIds.includes(item.id)} onChange={() => setSelectedInventoryIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])} />
                               </td>
                               <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
-                                {idx + 1}
+                                {(safeBuffetPage - 1) * buffetItemsPerPage + idx + 1}
                               </td>
                               <td className="py-2.5 px-3 font-extrabold text-gray-900">
                                 {item.itemName}
@@ -15759,6 +15835,14 @@ const handleExportBuffetToExcel = () => {
                               <td className="py-2.5 px-3 text-xs text-gray-600 max-w-[180px] truncate" title={item.notes}>
                                 {item.notes || <span className="text-gray-300">—</span>}
                               </td>
+                              <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
+                                <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
+                                  {item.updatedDateTime || item.formattedNow || '—'}
+                                </div>
+                                <div className="text-[9.5px] text-amber-900 font-black mt-0.5">
+                                  👤 {item.updatedBy || '👑 الإدارة'}
+                                </div>
+                              </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
@@ -15779,6 +15863,51 @@ const handleExportBuffetToExcel = () => {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Pagination Controls Bar matching Leads Style */}
+                  {filteredInventory.length > 0 && (
+                    <div className="px-4 py-3 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-t border-amber-500/30 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-amber-300">عرض:</span>
+                        <select
+                          value={buffetItemsPerPage}
+                          onChange={(e) => { setBuffetItemsPerPage(Number(e.target.value)); setBuffetCurrentPage(1); }}
+                          className="bg-slate-900 border border-amber-400/50 rounded-lg px-2 py-1 font-bold text-amber-300 outline-none cursor-pointer"
+                        >
+                          <option value={10}>10 أصناف</option>
+                          <option value={25}>25 صنف</option>
+                          <option value={50}>50 صنف</option>
+                          <option value={1000}>الكل</option>
+                        </select>
+                        <span className="text-gray-300 font-bold">
+                          إجمالي: <strong className="text-amber-300 font-mono">{filteredInventory.length}</strong> صنف
+                        </span>
+                      </div>
+
+                      {/* Page Buttons */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          disabled={safeBuffetPage <= 1}
+                          onClick={() => setBuffetCurrentPage(prev => Math.max(1, prev - 1))}
+                          className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/40 disabled:opacity-30 disabled:hover:bg-amber-500/20 text-amber-300 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          ◀ السابق
+                        </button>
+
+                        <span className="font-bold text-amber-200 px-2">
+                          الصفحة <strong className="text-white font-mono">{safeBuffetPage}</strong> من <strong className="text-white font-mono">{totalPagesBuffet}</strong>
+                        </span>
+
+                        <button
+                          disabled={safeBuffetPage >= totalPagesBuffet}
+                          onClick={() => setBuffetCurrentPage(prev => Math.min(totalPagesBuffet, prev + 1))}
+                          className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/40 disabled:opacity-30 disabled:hover:bg-amber-500/20 text-amber-300 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          التالي ▶
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -18825,11 +18954,14 @@ const handleExportBuffetToExcel = () => {
                       <div className="space-y-6">
                         {/* Company Summary Cards (v2.25 with Daily Demo Tracking) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 p-4 rounded-2xl border border-purple-500/40 shadow-lg">
-                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا للتقييم</span>
-                            <span className="text-2xl font-black text-white">{totalCompanyActiveLeads.toLocaleString()} عميل</span>
-                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
-                              ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
+                          <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-lg">
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا اليومية للتقييم 📊</span>
+                            <span className="text-2xl font-black text-amber-300">{(data.todayTotalData || 0).toLocaleString()} عميل اليوم</span>
+                            <span className="text-[10px] text-purple-200 font-medium block mt-0.5" dir="rtl">
+                              ({(data.todayDistributedCrmLeads || 0).toLocaleString()} موزع اليوم + {(data.todayAddedEmpLeads || 0).toLocaleString()} مضاف اليوم)
+                            </span>
+                            <span className="text-[9.5px] text-purple-300 font-bold block mt-1.5 border-t border-purple-500/30 pt-1" dir="rtl">
+                              إجمالي الداتا التراكمي: {totalCompanyActiveLeads.toLocaleString()} عميل ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
                             </span>
                           </div>
 
@@ -21884,6 +22016,77 @@ const handleExportBuffetToExcel = () => {
         )}
 
         {/* 1. Modal: Add/Edit Buffet Inventory Item */}
+        {/* DEDICATED EDIT PAYROLL & ATTENDANCE MODAL */}
+        {isEditPayrollModalOpen && editingPayrollEmp && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" dir="rtl" onClick={(e) => { if (e.target === e.currentTarget) setIsEditPayrollModalOpen(false); }}>
+            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white rounded-3xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative border border-amber-500/40 my-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center pb-3 border-b border-amber-500/20 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40 text-amber-300">
+                    <Edit size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-amber-300">تعديل بيانات وراتب الموظف 💰</h3>
+                    <p className="text-xs text-gray-300 font-bold">{editingPayrollEmp.username || editingPayrollEmp.name} • ({editingPayrollEmp.jobTitle || 'موظف'})</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setIsEditPayrollModalOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg cursor-pointer">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePayroll} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">الراتب الأساسي (ج.م):</label>
+                    <input type="number" value={payrollBaseSalary} onChange={(e) => setPayrollBaseSalary(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono" placeholder="0" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">إجمالي السلف (ج.م):</label>
+                    <input type="number" value={payrollAdvances} onChange={(e) => setPayrollAdvances(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono" placeholder="0" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">خصم KPI (ج.م):</label>
+                    <input type="number" value={payrollKpiDeduction} onChange={(e) => setPayrollKpiDeduction(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono" placeholder="0" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">أيام التأخير / الغياب:</label>
+                    <input type="text" value={payrollLateDays} onChange={(e) => setPayrollLateDays(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono" placeholder="مثال: 2 يوم" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">خصم التأخير (ج.م):</label>
+                    <input type="number" value={payrollLateDeduction} onChange={(e) => setPayrollLateDeduction(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono" placeholder="0" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-200 mb-1">موعد الحضور المعتاد:</label>
+                    <input type="text" value={payrollCheckIn} onChange={(e) => setPayrollCheckIn(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="09:00 AM" />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-amber-200 mb-1">موعد الانصراف المعتاد:</label>
+                    <input type="text" value={payrollCheckOut} onChange={(e) => setPayrollCheckOut(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="05:00 PM" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-amber-200 mb-1">ملاحظات وتقارير الموظف:</label>
+                  <textarea rows={2} value={payrollNotes} onChange={(e) => setPayrollNotes(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-amber-400/50 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="أي ملاحظات إضافية..." />
+                </div>
+
+                <div className="pt-3 border-t border-amber-500/20 flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => setIsEditPayrollModalOpen(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold transition cursor-pointer">إلغاء ✕</button>
+                  <button type="submit" className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition shadow-md cursor-pointer">حفظ التعديلات والدورة المالية 💾</button>
+                </div>
+              </form>
+            </div>
+          </div>, document.body
+        )}
+
         {isAddBuffetItemModalOpen && typeof document !== 'undefined' && document.body && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onPaste={handleModalPasteBuffetItem} onClick={(e) => { if (e.target === e.currentTarget) setIsAddBuffetItemModalOpen(false); }}>
             <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
