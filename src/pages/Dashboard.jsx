@@ -3162,29 +3162,6 @@ const Dashboard = () => {
       if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
       if (emp.name) empByName.set(emp.name, emp.uid);
     }
-    const todayDateStr = new Date().toISOString().split('T')[0];
-    let todayDistributedCrmLeads = 0;
-    for (let i = 0; i < leadsCrm.length; i++) {
-      const c = leadsCrm[i];
-      const assignedTime = getTimestampMillis(c.assignedAt) || getTimestampMillis(c.createdAt) || c.timestampMillis;
-      const assignedDate = assignedTime ? new Date(assignedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
-      if (assignedDate === todayDateStr) {
-        todayDistributedCrmLeads++;
-      }
-    }
-
-    let todayAddedEmpLeads = 0;
-    if (employeeLeads) {
-      for (let i = 0; i < employeeLeads.length; i++) {
-        const c = employeeLeads[i];
-        const addedTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.assignedAt) || c.timestampMillis;
-        const addedDate = addedTime ? new Date(addedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
-        if (addedDate === todayDateStr) {
-          todayAddedEmpLeads++;
-        }
-      }
-    }
-
     for (let i = 0; i < leadsCrm.length; i++) {
       const c = leadsCrm[i];
       const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
@@ -3539,6 +3516,29 @@ const Dashboard = () => {
     if (!isLeadsAnalysisModalOpen || !leadsCrm) return null;
 
     const getStatus = (c) => (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    let todayDistributedCrmLeads = 0;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const c = leadsCrm[i];
+      const assignedTime = getTimestampMillis(c.assignedAt) || getTimestampMillis(c.createdAt) || c.timestampMillis;
+      const assignedDate = assignedTime ? new Date(assignedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
+      if (assignedDate === todayDateStr) {
+        todayDistributedCrmLeads++;
+      }
+    }
+
+    let todayAddedEmpLeads = 0;
+    if (employeeLeads) {
+      for (let i = 0; i < employeeLeads.length; i++) {
+        const c = employeeLeads[i];
+        const addedTime = getTimestampMillis(c.createdAt) || getTimestampMillis(c.assignedAt) || c.timestampMillis;
+        const addedDate = addedTime ? new Date(addedTime).toISOString().split('T')[0] : (c.dateStr || c.actionDateStr);
+        if (addedDate === todayDateStr) {
+          todayAddedEmpLeads++;
+        }
+      }
+    }
 
     const crmByUid = new Map();
     const crmByMail = new Map();
@@ -8902,36 +8902,66 @@ const handleModalPasteBuffetItem = (e) => {
   
   const handleBulkDeleteInventory = async () => {
     if (selectedInventoryIds.length === 0) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedInventoryIds.length} أصناف من مخزون البوفيه؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedInventoryIds.length} أصناف من مخزون البوفيه بنقرة واحدة؟`)) return;
     const idsToDelete = [...selectedInventoryIds];
+    
+    // 0ms Instant Optimistic State Update (Entire selection deleted instantly at once)
     const updatedList = buffetInventory.filter(i => !idsToDelete.includes(i.id));
     setBuffetInventory(updatedList);
     setSelectedInventoryIds([]);
     localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
-    toast.success(`تم حذف ${idsToDelete.length} أصناف بنجاح 🗑️`);
+    toast.success(`🎉 تم حذف ${idsToDelete.length} أصناف دفعة واحدة في ميكروثانية!`);
 
-    for (const id of idsToDelete) {
-      if (id && !id.startsWith('item_')) {
-        deleteDoc(doc(db, 'buffet_inventory', id)).catch(e => console.warn('Background delete error:', e));
+    // Atomic writeBatch in Firestore background (single batch operation)
+    (async () => {
+      try {
+        const batch = writeBatch(db);
+        let count = 0;
+        for (const id of idsToDelete) {
+          if (id && !id.startsWith('item_')) {
+            batch.delete(doc(db, 'buffet_inventory', id));
+            count++;
+          }
+        }
+        if (count > 0) {
+          await batch.commit();
+        }
+      } catch (err) {
+        console.warn('Background batch delete error:', err);
       }
-    }
+    })();
   };
 
   const handleBulkDeletePurchases = async () => {
     if (selectedPurchaseIds.length === 0) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedPurchaseIds.length} مشتريات من شيت البوفيه؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedPurchaseIds.length} مشتريات من شيت البوفيه بنقرة واحدة؟`)) return;
     const idsToDelete = [...selectedPurchaseIds];
+    
+    // 0ms Instant Optimistic State Update
     const updatedList = buffetPurchases.filter(p => !idsToDelete.includes(p.id));
     setBuffetPurchases(updatedList);
     setSelectedPurchaseIds([]);
     localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
-    toast.success(`تم حذف ${idsToDelete.length} مشتريات بنجاح 🗑️`);
+    toast.success(`🎉 تم حذف ${idsToDelete.length} مشتريات دفعة واحدة في ميكروثانية!`);
 
-    for (const id of idsToDelete) {
-      if (id && !id.startsWith('purch_')) {
-        deleteDoc(doc(db, 'buffet_purchases', id)).catch(e => console.warn('Background delete error:', e));
+    // Atomic writeBatch in Firestore background
+    (async () => {
+      try {
+        const batch = writeBatch(db);
+        let count = 0;
+        for (const id of idsToDelete) {
+          if (id && !id.startsWith('purch_')) {
+            batch.delete(doc(db, 'buffet_purchases', id));
+            count++;
+          }
+        }
+        if (count > 0) {
+          await batch.commit();
+        }
+      } catch (err) {
+        console.warn('Background batch delete error:', err);
       }
-    }
+    })();
   };
 
   const handleDeleteBuffetItem = async (itemId) => {
