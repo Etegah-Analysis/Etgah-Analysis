@@ -731,7 +731,8 @@ const Dashboard = () => {
       m -= 1;
       if (m === 0) { m = 12; y -= 1; }
     }
-    return `${y}-${m < 10 ? '0' + m : m}`;
+    const calculatedKey = `${y}-${m < 10 ? '0' + m : m}`;
+    return calculatedKey < '2026-09' ? '2026-09' : calculatedKey;
   });
   const [selectedSaudiMonth, setSelectedSaudiMonth] = useState('all');
   const [selectedUsMonth, setSelectedUsMonth] = useState('all');
@@ -7678,7 +7679,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       m -= 1;
       if (m === 0) { m = 12; y -= 1; }
     }
-    return `${y}-${m < 10 ? '0' + m : m}`;
+    const key = `${y}-${m < 10 ? '0' + m : m}`;
+    return key < '2026-09' ? '2026-09' : key;
   };
 
   const getPayrollCycleLabel = (cycleKey) => {
@@ -7693,14 +7695,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
   const getPreviousPayrollCycles = () => {
     const list = [];
-    const now = new Date();
-    for (let i = 1; i <= 12; i++) {
-      const pastDate = new Date(now.getFullYear(), now.getMonth() - i, 21);
-      const key = getPayrollCycleKey(pastDate);
-      if (!list.some(item => item.key === key)) {
+    const currentKey = getPayrollCycleKey();
+    const minCycle = '2026-09';
+    
+    // Build list of valid cycles starting from 2026-09
+    const monthsAr = ['سبتمبر 2026', 'أكتوبر 2026', 'نوفمبر 2026', 'ديسمبر 2026'];
+    const cycleKeys = ['2026-09', '2026-10', '2026-11', '2026-12'];
+
+    cycleKeys.forEach((key, idx) => {
+      if (key >= minCycle && key !== currentKey && !list.some(item => item.key === key)) {
         list.push({ key, label: getPayrollCycleLabel(key) });
       }
-    }
+    });
+
     return list;
   };
 
