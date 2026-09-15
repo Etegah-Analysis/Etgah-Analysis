@@ -9528,26 +9528,26 @@ const handleExportBuffetToExcel = () => {
     }
   ];
 
-  // 48 hours cooldown helper (2 days / يومين)
+  // 72 hours cooldown helper (3 days / 3 أيام لحماية التكرار)
   const isLeadInCampaignCooldown = (lead) => {
     if (!lead) return false;
     const lastTime = getTimestampMillis(lead.lastCampaignSentAt) || getTimestampMillis(lead.lastCampaignDate) || (lead.lastCampaignSentMillis || 0);
     if (!lastTime) return false;
-    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
-    return (Date.now() - lastTime) < TWO_DAYS_MS;
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    return (Date.now() - lastTime) < THREE_DAYS_MS;
   };
 
   const getRemainingCooldownHours = (lead) => {
     if (!lead) return 0;
     const lastTime = getTimestampMillis(lead.lastCampaignSentAt) || getTimestampMillis(lead.lastCampaignDate) || (lead.lastCampaignSentMillis || 0);
     if (!lastTime) return 0;
-    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
-    const diff = (lastTime + TWO_DAYS_MS) - Date.now();
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const diff = (lastTime + THREE_DAYS_MS) - Date.now();
     if (diff <= 0) return 0;
     return Math.ceil(diff / (1000 * 60 * 60));
   };
 
-  const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize) => {
+  const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize, targetStatusFilter = crmCampaignStatusFilter) => {
     const isEmpLeadsPool = crmCampaignTargetPool === 'employee_leads';
     const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
     const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
@@ -9565,12 +9565,19 @@ const handleExportBuffetToExcel = () => {
       });
     }
 
+    // Apply Status Filter if selected
+    if (targetStatusFilter && targetStatusFilter !== 'all') {
+      candidateLeads = candidateLeads.filter(c => {
+        const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        return st === targetStatusFilter;
+      });
+    }
+
     const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
+    // HIDE leads in 3-day cooldown COMPLETELY from campaign modal target list (they remain in sheet card)
     const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
-    const cooldownLeads = validLeads.filter(c => isLeadInCampaignCooldown(c));
-    const combined = [...availableLeads, ...cooldownLeads];
-    const count = Math.min(10, Math.max(1, batchCount));
-    return combined.slice(0, count);
+    const count = Math.min(15, Math.max(1, batchCount));
+    return availableLeads.slice(0, count);
   };
 
   const openCrmCampaignModal = (poolType = 'leads_crm') => {
@@ -9579,6 +9586,7 @@ const handleExportBuffetToExcel = () => {
       return;
     }
     setCrmCampaignTargetPool(poolType);
+    setCrmCampaignStatusFilter('all');
     setCrmCampaignProgress(0);
     const isEmpLeadsPool = poolType === 'employee_leads';
     const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
@@ -18987,36 +18995,36 @@ const handleExportBuffetToExcel = () => {
                           <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-lg">
                             <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا اليومية للتقييم 📊</span>
                             <span className="text-2xl font-black text-amber-300">{(data.todayTotalData || 0).toLocaleString()} عميل اليوم</span>
-                            <span className="text-[10px] text-purple-200 font-medium block mt-0.5" dir="rtl">
+                            <span className="text-xs text-purple-200 font-bold block mt-1" dir="rtl">
                               ({(data.todayDistributedCrmLeads || 0).toLocaleString()} موزع اليوم + {(data.todayAddedEmpLeads || 0).toLocaleString()} مضاف اليوم)
                             </span>
-                            <span className="text-[9.5px] text-purple-300 font-bold block mt-1.5 border-t border-purple-500/30 pt-1" dir="rtl">
-                              إجمالي الداتا التراكمي: {totalCompanyActiveLeads.toLocaleString()} عميل ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-purple-500/30 text-xs sm:text-sm font-black text-amber-300" dir="rtl">
+                              إجمالي الداتا التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{totalCompanyActiveLeads.toLocaleString()}</strong> عميل ({totalDistributedLeads.toLocaleString()} موزع + {totalEmpAddedLeads.toLocaleString()} مضاف)
+                            </div>
                           </div>
 
                           <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-lg">
                             <span className="text-xs text-cyan-200 font-black block mb-1">🎯 ديمو اليوم (Daily Demos)</span>
                             <span className="text-2xl font-black text-cyan-300">{data.todayCompanyDemo || 0} ديمو اليوم</span>
-                            <span className="text-[10px] text-cyan-400 font-medium block mt-0.5" dir="rtl">
-                              (إجمالي التراكمي: {data.totalCompanyDemo || 0} بدأوا تجربة 🚀)
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-cyan-500/30 text-xs sm:text-sm font-black text-cyan-200" dir="rtl">
+                              إجمالي التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{data.totalCompanyDemo || 0}</strong> بدأوا تجربة 🚀
+                            </div>
                           </div>
 
                           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40 shadow-lg">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل نجاح الفريق العام 📈</span>
                             <span className="text-2xl font-black text-emerald-400">{overallCompanyRate}%</span>
-                            <span className="text-[10px] text-purple-300 font-medium block mt-0.5" dir="rtl">
-                              ({totalCompanySuccessful.toLocaleString()} ناجح من {totalCompanyActiveLeads.toLocaleString()})
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-indigo-500/30 text-xs sm:text-sm font-black text-purple-200" dir="rtl">
+                              إجمالي النجاح التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{totalCompanySuccessful.toLocaleString()}</strong> ناجح من {totalCompanyActiveLeads.toLocaleString()}
+                            </div>
                           </div>
 
                           <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-lg">
                             <span className="text-xs text-teal-200 font-bold block mb-1">معدل التواصل العام 📞</span>
                             <span className="text-2xl font-black text-teal-300">{overallCompanyContactRate}%</span>
-                            <span className="text-[10px] text-teal-400 font-medium block mt-0.5" dir="rtl">
-                              ({totalCompanyContacted.toLocaleString()} تم التواصل)
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-teal-500/30 text-xs sm:text-sm font-black text-teal-200" dir="rtl">
+                              إجمالي التواصل التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{totalCompanyContacted.toLocaleString()}</strong> تم التواصل
+                            </div>
                           </div>
 
                           <div className="bg-gradient-to-r from-amber-950 to-slate-900 p-4 rounded-2xl border border-amber-500/40 shadow-lg">
@@ -19030,9 +19038,9 @@ const handleExportBuffetToExcel = () => {
                               ) : 'لا يوجد'}
                             </span>
                             {topEmp && (
-                              <span className="text-[10px] text-amber-200 font-medium block mt-0.5" dir="rtl">
-                                ({topEmp.successfulCount} ناجح من {topEmp.total})
-                              </span>
+                              <div className="mt-2.5 pt-2 border-t border-amber-500/30 text-xs sm:text-sm font-black text-amber-200" dir="rtl">
+                                الأفضل: <strong className="text-white">{topEmp.successfulCount}</strong> ناجح من {topEmp.total}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -19717,7 +19725,7 @@ const handleExportBuffetToExcel = () => {
                         <span>📢 إرسال حملة واتساب لشيت العملاء (CRM Campaign)</span>
                       </h2>
                       <p className="text-xs text-emerald-300 font-semibold mt-0.5">
-                        إرسال رسائل ترويجية مباشرة لأرقام العملاء (من 1 إلى 10 عملاء) وترحيلهم فوراً لشات الواتساب (محمية من التكرار لمدة يومين)
+                        إرسال رسائل ترويجية مباشرة لأرقام العملاء (من 1 إلى 15 عميل) وترحيلهم فوراً لشات الواتساب (تختفي الأرقام من نافذة الحملة لمدة 3 أيام)
                       </p>
                     </div>
                   </div>
