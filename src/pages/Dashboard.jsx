@@ -8717,6 +8717,30 @@ const handleModalPasteBuffetItem = (e) => {
   const handleSaveBuffetItem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
+    // 1-Click Auto Batch Extraction when image/paste is attached without manual name entry
+    if (buffetItemImage && !buffetItemName.trim() && !editingBuffetItem) {
+      setBuffetSaving(true);
+      toast.loading('جاري سحب الأصناف المكتوبة بخط اليد وتوزيعها على أعمدة الشيت فوراً... ⚡', { id: 'auto-extract-toast' });
+      try {
+        const compressedImg = await compressImageDataUrl(buffetItemImage, 1000, 1000, 0.7);
+        const ocrText = await performOcrOnImage(compressedImg);
+        const extractedItems = extractInvoiceItemsFromText(ocrText);
+        toast.dismiss('auto-extract-toast');
+
+        if (extractedItems && extractedItems.length > 0) {
+          await handleSaveAllExtractedInvoiceItems(extractedItems, buffetItemImage, 'inventory');
+          setIsAddBuffetItemModalOpen(false);
+          setBuffetItemImage(null);
+          setBuffetSaving(false);
+          toast.success(`🎉 تم سحب وتوزيع ${extractedItems.length} أصناف على الشيت تلقائياً وبضغطة واحدة!`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Auto OCR extraction fallback:', err);
+        toast.dismiss('auto-extract-toast');
+      }
+    }
+
     let finalName = buffetItemName.trim();
     if (!finalName) {
       if (buffetItemImage) {
@@ -21838,7 +21862,7 @@ const handleExportBuffetToExcel = () => {
                     {editingBuffetItem ? 'تعديل صنف بمخزون البوفيه ✏️' : 'إضافة صنف جديد للبوفيه ☕'}
                   </h3>
                   <p className="text-xs text-emerald-200/70">
-                    أدخل اسم الصنف والكمية الإجمالية والمستخدمة والمتبقية
+                    أدخل اسم الصنف والكمية والسعر، أو ارفع صورة/نص الفاتورة واضغط حفظ مباشرة
                   </p>
                 </div>
               </div>
@@ -21925,113 +21949,74 @@ const handleExportBuffetToExcel = () => {
                   />
                 </div>
 
-                
-
+                {/* Clean Image Attachment / Paste Support */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">تاريخ الشراء</label>
-                  <input
-                    type="date"
-                    value={buffetPurchaseDate}
-                    onChange={(e) => setBuffetPurchaseDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold text-center"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات (اختياري)</label>
-                  <textarea
-                    rows="2"
-                    placeholder="أي ملاحظات إضافية على الفاتورة أو المشترى..."
-                    value={buffetPurchaseNotes}
-                    onChange={(e) => setBuffetPurchaseNotes(e.target.value)}
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-
-                
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-rose-300 mb-1">أيام التأخير (أيام)</label>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">مكان لصق صورة أو نص الفاتورة (Ctrl + V / اختيار ملف)</label>
+                  <div className="flex items-center gap-2">
                     <input
-                      type="number"
-                      placeholder="مثال: 2"
-                      value={payrollLateDays}
-                      onChange={(e) => setPayrollLateDays(e.target.value)}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
+                      type="file"
+                      accept="image/*"
+                      id="buffet-item-img-input"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const imgData = ev.target?.result;
+                            setBuffetItemImage(imgData);
+                            toast.success('تم إرفاق صورة الفاتورة 🖼️ اضغط حفظ الصنف لسحب الأصناف للشيت فوراً!');
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
+                    <label
+                      htmlFor="buffet-item-img-input"
+                      className="cursor-pointer bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Upload size={14} />
+                      <span>{buffetItemImage ? 'تغيير صورة الفاتورة 🖼️' : '📷 إرفاق / رفع صورة الفاتورة'}</span>
+                    </label>
+                    {buffetItemImage && (
+                      <button
+                        type="button"
+                        onClick={() => setBuffetItemImage(null)}
+                        className="text-rose-400 hover:text-rose-300 text-xs font-bold underline"
+                      >
+                        إلغاء الصورة ✕
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-rose-300 mb-1">قيمة خصم التأخير (ج.م)</label>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="مثال: 400"
-                      value={payrollLateDeduction}
-                      onChange={(e) => setPayrollLateDeduction(e.target.value)}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-rose-300 mb-1">السلف المسحوبة (ج.م)</label>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="مثال: 1000"
-                      value={payrollAdvances}
-                      onChange={(e) => setPayrollAdvances(e.target.value)}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-rose-300 mb-1">خصومات KPI (ج.م)</label>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="مثال: 500"
-                      value={payrollKpiDeduction}
-                      onChange={(e) => setPayrollKpiDeduction(e.target.value)}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Auto Calculated Preview */}
-                <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-3 flex justify-between items-center">
-                  <span className="text-xs font-black text-emerald-300">صافي القبض المحسوب تلقائياً:</span>
-                  <span className="text-base font-black text-emerald-400 font-mono">
-                    {Math.max(0, (parseFloat(payrollBaseSalary) || 0) - (parseFloat(payrollAdvances) || 0) - (parseFloat(payrollKpiDeduction) || 0) - (parseFloat(payrollLateDeduction) || 0)).toLocaleString()} ج.م
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">ملاحظات إضافية (اختياري)</label>
-                  <textarea
-                    rows="2"
-                    placeholder="أي ملاحظات حول السلفة أو خصم التأخير..."
-                    value={payrollNotes}
-                    onChange={(e) => setPayrollNotes(e.target.value)}
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                  />
+                  {buffetItemImage && (
+                    <div className="mt-2.5 space-y-2">
+                      <div className="w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-emerald-500/30 relative flex items-center justify-center p-1">
+                        <img src={buffetItemImage} alt="Buffet item preview" className="max-h-full object-contain rounded" />
+                      </div>
+                      <div className="p-2 bg-emerald-950/50 border border-emerald-500/30 rounded-xl text-[11px] text-emerald-300 font-bold flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-amber-300 animate-spin" />
+                        <span>💡 بمجرد الضغط على "حفظ الصنف" سيتم سحب وتوزيع الأصناف المكتوبة بخط اليد على أعمدة الشيت فوراً وبضغطة واحدة!</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
                   <button
                     type="button"
-                    onClick={() => setIsEditPayrollModalOpen(false)}
+                    onClick={() => setIsAddBuffetItemModalOpen(false)}
                     className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
-                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-amber-600/30 cursor-pointer"
+                    disabled={buffetSaving}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
                   >
                     <Save size={15} />
-                    <span>حفظ بيانات الراتب 💾</span>
+                    <span>{buffetSaving ? 'جاري السحب والحفظ...' : editingBuffetItem ? 'تحديث الصنف 💾' : 'حفظ الصنف بالبوفيه ☕'}</span>
                   </button>
                 </div>
               </form>
