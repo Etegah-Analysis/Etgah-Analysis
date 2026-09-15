@@ -21951,7 +21951,8 @@ const handleExportBuffetToExcel = () => {
                   />
                 </div>
 
-                {/* Clean Image Attachment / Paste Support */}
+                {/* Clean Image Attachment / Paste Support - Only shown when adding a NEW item */}
+                {!editingBuffetItem && (
                 <div>
                   <label className="block text-xs font-bold text-emerald-300 mb-1">مكان لصق صورة أو نص الفاتورة (Ctrl + V / اختيار ملف)</label>
                   
@@ -22084,6 +22085,7 @@ const handleExportBuffetToExcel = () => {
                     </div>
                   )}
                 </div>
+                )}
 
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
                   <button
