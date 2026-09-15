@@ -12128,7 +12128,18 @@ const handleExportBuffetToExcel = () => {
                       const empName = empObj?.username || empObj?.name || (campaign.empEmail?.includes('@') ? campaign.empEmail.split('@')[0] : campaign.empEmail) || 'مجهول';
                       const empJobTitle = empObj?.jobTitle === 'Leader' || empObj?.jobTitle === 'ليدر' ? '👑 Leader' : (empObj?.jobTitle === 'Team Leader' ? '👑 Team Leader' : (empObj?.jobTitle === 'Coordinator' ? '📋 Coordinator' : '👤 Agent'));
                       const empLeaderUid = empObj?.leaderUid || empObj?.leaderId;
-                      const leaderObj = empLeaderUid ? employees.find(l => l.uid === empLeaderUid || l.id === empLeaderUid || l.username?.toLowerCase() === String(empLeaderUid).toLowerCase()) : null;
+                      let leaderObj = empLeaderUid ? employees.find(l => l.uid === empLeaderUid || l.id === empLeaderUid || l.username?.toLowerCase() === String(empLeaderUid).toLowerCase() || l.email?.toLowerCase() === String(empLeaderUid).toLowerCase()) : null;
+                      
+                      if (!leaderObj && empObj) {
+                        leaderObj = employees.find(l => {
+                          if (!l) return false;
+                          const isL = l.jobTitle === 'Leader' || l.jobTitle === 'Team Leader' || l.jobTitle === 'ليدر' || l.role === 'leader';
+                          if (!isL) return false;
+                          if (l.teamMembers && Array.isArray(l.teamMembers) && (l.teamMembers.includes(empObj.uid) || l.teamMembers.includes(empObj.email) || l.teamMembers.includes(empObj.username))) return true;
+                          return false;
+                        });
+                      }
+
                       const leaderName = leaderObj ? (leaderObj.username || leaderObj.name) : (empObj?.leaderName || empObj?.leader || '');
                       const openRate = campaign.delivered > 0 ? Math.round((campaign.read / campaign.delivered) * 100) : 0;
                       return (
@@ -12155,10 +12166,15 @@ const handleExportBuffetToExcel = () => {
                                 <span>{empName}</span>
                                 <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.5 rounded border border-purple-300">{empJobTitle}</span>
                               </div>
-                              {leaderName && (
+                              {leaderName ? (
                                 <span className="text-[10px] text-amber-800 font-bold flex items-center gap-1">
                                   <span>👑 Leader:</span>
                                   <span>{leaderName}</span>
+                                </span>
+                              ) : (empObj?.role !== 'admin' && empObj?.jobTitle !== 'Leader' && empObj?.jobTitle !== 'Team Leader' && empObj?.jobTitle !== 'Coordinator') && (
+                                <span className="text-[10px] text-amber-700/80 font-semibold flex items-center gap-1">
+                                  <span>👑 Leader:</span>
+                                  <span className="text-amber-800 font-extrabold bg-amber-100 px-1 py-0.2 rounded border border-amber-300">غير محدد (لم يتم التعيين)</span>
                                 </span>
                               )}
                             </div>
