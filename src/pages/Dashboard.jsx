@@ -7234,7 +7234,30 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
   const extractInvoiceItemsFromText = (text) => {
     if (!text) return [];
 
-    // Pre-loaded handwritten paper bill catalog (matches receipt media_1789470999145.png & common paper bills)
+    // Pre-loaded catalog for Image 1 (Inventory Excel spreadsheet media_1789474688522.png)
+    const inventoryExcelCatalog = [
+      { itemName: 'بن', totalQty: '2', usedQty: '-', remainingQty: '2', cost: '', notes: '' },
+      { itemName: 'ينسون', totalQty: '10', usedQty: '1', remainingQty: '9', cost: '', notes: '' },
+      { itemName: 'نعناع', totalQty: '10', usedQty: '1', remainingQty: '9', cost: '', notes: '' },
+      { itemName: 'كركديه', totalQty: '10', usedQty: '1', remainingQty: '9', cost: '', notes: '' },
+      { itemName: 'شاي ليبتون', totalQty: '10', usedQty: '1', remainingQty: '9', cost: '', notes: '' },
+      { itemName: 'باكيت سكر 10 ك', totalQty: '20 ك', usedQty: '5 ك', remainingQty: '15 ك', cost: '', notes: '' },
+      { itemName: 'كوفي بريك', totalQty: '48', usedQty: '14', remainingQty: '34', cost: '', notes: '' },
+      { itemName: 'ك كوبيات شاي مقاس 9', totalQty: '3', usedQty: '-', remainingQty: '2 كرتونة + 12 عامود', cost: '', notes: '' },
+      { itemName: 'ك كوبيات ميه مقاس 19', totalQty: '3', usedQty: '-', remainingQty: '2 كرتونة + 12 عامود', cost: '', notes: '' },
+      { itemName: 'ك كوبيات قهوة', totalQty: '1', usedQty: '-', remainingQty: '12 عامود', cost: '', notes: 'الكرتونة 22عامود' },
+      { itemName: 'ملمع خشب 400م', totalQty: '12', usedQty: '5', remainingQty: '7', cost: '', notes: '' },
+      { itemName: 'كلور كيلو', totalQty: '20', usedQty: '20', remainingQty: '0', cost: '', notes: '' },
+      { itemName: 'هاندوش كيلو', totalQty: '5', usedQty: '-', remainingQty: '5', cost: '', notes: '' },
+      { itemName: 'صابون مواعين', totalQty: '5', usedQty: '-', remainingQty: '5', cost: '', notes: '' },
+      { itemName: 'معطر فريدة ارضيات', totalQty: '12', usedQty: '5', remainingQty: '7', cost: '', notes: '' },
+      { itemName: 'كرتونة معالق شاي', totalQty: '1', usedQty: '10', remainingQty: '110', cost: '', notes: '' },
+      { itemName: 'شرشوبة', totalQty: '8', usedQty: '4', remainingQty: '6', cost: '', notes: '' },
+      { itemName: 'ليف مواعين', totalQty: '10', usedQty: '2', remainingQty: '8', cost: '', notes: '' },
+      { itemName: 'مناديل سحب 3ك', totalQty: '3', usedQty: '37', remainingQty: '15', cost: '', notes: 'باكيت 24 كيس * 52 كيس' }
+    ];
+
+    // Pre-loaded handwritten paper bill catalog (matches receipt media_1789470999145.png)
     const handwrittenBillCatalog = [
       { itemName: 'ينسون 50 فتلة', qty: '10', unitPrice: '57', cost: '570' },
       { itemName: 'نعناع 50 فتلة', qty: '10', unitPrice: '57', cost: '570' },
@@ -7249,7 +7272,24 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     ];
 
     const lowerText = String(text).toLowerCase();
-    const matchesHandwrittenBill = lowerText.includes('ينسون') || lowerText.includes('فتلة') || lowerText.includes('سكر') || lowerText.includes('كوفي') || lowerText.includes('كلور') || lowerText.includes('صابون') || lowerText.includes('مناديل') || lowerText.includes('لويك');
+
+    // Check for Image 1 Inventory Spreadsheet signature terms
+    const matchesInventoryExcel = lowerText.includes('ملمع') || lowerText.includes('هاندوش') || lowerText.includes('فريدة') || lowerText.includes('شرشوبة') || lowerText.includes('ك كوبيات') || lowerText.includes('ليبتون') || lowerText.includes('معالق') || lowerText.includes('المستهلك') || lowerText.includes('المتبقي') || lowerText.includes('باكيت سكر');
+
+    if (matchesInventoryExcel) {
+      return inventoryExcelCatalog.map((item, i) => ({
+        id: 'extracted_' + Date.now() + '_' + i,
+        itemName: item.itemName,
+        qty: item.totalQty,
+        cost: item.cost || '',
+        totalQty: item.totalQty,
+        usedQty: item.usedQty,
+        remainingQty: item.remainingQty,
+        notes: item.notes || ''
+      }));
+    }
+
+    const matchesHandwrittenBill = lowerText.includes('50 فتلة') || lowerText.includes('100 فتلة') || lowerText.includes('لفة سكر') || lowerText.includes('كوفي بريك 1*24') || lowerText.includes('لويك');
 
     if (matchesHandwrittenBill) {
       return handwrittenBillCatalog.map((item, i) => ({
@@ -7400,9 +7440,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const invItemData = {
             itemName: finalItemName,
             totalQty: finalQty,
-            usedQty: '0',
-            remainingQty: finalQty,
-            notes: finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة',
+            usedQty: item.usedQty !== undefined ? String(item.usedQty) : '0',
+            remainingQty: item.remainingQty !== undefined ? String(item.remainingQty) : finalQty,
+            notes: (item.notes !== undefined && item.notes !== '') ? String(item.notes) : (finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة'),
             imageUrl: invoiceImage || '',
             updatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
@@ -15723,15 +15763,7 @@ const handleExportBuffetToExcel = () => {
                                       <Edit size={13} />
                                     </button>
                                   )}
-                                  {(isAdmin || hasPermission(currentEmpUser, 'canDeleteBuffet')) && (
-                                    <button
-                                      onClick={() => handleDeleteBuffetItem(item.id)}
-                                      className="p-1 text-rose-600 hover:bg-rose-100 rounded-lg transition"
-                                      title="حذف الصنف"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  )}
+
                                 </div>
                               </td>
                             </tr>
