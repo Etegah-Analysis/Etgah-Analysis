@@ -633,6 +633,8 @@ const Dashboard = () => {
   const [callsCurrentPage, setCallsCurrentPage] = useState(1);
   const [currentPageSaudi, setCurrentPageSaudi] = useState(1);
   const [currentPageUs, setCurrentPageUs] = useState(1);
+  const [payrollCurrentPage, setPayrollCurrentPage] = useState(1);
+  const [payrollItemsPerPage, setPayrollItemsPerPage] = useState(20);
   const [activeCallSession, setActiveCallSession] = useState(null); // { callDocId, phoneNumber, customerName, startedAt }
   const [activeCallTimer, setActiveCallTimer] = useState(0);
 
@@ -16401,6 +16403,12 @@ const handleExportBuffetToExcel = () => {
             return (emp.username || emp.name || '').toLowerCase().includes(q) || (emp.name || '').toLowerCase().includes(q) || (emp.jobTitle || '').toLowerCase().includes(q);
           });
 
+          // Payroll Pagination Calculations
+          const totalPagesPayroll = Math.ceil(filteredEmps.length / payrollItemsPerPage) || 1;
+          const safePayrollPage = Math.min(payrollCurrentPage, totalPagesPayroll);
+          const startIndexPayroll = (safePayrollPage - 1) * payrollItemsPerPage;
+          const paginatedEmps = filteredEmps.slice(startIndexPayroll, startIndexPayroll + payrollItemsPerPage);
+
           // Calculate totals for selected cycle
           let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
           targetEmployees.forEach(emp => {
@@ -16529,7 +16537,7 @@ const handleExportBuffetToExcel = () => {
                       type="text"
                       placeholder="بحث باسم الموظف أو المسمى..."
                       value={payrollSearch}
-                      onChange={(e) => setPayrollSearch(e.target.value)}
+                      onChange={(e) => { setPayrollSearch(e.target.value); setPayrollCurrentPage(1); }}
                       className="w-full bg-white border border-amber-300 rounded-xl pr-9 pl-3 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
                     />
                   </div>
@@ -16588,7 +16596,7 @@ const handleExportBuffetToExcel = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredEmps.map((emp, idx) => {
+                      paginatedEmps.map((emp, idx) => {
                         const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
                         const base = parseFloat(p.baseSalary) || 0;
                         const adv = parseFloat(p.advances) || 0;
@@ -16603,7 +16611,7 @@ const handleExportBuffetToExcel = () => {
                           <tr key={empKey || idx} className="hover:bg-amber-50/40 transition">
 
                             <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
-                              {idx + 1}
+                              {startIndexPayroll + idx + 1}
                             </td>
                             <td className="py-2.5 px-3 font-extrabold text-gray-900">
                               <div className="flex items-center gap-2">
@@ -16681,6 +16689,101 @@ const handleExportBuffetToExcel = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Attendance & Payroll Pagination Bar matching Recommendations Style */}
+              {filteredEmps.length > 0 && (
+                <div className="px-6 py-4 border-t border-amber-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+                  <div className="text-xs font-bold text-amber-200">
+                    عرض <span className="text-amber-300 font-black">{startIndexPayroll + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexPayroll + payrollItemsPerPage, filteredEmps.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredEmps.length}</span> موظف
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Items per page selector dropdown */}
+                    <div className="flex items-center gap-1.5 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                      <span className="text-[11px] text-amber-200 font-bold">عرض:</span>
+                      <select
+                        value={payrollItemsPerPage}
+                        onChange={(e) => { setPayrollItemsPerPage(Number(e.target.value)); setPayrollCurrentPage(1); }}
+                        className="bg-slate-950 border border-amber-500/40 rounded-lg px-2 py-0.5 font-bold text-amber-300 text-xs outline-none cursor-pointer"
+                      >
+                        <option value={10}>10 موظفين</option>
+                        <option value={20}>20 موظف</option>
+                        <option value={25}>25 موظف</option>
+                        <option value={50}>50 موظف</option>
+                        <option value={1000}>الكل</option>
+                      </select>
+                    </div>
+
+                    {/* Custom Page Jump Input */}
+                    <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                      <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
+                      <input 
+                        type="number"
+                        min="1"
+                        max={totalPagesPayroll}
+                        defaultValue=""
+                        placeholder={String(safePayrollPage)}
+                        className="w-14 text-center text-xs font-black border border-amber-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPagesPayroll) {
+                              setPayrollCurrentPage(val);
+                            } else {
+                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesPayroll}`);
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesPayroll}</span>
+                    </div>
+
+                    {/* Prev Page Button */}
+                    <button
+                      type="button"
+                      disabled={safePayrollPage <= 1}
+                      onClick={() => setPayrollCurrentPage(prev => Math.max(1, prev - 1))}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <ChevronRight size={14} />
+                      <span>السابقة</span>
+                    </button>
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(5, totalPagesPayroll) }, (_, i) => {
+                      let pNum = safePayrollPage - 2 + i;
+                      if (safePayrollPage <= 3) pNum = i + 1;
+                      if (pNum > totalPagesPayroll) return null;
+                      if (pNum <= 0) return null;
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => setPayrollCurrentPage(pNum)}
+                          className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                            pNum === safePayrollPage
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
+                              : 'bg-slate-900 text-amber-300 hover:bg-amber-950/60 border border-amber-500/20'
+                          }`}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Page Button */}
+                    <button
+                      type="button"
+                      disabled={safePayrollPage >= totalPagesPayroll}
+                      onClick={() => setPayrollCurrentPage(prev => Math.min(totalPagesPayroll, prev + 1))}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <span>التالية</span>
+                      <ChevronLeft size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
