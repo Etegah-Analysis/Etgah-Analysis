@@ -15291,64 +15291,64 @@ const handleExportBuffetToExcel = () => {
                 </table>
               </div>
 
-              {/* US Market Recommendations Pagination Bar */}
+              {/* Saudi Market Recommendations Pagination Bar */}
               {filteredSignals.length > 0 && (
-                <div className="px-6 py-4 border-t border-blue-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
+                <div className="px-6 py-4 border-t border-amber-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
                   <div className="text-xs font-bold text-amber-200">
-                    عرض <span className="text-amber-300 font-black">{startIndexUs + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexUs + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
+                    عرض <span className="text-amber-300 font-black">{startIndexSaudi + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexSaudi + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
                   </div>
                   
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Custom Page Jump Input */}
-                    <div className="flex items-center gap-1 bg-slate-900 border border-blue-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                    <div className="flex items-center gap-1 bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-1 shadow-sm">
                       <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
                       <input 
                         type="number"
                         min="1"
-                        max={totalPagesUs}
+                        max={totalPagesSaudi}
                         defaultValue=""
-                        placeholder={String(validPageUs)}
-                        className="w-14 text-center text-xs font-black border border-blue-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                        placeholder={String(validPageSaudi)}
+                        className="w-14 text-center text-xs font-black border border-amber-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const val = parseInt(e.target.value, 10);
-                            if (val >= 1 && val <= totalPagesUs) {
-                              setCurrentPageUs(val);
+                            if (val >= 1 && val <= totalPagesSaudi) {
+                              setCurrentPageSaudi(val);
                             } else {
-                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesUs}`);
+                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesSaudi}`);
                             }
                           }
                         }}
                       />
-                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesUs}</span>
+                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesSaudi}</span>
                     </div>
 
                     {/* Prev Page Button */}
                     <button
                       type="button"
-                      onClick={() => setCurrentPageUs(prev => Math.max(1, prev - 1))}
-                      disabled={validPageUs <= 1}
-                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      onClick={() => setCurrentPageSaudi(prev => Math.max(1, prev - 1))}
+                      disabled={validPageSaudi <= 1}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
                     >
                       <ChevronRight size={14} />
                       <span>السابقة</span>
                     </button>
 
                     {/* Page Numbers */}
-                    {Array.from({ length: Math.min(5, totalPagesUs) }, (_, i) => {
-                      let pNum = validPageUs - 2 + i;
-                      if (validPageUs <= 3) pNum = i + 1;
-                      if (pNum > totalPagesUs) return null;
+                    {Array.from({ length: Math.min(5, totalPagesSaudi) }, (_, i) => {
+                      let pNum = validPageSaudi - 2 + i;
+                      if (validPageSaudi <= 3) pNum = i + 1;
+                      if (pNum > totalPagesSaudi) return null;
                       if (pNum <= 0) return null;
                       return (
                         <button
                           key={pNum}
                           type="button"
-                          onClick={() => setCurrentPageUs(pNum)}
+                          onClick={() => setCurrentPageSaudi(pNum)}
                           className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
-                            pNum === validPageUs
+                            pNum === validPageSaudi
                               ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
-                              : 'bg-slate-900 text-amber-300 hover:bg-slate-800 border border-blue-500/20'
+                              : 'bg-slate-900 text-amber-300 hover:bg-amber-950/60 border border-amber-500/20'
                           }`}
                         >
                           {pNum}
@@ -15359,9 +15359,9 @@ const handleExportBuffetToExcel = () => {
                     {/* Next Page Button */}
                     <button
                       type="button"
-                      onClick={() => setCurrentPageUs(prev => Math.min(totalPagesUs, prev + 1))}
-                      disabled={validPageUs >= totalPagesUs}
-                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                      onClick={() => setCurrentPageSaudi(prev => Math.min(totalPagesSaudi, prev + 1))}
+                      disabled={validPageSaudi >= totalPagesSaudi}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-950 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
                     >
                       <span>التالية</span>
                       <ChevronLeft size={14} />
@@ -15903,6 +15903,85 @@ const handleExportBuffetToExcel = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* US Market Recommendations Pagination Bar */}
+              {filteredSignals.length > 0 && (
+                <div className="px-6 py-4 border-t border-blue-500/30 bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-amber-200 flex flex-wrap justify-between items-center gap-3">
+                  <div className="text-xs font-bold text-amber-200">
+                    عرض <span className="text-amber-300 font-black">{startIndexUs + 1}</span> إلى <span className="text-amber-300 font-black">{Math.min(startIndexUs + RECOMMENDATIONS_PER_PAGE, filteredSignals.length)}</span> من إجمالي <span className="text-amber-300 font-black">{filteredSignals.length}</span> توصية
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Custom Page Jump Input */}
+                    <div className="flex items-center gap-1 bg-slate-900 border border-blue-500/40 rounded-xl px-2.5 py-1 shadow-sm">
+                      <span className="text-[11px] text-amber-200 font-bold">صفحة:</span>
+                      <input 
+                        type="number"
+                        min="1"
+                        max={totalPagesUs}
+                        defaultValue=""
+                        placeholder={String(validPageUs)}
+                        className="w-14 text-center text-xs font-black border border-blue-500/40 rounded-lg py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-300 bg-slate-950"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPagesUs) {
+                              setCurrentPageUs(val);
+                            } else {
+                              toast.error(`يرجى كتابة رقم صفحة بين 1 و ${totalPagesUs}`);
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] text-amber-400 font-bold">/ {totalPagesUs}</span>
+                    </div>
+
+                    {/* Prev Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageUs(prev => Math.max(1, prev - 1))}
+                      disabled={validPageUs <= 1}
+                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <ChevronRight size={14} />
+                      <span>السابقة</span>
+                    </button>
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(5, totalPagesUs) }, (_, i) => {
+                      let pNum = validPageUs - 2 + i;
+                      if (validPageUs <= 3) pNum = i + 1;
+                      if (pNum > totalPagesUs) return null;
+                      if (pNum <= 0) return null;
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => setCurrentPageUs(pNum)}
+                          className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                            pNum === validPageUs
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-extrabold scale-105'
+                              : 'bg-slate-900 text-amber-300 hover:bg-slate-800 border border-blue-500/20'
+                          }`}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Page Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPageUs(prev => Math.min(totalPagesUs, prev + 1))}
+                      disabled={validPageUs >= totalPagesUs}
+                      className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-slate-900 text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 font-bold text-xs transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <span>التالية</span>
+                      <ChevronLeft size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
