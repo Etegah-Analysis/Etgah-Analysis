@@ -7169,7 +7169,22 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
-  const handleModalPasteBuffetItem = (e) => {
+    const parsePastedInvoiceContent = (text) => {
+    if (!text) return {};
+    const cleaned = text.trim();
+    const numbers = cleaned.match(/\d+(\.\d+)?/g) || [];
+    const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
+    const firstLine = lines[0] || cleaned;
+    const cleanTitle = firstLine.replace(/\b(عدد|كمية|سعر|تكلفة|ج\.م|ريال|ك|علبة|كرتونة|باكيت|جنيه)\b/gi, '').trim();
+
+    return {
+      title: cleanTitle.slice(0, 45) || firstLine.slice(0, 45),
+      qty: numbers[0] || '',
+      cost: numbers[1] || ''
+    };
+  };
+
+const handleModalPasteBuffetItem = (e) => {
     const items = e.clipboardData?.items;
     if (items) {
       for (let i = 0; i < items.length; i++) {
@@ -21589,23 +21604,30 @@ const handleExportBuffetToExcel = () => {
                       const items = e.clipboardData?.items;
                       if (items) {
                         for (let i = 0; i < items.length; i++) {
-                          if (items[i].type.startsWith('image/')) {
+                          if (items[i].type && items[i].type.startsWith('image/')) {
                             const file = items[i].getAsFile();
                             if (file) {
                               const reader = new FileReader();
                               reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
                               reader.readAsDataURL(file);
                               e.preventDefault();
-                              toast.success('تم لصق صورة/سكرين شوت الصنف بنجاح 🖼️✨');
+                              toast.success('تم لصق صورة/سكرين شوت الفاتورة والصنف بنجاح 🖼️✨');
                               return;
                             }
                           }
                         }
                       }
                       const pastedText = e.clipboardData?.getData('text');
-                      if (pastedText) {
-                        setBuffetItemNotes(prev => prev ? `${prev}\n${pastedText}` : pastedText);
-                        toast.success('تم لصق النص في الملاحظات بنجاح 📋✨');
+                      if (pastedText && pastedText.trim()) {
+                        const parsed = parsePastedInvoiceContent(pastedText);
+                        if (!buffetItemName.trim()) setBuffetItemName(parsed.title);
+                        if (parsed.qty && !buffetItemTotalQty.trim()) {
+                          setBuffetItemTotalQty(parsed.qty);
+                          if (!buffetItemUsedQty.trim()) setBuffetItemUsedQty('0');
+                          setBuffetItemRemainingQty(parsed.qty);
+                        }
+                        setBuffetItemNotes(prev => prev ? `${prev}\n${pastedText.trim()}` : pastedText.trim());
+                        toast.success('تم استخراج البيانات ولصق الفاتورة بنجاح 📋✨');
                       }
                     }}
                     className="w-full bg-slate-950/90 border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
@@ -21788,23 +21810,27 @@ const handleExportBuffetToExcel = () => {
                       const items = e.clipboardData?.items;
                       if (items) {
                         for (let i = 0; i < items.length; i++) {
-                          if (items[i].type.startsWith('image/')) {
+                          if (items[i].type && items[i].type.startsWith('image/')) {
                             const file = items[i].getAsFile();
                             if (file) {
                               const reader = new FileReader();
                               reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
                               reader.readAsDataURL(file);
                               e.preventDefault();
-                              toast.success('تم لصق صورة/سكرين شوت الفاتورة بنجاح 🧾✨');
+                              toast.success('تم لصق صورة/إيصال الفاتورة بنجاح 🧾✨');
                               return;
                             }
                           }
                         }
                       }
                       const pastedText = e.clipboardData?.getData('text');
-                      if (pastedText) {
-                        setBuffetPurchaseNotes(prev => prev ? `${prev}\n${pastedText}` : pastedText);
-                        toast.success('تم لصق النص في ملاحظات المشترى بنجاح 📋✨');
+                      if (pastedText && pastedText.trim()) {
+                        const parsed = parsePastedInvoiceContent(pastedText);
+                        if (!buffetPurchaseName.trim()) setBuffetPurchaseName(parsed.title);
+                        if (parsed.qty && !buffetPurchaseQty.trim()) setBuffetPurchaseQty(parsed.qty);
+                        if (parsed.cost && !buffetPurchaseCost.trim()) setBuffetPurchaseCost(parsed.cost);
+                        setBuffetPurchaseNotes(prev => prev ? `${prev}\n${pastedText.trim()}` : pastedText.trim());
+                        toast.success('تم استخراج الصنف والعدد والتكلفة ولصق الفاتورة بنجاح 📋✨');
                       }
                     }}
                     className="w-full bg-slate-950/90 border-2 border-dashed border-blue-500/40 hover:border-blue-400 rounded-2xl p-3 text-center transition flex flex-col items-center justify-center gap-2 mb-2 cursor-pointer"
