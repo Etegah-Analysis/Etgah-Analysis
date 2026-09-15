@@ -773,6 +773,7 @@ const Dashboard = () => {
   const [buffetItemUsedQty, setBuffetItemUsedQty] = useState('');
   const [buffetItemRemainingQty, setBuffetItemRemainingQty] = useState('');
   const [buffetItemNotes, setBuffetItemNotes] = useState('');
+  const [buffetItemCost, setBuffetItemCost] = useState('');
   const [buffetItemImage, setBuffetItemImage] = useState(null);
 
   // Buffet Purchase Modal states
@@ -8614,6 +8615,7 @@ const handleModalPasteBuffetItem = (e) => {
       setBuffetItemUsedQty(item.usedQty || '');
       setBuffetItemRemainingQty(item.remainingQty || '');
       setBuffetItemNotes(item.notes || '');
+      setBuffetItemCost(item.cost || item.itemPrice || '');
       setBuffetItemImage(item.imageUrl || null);
     } else {
       setEditingBuffetItem(null);
@@ -8622,6 +8624,7 @@ const handleModalPasteBuffetItem = (e) => {
       setBuffetItemUsedQty('');
       setBuffetItemRemainingQty('');
       setBuffetItemNotes('');
+      setBuffetItemCost('');
       setBuffetItemImage(null);
     }
     setIsAddBuffetItemModalOpen(true);
@@ -8661,6 +8664,7 @@ const handleModalPasteBuffetItem = (e) => {
         totalQty: buffetItemTotalQty.trim() || '-',
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
+        cost: buffetItemCost.trim() || '',
         notes: buffetItemNotes.trim(),
         imageUrl: buffetItemImage || '',
         updatedAt: serverTimestamp(),
@@ -15509,36 +15513,49 @@ const handleExportBuffetToExcel = () => {
               </div>
 
               {/* Quick Summary Highlights (4 Cards) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
-                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
-                    <Coffee size={20} />
+              {/* Quick Summary Highlights (3 Financial Cards as requested in Image 2) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-900/5 border-b border-purple-500/10">
+                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
+                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl">
+                    <Coffee size={22} />
                   </div>
                   <div>
-                    <span className="text-[11px] text-gray-500 font-bold block">أصناف البوفيه المسجلة</span>
-                    <span className="text-base font-black text-emerald-600">{buffetInventory.length} صنف</span>
+                    <span className="text-[11px] text-gray-500 font-extrabold block">إجمالي مبلغ مخزون البوفيه</span>
+                    <span className="text-base font-black text-emerald-700 font-mono">
+                      {buffetInventory.reduce((acc, i) => acc + (parseFloat(i.cost || i.itemPrice || 0) || 0), 0).toLocaleString()} ج.م
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold block">
+                      ({buffetInventory.length} أصناف مسجلة بالمخزون)
+                    </span>
                   </div>
                 </div>
 
-                <div className="bg-blue-950/20 border border-blue-500/30 rounded-xl p-3 flex items-center gap-3">
-                  <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl">
-                    <ShoppingCart size={20} />
+                <div className="bg-blue-950/20 border border-blue-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
+                  <div className="p-3 bg-blue-500/20 text-blue-400 rounded-2xl">
+                    <ShoppingCart size={22} />
                   </div>
                   <div>
-                    <span className="text-[11px] text-gray-500 font-bold block">المشتريات الجديدة</span>
-                    <span className="text-base font-black text-blue-600">{buffetPurchases.length} صنف</span>
+                    <span className="text-[11px] text-gray-500 font-extrabold block">إجمالي المشتريات الجديدة والمصروفات</span>
+                    <span className="text-base font-black text-blue-700 font-mono">
+                      {buffetPurchases.reduce((acc, p) => acc + (parseFloat(p.cost || p.itemPrice || 0) || 0), 0).toLocaleString()} ج.م
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-bold block">
+                      ({buffetPurchases.length} مشتريات ومصروفات)
+                    </span>
                   </div>
                 </div>
 
-
-                <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
-                  <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
-                    <FileSpreadsheet size={20} />
+                <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
+                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl">
+                    <FileSpreadsheet size={22} />
                   </div>
                   <div>
-                    <span className="text-[11px] text-gray-500 font-bold block">Google Sheets</span>
-                    <span className="text-xs font-black text-amber-600">
-                      {buffetGoogleSheetUrl ? '🟢 متصل ومفعل' : '⚪ غير مرتبط'}
+                    <span className="text-[11px] text-gray-500 font-extrabold block">Google Sheets شيت الإكسيل</span>
+                    <span className="text-xs font-black text-amber-600 block mt-0.5">
+                      {buffetGoogleSheetUrl ? '🟢 متصل ومفعل تلقائياً' : '⚪ غير مرتبط'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold block mt-0.5">
+                      تزامن فوري للمخزون والمشتريات
                     </span>
                   </div>
                 </div>
@@ -15623,6 +15640,7 @@ const handleExportBuffetToExcel = () => {
                                 <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                                 <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
+                                <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">السعر (ج.م)</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
                                 <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
@@ -15632,7 +15650,7 @@ const handleExportBuffetToExcel = () => {
                             <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                               {filteredInventory.length === 0 ? (
                                 <tr>
-                                  <td colSpan="7" className="text-center py-8 text-gray-500 font-bold">
+                                  <td colSpan="8" className="text-center py-8 text-gray-500 font-bold">
                                     لا توجد أصناف مطابقة للبحث
                                   </td>
                                 </tr>
@@ -15649,6 +15667,9 @@ const handleExportBuffetToExcel = () => {
                                       <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
                                         {item.totalQty || '-'}
                                       </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
+                                      {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
                                     </td>
                                     <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/40">
                                       <span className="inline-block px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 font-mono">
@@ -15721,7 +15742,7 @@ const handleExportBuffetToExcel = () => {
                                 <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                                 <th className="py-2.5 px-3 text-amber-300 font-extrabold">المشتريات الجديدة</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
-                                <th className="py-2.5 px-3 text-center text-amber-300 font-bold">التكلفة (ج.م)</th>
+                                <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/40 border-x border-emerald-500/30">السعر / التكلفة (ج.م)</th>
                                 <th className="py-2.5 px-3 text-center text-amber-300">التاريخ</th>
                                 <th className="py-2.5 px-3 text-center w-20 text-amber-300">إجراءات</th>
                               </tr>
@@ -21970,12 +21991,12 @@ const handleExportBuffetToExcel = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-[11px] font-bold text-gray-300 mb-1">العدد (الإجمالي)</label>
                     <input
                       type="text"
-                      placeholder="مثال: 10 أو 20 ك"
+                      placeholder="مثال: 10..."
                       value={buffetItemTotalQty}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -21986,14 +22007,24 @@ const handleExportBuffetToExcel = () => {
                           setBuffetItemRemainingQty(String(Math.max(0, t - u)));
                         }
                       }}
-                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-emerald-300 mb-1">السعر (ج.م)</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 570"
+                      value={buffetItemCost}
+                      onChange={(e) => setBuffetItemCost(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold font-mono text-emerald-300"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-rose-300 mb-1">المستخدم</label>
                     <input
                       type="text"
-                      placeholder="مثال: 2 أو 5 ك"
+                      placeholder="مثال: 2..."
                       value={buffetItemUsedQty}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -22004,17 +22035,17 @@ const handleExportBuffetToExcel = () => {
                           setBuffetItemRemainingQty(String(Math.max(0, t - u)));
                         }
                       }}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-emerald-300 mb-1">المتبقي</label>
                     <input
                       type="text"
-                      placeholder="مثال: 8 أو 15 ك"
+                      placeholder="مثال: 8..."
                       value={buffetItemRemainingQty}
                       onChange={(e) => setBuffetItemRemainingQty(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2.5 py-1.5 text-xs text-white text-center font-bold"
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
                     />
                   </div>
                 </div>
