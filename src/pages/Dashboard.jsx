@@ -12065,7 +12065,6 @@ const handleExportBuffetToExcel = () => {
                       { key: 'all', label: 'الكل 📊', count: totalSentAll },
                       { key: 'crm_sheet', label: '🎯 شيت Leads CRM', count: crmSheetMsgs.length },
                       { key: 'employee_leads', label: '📁 شيت Added Leads', count: employeeLeadsMsgs.length },
-                      { key: 'subscribed_clients', label: '🎉 شيت المشتركين', count: subscribedClientsMsgs.length },
                       { key: 'excel_import', label: '📊 إكسيل الواتساب', count: excelMsgs.length },
                       { key: 'direct', label: '💬 المحادثات المباشرة', count: directMsgs.length },
                     ].map(tab => (
@@ -12090,7 +12089,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
 
                 {/* Summary KPI Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                   <div className="bg-white/80 border border-purple-200/80 p-2.5 rounded-xl shadow-xs">
                     <span className="text-[10px] font-bold text-gray-500 block">📊 إجمالي الإرسال</span>
                     <span className="text-base font-black text-purple-900">{totalSentAll.toLocaleString()} رسالة</span>
@@ -12102,10 +12101,6 @@ const handleExportBuffetToExcel = () => {
                   <div className="bg-indigo-50/80 border border-indigo-200 p-2.5 rounded-xl shadow-xs">
                     <span className="text-[10px] font-bold text-indigo-700 block">📁 شيت Added Leads</span>
                     <span className="text-base font-black text-indigo-900">{employeeLeadsMsgs.length.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-pink-50/80 border border-pink-200 p-2.5 rounded-xl shadow-xs">
-                    <span className="text-[10px] font-bold text-pink-700 block">🎉 شيت المشتركين</span>
-                    <span className="text-base font-black text-pink-900">{subscribedClientsMsgs.length.toLocaleString()}</span>
                   </div>
                   <div className="bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl shadow-xs">
                     <span className="text-[10px] font-bold text-blue-700 block">📊 إكسيل الواتساب</span>
@@ -19873,16 +19868,6 @@ const handleExportBuffetToExcel = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {isAdmin && (
-                      <button 
-                        onClick={() => handleExportCallsPdf(empBreakdown, { totalCallsInPeriod, answeredCallsCount, totalMinutes, answerRate })}
-                        className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
-                        title="تحميل تقرير تحليل المكالمات كـ PDF"
-                      >
-                        <Download size={14} />
-                        <span>تحميل PDF 📄</span>
-                      </button>
-                    )}
                     <button 
                       type="button"
                       onClick={(e) => {
