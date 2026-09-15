@@ -756,6 +756,12 @@ const Dashboard = () => {
 
   // Buffet Item Modal states
   const [isAddBuffetItemModalOpen, setIsAddBuffetItemModalOpen] = useState(false);
+  const [externalPayrollEmployees, setExternalPayrollEmployees] = useState([]);
+  const [isAddExternalPayrollEmpModalOpen, setIsAddExternalPayrollEmpModalOpen] = useState(false);
+  const [externalEmpName, setExternalEmpName] = useState('');
+  const [externalEmpJobTitle, setExternalEmpJobTitle] = useState('');
+  const [externalEmpBaseSalary, setExternalEmpBaseSalary] = useState('');
+  const [externalEmpLeader, setExternalEmpLeader] = useState('');
   const [isSmartInvoiceScannerModalOpen, setIsSmartInvoiceScannerModalOpen] = useState(false);
   const [extractedInvoiceItems, setExtractedInvoiceItems] = useState([]);
   const [isScanningInvoiceOcr, setIsScanningInvoiceOcr] = useState(false);
@@ -2321,7 +2327,16 @@ const Dashboard = () => {
       console.error('Error fetching us_recommendations:', error);
     });
 
-    // Fetch Buffet Inventory (v2.24)
+    // Fetch External Payroll Employees (Outside CRM)
+    const externalEmpUnsub = onSnapshot(collection(db, 'external_payroll_employees'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, isExternal: true, ...doc.data() }));
+      data.sort((a, b) => (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
+      setExternalPayrollEmployees(data);
+    }, (error) => {
+      console.error('Error fetching external_payroll_employees:', error);
+    });
+
+        // Fetch Buffet Inventory (v2.24)
     const buffetInvUnsub = onSnapshot(collection(db, 'buffet_inventory'), (snapshot) => {
       if (snapshot.empty) {
         const cached = localStorage.getItem('etegah_buffet_inventory');
@@ -7272,7 +7287,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
-  const handleSaveAllExtractedInvoiceItems = async (targetItems = extractedInvoiceItems, invoiceImage = buffetInvoiceOcrImage) => {
+    const handleSaveAllExtractedInvoiceItems = async (targetItems = extractedInvoiceItems, invoiceImage = buffetInvoiceOcrImage, targetSheet = 'both') => {
     const itemsToSave = targetItems && targetItems.length > 0 ? targetItems : extractedInvoiceItems;
     if (!itemsToSave || itemsToSave.length === 0) {
       toast.error('لا توجد أصناف مستخرجة للحفظ في الشيت');
@@ -7280,7 +7295,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
 
     setBuffetSaving(true);
-    toast.loading('جاري إضافة وحفظ جميع أصناف الفاتورة إلى الشيتين... 💾', { id: 'save-batch-toast' });
+    toast.loading('جاري إضافة وحفظ أصناف الفاتورة في الشيت... 💾', { id: 'save-batch-toast' });
 
     try {
       const now = new Date();
@@ -7296,72 +7311,76 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         const finalQty = (item.qty || item.totalQty || '1').trim() || '1';
         const finalCost = (item.cost || '').trim();
 
-        // 1. Save to Inventory (محتويات ومخزون البوفيه)
-        const invItemData = {
-          itemName: finalItemName,
-          totalQty: finalQty,
-          usedQty: '0',
-          remainingQty: finalQty,
-          notes: finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة',
-          imageUrl: invoiceImage || '',
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          createdAtMillis: Date.now(),
-          updatedBy: userRole,
-          updatedDateTime: formattedNow,
-          order: buffetInventory.length + addedInventoryItems.length + 1
-        };
+        if (targetSheet === 'inventory' || targetSheet === 'both') {
+          const invItemData = {
+            itemName: finalItemName,
+            totalQty: finalQty,
+            usedQty: '0',
+            remainingQty: finalQty,
+            notes: finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة',
+            imageUrl: invoiceImage || '',
+            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            createdAtMillis: Date.now(),
+            updatedBy: userRole,
+            updatedDateTime: formattedNow,
+            order: buffetInventory.length + addedInventoryItems.length + 1
+          };
 
-        let newInvDocId = 'item_' + Date.now() + Math.random().toString(36).substring(2, 7);
-        try {
-          const docRef = await addDoc(collection(db, 'buffet_inventory'), invItemData);
-          newInvDocId = docRef.id;
-        } catch (e) {
-          console.warn('Firestore fallback inv save:', e);
+          let newInvDocId = 'item_' + Date.now() + Math.random().toString(36).substring(2, 7);
+          try {
+            const docRef = await addDoc(collection(db, 'buffet_inventory'), invItemData);
+            newInvDocId = docRef.id;
+          } catch (e) {
+            console.warn('Firestore fallback inv save:', e);
+          }
+          addedInventoryItems.push({ id: newInvDocId, ...invItemData });
         }
-        addedInventoryItems.push({ id: newInvDocId, ...invItemData });
 
-        // 2. Save to Purchases (المشتريات الجديدة والمصروفات)
-        const purchItemData = {
-          itemName: finalItemName,
-          qty: finalQty,
-          cost: finalCost,
-          purchaseDate: todayIso,
-          notes: 'مستخرج تلقائياً من الفاتورة',
-          imageUrl: invoiceImage || '',
-          receiptUrl: invoiceImage || '',
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          createdAtMillis: Date.now(),
-          updatedBy: userRole,
-          updatedDateTime: formattedNow
-        };
+        if (targetSheet === 'purchases' || targetSheet === 'both') {
+          const purchItemData = {
+            itemName: finalItemName,
+            qty: finalQty,
+            cost: finalCost,
+            purchaseDate: todayIso,
+            notes: 'مستخرج تلقائياً من الفاتورة',
+            imageUrl: invoiceImage || '',
+            receiptUrl: invoiceImage || '',
+            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            createdAtMillis: Date.now(),
+            updatedBy: userRole,
+            updatedDateTime: formattedNow
+          };
 
-        let newPurchDocId = 'purch_' + Date.now() + Math.random().toString(36).substring(2, 7);
-        try {
-          const docRef = await addDoc(collection(db, 'buffet_purchases'), purchItemData);
-          newPurchDocId = docRef.id;
-        } catch (e) {
-          console.warn('Firestore fallback purch save:', e);
+          let newPurchDocId = 'purch_' + Date.now() + Math.random().toString(36).substring(2, 7);
+          try {
+            const docRef = await addDoc(collection(db, 'buffet_purchases'), purchItemData);
+            newPurchDocId = docRef.id;
+          } catch (e) {
+            console.warn('Firestore fallback purch save:', e);
+          }
+          addedPurchaseItems.push({ id: newPurchDocId, ...purchItemData });
         }
-        addedPurchaseItems.push({ id: newPurchDocId, ...purchItemData });
       }
 
-      // Update Local State & LocalStorage
-      const updatedInvList = [...addedInventoryItems, ...buffetInventory];
-      setBuffetInventory(updatedInvList);
-      localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedInvList));
+      if (addedInventoryItems.length > 0) {
+        const updatedInvList = [...addedInventoryItems, ...buffetInventory];
+        setBuffetInventory(updatedInvList);
+        localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedInvList));
+      }
 
-      const updatedPurchList = [...addedPurchaseItems, ...buffetPurchases];
-      setBuffetPurchases(updatedPurchList);
-      localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedPurchList));
+      if (addedPurchaseItems.length > 0) {
+        const updatedPurchList = [...addedPurchaseItems, ...buffetPurchases];
+        setBuffetPurchases(updatedPurchList);
+        localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedPurchList));
+      }
 
       toast.dismiss('save-batch-toast');
-      toast.success(`🎉 تم حفظ ${itemsToSave.length} أصناف وتنسيقها بنجاح في جدول المخزون وجدول المشتريات!`);
+      toast.success(`🎉 تم حفظ ${itemsToSave.length} أصناف وتنسيقها بنجاح!`);
 
       setExtractedInvoiceItems([]);
       setBuffetInvoiceOcrImage(null);
-      setIsSmartInvoiceScannerModalOpen(false);
       setIsAddBuffetItemModalOpen(false);
       setIsAddBuffetPurchaseModalOpen(false);
     } catch (err) {
@@ -8281,7 +8300,7 @@ const handleModalPasteBuffetItem = (e) => {
       return;
     }
 
-    const targetEmployees = sortedEmployeesForTable;
+    const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees];
     const logoUrl = window.location.origin + '/logo.jpg';
     const now = new Date();
     const dateFormatted = now.toLocaleDateString('ar-EG');
@@ -8911,7 +8930,82 @@ const handleModalPasteBuffetItem = (e) => {
   };
 
   
-  const handleExportBuffetPdf = () => {
+  const handleSaveExternalPayrollEmp = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const cleanName = externalEmpName.trim();
+    if (!cleanName) {
+      toast.error('يرجى كتابة اسم الموظف');
+      return;
+    }
+
+    setBuffetSaving(true);
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+
+      const empData = {
+        name: cleanName,
+        jobTitle: externalEmpJobTitle.trim() || 'موظف خارجي (خارج CRM)',
+        baseSalary: externalEmpBaseSalary.trim() || '0',
+        leaderName: externalEmpLeader.trim() || '—',
+        isExternal: true,
+        createdAt: serverTimestamp(),
+        createdAtMillis: Date.now(),
+        createdBy: userRole,
+        createdDateTime: formattedNow
+      };
+
+      const docRef = await addDoc(collection(db, 'external_payroll_employees'), empData);
+      setExternalPayrollEmployees(prev => [{ id: docRef.id, ...empData }, ...prev]);
+
+      toast.success(`🎉 تم إضافة الموظف (${cleanName}) بنجاح إلى شيت الحضور والرواتب!`);
+      setIsAddExternalPayrollEmpModalOpen(false);
+      setExternalEmpName('');
+      setExternalEmpJobTitle('');
+      setExternalEmpBaseSalary('');
+      setExternalEmpLeader('');
+    } catch (err) {
+      console.error('Error saving external employee:', err);
+      toast.error('حدث خطأ أثناء حفظ الموظف الخارجي');
+    } finally {
+      setBuffetSaving(false);
+    }
+  };
+
+  const handleDeleteExternalPayrollEmp = async (empToDelete) => {
+    if (!empToDelete) return;
+    const confirmMsg = `هل أنت متأكد من حذف الموظف (${empToDelete.name}) من شيت الحضور والرواتب ونقله لسلة المهملات؟`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+
+      const recycleDoc = {
+        itemName: `موظف (خارج CRM): ${empToDelete.name}`,
+        itemType: 'external_payroll_employee',
+        deletedBy: userRole,
+        deletedAt: serverTimestamp(),
+        deletedDateTime: formattedNow,
+        originalData: empToDelete
+      };
+      await addDoc(collection(db, 'recycle_bin'), recycleDoc);
+
+      if (empToDelete.id && !empToDelete.id.startsWith('temp_')) {
+        await deleteDoc(doc(db, 'external_payroll_employees', empToDelete.id));
+      }
+
+      setExternalPayrollEmployees(prev => prev.filter(e => e.id !== empToDelete.id));
+      toast.success(`🗑️ تم نقل الموظف (${empToDelete.name}) إلى سلة المهملات لدى الإدارة بنجاح`);
+    } catch (err) {
+      console.error('Error deleting external employee:', err);
+      toast.error('حدث خطأ أثناء حذف الموظف');
+    }
+  };
+
+    const handleExportBuffetPdf = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('يرجى السماح بالنوافذ المنبثقة لتحميل تقرير الـ PDF 📄');
@@ -15371,20 +15465,7 @@ const handleExportBuffetToExcel = () => {
                     </button>
                   )}
 
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                    <button 
-                      onClick={() => {
-                        setExtractedInvoiceItems([]);
-                        setBuffetInvoiceOcrImage(null);
-                        setSmartInvoiceRawText('');
-                        setIsSmartInvoiceScannerModalOpen(true);
-                      }}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer border border-purple-400/40"
-                    >
-                      <Sparkles size={15} className="animate-spin" />
-                      <span>📸 قراءة وسحب الفاتورة ذكياً (OCR) ⚡</span>
-                    </button>
-                  )}
+
 
                   
 
@@ -15802,6 +15883,22 @@ const handleExportBuffetToExcel = () => {
 
                 {/* Header Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics') || hasPermission(currentEmpUser, 'canAddEmployee')) && (
+                    <button 
+                      onClick={() => {
+                        setExternalEmpName('');
+                        setExternalEmpJobTitle('');
+                        setExternalEmpBaseSalary('');
+                        setExternalEmpLeader('');
+                        setIsAddExternalPayrollEmpModalOpen(true);
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
+                    >
+                      <UserPlus size={14} />
+                      <span>+ إضافة موظف (خارج CRM) 👤</span>
+                    </button>
+                  )}
+
                   {(isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics')) && (
                     <button 
                       onClick={() => setIsFingerprintUploadModalOpen(true)}
@@ -15962,6 +16059,11 @@ const handleExportBuffetToExcel = () => {
                                   {(emp.username || emp.name || 'M')[0].toUpperCase()}
                                 </div>
                                 <span className="truncate max-w-[140px]">{emp.username || emp.name}</span>
+                                {emp.isExternal && (
+                                  <span className="text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded font-black shrink-0">
+                                    خارج CRM
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="py-2.5 px-3 text-center text-[11px] text-gray-500 font-mono">
@@ -16002,14 +16104,26 @@ const handleExportBuffetToExcel = () => {
                               {p.notes || <span className="text-gray-300">—</span>}
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <button
-                                onClick={() => handleOpenEditPayroll(emp)}
-                                className="bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto shadow-xs"
-                                title="تعديل الراتب، السلف، البصمة، والخصومات"
-                              >
-                                <Edit size={12} />
-                                <span>تعديل</span>
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenEditPayroll(emp)}
+                                  className="bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                  title="تعديل الراتب، السلف، البصمة، والخصومات"
+                                >
+                                  <Edit size={12} />
+                                  <span>تعديل</span>
+                                </button>
+                                {emp.isExternal && (isAdmin || isCoordinator || hasPermission(currentEmpUser, 'canDeleteEmployee')) && (
+                                  <button
+                                    onClick={() => handleDeleteExternalPayrollEmp(emp)}
+                                    className="bg-rose-100 text-rose-900 hover:bg-rose-200 border border-rose-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                    title="مسح الموظف ونقله إلى سلة المهملات لدى الإدارة"
+                                  >
+                                    <Trash2 size={13} />
+                                    <span>مسح 🗑️</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -21719,222 +21833,104 @@ const handleExportBuffetToExcel = () => {
         {/* ========================================================================= */}
         {/* BUFFET MODALS: ADD/EDIT ITEM, ADD/EDIT PURCHASE, UPLOAD, GOOGLE SHEET, LIGHTBOX */}
         {/* ========================================================================= */}
-        {/* 0. Modal: Smart Invoice OCR Scanner & Multi-Item Auto-Extractor */}
-        {isSmartInvoiceScannerModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" dir="rtl" onClick={(e) => { if (e.target === e.currentTarget) setIsSmartInvoiceScannerModalOpen(false); }}>
-            <div className="bg-slate-900 border border-purple-500/50 rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white space-y-4">
+        {/* Modal: Add External Payroll Employee (Outside CRM) */}
+        {isAddExternalPayrollEmpModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onClick={(e) => { if (e.target === e.currentTarget) setIsAddExternalPayrollEmpModalOpen(false); }}>
+            <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white">
               <button
-                onClick={() => setIsSmartInvoiceScannerModalOpen(false)}
+                onClick={() => setIsAddExternalPayrollEmpModalOpen(false)}
                 className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
               >
                 <X size={18} />
               </button>
 
-              <div className="flex items-center gap-3 border-b border-purple-500/30 pb-3">
-                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-400/30">
-                  <Sparkles className="text-purple-300 animate-pulse" size={26} />
+              <div className="flex items-center gap-3 mb-4 border-b border-emerald-500/20 pb-3">
+                <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
+                  <UserPlus className="text-emerald-300" size={24} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-purple-300">
-                    📸 قارئ ومستخرج أصناف الفاتورة الذكي (OCR)
+                  <h3 className="text-base font-black text-emerald-300">
+                    + إضافة موظف خارجي (خارج CRM) 👤
                   </h3>
-                  <p className="text-xs text-purple-200/70">
-                    ارفع صورة الفاتورة الورقية أو السكرين شوت، وسيقوم النظام بسحب جميع الأصناف والكميات والأسعار وإدراجها في الشيتين تلقائياً 🚀
+                  <p className="text-xs text-emerald-200/70">
+                    يُضاف هذا الموظف لكارت الحضور والرواتب فقط، ولا يظهر في كارت الموظفين ولا يُنشئ حساباً بالنظام 🔒
                   </p>
                 </div>
               </div>
 
-              {/* Upload / Paste Area */}
-              <div>
-                <label className="block text-xs font-bold text-purple-300 mb-1.5">
-                  📁 اختر صورة الفاتورة أو اضغط Ctrl + V للصق السكرين شوت:
-                </label>
-                <div 
-                  onPaste={(e) => {
-                    const items = e.clipboardData?.items;
-                    if (items) {
-                      for (let i = 0; i < items.length; i++) {
-                        if (items[i].type && items[i].type.startsWith('image/')) {
-                          const file = items[i].getAsFile();
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const imgData = ev.target?.result;
-                              setBuffetInvoiceOcrImage(imgData);
-                              processBuffetInvoiceOcrImage(imgData);
-                            };
-                            reader.readAsDataURL(file);
-                            e.preventDefault();
-                            return;
-                          }
-                        }
-                      }
-                    }
-                    const pastedText = e.clipboardData?.getData('text');
-                    if (pastedText && pastedText.trim()) {
-                      setSmartInvoiceRawText(pastedText);
-                      const itemsExt = extractInvoiceItemsFromText(pastedText);
-                      if (itemsExt.length > 0) {
-                        setExtractedInvoiceItems(itemsExt);
-                        toast.success(`تم استخراج ${itemsExt.length} أصناف من النص الملصوق! ✨`);
-                      }
-                    }
-                  }}
-                  className="w-full bg-slate-950 border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-4 text-center transition flex flex-col items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Upload className="text-purple-400" size={24} />
-                  <span className="text-xs text-purple-200 font-bold">
-                    إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-purple-400/50 text-[10px] font-mono text-purple-300">Ctrl + V</kbd> للصق سكرين شوت الفاتورة
-                  </span>
-                  <div className="flex items-center gap-2 mt-1">
+              <form onSubmit={handleSaveExternalPayrollEmp} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الموظف بالكامل (مطلوب) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: أحمد عبد الله..."
+                    value={externalEmpName}
+                    onChange={(e) => setExternalEmpName(e.target.value)}
+                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">المسمى الوظيفي / القسم</label>
                     <input
-                      type="file"
-                      accept="image/*"
-                      id="smart-invoice-file-input"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const imgData = ev.target?.result;
-                            setBuffetInvoiceOcrImage(imgData);
-                            processBuffetInvoiceOcrImage(imgData);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                      type="text"
+                      placeholder="مثال: عامل بوفيه / أمن..."
+                      value={externalEmpJobTitle}
+                      onChange={(e) => setExternalEmpJobTitle(e.target.value)}
+                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold"
                     />
-                    <label
-                      htmlFor="smart-invoice-file-input"
-                      className="cursor-pointer bg-purple-950/80 hover:bg-purple-900 border border-purple-500/40 text-purple-200 text-xs px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
-                    >
-                      <Upload size={14} />
-                      <span>{buffetInvoiceOcrImage ? 'تغيير صورة الفاتورة 🧾' : 'اختر ملف الفاتورة من جهازك 📄'}</span>
-                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-amber-300 mb-1">المرتب الثابت (ج.م)</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 5000"
+                      value={externalEmpBaseSalary}
+                      onChange={(e) => setExternalEmpBaseSalary(e.target.value)}
+                      className="w-full bg-slate-800 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs text-white font-bold font-mono text-center"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Invoice Image Preview */}
-              {buffetInvoiceOcrImage && (
-                <div className="w-full h-36 bg-slate-950 rounded-2xl overflow-hidden border border-purple-500/30 relative flex items-center justify-center p-2">
-                  <img src={buffetInvoiceOcrImage} alt="Invoice preview" className="max-h-full object-contain rounded-xl" />
-                  {isScanningInvoiceOcr && (
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
-                      <Sparkles className="text-purple-400 animate-spin" size={24} />
-                      <span className="text-xs font-bold text-purple-200">جاري مسح الأصناف والكميات (OCR)...</span>
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">اسم الليدر / الفريق (اختياري)</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: فريق الخدمات..."
+                    value={externalEmpLeader}
+                    onChange={(e) => setExternalEmpLeader(e.target.value)}
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold"
+                  />
                 </div>
-              )}
 
-              {/* Multi-line Manual Text Entry / Paste Fallback */}
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1">
-                  أو يمكنك لصق نص الفاتورة يدوياً هنا:
-                </label>
-                <textarea
-                  rows="3"
-                  placeholder="مثال:
-ينسون 50 فتلة - العدد: 10 - السعر: 570
-نعناع 50 فتلة - العدد: 10 - السعر: 570
-لفة سكر 1 ك - العدد: 2 - السعر: 600"
-                  value={smartInvoiceRawText}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSmartInvoiceRawText(val);
-                    const itemsExt = extractInvoiceItemsFromText(val);
-                    if (itemsExt.length > 0) {
-                      setExtractedInvoiceItems(itemsExt);
-                    }
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none font-mono"
-                />
-              </div>
+                <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-[11px] text-emerald-200 font-bold flex items-center gap-2">
+                  <span>📌</span>
+                  <span>يمكن للأدمن والمنسق حذف هذا الموظف في أي وقت ونقله لسلة المهملات لدى الإدارة.</span>
+                </div>
 
-              {/* Extracted Items Preview Box */}
-              {extractedInvoiceItems.length > 0 && (
-                <div className="bg-slate-950/90 border border-purple-500/40 rounded-2xl p-3.5 space-y-3 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="text-emerald-400" size={16} />
-                      <span className="text-xs font-black text-purple-300">
-                        الأصناف المستخرجة من الفاتورة ({extractedInvoiceItems.length} أصناف):
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setExtractedInvoiceItems([])}
-                      className="text-[11px] text-rose-400 hover:text-rose-300 font-bold underline"
-                    >
-                      مسح القائمة ✕
-                    </button>
-                  </div>
-
-                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                    {extractedInvoiceItems.map((item, idx) => (
-                      <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-2 flex items-center justify-between gap-2 text-xs">
-                        <input
-                          type="text"
-                          value={item.itemName}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
-                          }}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold"
-                          placeholder="اسم الصنف..."
-                        />
-                        <div className="w-16 flex flex-col">
-                          <span className="text-[9px] text-gray-400 text-center font-bold">العدد</span>
-                          <input
-                            type="text"
-                            value={item.qty}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
-                            }}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-1 py-1 text-xs text-amber-300 text-center font-bold"
-                          />
-                        </div>
-                        <div className="w-20 flex flex-col">
-                          <span className="text-[9px] text-gray-400 text-center font-bold">السعر (ج.م)</span>
-                          <input
-                            type="text"
-                            value={item.cost}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
-                            }}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
-                            placeholder="0"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setExtractedInvoiceItems(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-rose-400 hover:text-rose-300 p-1 rounded-lg hover:bg-slate-800"
-                          title="حذف الصنف من القائمة"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
                   <button
                     type="button"
-                    onClick={() => handleSaveAllExtractedInvoiceItems()}
-                    disabled={buffetSaving}
-                    className="w-full bg-gradient-to-r from-purple-600 via-emerald-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white py-2.5 rounded-xl text-xs font-black shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    onClick={() => setIsAddExternalPayrollEmpModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-slate-800 transition"
                   >
-                    <CheckCircle2 size={16} />
-                    <span>💾 إدراج وحفظ جميع الأصناف ({extractedInvoiceItems.length}) في الشيتين تلقائياً</span>
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={buffetSaving}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <UserPlus size={15} />
+                    <span>{buffetSaving ? 'جاري الحفظ...' : 'حفظ الموظف بشيت الرواتب 👤'}</span>
                   </button>
                 </div>
-              )}
+              </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* 1. Modal: Add/Edit Buffet Inventory Item */}
@@ -22204,12 +22200,12 @@ const handleExportBuffetToExcel = () => {
 
                     <button
                       type="button"
-                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetItemImage || buffetPurchaseImage || buffetInvoiceOcrImage)}
+                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetItemImage || buffetInvoiceOcrImage, 'inventory')}
                       disabled={buffetSaving}
-                      className="w-full bg-gradient-to-r from-purple-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <CheckCircle2 size={14} />
-                      <span>💾 حفظ وتنسيق جميع الأصناف ({extractedInvoiceItems.length}) في الشيتين تلقائياً</span>
+                      <span>💾 حفظ وإدراج جميع الأصناف ({extractedInvoiceItems.length}) في شيت المخزون تلقائياً</span>
                     </button>
                   </div>
                 )}
@@ -22421,6 +22417,72 @@ const handleExportBuffetToExcel = () => {
                   >
                     إلغاء
                   </button>
+                  
+                {extractedInvoiceItems.length > 0 && (
+                  <div className="bg-slate-950/90 border border-blue-500/40 rounded-2xl p-3 space-y-2 shadow-xl mb-3">
+                    <div className="flex items-center justify-between border-b border-blue-500/20 pb-1.5">
+                      <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-blue-400 animate-spin" />
+                        أصناف الفاتورة المستخرجة للشراء ({extractedInvoiceItems.length}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExtractedInvoiceItems([])}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline"
+                      >
+                        إلغاء القائمة ✕
+                      </button>
+                    </div>
+
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                      {extractedInvoiceItems.map((item, idx) => (
+                        <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-1.5 flex items-center justify-between gap-1.5 text-xs">
+                          <input
+                            type="text"
+                            value={item.itemName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
+                            }}
+                            className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white font-bold"
+                            placeholder="اسم الصنف..."
+                          />
+                          <input
+                            type="text"
+                            value={item.qty}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
+                            }}
+                            className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-amber-300 text-center font-bold"
+                            placeholder="العدد"
+                          />
+                          <input
+                            type="text"
+                            value={item.cost}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
+                            }}
+                            className="w-16 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
+                            placeholder="السعر"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetPurchaseImage || buffetInvoiceOcrImage, 'purchases')}
+                      disabled={buffetSaving}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>💾 حفظ وإدراج جميع الأصناف ({extractedInvoiceItems.length}) في شيت المشتريات تلقائياً</span>
+                    </button>
+                  </div>
+                )}
+
                   <button
                     type="submit"
                     disabled={buffetSaving}
