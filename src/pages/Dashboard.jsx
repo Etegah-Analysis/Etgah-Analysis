@@ -10693,7 +10693,21 @@ const handleExportBuffetToExcel = () => {
                   <FileSpreadsheet className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">🎯 Leads CRM</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('leads_crm');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -10708,7 +10722,21 @@ const handleExportBuffetToExcel = () => {
                   <Upload className="text-amber-400" size={28} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">📁 Team Added Leads</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('employee_leads');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
@@ -10982,8 +11010,22 @@ const handleExportBuffetToExcel = () => {
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <FileSpreadsheet className="text-amber-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">🎯 Leads CRM</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('leads_crm');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
                 </div>
               </div>
@@ -10997,8 +11039,22 @@ const handleExportBuffetToExcel = () => {
                 <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                   <Upload className="text-amber-400" size={28} />
                 </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">📁 Team Added Leads</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('employee_leads');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
@@ -11254,8 +11310,22 @@ const handleExportBuffetToExcel = () => {
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
+                    <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('leads_crm');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                       <h3 className="text-2xl font-black text-amber-300">
                         {myAssignedLeadsCount.toLocaleString()} Leads
                       </h3>
@@ -11271,8 +11341,22 @@ const handleExportBuffetToExcel = () => {
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <Upload className="text-amber-400" size={28} />
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Team Added Leads</p>
+                    <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">📁 Team Added Leads</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('employee_leads');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                       <h3 className="text-2xl font-black text-amber-300">
                         {leaderTeamEmpLeadsCount.toLocaleString()} Team Leads
                       </h3>
@@ -11752,8 +11836,22 @@ const handleExportBuffetToExcel = () => {
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <FileSpreadsheet className="text-amber-400" size={28} />
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Agent')}</p>
+                    <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Agent')}</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('leads_crm');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                       <h3 className="text-2xl font-black text-amber-300">
                         {myAssignedLeadsCount.toLocaleString()} Leads
                       </h3>
@@ -11769,8 +11867,22 @@ const handleExportBuffetToExcel = () => {
                     <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
                       <Upload className="text-amber-400" size={28} />
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📁 Added Leads</p>
+                    <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words">📁 Added Leads</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCrmCampaignModal('employee_leads');
+                      }}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 border border-emerald-400/40 shrink-0 cursor-pointer"
+                      title="إرسال حملة واتساب (CRM)"
+                    >
+                      <MessageSquare size={13} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                  </div>
                       <h3 className="text-2xl font-black text-amber-300">
                         {myAssignedEmpLeadsCount.toLocaleString()} Leads
                       </h3>
