@@ -612,7 +612,8 @@ const Dashboard = () => {
   const [crmCampaignAttachment, setCrmCampaignAttachment] = useState(null);
   const [crmCampaignUploading, setCrmCampaignUploading] = useState(false);
   const crmCampaignFileInputRef = useRef(null);
-  const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm'); // 'leads_crm' or 'employee_leads'
+  const [crmCampaignTargetPool, setCrmCampaignTargetPool] = useState('leads_crm');
+  const [crmCampaignCustomLeads, setCrmCampaignCustomLeads] = useState(null); // 'leads_crm' or 'employee_leads'
   const [crmCampaignSending, setCrmCampaignSending] = useState(false);
   const [crmCampaignProgress, setCrmCampaignProgress] = useState(0);
   const [crmCampaignCheckedLeadIds, setCrmCampaignCheckedLeadIds] = useState([]);
@@ -9587,22 +9588,68 @@ const handleExportBuffetToExcel = () => {
     return Math.ceil(diff / (1000 * 60 * 60));
   };
 
+    const isLeadBelongsToEmpOrTeam = (c) => {
+    if (!c) return false;
+    if (isAdmin) return true;
+
+    // Check if current user is leader
+    if (isLeader) {
+      if (c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid) return true;
+      if (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser.email.toLowerCase()) return true;
+      if (currentEmpUser?.name && (c.assignedTo === currentEmpUser.name || c.employee === currentEmpUser.name || c.employeeName === currentEmpUser.name)) return true;
+      if (currentEmpUser?.username && (c.assignedTo === currentEmpUser.username || c.employee === currentEmpUser.username)) return true;
+
+      // Check team members
+      return myTeamMembers.some(m => {
+        if (!m) return false;
+        if (m.uid && (m.uid === c.assignedToUid || m.uid === c.addedByUid)) return true;
+        if (m.email && c.assignedTo?.toLowerCase() === m.email.toLowerCase()) return true;
+        if (m.name && (c.assignedTo === m.name || c.employee === m.name || c.employeeName === m.name)) return true;
+        if (m.username && (c.assignedTo === m.username || c.employee === m.username)) return true;
+        return false;
+      });
+    }
+
+    // Ordinary Employee / CS / Agent
+    if (c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid) return true;
+    if (currentUser?.email && c.assignedTo?.toLowerCase() === currentUser.email.toLowerCase()) return true;
+    if (currentEmpUser?.name && (c.assignedTo === currentEmpUser.name || c.employee === currentEmpUser.name || c.employeeName === currentEmpUser.name)) return true;
+    if (currentEmpUser?.username && (c.assignedTo === currentEmpUser.username || c.employee === currentEmpUser.username)) return true;
+    if (currentUser?.displayName && (c.assignedTo === currentUser.displayName || c.employee === currentUser.displayName)) return true;
+    
+    // If the lead was added by this employee
+    if (c.addedBy && (c.addedBy === currentUser?.email || c.addedBy === currentEmpUser?.name || c.addedBy === currentEmpUser?.username)) return true;
+
+    return false;
+  };
+
   const getCrmCampaignTargetLeads = (batchCount = crmCampaignBatchSize, targetStatusFilter = crmCampaignStatusFilter) => {
-    const isEmpLeadsPool = crmCampaignTargetPool === 'employee_leads';
-    const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
-    const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
+    let sourceList = [];
+    let selectedIds = [];
+
+    if (Array.isArray(crmCampaignCustomLeads) && crmCampaignCustomLeads.length > 0) {
+      sourceList = crmCampaignCustomLeads;
+      selectedIds = [];
+    } else if (crmCampaignTargetPool === 'employee_leads') {
+      sourceList = employeeLeads;
+      selectedIds = selectedEmployeeLeads || [];
+    } else if (crmCampaignTargetPool === 'subscribed_clients') {
+      sourceList = (isAgent || isCustomerService) 
+        ? agentSubscribedClients 
+        : (isLeader ? leaderSubscribedClients : allSubscribedClients);
+      selectedIds = selectedSubscribedClients || [];
+    } else {
+      sourceList = leadsCrm;
+      selectedIds = selectedLeadsCrm || [];
+    }
 
     let candidateLeads = [];
-    if (selectedIds.length > 0) {
+    if (selectedIds && selectedIds.length > 0) {
       candidateLeads = sourceList.filter(c => selectedIds.includes(c.id));
+    } else if (Array.isArray(crmCampaignCustomLeads) && crmCampaignCustomLeads.length > 0) {
+      candidateLeads = crmCampaignCustomLeads;
     } else {
-      candidateLeads = sourceList.filter(c => {
-        if (isAdmin) return true;
-        if (isLeader) {
-          return c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
-        }
-        return c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase();
-      });
+      candidateLeads = sourceList.filter(isLeadBelongsToEmpOrTeam);
     }
 
     // Apply Status Filter if selected
@@ -9613,34 +9660,48 @@ const handleExportBuffetToExcel = () => {
       });
     }
 
-    const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
-    // HIDE leads in 3-day cooldown COMPLETELY from campaign modal target list (they remain in sheet card)
+    const validLeads = candidateLeads.filter(c => c && (c.phoneNumber || c.phone) && String(c.phoneNumber || c.phone).replace(/[^0-9]/g, '').length >= 8);
     const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
     const count = Math.min(15, Math.max(1, batchCount));
     return availableLeads.slice(0, count);
   };
 
-  const openCrmCampaignModal = (poolType = 'leads_crm') => {
+  const openCrmCampaignModal = (poolType = 'leads_crm', specificLeads = null) => {
+    const customList = Array.isArray(specificLeads) ? specificLeads : null;
     setCrmCampaignTargetPool(poolType);
+    setCrmCampaignCustomLeads(customList);
     setCrmCampaignStatusFilter('all');
     setCrmCampaignProgress(0);
     
-    const isEmpLeadsPool = poolType === 'employee_leads';
-    const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
-    const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
+    let sourceList = [];
+    let selectedIds = [];
+
+    if (customList && customList.length > 0) {
+      sourceList = customList;
+      selectedIds = [];
+    } else if (poolType === 'employee_leads') {
+      sourceList = employeeLeads;
+      selectedIds = selectedEmployeeLeads || [];
+    } else if (poolType === 'subscribed_clients') {
+      sourceList = (isAgent || isCustomerService) 
+        ? agentSubscribedClients 
+        : (isLeader ? leaderSubscribedClients : allSubscribedClients);
+      selectedIds = selectedSubscribedClients || [];
+    } else {
+      sourceList = leadsCrm;
+      selectedIds = selectedLeadsCrm || [];
+    }
 
     let candidateLeads = [];
     if (selectedIds && selectedIds.length > 0) {
       candidateLeads = sourceList.filter(c => selectedIds.includes(c.id));
+    } else if (customList && customList.length > 0) {
+      candidateLeads = customList;
     } else {
-      candidateLeads = sourceList.filter(c => {
-        if (isAdmin) return true;
-        if (isLeader) return c.assignedToUid === currentUser?.uid || myTeamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid);
-        return c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase();
-      });
+      candidateLeads = sourceList.filter(isLeadBelongsToEmpOrTeam);
     }
 
-    const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
+    const validLeads = candidateLeads.filter(c => c && (c.phoneNumber || c.phone) && String(c.phoneNumber || c.phone).replace(/[^0-9]/g, '').length >= 8);
     const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
     const targets = availableLeads.slice(0, crmCampaignBatchSize);
     setCrmCampaignCheckedLeadIds(targets.map(c => c.id));
@@ -14074,6 +14135,14 @@ const handleExportBuffetToExcel = () => {
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
+                  <button 
+                    onClick={() => openCrmCampaignModal('subscribed_clients')}
+                    className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء المشتركين والدفعات"
+                  >
+                    <MessageSquare size={14} className="text-emerald-200" />
+                    <span>📢 إرسال حملة واتساب (CRM)</span>
+                  </button>
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter */}
                     {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
@@ -18630,18 +18699,28 @@ const handleExportBuffetToExcel = () => {
                     </p>
                   </div>
                 </div>
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsLeadsAnalysisModalOpen(false);
-                  }}
-                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-                  className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
-                  title="إغلاق النافذة"
-                >
-                  <X size={22} />
-                </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => openCrmCampaignModal('leads_crm')}
+                      className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                      title="إرسال حملة واتساب ترويجية لعملاء شيت التحليل"
+                    >
+                      <MessageSquare size={14} className="text-emerald-200" />
+                      <span>📢 إرسال حملة واتساب (CRM)</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsLeadsAnalysisModalOpen(false);
+                      }}
+                      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-white/10 md:hover:bg-rose-600 active:bg-rose-700 text-white min-w-[44px] min-h-[44px] p-2.5 rounded-full transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 z-50"
+                      title="إغلاق النافذة"
+                    >
+                      <X size={22} />
+                    </button>
+                  </div>
               </div>
 
               {/* Modal Body */}
@@ -18710,6 +18789,16 @@ const handleExportBuffetToExcel = () => {
                         </div>
 
                         {/* Progress Bar */}
+                        <div className="flex justify-end my-2">
+                          <button 
+                            onClick={() => openCrmCampaignModal('custom', leadsAnalysisData?.empCrmLeads || [])}
+                            className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                            title="إرسال رسائل وحملات واتساب ترويجية لداتا هذا الموظف"
+                          >
+                            <MessageSquare size={14} className="text-emerald-200" />
+                            <span>📢 إرسال حملة واتساب (CRM)</span>
+                          </button>
+                        </div>
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs font-bold text-purple-200">
                             <span>مؤشر التفاعل والإنجاز</span>
