@@ -6407,21 +6407,13 @@ const Dashboard = () => {
 
   // Helper: Get Current Deleter Label & Identity for Audit & Recycle Bin
   const getCurrentDeleterInfo = () => {
-    if (isAdmin) {
-      return {
-        label: '👑 الإدارة',
-        uid: 'admin',
-        email: currentUser?.email || 'admin@etegah.com',
-        role: 'admin'
-      };
-    }
-    const name = currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف';
-    const role = currentEmpUser?.jobTitle || (isCoordinator ? 'منسق' : isLeader ? 'ليدر' : isCustomerService ? 'خدمة عملاء' : 'موظف');
+    const userDisplayName = currentEmpUser?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف';
+    const roleLabel = isAdmin ? '👑 الإدارة' : (isCoordinator ? '📋 منسق الإدارة' : (isLeader ? 'ليدر' : (currentEmpUser?.jobTitle || 'موظف')));
     return {
-      label: `${name} (${role})`,
-      uid: currentUser?.uid || '',
-      email: currentUser?.email || '',
-      role: currentEmpUser?.jobTitle || 'agent'
+      label: `${userDisplayName} (${roleLabel})`,
+      uid: currentUser?.uid || 'admin',
+      email: currentUser?.email || 'admin@etegah.com',
+      role: roleLabel
     };
   };
 
@@ -8904,24 +8896,39 @@ const handleModalPasteBuffetItem = (e) => {
   
   const handleBulkDeleteInventory = async () => {
     if (selectedInventoryIds.length === 0) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedInventoryIds.length} أصناف من مخزون البوفيه بنقرة واحدة؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedInventoryIds.length} أصناف من مخزون البوفيه بنقرة واحدة ونقلها لسلة المهملات؟`)) return;
     const idsToDelete = [...selectedInventoryIds];
+    const deleter = getCurrentDeleterInfo();
+    const nowFormatted = new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
     
-    // 0ms Instant Optimistic State Update (Entire selection deleted instantly at once)
+    // 0ms Instant Optimistic State Update
     const updatedList = buffetInventory.filter(i => !idsToDelete.includes(i.id));
     setBuffetInventory(updatedList);
     setSelectedInventoryIds([]);
     localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedList));
-    toast.success(`🎉 تم حذف ${idsToDelete.length} أصناف دفعة واحدة في ميكروثانية!`);
+    toast.success(`🎉 تم حذف ${idsToDelete.length} أصناف ونقلها لسلة المهملات لدى الإدارة!`);
 
-    // Atomic writeBatch in Firestore background (single batch operation)
+    // Atomic writeBatch in Firestore background (delete + log to recycle_bin)
     (async () => {
       try {
         const batch = writeBatch(db);
         let count = 0;
         for (const id of idsToDelete) {
           if (id && !id.startsWith('item_')) {
+            const itemObj = buffetInventory.find(i => i.id === id);
             batch.delete(doc(db, 'buffet_inventory', id));
+            const binRef = doc(collection(db, 'recycle_bin'), id);
+            batch.set(binRef, {
+              type: 'buffet_inventory',
+              title: itemObj?.itemName || 'صنف بوفيه',
+              name: itemObj?.itemName || 'صنف بوفيه',
+              originalCollection: 'buffet_inventory',
+              data: itemObj || {},
+              deletedBy: deleter.label,
+              deletedByUid: deleter.uid,
+              deletedAt: serverTimestamp(),
+              deletedAtFormatted: nowFormatted
+            });
             count++;
           }
         }
@@ -8936,15 +8943,17 @@ const handleModalPasteBuffetItem = (e) => {
 
   const handleBulkDeletePurchases = async () => {
     if (selectedPurchaseIds.length === 0) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${selectedPurchaseIds.length} مشتريات من شيت البوفيه بنقرة واحدة؟`)) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedPurchaseIds.length} مشتريات من شيت البوفيه بنقرة واحدة ونقلها لسلة المهملات؟`)) return;
     const idsToDelete = [...selectedPurchaseIds];
+    const deleter = getCurrentDeleterInfo();
+    const nowFormatted = new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
     
     // 0ms Instant Optimistic State Update
     const updatedList = buffetPurchases.filter(p => !idsToDelete.includes(p.id));
     setBuffetPurchases(updatedList);
     setSelectedPurchaseIds([]);
     localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedList));
-    toast.success(`🎉 تم حذف ${idsToDelete.length} مشتريات دفعة واحدة في ميكروثانية!`);
+    toast.success(`🎉 تم حذف ${idsToDelete.length} مشتريات ونقلها لسلة المهملات لدى الإدارة!`);
 
     // Atomic writeBatch in Firestore background
     (async () => {
@@ -8953,7 +8962,20 @@ const handleModalPasteBuffetItem = (e) => {
         let count = 0;
         for (const id of idsToDelete) {
           if (id && !id.startsWith('purch_')) {
+            const itemObj = buffetPurchases.find(p => p.id === id);
             batch.delete(doc(db, 'buffet_purchases', id));
+            const binRef = doc(collection(db, 'recycle_bin'), id);
+            batch.set(binRef, {
+              type: 'buffet_purchase',
+              title: itemObj?.itemName || 'مشتريات بوفيه',
+              name: itemObj?.itemName || 'مشتريات بوفيه',
+              originalCollection: 'buffet_purchases',
+              data: itemObj || {},
+              deletedBy: deleter.label,
+              deletedByUid: deleter.uid,
+              deletedAt: serverTimestamp(),
+              deletedAtFormatted: nowFormatted
+            });
             count++;
           }
         }
@@ -9584,18 +9606,16 @@ const handleExportBuffetToExcel = () => {
   };
 
   const openCrmCampaignModal = (poolType = 'leads_crm') => {
-    if (isCoordinator) {
-      toast.error('صلاحية إرسال الحملات غير مفعلة لحساب المنسق 🔒');
-      return;
-    }
     setCrmCampaignTargetPool(poolType);
     setCrmCampaignStatusFilter('all');
     setCrmCampaignProgress(0);
+    
     const isEmpLeadsPool = poolType === 'employee_leads';
     const sourceList = isEmpLeadsPool ? employeeLeads : leadsCrm;
     const selectedIds = isEmpLeadsPool ? selectedEmployeeLeads : selectedLeadsCrm;
+
     let candidateLeads = [];
-    if (selectedIds.length > 0) {
+    if (selectedIds && selectedIds.length > 0) {
       candidateLeads = sourceList.filter(c => selectedIds.includes(c.id));
     } else {
       candidateLeads = sourceList.filter(c => {
@@ -9604,12 +9624,11 @@ const handleExportBuffetToExcel = () => {
         return c.assignedToUid === currentUser?.uid || c.addedByUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase();
       });
     }
+
     const validLeads = candidateLeads.filter(c => c.phoneNumber && String(c.phoneNumber).replace(/[^0-9]/g, '').length >= 8);
     const availableLeads = validLeads.filter(c => !isLeadInCampaignCooldown(c));
-    const cooldownLeads = validLeads.filter(c => isLeadInCampaignCooldown(c));
-    const targets = [...availableLeads, ...cooldownLeads].slice(0, crmCampaignBatchSize);
-    const eligibleIds = targets.filter(c => !isLeadInCampaignCooldown(c)).map(c => c.id);
-    setCrmCampaignCheckedLeadIds(eligibleIds);
+    const targets = availableLeads.slice(0, crmCampaignBatchSize);
+    setCrmCampaignCheckedLeadIds(targets.map(c => c.id));
     setIsCrmCampaignModalOpen(true);
   };
 
@@ -17571,6 +17590,7 @@ const handleExportBuffetToExcel = () => {
                 <button onClick={() => setRbFilter('employee')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'employee' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>موظفين</button>
                 <button onClick={() => setRbFilter('customer')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'customer' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>عملاء</button>
                 <button onClick={() => setRbFilter('visitor')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'visitor' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>زوار (OTP)</button>
+                <button onClick={() => setRbFilter('buffet')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'buffet' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>☕ بوفيه ومشتريات</button>
                 <button onClick={() => setRbFilter('receipt')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'receipt' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>🧾 إشعارات ودفعات</button>
                 <button onClick={() => setRbFilter('email')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'email' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>✉️ إيميلات</button>
                 <button onClick={() => setRbFilter('message')} className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${rbFilter === 'message' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-purple-200 hover:bg-slate-700 border border-purple-500/30'}`}>رسائل</button>
@@ -17649,6 +17669,8 @@ const handleExportBuffetToExcel = () => {
                         ) : (
                           item.type === 'customer' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">💬 عميل واتساب</span>
                         )}
+                        {item.type === 'buffet_inventory' && <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-1 rounded text-xs font-bold">☕ مخزون بوفيه</span>}
+                        {item.type === 'buffet_purchase' && <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-1 rounded text-xs font-bold">🛒 مشتريات بوفيه</span>}
                         {item.type === 'receipt' && <span className="bg-rose-100 text-rose-800 border border-rose-300 px-2 py-1 rounded text-xs font-bold">🧾 إشعار دفع</span>}
                         {item.type === 'email' && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">✉️ بريد داخلي</span>}
                         {item.type === 'message' && <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">💬 رسالة شات</span>}
