@@ -3591,8 +3591,13 @@ const Dashboard = () => {
     const computeLeadStats = (leadsList) => {
       const total = leadsList.length;
       let subscribed = 0, trial = 0, interested = 0, callBack = 0, noAnswer = 0, notInterested = 0, pending = 0;
+      let todayDistributedCrmLeads = 0;
+      let todayAddedEmpLeads = 0;
+      const todayDateStr = new Date().toISOString().split('T')[0];
+
       for (let i = 0; i < total; i++) {
-        const st = getStatus(leadsList[i]);
+        const item = leadsList[i];
+        const st = getStatus(item);
         if (st === 'subscribed') subscribed++;
         else if (st === 'started_trial') trial++;
         else if (st === 'interested') interested++;
@@ -3600,14 +3605,23 @@ const Dashboard = () => {
         else if (st === 'no_answer') noAnswer++;
         else if (st === 'not_interested') notInterested++;
         else pending++;
+
+        const assignedTime = getTimestampMillis(item.assignedAt) || getTimestampMillis(item.createdAt) || item.timestampMillis;
+        const assignedDate = assignedTime ? new Date(assignedTime).toISOString().split('T')[0] : (item.dateStr || item.actionDateStr);
+        if (assignedDate === todayDateStr) {
+          if (item.source === 'leads_crm' || item.assignedTo || item.assignedToUid) {
+            todayDistributedCrmLeads++;
+          } else {
+            todayAddedEmpLeads++;
+          }
+        }
       }
+
       let todayDemo = 0;
-      const todayDateStr = new Date().toISOString().split('T')[0];
       for (let i = 0; i < total; i++) {
         const item = leadsList[i];
         const st = getStatus(item);
         if (st === 'started_trial') {
-          // Strictly check demo conversion date or trial start date, isolating comments/edits
           const demoConvertedDate = item.demoConvertedDateStr || item.trialStartDate || item.demoTodayDate;
           const statusChangeTime = getTimestampMillis(item.statusUpdatedAt) || getTimestampMillis(item.demoConvertedAt);
           const statusChangeDate = statusChangeTime ? new Date(statusChangeTime).toISOString().split('T')[0] : null;
@@ -3671,6 +3685,7 @@ const Dashboard = () => {
         teamCrmLeads,
         teamEmpAddedLeads,
         teamLeads,
+        teamOverallStats,
         totalTeamLeads: teamOverallStats.total,
         totalTeamPending: teamOverallStats.pending,
         totalTeamSuccessful: teamOverallStats.successfulCount,
@@ -18652,42 +18667,45 @@ const handleExportBuffetToExcel = () => {
                       <div className="space-y-5">
                         {/* Overall Score Badges */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                          <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-xl">
-                            <span className="text-xs text-purple-300 font-bold block mb-1">إجمالي داتا المتابعة (موزع + مضاف):</span>
-                            <span className="text-2xl font-black text-white">{total} عميل</span>
-                            <span className="text-[11px] text-purple-400 font-medium block mt-0.5" dir="rtl">
-                              ({empCrmLeads.length.toLocaleString()} موزع + {empAddedLeads.length.toLocaleString()} مضاف)
+                          <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 p-4 rounded-2xl border border-purple-500/40 shadow-xl">
+                            <span className="text-xs text-purple-200 font-bold block mb-1">إجمالي الداتا اليومية للتقييم 📊</span>
+                            <span className="text-2xl font-black text-amber-300 font-mono">{(data.todayTotalData || 0).toLocaleString()} عميل اليوم</span>
+                            <span className="text-xs text-purple-200 font-bold block mt-1" dir="rtl">
+                              ({(data.todayDistributedCrmLeads || 0).toLocaleString()} موزع اليوم + {(data.todayAddedEmpLeads || 0).toLocaleString()} مضاف اليوم)
                             </span>
+                            <div className="mt-2.5 pt-2 border-t border-purple-500/30 text-xs sm:text-sm font-black text-amber-300" dir="rtl">
+                              إجمالي الداتا التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{total.toLocaleString()}</strong> عميل ({empCrmLeads.length.toLocaleString()} موزع + {empAddedLeads.length.toLocaleString()} مضاف)
+                            </div>
                           </div>
 
-                          <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-xl text-center sm:text-right">
-                            <span className="text-xs text-cyan-200 font-bold block mb-1">🎯 ديمو اليوم (Daily Demo)</span>
-                            <span className="text-3xl font-black text-cyan-300">
-                              {todayDemo || 0}
+                          <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-xl">
+                            <span className="text-xs text-cyan-200 font-black block mb-1">🎯 ديمو اليوم (Daily Demo)</span>
+                            <span className="text-2xl font-black text-cyan-300 font-mono">
+                              {todayDemo || 0} ديمو اليوم
                             </span>
-                            <span className="text-[11px] text-cyan-400 font-medium block mt-0.5" dir="rtl">
-                              (التراكمي: {trial} بدأ تجربة 🚀)
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-cyan-500/30 text-xs sm:text-sm font-black text-cyan-200" dir="rtl">
+                              إجمالي التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{trial}</strong> بدأوا تجربة 🚀
+                            </div>
                           </div>
 
-                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40 shadow-xl text-center sm:text-right">
+                          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-2xl border border-indigo-500/40 shadow-xl">
                             <span className="text-xs text-indigo-200 font-bold block mb-1">معدل النجاح والتفاعل الإيجابي 📈</span>
-                            <span className={`text-3xl font-black ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
+                            <span className={`text-2xl font-black font-mono ${successRate >= 50 ? 'text-emerald-400' : successRate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>
                               {successRate}%
                             </span>
-                            <span className="text-[11px] text-purple-300 font-medium block mt-0.5" dir="rtl">
-                              ({successfulCount} ناجح من {total})
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-indigo-500/30 text-xs sm:text-sm font-black text-purple-200" dir="rtl">
+                              إجمالي النجاح التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{successfulCount}</strong> ناجح من {total}
+                            </div>
                           </div>
 
-                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-xl text-center sm:text-right">
+                          <div className="bg-gradient-to-r from-teal-950 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-xl">
                             <span className="text-xs text-teal-200 font-bold block mb-1">معدل المتابعة والتواصل 📞</span>
-                            <span className="text-3xl font-black text-teal-300">
+                            <span className="text-2xl font-black text-teal-300 font-mono">
                               {interactionRate}%
                             </span>
-                            <span className="text-[11px] text-teal-400 font-medium block mt-0.5" dir="rtl">
-                              ({contactedCount} تم التواصل معهم)
-                            </span>
+                            <div className="mt-2.5 pt-2 border-t border-teal-500/30 text-xs sm:text-sm font-black text-teal-200" dir="rtl">
+                              إجمالي التواصل التراكمي: <strong className="text-white font-mono text-sm sm:text-base">{contactedCount}</strong> تم التواصل
+                            </div>
                           </div>
                         </div>
 
