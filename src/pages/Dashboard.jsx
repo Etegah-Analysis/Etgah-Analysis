@@ -12114,28 +12114,34 @@ const handleExportBuffetToExcel = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {campaignsList.map((campaign, idx) => {
-                      const empEmailLower = (campaign.empEmail || '').toLowerCase();
+                      const cleanStr = (s) => (s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+                      const empEmailClean = cleanStr(campaign.empEmail);
                       const empObj = employees.find(e => {
                         if (!e) return false;
-                        if (e.email && e.email.toLowerCase() === empEmailLower) return true;
-                        if (e.username && e.username.toLowerCase() === empEmailLower) return true;
-                        if (e.name && e.name.toLowerCase() === empEmailLower) return true;
+                        if (e.email && cleanStr(e.email) === empEmailClean) return true;
+                        if (e.username && cleanStr(e.username) === empEmailClean) return true;
+                        if (e.name && cleanStr(e.name) === empEmailClean) return true;
                         if (e.uid && e.uid === campaign.empEmail) return true;
-                        if (empEmailLower.includes('@') && e.email && e.email.toLowerCase() === empEmailLower) return true;
-                        if (!empEmailLower.includes('@') && e.email && e.email.split('@')[0].toLowerCase() === empEmailLower) return true;
+                        if (e.email && cleanStr(e.email.split('@')[0]) === empEmailClean) return true;
+                        if (empEmailClean && cleanStr(e.name).includes(empEmailClean)) return true;
+                        if (empEmailClean && cleanStr(e.username).includes(empEmailClean)) return true;
                         return false;
                       });
                       const empName = empObj?.username || empObj?.name || (campaign.empEmail?.includes('@') ? campaign.empEmail.split('@')[0] : campaign.empEmail) || 'مجهول';
                       const empJobTitle = empObj?.jobTitle === 'Leader' || empObj?.jobTitle === 'ليدر' ? '👑 Leader' : (empObj?.jobTitle === 'Team Leader' ? '👑 Team Leader' : (empObj?.jobTitle === 'Coordinator' ? '📋 Coordinator' : '👤 Agent'));
                       const empLeaderUid = empObj?.leaderUid || empObj?.leaderId;
-                      let leaderObj = empLeaderUid ? employees.find(l => l.uid === empLeaderUid || l.id === empLeaderUid || l.username?.toLowerCase() === String(empLeaderUid).toLowerCase() || l.email?.toLowerCase() === String(empLeaderUid).toLowerCase()) : null;
+                      let leaderObj = empLeaderUid ? employees.find(l => l.uid === empLeaderUid || l.id === empLeaderUid || cleanStr(l.username) === cleanStr(empLeaderUid) || cleanStr(l.name) === cleanStr(empLeaderUid) || cleanStr(l.email) === cleanStr(empLeaderUid)) : null;
                       
+                      if (!leaderObj && empObj?.leaderName) {
+                        leaderObj = employees.find(l => cleanStr(l.username) === cleanStr(empObj.leaderName) || cleanStr(l.name) === cleanStr(empObj.leaderName));
+                      }
+
                       if (!leaderObj && empObj) {
                         leaderObj = employees.find(l => {
                           if (!l) return false;
                           const isL = l.jobTitle === 'Leader' || l.jobTitle === 'Team Leader' || l.jobTitle === 'ليدر' || l.role === 'leader';
                           if (!isL) return false;
-                          if (l.teamMembers && Array.isArray(l.teamMembers) && (l.teamMembers.includes(empObj.uid) || l.teamMembers.includes(empObj.email) || l.teamMembers.includes(empObj.username))) return true;
+                          if (l.teamMembers && Array.isArray(l.teamMembers) && l.teamMembers.some(tm => cleanStr(tm) === cleanStr(empObj.uid) || cleanStr(tm) === cleanStr(empObj.username) || cleanStr(tm) === cleanStr(empObj.name) || cleanStr(tm) === cleanStr(empObj.email))) return true;
                           return false;
                         });
                       }
