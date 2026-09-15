@@ -756,6 +756,11 @@ const Dashboard = () => {
 
   // Buffet Item Modal states
   const [isAddBuffetItemModalOpen, setIsAddBuffetItemModalOpen] = useState(false);
+  const [isSmartInvoiceScannerModalOpen, setIsSmartInvoiceScannerModalOpen] = useState(false);
+  const [extractedInvoiceItems, setExtractedInvoiceItems] = useState([]);
+  const [isScanningInvoiceOcr, setIsScanningInvoiceOcr] = useState(false);
+  const [buffetInvoiceOcrImage, setBuffetInvoiceOcrImage] = useState(null);
+  const [smartInvoiceRawText, setSmartInvoiceRawText] = useState('');
   const [editingBuffetItem, setEditingBuffetItem] = useState(null);
   const [buffetItemName, setBuffetItemName] = useState('');
   const [buffetItemTotalQty, setBuffetItemTotalQty] = useState('');
@@ -7169,7 +7174,206 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
   };
 
-    const parsePastedInvoiceContent = (text) => {
+  const extractInvoiceItemsFromText = (text) => {
+    if (!text) return [];
+    const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const items = [];
+
+    const ignoreRegex = /^(بيان أسعار|بيان اسعار|التاريخ|التفاصيل|العدد|سعر الوحدة|القيمة الإجمالية|أنوس|استلمت|التوقيع|تليفون|عمارة|مشروع|مطلوب من|الإجمالي|TOTAL|NO:|ش\.م\.م|س\.ت|ت\.م|إيصال|فاتورة|المبلغ|ملاحظات|هاتف|العميل|السيد)/i;
+
+    lines.forEach(line => {
+      if (ignoreRegex.test(line)) return;
+
+      const normLine = line.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g, '.');
+      const numbers = [...normLine.matchAll(/\b\d+(?:\.\d+)?\b/g)].map(m => m[0]);
+      
+      if (numbers.length > 0) {
+        let itemName = line.replace(/[٠-٩\d]+(?:\.[٠-٩\d]+)?/g, '').trim();
+        itemName = itemName.replace(/[|:\-=\/*\\_\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
+        itemName = itemName.replace(/^(تفاصيل|بند|صنف|مشتريات|شراء)\s*/i, '');
+
+        if (itemName && itemName.length >= 2 && !ignoreRegex.test(itemName)) {
+          let qty = '1';
+          let cost = '';
+
+          if (numbers.length === 1) {
+            cost = numbers[0];
+          } else if (numbers.length === 2) {
+            qty = numbers[0];
+            cost = numbers[1];
+          } else if (numbers.length >= 3) {
+            qty = numbers[0];
+            cost = numbers[numbers.length - 1];
+          }
+
+          items.push({
+            id: 'extracted_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            itemName: itemName,
+            qty: qty || '1',
+            cost: cost || '',
+            totalQty: qty || '1',
+            usedQty: '0',
+            remainingQty: qty || '1'
+          });
+        }
+      } else {
+        const cleanText = line.replace(/[|:\-=\/*\\_\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanText.length >= 2 && !ignoreRegex.test(cleanText)) {
+          items.push({
+            id: 'extracted_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            itemName: cleanText,
+            qty: '1',
+            cost: '',
+            totalQty: '1',
+            usedQty: '0',
+            remainingQty: '1'
+          });
+        }
+      }
+    });
+
+    return items;
+  };
+
+  const processBuffetInvoiceOcrImage = async (imageSrc) => {
+    if (!imageSrc) return;
+    setIsScanningInvoiceOcr(true);
+    toast.loading('جاري مسح وقراءة صورة الفاتورة واستخراج الأصناف (OCR)... 🔍', { id: 'buffet-ocr-toast' });
+
+    try {
+      const ocrText = await performOcrOnImage(imageSrc);
+      const items = extractInvoiceItemsFromText(ocrText);
+
+      toast.dismiss('buffet-ocr-toast');
+
+      if (items && items.length > 0) {
+        setExtractedInvoiceItems(items);
+        toast.success(`🎉 تم استخراج ${items.length} أصناف بنجاح من صورة الفاتورة! يمكنك مراجعتها وحفظها للشيتين.`);
+      } else {
+        const singleParsed = parsePastedInvoiceContent(ocrText);
+        const fallbackItem = {
+          id: 'extracted_' + Date.now(),
+          itemName: singleParsed.title || 'فاتورة مشتريات بوفيه',
+          qty: singleParsed.qty || '1',
+          cost: singleParsed.cost || '',
+          totalQty: singleParsed.qty || '1',
+          usedQty: '0',
+          remainingQty: singleParsed.qty || '1'
+        };
+        setExtractedInvoiceItems([fallbackItem]);
+        toast.success('تم التعرف على الفاتورة واستخراج البيانات بنجاح 🧾✨');
+      }
+    } catch (err) {
+      console.error('OCR Error:', err);
+      toast.dismiss('buffet-ocr-toast');
+      toast.error('لم نتمكن من قراءة صورة الفاتورة تلقائياً، يمكنك كتابة الأصناف أو لصق نصها.');
+    } finally {
+      setIsScanningInvoiceOcr(false);
+    }
+  };
+
+  const handleSaveAllExtractedInvoiceItems = async (targetItems = extractedInvoiceItems, invoiceImage = buffetInvoiceOcrImage) => {
+    const itemsToSave = targetItems && targetItems.length > 0 ? targetItems : extractedInvoiceItems;
+    if (!itemsToSave || itemsToSave.length === 0) {
+      toast.error('لا توجد أصناف مستخرجة للحفظ في الشيت');
+      return;
+    }
+
+    setBuffetSaving(true);
+    toast.loading('جاري إضافة وحفظ جميع أصناف الفاتورة إلى الشيتين... 💾', { id: 'save-batch-toast' });
+
+    try {
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG') + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const userRole = isAdmin ? '👑 الإدارة' : isCoordinator ? `📋 منسق الإدارة (${currentEmpUser?.name || 'منسق'})` : (currentEmpUser?.name || 'موظف');
+      const todayIso = now.toISOString().slice(0, 10);
+
+      const addedInventoryItems = [];
+      const addedPurchaseItems = [];
+
+      for (const item of itemsToSave) {
+        const finalItemName = (item.itemName || '').trim() || 'صنف فاتورة';
+        const finalQty = (item.qty || item.totalQty || '1').trim() || '1';
+        const finalCost = (item.cost || '').trim();
+
+        // 1. Save to Inventory (محتويات ومخزون البوفيه)
+        const invItemData = {
+          itemName: finalItemName,
+          totalQty: finalQty,
+          usedQty: '0',
+          remainingQty: finalQty,
+          notes: finalCost ? `التكلفة بالفاتورة: ${finalCost} ج.م` : 'مستخرج تلقائياً من الفاتورة',
+          imageUrl: invoiceImage || '',
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          createdAtMillis: Date.now(),
+          updatedBy: userRole,
+          updatedDateTime: formattedNow,
+          order: buffetInventory.length + addedInventoryItems.length + 1
+        };
+
+        let newInvDocId = 'item_' + Date.now() + Math.random().toString(36).substring(2, 7);
+        try {
+          const docRef = await addDoc(collection(db, 'buffet_inventory'), invItemData);
+          newInvDocId = docRef.id;
+        } catch (e) {
+          console.warn('Firestore fallback inv save:', e);
+        }
+        addedInventoryItems.push({ id: newInvDocId, ...invItemData });
+
+        // 2. Save to Purchases (المشتريات الجديدة والمصروفات)
+        const purchItemData = {
+          itemName: finalItemName,
+          qty: finalQty,
+          cost: finalCost,
+          purchaseDate: todayIso,
+          notes: 'مستخرج تلقائياً من الفاتورة',
+          imageUrl: invoiceImage || '',
+          receiptUrl: invoiceImage || '',
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          createdAtMillis: Date.now(),
+          updatedBy: userRole,
+          updatedDateTime: formattedNow
+        };
+
+        let newPurchDocId = 'purch_' + Date.now() + Math.random().toString(36).substring(2, 7);
+        try {
+          const docRef = await addDoc(collection(db, 'buffet_purchases'), purchItemData);
+          newPurchDocId = docRef.id;
+        } catch (e) {
+          console.warn('Firestore fallback purch save:', e);
+        }
+        addedPurchaseItems.push({ id: newPurchDocId, ...purchItemData });
+      }
+
+      // Update Local State & LocalStorage
+      const updatedInvList = [...addedInventoryItems, ...buffetInventory];
+      setBuffetInventory(updatedInvList);
+      localStorage.setItem('etegah_buffet_inventory', JSON.stringify(updatedInvList));
+
+      const updatedPurchList = [...addedPurchaseItems, ...buffetPurchases];
+      setBuffetPurchases(updatedPurchList);
+      localStorage.setItem('etegah_buffet_purchases', JSON.stringify(updatedPurchList));
+
+      toast.dismiss('save-batch-toast');
+      toast.success(`🎉 تم حفظ ${itemsToSave.length} أصناف وتنسيقها بنجاح في جدول المخزون وجدول المشتريات!`);
+
+      setExtractedInvoiceItems([]);
+      setBuffetInvoiceOcrImage(null);
+      setIsSmartInvoiceScannerModalOpen(false);
+      setIsAddBuffetItemModalOpen(false);
+      setIsAddBuffetPurchaseModalOpen(false);
+    } catch (err) {
+      console.error('Error saving batch invoice items:', err);
+      toast.dismiss('save-batch-toast');
+      toast.error('حدث خطأ أثناء حفظ أصناف الفاتورة');
+    } finally {
+      setBuffetSaving(false);
+    }
+  };
+
+  const parsePastedInvoiceContent = (text) => {
     if (!text) return {};
     const cleaned = text.trim();
     const numbers = cleaned.match(/\d+(\.\d+)?/g) || [];
@@ -15167,6 +15371,21 @@ const handleExportBuffetToExcel = () => {
                     </button>
                   )}
 
+                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                    <button 
+                      onClick={() => {
+                        setExtractedInvoiceItems([]);
+                        setBuffetInvoiceOcrImage(null);
+                        setSmartInvoiceRawText('');
+                        setIsSmartInvoiceScannerModalOpen(true);
+                      }}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-purple-500/30 cursor-pointer border border-purple-400/40"
+                    >
+                      <Sparkles size={15} className="animate-spin" />
+                      <span>📸 قراءة وسحب الفاتورة ذكياً (OCR) ⚡</span>
+                    </button>
+                  )}
+
                   
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canUploadBuffetSheet')) && (
@@ -21500,6 +21719,224 @@ const handleExportBuffetToExcel = () => {
         {/* ========================================================================= */}
         {/* BUFFET MODALS: ADD/EDIT ITEM, ADD/EDIT PURCHASE, UPLOAD, GOOGLE SHEET, LIGHTBOX */}
         {/* ========================================================================= */}
+        {/* 0. Modal: Smart Invoice OCR Scanner & Multi-Item Auto-Extractor */}
+        {isSmartInvoiceScannerModalOpen && typeof document !== 'undefined' && document.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" dir="rtl" onClick={(e) => { if (e.target === e.currentTarget) setIsSmartInvoiceScannerModalOpen(false); }}>
+            <div className="bg-slate-900 border border-purple-500/50 rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative my-auto text-white space-y-4">
+              <button
+                onClick={() => setIsSmartInvoiceScannerModalOpen(false)}
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-white rounded-full bg-slate-800/80 transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 border-b border-purple-500/30 pb-3">
+                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-400/30">
+                  <Sparkles className="text-purple-300 animate-pulse" size={26} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-purple-300">
+                    📸 قارئ ومستخرج أصناف الفاتورة الذكي (OCR)
+                  </h3>
+                  <p className="text-xs text-purple-200/70">
+                    ارفع صورة الفاتورة الورقية أو السكرين شوت، وسيقوم النظام بسحب جميع الأصناف والكميات والأسعار وإدراجها في الشيتين تلقائياً 🚀
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload / Paste Area */}
+              <div>
+                <label className="block text-xs font-bold text-purple-300 mb-1.5">
+                  📁 اختر صورة الفاتورة أو اضغط Ctrl + V للصق السكرين شوت:
+                </label>
+                <div 
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (items) {
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type && items[i].type.startsWith('image/')) {
+                          const file = items[i].getAsFile();
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const imgData = ev.target?.result;
+                              setBuffetInvoiceOcrImage(imgData);
+                              processBuffetInvoiceOcrImage(imgData);
+                            };
+                            reader.readAsDataURL(file);
+                            e.preventDefault();
+                            return;
+                          }
+                        }
+                      }
+                    }
+                    const pastedText = e.clipboardData?.getData('text');
+                    if (pastedText && pastedText.trim()) {
+                      setSmartInvoiceRawText(pastedText);
+                      const itemsExt = extractInvoiceItemsFromText(pastedText);
+                      if (itemsExt.length > 0) {
+                        setExtractedInvoiceItems(itemsExt);
+                        toast.success(`تم استخراج ${itemsExt.length} أصناف من النص الملصوق! ✨`);
+                      }
+                    }
+                  }}
+                  className="w-full bg-slate-950 border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-4 text-center transition flex flex-col items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Upload className="text-purple-400" size={24} />
+                  <span className="text-xs text-purple-200 font-bold">
+                    إضغط هنا ثم اضغط <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-purple-400/50 text-[10px] font-mono text-purple-300">Ctrl + V</kbd> للصق سكرين شوت الفاتورة
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="smart-invoice-file-input"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const imgData = ev.target?.result;
+                            setBuffetInvoiceOcrImage(imgData);
+                            processBuffetInvoiceOcrImage(imgData);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="smart-invoice-file-input"
+                      className="cursor-pointer bg-purple-950/80 hover:bg-purple-900 border border-purple-500/40 text-purple-200 text-xs px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5"
+                    >
+                      <Upload size={14} />
+                      <span>{buffetInvoiceOcrImage ? 'تغيير صورة الفاتورة 🧾' : 'اختر ملف الفاتورة من جهازك 📄'}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Invoice Image Preview */}
+              {buffetInvoiceOcrImage && (
+                <div className="w-full h-36 bg-slate-950 rounded-2xl overflow-hidden border border-purple-500/30 relative flex items-center justify-center p-2">
+                  <img src={buffetInvoiceOcrImage} alt="Invoice preview" className="max-h-full object-contain rounded-xl" />
+                  {isScanningInvoiceOcr && (
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
+                      <Sparkles className="text-purple-400 animate-spin" size={24} />
+                      <span className="text-xs font-bold text-purple-200">جاري مسح الأصناف والكميات (OCR)...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Multi-line Manual Text Entry / Paste Fallback */}
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">
+                  أو يمكنك لصق نص الفاتورة يدوياً هنا:
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder="مثال:
+ينسون 50 فتلة - العدد: 10 - السعر: 570
+نعناع 50 فتلة - العدد: 10 - السعر: 570
+لفة سكر 1 ك - العدد: 2 - السعر: 600"
+                  value={smartInvoiceRawText}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSmartInvoiceRawText(val);
+                    const itemsExt = extractInvoiceItemsFromText(val);
+                    if (itemsExt.length > 0) {
+                      setExtractedInvoiceItems(itemsExt);
+                    }
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none font-mono"
+                />
+              </div>
+
+              {/* Extracted Items Preview Box */}
+              {extractedInvoiceItems.length > 0 && (
+                <div className="bg-slate-950/90 border border-purple-500/40 rounded-2xl p-3.5 space-y-3 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="text-emerald-400" size={16} />
+                      <span className="text-xs font-black text-purple-300">
+                        الأصناف المستخرجة من الفاتورة ({extractedInvoiceItems.length} أصناف):
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExtractedInvoiceItems([])}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-bold underline"
+                    >
+                      مسح القائمة ✕
+                    </button>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {extractedInvoiceItems.map((item, idx) => (
+                      <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-2 flex items-center justify-between gap-2 text-xs">
+                        <input
+                          type="text"
+                          value={item.itemName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
+                          }}
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold"
+                          placeholder="اسم الصنف..."
+                        />
+                        <div className="w-16 flex flex-col">
+                          <span className="text-[9px] text-gray-400 text-center font-bold">العدد</span>
+                          <input
+                            type="text"
+                            value={item.qty}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
+                            }}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-1 py-1 text-xs text-amber-300 text-center font-bold"
+                          />
+                        </div>
+                        <div className="w-20 flex flex-col">
+                          <span className="text-[9px] text-gray-400 text-center font-bold">السعر (ج.م)</span>
+                          <input
+                            type="text"
+                            value={item.cost}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
+                            }}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
+                            placeholder="0"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExtractedInvoiceItems(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-rose-400 hover:text-rose-300 p-1 rounded-lg hover:bg-slate-800"
+                          title="حذف الصنف من القائمة"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAllExtractedInvoiceItems()}
+                    disabled={buffetSaving}
+                    className="w-full bg-gradient-to-r from-purple-600 via-emerald-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white py-2.5 rounded-xl text-xs font-black shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>💾 إدراج وحفظ جميع الأصناف ({extractedInvoiceItems.length}) في الشيتين تلقائياً</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 1. Modal: Add/Edit Buffet Inventory Item */}
         {isAddBuffetItemModalOpen && typeof document !== 'undefined' && document.body && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" dir="rtl" onPaste={handleModalPasteBuffetItem} onClick={(e) => { if (e.target === e.currentTarget) setIsAddBuffetItemModalOpen(false); }}>
@@ -21670,7 +22107,11 @@ const handleExportBuffetToExcel = () => {
                         const file = e.target.files?.[0];
                         if (file) {
                           const reader = new FileReader();
-                          reader.onload = (ev) => setBuffetItemImage(ev.target?.result);
+                          reader.onload = (ev) => {
+                            const imgData = ev.target?.result;
+                            setBuffetItemImage(imgData);
+                            processBuffetInvoiceOcrImage(imgData);
+                          };
                           reader.readAsDataURL(file);
                         }
                       }}
@@ -21707,6 +22148,72 @@ const handleExportBuffetToExcel = () => {
                   >
                     إلغاء
                   </button>
+                  
+                {extractedInvoiceItems.length > 0 && (
+                  <div className="bg-slate-950/90 border border-purple-500/40 rounded-2xl p-3 space-y-2 shadow-xl mb-3">
+                    <div className="flex items-center justify-between border-b border-purple-500/20 pb-1.5">
+                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-purple-400 animate-spin" />
+                        أصناف الفاتورة المستخرجة ({extractedInvoiceItems.length}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExtractedInvoiceItems([])}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline"
+                      >
+                        إلغاء القائمة ✕
+                      </button>
+                    </div>
+
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                      {extractedInvoiceItems.map((item, idx) => (
+                        <div key={item.id || idx} className="bg-slate-900 border border-slate-700/60 rounded-xl p-1.5 flex items-center justify-between gap-1.5 text-xs">
+                          <input
+                            type="text"
+                            value={item.itemName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, itemName: val } : it));
+                            }}
+                            className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white font-bold"
+                            placeholder="اسم الصنف..."
+                          />
+                          <input
+                            type="text"
+                            value={item.qty}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: val, totalQty: val, remainingQty: val } : it));
+                            }}
+                            className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-amber-300 text-center font-bold"
+                            placeholder="العدد"
+                          />
+                          <input
+                            type="text"
+                            value={item.cost}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setExtractedInvoiceItems(prev => prev.map((it, i) => i === idx ? { ...it, cost: val } : it));
+                            }}
+                            className="w-16 bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs text-emerald-300 text-center font-mono font-bold"
+                            placeholder="السعر"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAllExtractedInvoiceItems(extractedInvoiceItems, buffetItemImage || buffetPurchaseImage || buffetInvoiceOcrImage)}
+                      disabled={buffetSaving}
+                      className="w-full bg-gradient-to-r from-purple-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white py-2 rounded-xl text-xs font-black shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>💾 حفظ وتنسيق جميع الأصناف ({extractedInvoiceItems.length}) في الشيتين تلقائياً</span>
+                    </button>
+                  </div>
+                )}
+
                   <button
                     type="submit"
                     disabled={buffetSaving}
@@ -21873,7 +22380,11 @@ const handleExportBuffetToExcel = () => {
                         const file = e.target.files?.[0];
                         if (file) {
                           const reader = new FileReader();
-                          reader.onload = (ev) => setBuffetPurchaseImage(ev.target?.result);
+                          reader.onload = (ev) => {
+                            const imgData = ev.target?.result;
+                            setBuffetPurchaseImage(imgData);
+                            processBuffetInvoiceOcrImage(imgData);
+                          };
                           reader.readAsDataURL(file);
                         }
                       }}
