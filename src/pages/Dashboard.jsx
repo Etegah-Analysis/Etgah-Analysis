@@ -8,6 +8,7 @@ import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebas
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import EmployeePermissionsModal from '../components/EmployeePermissionsModal';
+import BulkRolePermissionsModal from '../components/BulkRolePermissionsModal';
 import { hasPermission } from '../config/permissionsConfig';
 import { setGlobalNotificationAlert, requestSystemNotificationPermission, triggerNativeNotification, playNotificationChime } from '../utils/notificationBadge';
 
@@ -1199,6 +1200,9 @@ const Dashboard = () => {
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [selectedEmpForPermissions, setSelectedEmpForPermissions] = useState(null);
 
+  // Bulk Role Permissions Modal (⚙️ ترس التحكم بالجماعي وحسب اللقب)
+  const [isBulkRolePermissionsModalOpen, setIsBulkRolePermissionsModalOpen] = useState(false);
+
 // Edit Employee Modal
   const [isEditEmployeeOpen, setIsEditEmployeeOpen] = useState(false);
   const [editEmp, setEditEmp] = useState(null);
@@ -1371,6 +1375,8 @@ const Dashboard = () => {
           setIsAddEmployeeOpen(false);
         } else if (isPermissionsModalOpen) {
           setIsPermissionsModalOpen(false);
+        } else if (isBulkRolePermissionsModalOpen) {
+          setIsBulkRolePermissionsModalOpen(false);
         } else if (isEditEmployeeOpen) {
           setIsEditEmployeeOpen(false);
         } else if (isImportModalOpen) {
@@ -17431,6 +17437,18 @@ const handleExportBuffetToExcel = () => {
 
 <h2 className="text-lg font-black text-amber-300">قائمة الموظفين وإدارة الصلاحيات</h2>
 
+                {/* Bulk Role Permissions Control Gear Button */}
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsBulkRolePermissionsModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-black text-xs bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all active:scale-95 cursor-pointer transform md:hover:scale-105"
+                    title="ترس التحكم الإداري بالجماعي: تفعيل أو إغلاق أي صلاحية لكافة الليدرز أو الوكلاء أو المنسقين أو خدمة العملاء دفعة واحدة"
+                  >
+                    <Settings size={15} className="animate-spin-slow text-slate-950" />
+                    <span>⚙️ ترس التحكم (بالألقاب والجماعي)</span>
+                  </button>
+                )}
+
                 {/* Admin Master Emergency System Lock Button */}
                 {isAdmin && (
                   <button
@@ -17630,7 +17648,7 @@ const handleExportBuffetToExcel = () => {
                             >
                               <Edit size={18} />
                             </button>
-                            {isAdmin && (
+                            {(isAdmin || (isLeader && emp.leaderUid === currentUser?.uid)) && (
                               <button 
                                 onClick={() => { 
                                   setSelectedEmpForPermissions(emp);
@@ -18724,6 +18742,30 @@ const handleExportBuffetToExcel = () => {
               const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
               setImpersonatedEmp(updated);
               sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+            }
+          }}
+        />
+
+        {/* Modal: Bulk Role Permissions (⚙️ ترس التحكم بالجماعي وحسب اللقب) */}
+        <BulkRolePermissionsModal
+          isOpen={isBulkRolePermissionsModalOpen}
+          onClose={() => setIsBulkRolePermissionsModalOpen(false)}
+          employees={employees}
+          onSaveSuccess={(updatedPermissions, targetRole, updatedEmpIds) => {
+            setEmployees(prev => prev.map(e => {
+              const empDocId = e.uid || e.id;
+              if (updatedEmpIds.includes(empDocId)) {
+                return { ...e, customPermissions: updatedPermissions };
+              }
+              return e;
+            }));
+            if (impersonatedEmp) {
+              const impDocId = impersonatedEmp.uid || impersonatedEmp.id;
+              if (updatedEmpIds.includes(impDocId)) {
+                const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
+                setImpersonatedEmp(updated);
+                sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+              }
             }
           }}
         />
