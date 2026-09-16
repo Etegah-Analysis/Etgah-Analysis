@@ -573,45 +573,33 @@ const Dashboard = () => {
 
   const getLastCommentTimestamp = (customer) => {
     if (!customer) return null;
+    let maxMs = 0;
+
     if (customer.lastCommentAt) {
-      const d = customer.lastCommentAt;
-      if (d.toDate) return d.toDate();
-      const p = new Date(d);
-      if (!isNaN(p.getTime())) return p;
+      const ms = getTimestampMillis(customer.lastCommentAt);
+      if (ms > maxMs) maxMs = ms;
     }
-    if (customer.notesHistory && customer.notesHistory.length > 0) {
-      const lastNote = customer.notesHistory[customer.notesHistory.length - 1];
-      if (lastNote && lastNote.createdAt) {
-        const d = lastNote.createdAt;
-        if (d.toDate) return d.toDate();
-        const p = new Date(d);
-        if (!isNaN(p.getTime())) return p;
-      }
+
+    if (customer.notesHistory && Array.isArray(customer.notesHistory)) {
+      customer.notesHistory.forEach(note => {
+        if (note && note.createdAt) {
+          const ms = getTimestampMillis(note.createdAt);
+          if (ms > maxMs) maxMs = ms;
+        }
+      });
     }
-    if (customer.notes && typeof customer.notes === 'string' && customer.notes.trim() && (customer.updatedAt || customer.createdAt)) {
-      const d = customer.updatedAt || customer.createdAt;
-      if (d.toDate) return d.toDate();
-      const p = new Date(d);
-      if (!isNaN(p.getTime())) return p;
+
+    if (maxMs === 0 && customer.notes && typeof customer.notes === 'string' && customer.notes.trim()) {
+      maxMs = getTimestampMillis(customer.updatedAt || customer.createdAt);
     }
-    return null;
+
+    return maxMs > 0 ? new Date(maxMs) : null;
   };
 
   const getLastCommentDate = (customer) => {
-    if (!customer) return '—';
-    if (customer.lastCommentAt) {
-      return formatDate(customer.lastCommentAt);
-    }
-    if (customer.notesHistory && customer.notesHistory.length > 0) {
-      const lastNote = customer.notesHistory[customer.notesHistory.length - 1];
-      if (lastNote && lastNote.createdAt) {
-        return formatDate(lastNote.createdAt);
-      }
-    }
-    if (customer.notes && typeof customer.notes === 'string' && customer.notes.trim() && (customer.updatedAt || customer.createdAt)) {
-      return formatDate(customer.updatedAt || customer.createdAt);
-    }
-    return '—';
+    const ts = getLastCommentTimestamp(customer);
+    if (!ts) return '—';
+    return formatDate(ts);
   };
   const [isLeadsAnalysisModalOpen, setIsLeadsAnalysisModalOpen] = useState(false);
   const [leadsAnalysisModalMode, setLeadsAnalysisModalMode] = useState('auto'); // 'auto' or 'all'
