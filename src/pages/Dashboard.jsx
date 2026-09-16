@@ -4410,7 +4410,7 @@ const Dashboard = () => {
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
           status: 'unassigned',
-          crmStatus: 'unassigned',
+          crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
           updatedAt: new Date().toISOString()
         };
       } else {
@@ -4422,7 +4422,7 @@ const Dashboard = () => {
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
           status: 'assigned',
-          crmStatus: 'unassigned',
+          crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }
@@ -4456,7 +4456,7 @@ const Dashboard = () => {
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
               status: 'unassigned',
-              crmStatus: 'unassigned',
+              crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -4471,7 +4471,7 @@ const Dashboard = () => {
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
               status: 'assigned',
-              crmStatus: 'unassigned',
+              crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -4515,14 +4515,14 @@ const Dashboard = () => {
       const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
       // Instant optimistic state update
-      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', updatedAt: new Date().toISOString() } : l));
+      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned', updatedAt: new Date().toISOString() } : l));
       toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
 
       updateDoc(doc(db, 'leads_crm', lead.id), {
         assignedTo: currentUser.email,
         assignedToUid: currentUser.uid,
         assignedAt: serverTimestamp(),
-        status: 'assigned',
+        status: 'assigned', crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -4549,7 +4549,7 @@ const Dashboard = () => {
           ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          status: 'assigned',
+          status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -4574,7 +4574,7 @@ const Dashboard = () => {
               assignedTo: currentUser.email,
               assignedToUid: currentUser.uid,
               assignedAt: serverTimestamp(),
-              status: 'assigned',
+              status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -4608,7 +4608,7 @@ const Dashboard = () => {
           ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          status: 'assigned',
+          status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -4632,7 +4632,7 @@ const Dashboard = () => {
               assignedTo: currentUser.email,
               assignedToUid: currentUser.uid,
               assignedAt: serverTimestamp(),
-              status: 'assigned',
+              status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -4671,7 +4671,7 @@ const Dashboard = () => {
         assignedBy: assignerDisplay,
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
-        status: 'assigned',
+        status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
         updatedAt: new Date().toISOString()
       } : l));
       toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
@@ -4683,7 +4683,7 @@ const Dashboard = () => {
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
         assignedAt: serverTimestamp(),
-        status: 'assigned',
+        status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -4717,7 +4717,7 @@ const Dashboard = () => {
           assignedBy: assignerDisplay,
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
-          status: 'assigned',
+          status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -4745,7 +4745,7 @@ const Dashboard = () => {
               assignedByRole: assignerRole,
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
-              status: 'assigned',
+              status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -13123,7 +13123,7 @@ const handleExportBuffetToExcel = () => {
                                           assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'unassigned',
-                                          crmStatus: 'unassigned',
+                                          crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
@@ -13141,7 +13141,7 @@ const handleExportBuffetToExcel = () => {
                                           assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'assigned',
-                                          crmStatus: 'unassigned', // Ensure pending state for employee
+                                          crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned', // Ensure pending state for employee
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
