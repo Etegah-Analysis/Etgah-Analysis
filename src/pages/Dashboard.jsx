@@ -457,6 +457,7 @@ const Dashboard = () => {
 
   const openImportModal = (target = 'employee_leads') => {
     setImportTarget(target);
+    setImportTab('file');
     setIsImportModalOpen(true);
   };
   const [importTab, setImportTab] = useState('file'); // 'file', 'gsheet', 'text', 'manual'
@@ -12698,13 +12699,6 @@ const handleExportBuffetToExcel = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <button 
-                  onClick={() => setIsQuickAddOpen(prev => !prev)}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  title="إضافة عميل يدوي سريعاً بالاسم ورقم الهاتف"
-                >
-                  <UserPlus size={14} /> ➕ إضافة عميل يدوي
-                </button>
 
                 <button 
                     onClick={() => openCrmCampaignModal('leads_crm')}
@@ -12750,68 +12744,6 @@ const handleExportBuffetToExcel = () => {
                 )}
               </div>
             </div>
-
-            {/* Quick Add Direct Form (Rendered Directly Outside) */}
-            {isQuickAddOpen && (
-              <div className="px-6 py-4 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 border-b border-amber-200 shadow-inner">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
-                    <UserPlus size={15} className="text-amber-600" />
-                    <span>➕ إضافة عميل يدوي سريع:</span>
-                  </span>
-                  <button 
-                    onClick={() => setIsQuickAddOpen(false)}
-                    className="text-gray-400 hover:text-red-500 text-xs font-bold transition"
-                  >
-                    ✕ إغلاق
-                  </button>
-                </div>
-                <form onSubmit={(e) => handleQuickSaveDirectLead(e, 'leads_crm')} className="space-y-2.5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1">اسم العميل:</label>
-                      <input 
-                        type="text" 
-                        placeholder="مثال: أحمد محمد"
-                        value={manualName}
-                        onChange={(e) => setManualName(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-amber-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1">رقم الهاتف (مع أو بدون كود الدولة):</label>
-                      <input 
-                        type="tel" 
-                        placeholder="مثال: 01012345678 أو 966501234567"
-                        value={manualPhone}
-                        onChange={(e) => setManualPhone(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-mono outline-none focus:border-amber-500 bg-white"
-                        dir="ltr"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1">ملاحظات العميل (اختياري):</label>
-                      <input 
-                        type="text" 
-                        placeholder="مثال: مهتم بالباقة السنوية / تواصل لاحقاً"
-                        value={manualNotes}
-                        onChange={(e) => setManualNotes(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs outline-none focus:border-amber-500 bg-white"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button 
-                      type="submit"
-                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-1.5 px-6 rounded-lg transition flex items-center gap-1.5 shadow-sm text-xs cursor-pointer"
-                    >
-                      <span>+ إضافة وحفظ العميل فوراً ↵</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
 
             {/* Filter Bar */}
             {(() => {
@@ -18632,12 +18564,14 @@ const handleExportBuffetToExcel = () => {
                 >
                   <FileText size={16} /> استخراج من صور / نص
                 </button>
+                {importTarget !== 'leads_crm' && (
                 <button 
                   onClick={() => setImportTab('manual')}
                   className={`pb-2 px-3.5 font-bold text-xs sm:text-sm transition border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${importTab === 'manual' ? 'border-amber-600 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                   <UserPlus size={16} /> إضافة يدوية مباشرة
                 </button>
+                )}
               </div>
 
               {/* Tab 1: File Upload */}
@@ -18704,7 +18638,7 @@ const handleExportBuffetToExcel = () => {
               )}
 
               {/* Tab 4: Manual Direct Lead Entry */}
-              {importTab === 'manual' && (
+              {importTab === 'manual' && importTarget !== 'leads_crm' && (
                 <form onSubmit={handleAddManualLeadToImport} className="space-y-3 bg-amber-50/40 p-4 rounded-xl border border-amber-200">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
