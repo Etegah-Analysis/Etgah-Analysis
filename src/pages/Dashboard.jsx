@@ -12804,49 +12804,77 @@ const handleExportBuffetToExcel = () => {
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
-                    {/* Employee Filter (Admin & Coordinator) - 3D Glassmorphic Dark-Pill */}
-                    {(isAdmin || isCoordinator || hasPermission(currentEmpUser, 'canFilterAllEmployees')) && (
+                    {/* Employee Filter - 3D Glassmorphic Dark-Pill */}
+                    {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canFilterAllEmployees')) && (
                       <div className="relative">
                         <select
                           value={selectedEmpFilter}
                           onChange={(e) => setSelectedEmpFilter(e.target.value)}
                           className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-[0_4px_14px_rgba(112,26,117,0.35)] border border-purple-400/40 hover:border-purple-300 hover:shadow-[0_6px_18px_rgba(112,26,117,0.45)] transition-all cursor-pointer appearance-none"
                         >
-                          <option value="admin" className="bg-purple-950 text-white">👑 Admin ({leadsWithAdminCount.toLocaleString()} Leads)</option>
-                          <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsWithEmployeesCount.toLocaleString()} Leads)</option>
-                          {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
-                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
-                            const leaderOwnCount = employeeLeadCounts[leader.uid] || 0;
-                            const teamTotalCount = leaderOwnCount + teamMembers.reduce((acc, m) => acc + (employeeLeadCounts[m.uid] || 0), 0);
+                          {!isLeader && (
+                            <option value="admin" className="bg-purple-950 text-white">👑 Admin ({leadsWithAdminCount.toLocaleString()} Leads)</option>
+                          )}
+                          <option value="all" className="bg-purple-950 text-white">
+                            {isLeader ? `👥 جميع فريقي (${memoizedLeadsCrmData.pool.length.toLocaleString()} Leads)` : `👥 جميع الموظفين (${leadsWithEmployeesCount.toLocaleString()} Leads)`}
+                          </option>
+                          {isLeader ? (
+                            <>
+                              {(() => {
+                                const leaderOwnCount = employeeLeadCounts[currentUser?.uid] || 0;
+                                const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
+                                return (
+                                  <option value={currentUser?.uid} className="bg-purple-950 text-white font-bold">
+                                    👑 Leader Personal: {leaderDisplayName} ({leaderOwnCount.toLocaleString()} Leads)
+                                  </option>
+                                );
+                              })()}
+                              {myTeamMembers.map(member => {
+                                const count = employeeLeadCounts[member.uid] || 0;
+                                return (
+                                  <option key={member.uid} value={member.uid} className="bg-purple-950 text-white">
+                                    👤 Agent: {member.username || member.name} ({count.toLocaleString()} Leads)
+                                  </option>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            <>
+                              {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
+                                const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                                const leaderOwnCount = employeeLeadCounts[leader.uid] || 0;
+                                const teamTotalCount = leaderOwnCount + teamMembers.reduce((acc, m) => acc + (employeeLeadCounts[m.uid] || 0), 0);
 
-                            return (
-                              <optgroup 
-                                key={leader.uid} 
-                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
-                                className="bg-purple-950 text-amber-300 font-bold"
-                              >
-                                <option value={leader.uid} className="bg-purple-950 text-white">
-                                  👑 Leader: {leader.username || leader.name} (Personal: {leaderOwnCount.toLocaleString()} Leads)
-                                </option>
-                                {teamMembers.map(member => {
-                                  const count = employeeLeadCounts[member.uid] || 0;
-                                  return (
-                                    <option key={member.uid} value={member.uid} className="bg-purple-950 text-white">
-                                      👤 Agent: {member.username || member.name} ({count.toLocaleString()} Leads)
+                                return (
+                                  <optgroup 
+                                    key={leader.uid} 
+                                    label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
+                                    className="bg-purple-950 text-amber-300 font-bold"
+                                  >
+                                    <option value={leader.uid} className="bg-purple-950 text-white">
+                                      👑 Leader: {leader.username || leader.name} (Personal: {leaderOwnCount.toLocaleString()} Leads)
                                     </option>
-                                  );
-                                })}
-                              </optgroup>
-                            );
-                          })}
-                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
-                            const count = employeeLeadCounts[emp.uid] || 0;
-                            return (
-                              <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
-                                🏢 Direct Admin: {emp.username || emp.name} ({count.toLocaleString()} Leads)
-                              </option>
-                            );
-                          })}
+                                    {teamMembers.map(member => {
+                                      const count = employeeLeadCounts[member.uid] || 0;
+                                      return (
+                                        <option key={member.uid} value={member.uid} className="bg-purple-950 text-white">
+                                          👤 Agent: {member.username || member.name} ({count.toLocaleString()} Leads)
+                                        </option>
+                                      );
+                                    })}
+                                  </optgroup>
+                                );
+                              })}
+                              {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
+                                const count = employeeLeadCounts[emp.uid] || 0;
+                                return (
+                                  <option key={emp.uid} value={emp.uid} className="bg-purple-950 text-white">
+                                    🏢 Direct Admin: {emp.username || emp.name} ({count.toLocaleString()} Leads)
+                                  </option>
+                                );
+                              })}
+                            </>
+                          )}
                         </select>
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
                           ▼

@@ -4,7 +4,7 @@ import {
   X, ShieldCheck, AlertCircle, Check, Info, RefreshCw, 
   Search, CheckCircle2, XCircle, Save, Sparkles, Sliders,
   Eye, EyeOff, Lock, Shield, Layers, HelpCircle, CheckSquare, Square,
-  Settings, Users, UserCheck, Crown, PhoneCall, HeartHandshake, Zap
+  Settings, Users, UserCheck, Crown, PhoneCall, HeartHandshake, Zap, Globe
 } from 'lucide-react';
 import { db, doc, updateDoc, writeBatch } from '../firebase';
 import { toast } from 'react-hot-toast';
