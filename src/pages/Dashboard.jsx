@@ -4223,7 +4223,12 @@ const Dashboard = () => {
       const empRole = isAdmin ? 'Admin' : (isCoordinator ? 'Coordinator' : (isLeader ? 'Leader' : 'Agent'));
       const sourceLabel = importTab === 'gsheet' ? 'رابط Google Sheet' : importTab === 'text' ? 'نص / سكرين شوت' : importTab === 'manual' ? 'إضافة يدوية' : 'ملف Excel / CSV';
 
-      const existingEmpLeadIds = new Set(employeeLeads.map(l => l.id));
+      const targetCollection = importTarget === 'leads_crm' ? 'leads_crm' : 'employee_leads';
+      const existingLeadIds = new Set(
+        importTarget === 'leads_crm'
+          ? (leadsCrm || []).map(l => l.id)
+          : (employeeLeads || []).map(l => l.id)
+      );
       const seenCoresInBatch = new Set();
       const docsToSave = [];
       let skippedCount = 0;
@@ -4242,13 +4247,13 @@ const Dashboard = () => {
         }
 
         const crmDocId = saudiCheck.phoneDb;
-        if (existingEmpLeadIds.has(crmDocId)) {
+        if (existingLeadIds.has(crmDocId)) {
           skippedCount++;
           continue;
         }
 
         seenCoresInBatch.add(saudiCheck.core);
-        existingEmpLeadIds.add(crmDocId);
+        existingLeadIds.add(crmDocId);
 
         const docData = {
           id: crmDocId,
@@ -4288,7 +4293,11 @@ const Dashboard = () => {
 
       // 1. Instant Optimistic React State Update (0ms / في نفس اللحظة)
       if (savedCount > 0) {
-        setEmployeeLeads(prev => [...docsToSave, ...prev]);
+        if (importTarget === 'leads_crm') {
+          setLeadsCrm(prev => [...docsToSave, ...prev]);
+        } else {
+          setEmployeeLeads(prev => [...docsToSave, ...prev]);
+        }
       }
 
       // 2. Instant UI close and field cleanup (0ms)
@@ -4299,16 +4308,17 @@ const Dashboard = () => {
       setManualName('');
       setManualPhone('');
       setManualNotes('');
-      setActiveTab('employee_leads');
+      setActiveTab(importTarget === 'leads_crm' ? 'leads_crm' : 'employee_leads');
       setImportLoading(false);
       scrollToTable();
 
       // 3. Instant Toast feedback in the exact same second!
+      const targetSectionName = importTarget === 'leads_crm' ? 'Leads CRM 🎯' : 'Team Added Leads';
       if (savedCount > 0) {
         if (skippedCount > 0) {
-          toast.success(`تم حفظ ${savedCount} عميل جديد في (Team Added Leads) وتخطي ${skippedCount} مكرر مسجل مسبقاً 🎯`);
+          toast.success(`تم حفظ ${savedCount} عميل جديد في (${targetSectionName}) وتخطي ${skippedCount} مكرر مسجل مسبقاً 🎯`);
         } else {
-          toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (Team Added Leads) 🚀`);
+          toast.success(`تم حفظ ${savedCount} عميل بنجاح في قسم (${targetSectionName}) 🚀`);
         }
       } else {
         toast.error(`لم يتم حفظ أي عميل: جميع الأرقام (${skippedCount}) مسجلة مسبقاً أو غير صالحة ⚠️`);
@@ -4323,7 +4333,7 @@ const Dashboard = () => {
             const batch = writeBatch(db);
             for (const docItem of chunk) {
               const { id, ...dataToPersist } = docItem;
-              const ref = doc(db, 'employee_leads', id);
+              const ref = doc(db, targetCollection, id);
               batch.set(ref, {
                 ...dataToPersist,
                 createdAt: serverTimestamp(),
@@ -4340,11 +4350,12 @@ const Dashboard = () => {
       }
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء حفظ العملاء في (داتا مضافة بواسطة الموظف)');
+      toast.error('حدث خطأ أثناء حفظ العملاء');
       setImportLoading(false);
     }
   };
 
+  
   // --- LEAD DISTRIBUTION & ASSIGNMENT HANDLERS (Leads CRM) ---
   const handleExecuteAssignment = async () => {
     if (selectedLeadsCrm.length === 0) {
@@ -12716,7 +12727,7 @@ const handleExportBuffetToExcel = () => {
                     
 
                     <button 
-                      onClick={() => setIsImportModalOpen(true)}
+                      onClick={() => openImportModal('leads_crm')}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
                     >
                       <FileSpreadsheet size={14} /> 📤 رفع Leads جديدة
@@ -13425,7 +13436,7 @@ const handleExportBuffetToExcel = () => {
                   </button>
 
                 <button 
-                  onClick={() => setIsImportModalOpen(true)}
+                  onClick={() => openImportModal('employee_leads')}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet size={14} /> 📤 رفع داتا جديدة
@@ -13725,7 +13736,7 @@ const handleExportBuffetToExcel = () => {
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
                                 <button
-                                  onClick={() => setIsImportModalOpen(true)}
+                                  onClick={() => openImportModal('employee_leads')}
                                   className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
                                 >
                                   + إضافة / رفع داتا الآن
@@ -18579,18 +18590,24 @@ const handleExportBuffetToExcel = () => {
 
               <div className="mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <Upload className="text-emerald-600" size={26} />
-                  <span>📁 داتا مضافة بواسطة الموظف</span>
+                  <Upload className={importTarget === 'leads_crm' ? 'text-amber-600' : 'text-emerald-600'} size={26} />
+                  <span>{importTarget === 'leads_crm' ? '🎯 رفع وتنزيل الداتا في كارت (Leads CRM 🎯)' : '📁 داتا مضافة بواسطة الموظف'}</span>
                 </h2>
                 <p className="text-xs text-gray-500 font-medium mt-1">
-                  {!isAdmin && !isCoordinator ? (
-                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                      👤 سيتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) وتظهر في كارتك الخاص لتتمكن من متابعتها ومراسلتها فوراً
+                  {importTarget === 'leads_crm' ? (
+                    <span className="text-amber-800 font-bold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 inline-block">
+                      {!isAdmin && !isCoordinator ? '🎯 سيتم حفظ البيانات وتنزيلها حصرياً في كارت وشيت (Leads CRM) الخاص بك' : '👑 يتم حفظ وتنزيل البيانات مباشرة في كارت وشيت (Leads CRM 🎯) الموحدة'}
                     </span>
                   ) : (
-                    <span className="text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded border border-teal-200 inline-block">
-                      👑 يتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) مع إمكانية تتبع وفلترة كل موظف
-                    </span>
+                    !isAdmin && !isCoordinator ? (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                        👤 سيتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) وتظهر في كارتك الخاص لتتمكن من متابعتها ومراسلتها فوراً
+                      </span>
+                    ) : (
+                      <span className="text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded border border-teal-200 inline-block">
+                        👑 يتم حفظ البيانات في قسم (داتا مضافة بواسطة الموظف) مع إمكانية تتبع وفلترة كل موظف
+                      </span>
+                    )
                   )}
                 </p>
               </div>
@@ -18735,7 +18752,7 @@ const handleExportBuffetToExcel = () => {
               {importRows.length > 0 && (
                 <div className="mt-6 border-t pt-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-green-700">معاينة البيانات ({importRows.length} عميل جاهز للحفظ):</span>
+                    <span className="text-sm font-bold text-green-700">معاينة البيانات ({importRows.length} عميل جاهز للحفظ والتنزيل في {importTarget === 'leads_crm' ? 'كارت Leads CRM 🎯' : 'كارت داتا الموظف'}):</span>
                     <button 
                       onClick={() => setImportRows([])}
                       className="text-xs text-red-500 hover:underline cursor-pointer"
@@ -18757,9 +18774,9 @@ const handleExportBuffetToExcel = () => {
                   <button 
                     onClick={handleSaveImportedLeads}
                     disabled={importLoading}
-                    className="w-full bg-primary hover:bg-green-600 text-white font-black py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm flex items-center justify-center gap-2 cursor-pointer"
+                    className={`w-full text-white font-black py-3 px-4 rounded-xl transition mt-4 shadow-lg text-sm flex items-center justify-center gap-2 cursor-pointer ${importTarget === 'leads_crm' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-green-600'}`}
                   >
-                    {importLoading ? 'جاري التخزين...' : `✅ حفظ الـ ${importRows.length} عميل في قسم (داتا مضافة بواسطة الموظف)`}
+                    {importLoading ? 'جاري التخزين...' : (importTarget === 'leads_crm' ? `🎯 حفظ وتنزيل الـ ${importRows.length} عميل في كارت (Leads CRM 🎯)` : `✅ حفظ الـ ${importRows.length} عميل في كارت (داتا مضافة بواسطة الموظف)`)}
                   </button>
                 </div>
               )}
