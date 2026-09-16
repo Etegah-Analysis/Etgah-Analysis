@@ -2221,11 +2221,13 @@ const Dashboard = () => {
       const data = snapshot.docs.map(doc => {
         const d = doc.data();
         d.id = doc.id;
-        d._ts = (d.updatedAt?.toMillis?.() || (d.updatedAt?.seconds ? d.updatedAt.seconds * 1000 : 0)) ||
-                (d.createdAt?.toMillis?.() || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : 0)) || 0;
+        d._ts = (d.createdAt?.toMillis?.() || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : 0)) ||
+                (d.assignedAt?.toMillis?.() || (d.assignedAt?.seconds ? d.assignedAt.seconds * 1000 : 0)) ||
+                (d.timestampMillis ? Number(d.timestampMillis) : 0) ||
+                (d.updatedAt?.toMillis?.() || (d.updatedAt?.seconds ? d.updatedAt.seconds * 1000 : 0)) || 0;
         return d;
       });
-      data.sort((a, b) => b._ts - a._ts);
+      data.sort((a, b) => (b._ts - a._ts) || (b.id || '').localeCompare(a.id || ''));
       setLeadsCrm(data);
     }, (error) => {
       console.error("Error fetching leads_crm:", error);
@@ -2250,11 +2252,15 @@ const Dashboard = () => {
         }
       });
       data.sort((a, b) => {
-        const tA = (a.updatedAt?.toMillis?.() || (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0)) ||
-                   (a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)) || 0;
-        const tB = (b.updatedAt?.toMillis?.() || (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0)) ||
-                   (b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)) || 0;
-        return tB - tA;
+        const tA = (a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)) ||
+                   (a.assignedAt?.toMillis?.() || (a.assignedAt?.seconds ? a.assignedAt.seconds * 1000 : 0)) ||
+                   (a.timestampMillis ? Number(a.timestampMillis) : 0) ||
+                   (a.updatedAt?.toMillis?.() || (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0)) || 0;
+        const tB = (b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)) ||
+                   (b.assignedAt?.toMillis?.() || (b.assignedAt?.seconds ? b.assignedAt.seconds * 1000 : 0)) ||
+                   (b.timestampMillis ? Number(b.timestampMillis) : 0) ||
+                   (b.updatedAt?.toMillis?.() || (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0)) || 0;
+        return (tB - tA) || (b.id || '').localeCompare(a.id || '');
       });
       setEmployeeLeads(data);
     }, (error) => {
@@ -4974,6 +4980,53 @@ const Dashboard = () => {
     setModalCustomerName(customer.name || '');
     setNewNoteText('');
     setIsNotesModalOpen(true);
+  };
+
+  const handleBulkChangeCrmStatus = async (targetColl, newStatus) => {
+    if (!isAdmin && !isCoordinator) {
+      toast.error('هذه الصلاحية متاحة للإدارة والمنسق فقط');
+      return;
+    }
+    const isCrm = targetColl === 'leads_crm';
+    const targetIds = isCrm ? [...selectedLeadsCrm] : [...selectedEmployeeLeads];
+    if (targetIds.length === 0) {
+      toast.error('يرجى تحديد عملاء أولاً لتغيير حالتهم');
+      return;
+    }
+
+    const statusLabel = CRM_STATUS_MAP[newStatus]?.fullLabel || newStatus;
+
+    // 1. Optimistic UI update (0ms response)
+    if (isCrm) {
+      setLeadsCrm(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, crmStatus: newStatus, updatedAt: new Date() } : c));
+      setSelectedLeadsCrm([]);
+    } else {
+      setEmployeeLeads(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, crmStatus: newStatus, updatedAt: new Date() } : c));
+      setSelectedEmployeeLeads([]);
+    }
+
+    toast.success(`جاري تغيير حالة ${targetIds.length} عميل إلى (${statusLabel}) ...`);
+
+    // 2. Background Firestore writeBatch (450 items per batch)
+    try {
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < targetIds.length; i += CHUNK_SIZE) {
+        const chunk = targetIds.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          const docRef = doc(db, targetColl, id);
+          batch.update(docRef, {
+            crmStatus: newStatus,
+            updatedAt: serverTimestamp()
+          });
+        });
+        await batch.commit();
+      }
+      toast.success(`تم تغيير حالة ${targetIds.length} عميل بنجاح إلى (${statusLabel})!`);
+    } catch (err) {
+      console.error('Error bulk updating CRM status:', err);
+      toast.error('حدث خطأ أثناء التحديث في قاعدة البيانات: ' + err.message);
+    }
   };
 
   const handleRequestStatusChangeWithComment = (customer, newStatus, targetCollOrFlag = null) => {
@@ -12857,6 +12910,31 @@ const handleExportBuffetToExcel = () => {
                       <Trash2 size={15} /> حذف {selectedLeadsCrm.length} عميل محدد
                     </button>
                   )}
+                  {(isAdmin || isCoordinator) && selectedLeadsCrm.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-purple-900/80 p-1.5 rounded-xl border border-purple-400/40 shadow-md">
+                      <span className="text-xs font-black text-amber-300 px-1">⚡ تغيير حالة المحددين ({selectedLeadsCrm.length}):</span>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleBulkChangeCrmStatus('leads_crm', e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        defaultValue=""
+                        className="bg-white text-gray-900 text-xs font-black py-1 px-2.5 rounded-lg border border-purple-300 shadow-sm cursor-pointer focus:outline-none"
+                      >
+                        <option value="" disabled>-- اختر الحالة الجديدة --</option>
+                        <option value="unassigned">⏳ Waiting</option>
+                        <option value="call_back">📞 Call Back</option>
+                        <option value="interested">🌟 Interested</option>
+                        <option value="not_interested">❌ Not Interested</option>
+                        <option value="no_answer">📵 No Answer</option>
+                        <option value="started_trial">🚀 Demo</option>
+                        <option value="subscribed">🎉 Paid</option>
+                        <option value="junk_lead">🗑️ Junk Lead</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -12964,7 +13042,35 @@ const handleExportBuffetToExcel = () => {
                             setOpenPop: setOpenCrmCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">
+                          {(isAdmin || isCoordinator) && selectedLeadsCrm.length > 0 ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-[11px] text-yellow-200">تغيير الحالة:</span>
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleBulkChangeCrmStatus('leads_crm', e.target.value);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                defaultValue=""
+                                className="bg-purple-950 text-white text-[11px] font-black py-0.5 px-1.5 rounded border border-amber-300/60 cursor-pointer"
+                              >
+                                <option value="" disabled>-- اختر --</option>
+                                <option value="unassigned">⏳ Waiting</option>
+                                <option value="call_back">📞 Call Back</option>
+                                <option value="interested">🌟 Interested</option>
+                                <option value="not_interested">❌ Not Interested</option>
+                                <option value="no_answer">📵 No Answer</option>
+                                <option value="started_trial">🚀 Demo</option>
+                                <option value="subscribed">🎉 Paid</option>
+                                <option value="junk_lead">🗑️ Junk Lead</option>
+                              </select>
+                            </div>
+                          ) : (
+                            'حالة المتابعة (CRM)'
+                          )}
+                        </th>
                           <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
                           {(!isCoordinator || hasPermission(currentEmpUser, 'canDeleteLeads')) && <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>}
                         </tr>
@@ -13393,6 +13499,31 @@ const handleExportBuffetToExcel = () => {
                     <Trash2 size={14} /> مسح المحدد ({selectedEmployeeLeads.length})
                   </button>
                 )}
+                {(isAdmin || isCoordinator) && selectedEmployeeLeads.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-amber-900/80 p-1.5 rounded-xl border border-amber-400/40 shadow-md">
+                    <span className="text-xs font-black text-amber-300 px-1">⚡ تغيير حالة المحددين ({selectedEmployeeLeads.length}):</span>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleBulkChangeCrmStatus('employee_leads', e.target.value);
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                      className="bg-white text-gray-900 text-xs font-black py-1 px-2.5 rounded-lg border border-amber-300 shadow-sm cursor-pointer focus:outline-none"
+                    >
+                      <option value="" disabled>-- اختر الحالة الجديدة --</option>
+                      <option value="unassigned">⏳ Waiting</option>
+                      <option value="call_back">📞 Call Back</option>
+                      <option value="interested">🌟 Interested</option>
+                      <option value="not_interested">❌ Not Interested</option>
+                      <option value="no_answer">📵 No Answer</option>
+                      <option value="started_trial">🚀 Demo</option>
+                      <option value="subscribed">🎉 Paid</option>
+                      <option value="junk_lead">🗑️ Junk Lead</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -13635,7 +13766,35 @@ const handleExportBuffetToExcel = () => {
                             setOpenPop: setOpenEmpCommentDatePop,
                             label: 'تاريخ Last Comment'
                           })}
-                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">حالة المتابعة (CRM)</th>
+                          <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[150px] text-center">
+                          {(isAdmin || isCoordinator) && selectedEmployeeLeads.length > 0 ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-[11px] text-yellow-200">تغيير الحالة:</span>
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleBulkChangeCrmStatus('employee_leads', e.target.value);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                defaultValue=""
+                                className="bg-amber-950 text-white text-[11px] font-black py-0.5 px-1.5 rounded border border-amber-300/60 cursor-pointer"
+                              >
+                                <option value="" disabled>-- اختر --</option>
+                                <option value="unassigned">⏳ Waiting</option>
+                                <option value="call_back">📞 Call Back</option>
+                                <option value="interested">🌟 Interested</option>
+                                <option value="not_interested">❌ Not Interested</option>
+                                <option value="no_answer">📵 No Answer</option>
+                                <option value="started_trial">🚀 Demo</option>
+                                <option value="subscribed">🎉 Paid</option>
+                                <option value="junk_lead">🗑️ Junk Lead</option>
+                              </select>
+                            </div>
+                          ) : (
+                            'حالة المتابعة (CRM)'
+                          )}
+                        </th>
                           <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>}
                           {(isAdmin || isLeader) && (
