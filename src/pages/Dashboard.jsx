@@ -17648,7 +17648,7 @@ const handleExportBuffetToExcel = () => {
                             >
                               <Edit size={18} />
                             </button>
-                            {(isAdmin || (isLeader && emp.leaderUid === currentUser?.uid)) && (
+                            {isAdmin && (
                               <button 
                                 onClick={() => { 
                                   setSelectedEmpForPermissions(emp);
