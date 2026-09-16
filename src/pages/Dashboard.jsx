@@ -12781,15 +12781,7 @@ const handleExportBuffetToExcel = () => {
                   </button>
                 )}
 
-                {(isAdmin || hasPermission(currentEmpUser, 'canAddManualLeads')) && (
-                  <button 
-                    onClick={() => setIsQuickAddOpen(prev => !prev)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                    title="إضافة عميل يدوي بأرقام واسم العميل مباشرة"
-                  >
-                    <UserPlus size={14} /> ➕ إضافة عميل يدوي
-                  </button>
-                )}
+
                 {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canBulkAssignLeads')) && (
                   <button 
                     onClick={() => {
@@ -13465,29 +13457,34 @@ const handleExportBuffetToExcel = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <button 
-                  onClick={() => setIsQuickAddOpen(prev => !prev)}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  title="إضافة عميل يدوي سريعاً بالاسم ورقم الهاتف"
-                >
-                  <UserPlus size={14} /> ➕ إضافة عميل يدوي
-                </button>
-
-                <button 
-                    onClick={() => openCrmCampaignModal('employee_leads')}
-                    className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء Added Leads (من 1 إلى 15 عميل)"
+                {(isAdmin || hasPermission(currentEmpUser, 'canAddManualLeads')) && (
+                  <button 
+                    onClick={() => setIsQuickAddOpen(prev => !prev)}
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    title="إضافة عميل يدوي سريعاً بالاسم ورقم الهاتف"
                   >
-                    <MessageSquare size={14} className="text-emerald-200" />
-                    <span>📢 إرسال حملة واتساب (Added Leads)</span>
+                    <UserPlus size={14} /> ➕ إضافة عميل يدوي
                   </button>
+                )}
 
                 <button 
-                  onClick={() => openImportModal('employee_leads')}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  onClick={() => openCrmCampaignModal('employee_leads')}
+                  className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
+                  title="إرسال رسائل وحملات واتساب ترويجية لعملاء Added Leads (من 1 إلى 15 عميل)"
                 >
-                  <FileSpreadsheet size={14} /> 📤 رفع داتا جديدة
+                  <MessageSquare size={14} className="text-emerald-200" />
+                  <span>📢 إرسال حملة واتساب (Added Leads)</span>
                 </button>
+
+                {(isAdmin || hasPermission(currentEmpUser, 'canImportData')) && (
+                  <button 
+                    onClick={() => openImportModal('employee_leads')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <FileSpreadsheet size={14} /> 📤 رفع داتا جديدة
+                  </button>
+                )}
+
                 {(isAdmin || hasPermission(currentEmpUser, 'canExportData')) && (
                   <button 
                     onClick={exportEmployeeLeadsToExcel}
@@ -13495,22 +13492,6 @@ const handleExportBuffetToExcel = () => {
                     title="تحميل هذه الداتا إلى إكسيل"
                   >
                     <Download size={14} /> 📊 تحميل إكسيل
-                  </button>
-                )}
-                {(isAdmin || hasPermission(currentEmpUser, 'canImportData')) && (
-                  <button 
-                    onClick={() => openImportModal('employee_leads')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                  >
-                    <Upload size={14} /> 📤 رفع داتا جديدة
-                  </button>
-                )}
-                {(isAdmin || hasPermission(currentEmpUser, 'canAddManualLeads')) && (
-                  <button 
-                    onClick={() => setIsQuickAddOpen(prev => !prev)}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                  >
-                    <UserPlus size={14} /> ➕ إضافة عميل يدوي
                   </button>
                 )}
                 {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
