@@ -16103,12 +16103,20 @@ const handleExportBuffetToExcel = () => {
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = 0;
           filteredInventory.forEach(item => {
-            const c = parseFloat(item.cost || item.itemPrice) || 0;
-            const q = parseFloat(item.totalQty) || 1;
-            financialMonthTotalCost += (c * q > 0 ? c * q : c);
+            let itemCost = 0;
+            const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+            const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+            const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+
+            if (!isNaN(costVal) && costVal > 0) {
+              itemCost = costVal;
+            } else if (!isNaN(unitPriceVal) && unitPriceVal > 0) {
+              itemCost = unitPriceVal * qtyVal;
+            }
+
+            financialMonthTotalCost += itemCost;
             financialMonthTotalItems += 1;
           });
-
           // Pagination calculation
           const totalPagesBuffet = Math.max(1, Math.ceil(filteredInventory.length / buffetItemsPerPage));
           const safeBuffetPage = Math.min(buffetCurrentPage, totalPagesBuffet);
