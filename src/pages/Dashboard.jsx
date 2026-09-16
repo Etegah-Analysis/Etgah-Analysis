@@ -101,8 +101,12 @@ const getTimestampMillis = (val) => {
 };
 
 const formatDate = (val) => {
-  const ms = getTimestampMillis(val);
+  let ms = getTimestampMillis(val);
   if (!ms) return '—';
+  const now = Date.now();
+  if (ms > now + 3600000) {
+    ms = now;
+  }
   return new Date(ms).toLocaleDateString('ar-EG', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit'
