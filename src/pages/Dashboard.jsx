@@ -19127,7 +19127,11 @@ const handleExportBuffetToExcel = () => {
                         selectedCustomerForNotes.assignmentHistory.map((log, idx) => (
                           <div key={log.id || idx} className="bg-white p-1.5 rounded-lg border border-purple-100 shadow-sm text-[10px] flex flex-col gap-0.5">
                             <div className="flex items-center justify-between font-bold text-gray-800">
-                              <span className="text-purple-800">{log.from} ➔ {log.to}</span>
+                              <span className="text-purple-900 font-bold inline-flex items-center gap-1" dir="rtl">
+                                <span>{log.from || 'منبع الداتا'}</span>
+                                <span className="text-emerald-600 font-black text-xs px-0.5 animate-pulse">⬅️</span>
+                                <span className="text-indigo-950 font-black bg-purple-100/70 px-1.5 py-0.5 rounded border border-purple-200">{log.to || 'المستلم'}</span>
+                              </span>
                               <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
                                 {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </span>

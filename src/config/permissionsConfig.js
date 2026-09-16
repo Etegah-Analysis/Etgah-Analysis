@@ -222,14 +222,7 @@ export const CARDS_PERMISSIONS_CONFIG = [
         riskLabel: 'حساس',
         defaultByRole: { admin: true, coordinator: true, leader: false, agent: false, customer_service: false }
       },
-      {
-        id: 'canAddManualLeads',
-        title: 'إضافة عميل جديد يدوياً في السيستم',
-        description: 'إضافة عميل مباشرة بالهاتف والاسم والملاحظات دون شيت إكسيل.',
-        riskLevel: 'low',
-        riskLabel: 'عادي',
-        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
-      },
+
       {
         id: 'canEditClientStatus',
         title: 'تعديل حالة وملاحظات وتصنيف العميل',
