@@ -10696,7 +10696,7 @@ const handleExportBuffetToExcel = () => {
           </button>
 
           {/* إضافة موظف (للأدمن فقط) */}
-          {isAdmin && (
+          {(isAdmin || hasPermission(currentEmpUser, 'canAddUsStocks')) && (
             <button 
               onClick={openAddEmployeeModal}
               className="flex items-center bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm font-black text-xs gap-1 cursor-pointer active:scale-95 shrink-0 border border-amber-300/40"
@@ -12762,26 +12762,35 @@ const handleExportBuffetToExcel = () => {
                     <span>📢 إرسال حملة واتساب (Leads CRM)</span>
                   </button>
 
-                {isAdmin && (
-                  <>
-                    <button 
-                      onClick={exportLeadsToExcel}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تنزيل جميع العملاء بتفاصيلهم وملحوظاتهم على شيت إكسيل"
-                    >
-                      <Download size={14} /> 📊 تحميل الداتا إلى إكسيل
-                    </button>
-                    
-
-                    <button 
-                      onClick={() => openImportModal('leads_crm')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                    >
-                      <FileSpreadsheet size={14} /> 📤 رفع Leads جديدة
-                    </button>
-                  </>
+                {(isAdmin || hasPermission(currentEmpUser, 'canExportData')) && (
+                  <button 
+                    onClick={exportLeadsToExcel}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    title="تنزيل جميع العملاء بتفاصيلهم وملحوظاتهم على شيت إكسيل"
+                  >
+                    <Download size={14} /> 📊 تحميل الداتا إلى إكسيل
+                  </button>
                 )}
-                {(isAdmin || isCoordinator || isLeader) && (
+
+                {(isAdmin || hasPermission(currentEmpUser, 'canImportData')) && (
+                  <button 
+                    onClick={() => openImportModal('leads_crm')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <FileSpreadsheet size={14} /> 📤 رفع Leads جديدة
+                  </button>
+                )}
+
+                {(isAdmin || hasPermission(currentEmpUser, 'canAddManualLeads')) && (
+                  <button 
+                    onClick={() => setIsQuickAddOpen(prev => !prev)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    title="إضافة عميل يدوي بأرقام واسم العميل مباشرة"
+                  >
+                    <UserPlus size={14} /> ➕ إضافة عميل يدوي
+                  </button>
+                )}
+                {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canBulkAssignLeads')) && (
                   <button 
                     onClick={() => {
                       if (selectedLeadsCrm.length === 0) {
@@ -12806,7 +12815,7 @@ const handleExportBuffetToExcel = () => {
                 <div className="px-6 py-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border-b flex flex-wrap justify-between items-center gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
                     {/* Employee Filter (Admin & Coordinator) - 3D Glassmorphic Dark-Pill */}
-                    {(isAdmin || isCoordinator) && (
+                    {(isAdmin || isCoordinator || hasPermission(currentEmpUser, 'canFilterAllEmployees')) && (
                       <div className="relative">
                         <select
                           value={selectedEmpFilter}
@@ -13098,7 +13107,7 @@ const handleExportBuffetToExcel = () => {
                             <td className="px-3 py-2 text-xs font-bold text-gray-800" dir="ltr">
                               <div className="flex items-center gap-2">
                                 <span>{customer.phoneNumber}</span>
-                                {!isCoordinator && customer.phoneNumber && (
+                                {!isCoordinator && (isAdmin || hasPermission(currentEmpUser, 'canMakeDirectCalls')) && customer.phoneNumber && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleCallViaMicroSip(customer.phoneNumber); }}
                                     className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-1 text-[11px] font-black flex items-center gap-1 cursor-pointer transform md:hover:-translate-y-0.5 transition-all shrink-0"
@@ -13479,17 +13488,30 @@ const handleExportBuffetToExcel = () => {
                 >
                   <FileSpreadsheet size={14} /> 📤 رفع داتا جديدة
                 </button>
-                {isAdmin && (
-                  <>
-                    <button 
-                      onClick={exportEmployeeLeadsToExcel}
-                      className="bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                      title="تحميل هذه الداتا إلى إكسيل"
-                    >
-                      <Download size={14} /> 📊 تحميل إكسيل
-                    </button>
-                    
-                  </>
+                {(isAdmin || hasPermission(currentEmpUser, 'canExportData')) && (
+                  <button 
+                    onClick={exportEmployeeLeadsToExcel}
+                    className="bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                    title="تحميل هذه الداتا إلى إكسيل"
+                  >
+                    <Download size={14} /> 📊 تحميل إكسيل
+                  </button>
+                )}
+                {(isAdmin || hasPermission(currentEmpUser, 'canImportData')) && (
+                  <button 
+                    onClick={() => openImportModal('employee_leads')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <Upload size={14} /> 📤 رفع داتا جديدة
+                  </button>
+                )}
+                {(isAdmin || hasPermission(currentEmpUser, 'canAddManualLeads')) && (
+                  <button 
+                    onClick={() => setIsQuickAddOpen(prev => !prev)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <UserPlus size={14} /> ➕ إضافة عميل يدوي
+                  </button>
                 )}
                 {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
                   <button 
