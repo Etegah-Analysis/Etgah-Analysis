@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, Lock, Shield, Layers, HelpCircle, CheckSquare, Square,
   Settings, Users, UserCheck, Crown, PhoneCall, HeartHandshake, Zap, Globe
 } from 'lucide-react';
-import { db, doc, updateDoc, writeBatch } from '../firebase';
+import { db, doc, updateDoc, setDoc, writeBatch } from '../firebase';
 import { toast } from 'react-hot-toast';
 import { 
   CARDS_PERMISSIONS_CONFIG, 
@@ -130,20 +130,29 @@ export default function BulkRolePermissionsModal({ isOpen, onClose, employees = 
 
       const updatedIds = [];
       const CHUNK_SIZE = 400;
+      const updateData = {
+        customPermissions: permissions,
+        permissionsUpdatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
       for (let i = 0; i < matchingEmployees.length; i += CHUNK_SIZE) {
         const chunk = matchingEmployees.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
 
         chunk.forEach(emp => {
-          const empDocId = emp.uid || emp.id;
-          if (empDocId) {
-            updatedIds.push(empDocId);
-            const docRef = doc(db, 'employees', empDocId);
-            batch.update(docRef, {
-              customPermissions: permissions,
-              updatedAt: new Date().toISOString()
-            });
+          const primaryId = emp.id || emp.uid;
+          if (primaryId) {
+            updatedIds.push(primaryId);
+            if (emp.uid) updatedIds.push(emp.uid);
+            
+            const docRef = doc(db, 'users', primaryId);
+            batch.set(docRef, updateData, { merge: true });
+
+            if (emp.uid && emp.uid !== primaryId) {
+              const altDocRef = doc(db, 'users', emp.uid);
+              batch.set(altDocRef, updateData, { merge: true });
+            }
           }
         });
 

@@ -18799,11 +18799,24 @@ const handleExportBuffetToExcel = () => {
           }}
           employee={selectedEmpForPermissions}
           onSaveSuccess={(updatedPermissions, empDocId) => {
-            setEmployees(prev => prev.map(e => (e.uid === empDocId || e.id === empDocId) ? { ...e, customPermissions: updatedPermissions } : e));
-            if (impersonatedEmp && (impersonatedEmp.uid === empDocId || impersonatedEmp.id === empDocId)) {
-              const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
-              setImpersonatedEmp(updated);
-              sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+            setEmployees(prev => prev.map(e => {
+              const matchesDoc = e.uid === empDocId || e.id === empDocId;
+              const matchesSelected = selectedEmpForPermissions && (e.uid === selectedEmpForPermissions.uid || e.id === selectedEmpForPermissions.id || e.uid === selectedEmpForPermissions.id || e.id === selectedEmpForPermissions.uid);
+              if (matchesDoc || matchesSelected) {
+                return { ...e, customPermissions: updatedPermissions };
+              }
+              return e;
+            }));
+            if (impersonatedEmp) {
+              const impUid = impersonatedEmp.uid || impersonatedEmp.id;
+              const selUid = selectedEmpForPermissions ? (selectedEmpForPermissions.uid || selectedEmpForPermissions.id) : empDocId;
+              if (impUid === selUid || empDocId === impUid || (impersonatedEmp.uid && impersonatedEmp.uid === empDocId)) {
+                const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
+                setImpersonatedEmp(updated);
+                try {
+                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+                } catch (_) {}
+              }
             }
           }}
         />
@@ -18815,18 +18828,24 @@ const handleExportBuffetToExcel = () => {
           employees={employees}
           onSaveSuccess={(updatedPermissions, targetRole, updatedEmpIds) => {
             setEmployees(prev => prev.map(e => {
-              const empDocId = e.uid || e.id;
-              if (updatedEmpIds.includes(empDocId)) {
+              const eUid = e.uid;
+              const eId = e.id;
+              const isTarget = updatedEmpIds.some(id => id === eUid || id === eId);
+              if (isTarget) {
                 return { ...e, customPermissions: updatedPermissions };
               }
               return e;
             }));
             if (impersonatedEmp) {
-              const impDocId = impersonatedEmp.uid || impersonatedEmp.id;
-              if (updatedEmpIds.includes(impDocId)) {
+              const impUid = impersonatedEmp.uid;
+              const impId = impersonatedEmp.id;
+              const isTarget = updatedEmpIds.some(id => id === impUid || id === impId);
+              if (isTarget) {
                 const updated = { ...impersonatedEmp, customPermissions: updatedPermissions };
                 setImpersonatedEmp(updated);
-                sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+                try {
+                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(updated));
+                } catch (_) {}
               }
             }
           }}
