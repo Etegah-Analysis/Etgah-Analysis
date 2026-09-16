@@ -5080,7 +5080,7 @@ const Dashboard = () => {
         authorEmail: currentUser?.email || '',
         authorUid: currentUser?.uid || '',
         role: isCurrentUserAdmin ? 'admin' : (isLeader ? 'leader' : 'agent'),
-        createdAt: new Date().toISOString(),
+        createdAt: Date.now(),
         statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
       };
 
@@ -5225,7 +5225,7 @@ const Dashboard = () => {
           authorEmail: currentUser?.email || '',
           authorUid: currentUser?.uid || '',
           role: isCurrentUserAdmin ? 'admin' : (isLeader ? 'leader' : 'agent'),
-          createdAt: new Date().toISOString(),
+          createdAt: Date.now(),
           statusLabel: CRM_STATUS_MAP[selectedStatusForNotes]?.label || selectedStatusForNotes
         };
         updatePayload.notesHistory = arrayUnion(newNoteObj);
@@ -19133,7 +19133,7 @@ const handleExportBuffetToExcel = () => {
                                 <span className="text-indigo-950 font-black bg-purple-100/70 px-1.5 py-0.5 rounded border border-purple-200">{log.to || 'المستلم'}</span>
                               </span>
                               <span className="text-[10px] text-gray-400 font-mono" dir="ltr">
-                                {new Date(log.assignedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                {formatDate(log.assignedAt)}
                               </span>
                             </div>
                             <div className="text-[9px] text-gray-500 font-semibold flex justify-between items-center">
@@ -19199,7 +19199,7 @@ const handleExportBuffetToExcel = () => {
                               <div className="flex items-center gap-2">
                                 {note.createdAt && (
                                   <span className="text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200 font-mono font-bold" dir="ltr">
-                                    📅 {new Date(note.createdAt).toLocaleString('ar-EG', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    📅 {formatDate(note.createdAt)}
                                   </span>
                                 )}
                                 {canDelete && (
