@@ -453,6 +453,12 @@ const Dashboard = () => {
 
   // Lead Import Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTarget, setImportTarget] = useState('employee_leads'); // 'leads_crm' | 'employee_leads'
+
+  const openImportModal = (target = 'employee_leads') => {
+    setImportTarget(target);
+    setIsImportModalOpen(true);
+  };
   const [importTab, setImportTab] = useState('file'); // 'file', 'gsheet', 'text', 'manual'
   const [importRows, setImportRows] = useState([]);
   const [gsheetUrl, setGsheetUrl] = useState('');
