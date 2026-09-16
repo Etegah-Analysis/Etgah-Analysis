@@ -12866,7 +12866,7 @@ const handleExportBuffetToExcel = () => {
                             <option value="admin" className="bg-purple-950 text-white">👑 Admin ({leadsWithAdminCount.toLocaleString()} Leads)</option>
                           )}
                           <option value="all" className="bg-purple-950 text-white">
-                            {isLeader ? `👥 جميع فريقي (${memoizedLeadsCrmData.pool.length.toLocaleString()} Leads)` : `👥 جميع الموظفين (${leadsWithEmployeesCount.toLocaleString()} Leads)`}
+                            {isLeader ? `👥 جميع فريقي (${(memoizedLeadsCrmData.counts?.all || 0).toLocaleString()} Leads)` : `👥 جميع الموظفين (${leadsWithEmployeesCount.toLocaleString()} Leads)`}
                           </option>
                           {isLeader ? (
                             <>
