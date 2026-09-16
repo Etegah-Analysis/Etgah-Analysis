@@ -14085,16 +14085,28 @@ const handleExportBuffetToExcel = () => {
             {/* Financial Sales Summary Banner (For Admin, Leader, and Customer Service inside Subscribed Clients) */}
             {(isAdmin || isLeader || isCustomerService) && (() => {
               const basePool = (isAdmin || isCustomerService) ? allSubscribedClients : leaderSubscribedClients;
-              const targetEmp = (subscribedEmpFilter && subscribedEmpFilter !== 'all' && subscribedEmpFilter !== 'admin')
-                ? employees.find(e => e.uid === subscribedEmpFilter)
-                : null;
-              const targetEmpMail = targetEmp?.email?.toLowerCase();
-
               let pool = basePool;
               if (subscribedEmpFilter !== 'all') {
                 if (subscribedEmpFilter === 'admin') {
                   pool = pool.filter(c => isLeadWithAdmin(c));
+                } else if (subscribedEmpFilter.startsWith('team_')) {
+                  const leaderUid = subscribedEmpFilter.replace('team_', '');
+                  const leaderObj = employees.find(e => e.uid === leaderUid);
+                  const teamMembers = employees.filter(m => m.leaderUid === leaderUid || m.leaderId === leaderUid || (leaderObj?.email && m.leaderEmail?.toLowerCase() === leaderObj.email.toLowerCase()));
+                  const teamUids = new Set([leaderUid, ...teamMembers.map(m => m.uid)]);
+                  const teamMails = new Set([
+                    leaderObj?.email?.toLowerCase(),
+                    ...teamMembers.map(m => m.email?.toLowerCase()).filter(Boolean)
+                  ]);
+
+                  pool = pool.filter(c => 
+                    teamUids.has(c.assignedToUid) || 
+                    teamUids.has(c.addedByUid) ||
+                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
+                  );
                 } else {
+                  const targetEmp = employees.find(e => e.uid === subscribedEmpFilter);
+                  const targetEmpMail = targetEmp?.email?.toLowerCase();
                   pool = pool.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail));
                 }
               }
@@ -14153,7 +14165,7 @@ const handleExportBuffetToExcel = () => {
                     <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between shadow-inner">
                       <div>
                         <span className="text-xs text-emerald-300 font-extrabold block">
-                          💰 {isLeader ? 'إجمالي مبيعات وتحصيلات فريقي' : 'إجمالي مبيعات وتحصيلات'} {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}
+                          💰 {isLeader ? (subscribedEmpFilter.startsWith('team_') ? 'إجمالي مبيعات فريقي بالكامل' : 'إجمالي مبيعات الموظف المحدد') : (subscribedEmpFilter.startsWith('team_') ? 'إجمالي مبيعات الفريق المحدد بالكامل' : 'إجمالي مبيعات وتحصيلات')} {subMonthFilter === 'all' ? 'جميع الأشهر' : `شهر ${subMonthFilter}`}
                         </span>
                         <h4 className="text-2xl font-black text-cyan-300 font-mono mt-1">{totalMonthRevenue.toLocaleString()} <span className="text-xs text-emerald-400 font-normal">ريال</span></h4>
                       </div>
@@ -14167,7 +14179,7 @@ const handleExportBuffetToExcel = () => {
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-inner">
                     <div>
                       <span className="text-xs text-amber-300 font-extrabold block">
-                        ⏳ {isLeader ? 'إجمالي المتبقي على عملاء فريقي' : isCustomerService ? 'إجمالي المبالغ المتبقية على المشتركين' : 'إجمالي المبالغ المتبقية'}
+                        ⏳ {isLeader ? 'إجمالي المتبقي على العملاء' : isCustomerService ? 'إجمالي المبالغ المتبقية على المشتركين' : 'إجمالي المبالغ المتبقية'}
                       </span>
                       <h4 className="text-2xl font-black text-amber-300 font-mono mt-1">{totalRemainingDue.toLocaleString()} <span className="text-xs text-amber-400 font-normal">ريال</span></h4>
                     </div>
@@ -14180,7 +14192,7 @@ const handleExportBuffetToExcel = () => {
                   <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-cyan-500/30 flex items-center justify-between shadow-inner">
                     <div>
                       <span className="text-xs text-cyan-300 font-extrabold block">
-                        👥 {isLeader ? 'عدد مشتركي فريقي المسجلين' : 'عدد المشتركين والدفعات المسجلة'}
+                        👥 {isLeader ? 'عدد المشتركين المسجلين' : 'عدد المشتركين والدفعات المسجلة'}
                       </span>
                       <h4 className="text-2xl font-black text-white font-mono mt-1">{bannerClients.length.toLocaleString()} <span className="text-xs text-cyan-400 font-normal">مشترك</span></h4>
                     </div>
@@ -14192,25 +14204,49 @@ const handleExportBuffetToExcel = () => {
               );
             })()}
 
+
             {/* Filter Bar */}
             {(() => {
-              const scopeSubscribed = (!isAdmin && !isCoordinator && !isCustomerService)
-                ? (isLeader
-                    ? (subscribedEmpFilter === 'all'
-                        ? leaderSubscribedClients
-                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase()))
-                    : agentSubscribedClients)
-                : (subscribedEmpFilter === 'all'
-                    ? allSubscribedClients
-                    : (subscribedEmpFilter === 'admin'
-                        ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
-                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || c.assignedTo?.toLowerCase() === employees.find(e => e.uid === subscribedEmpFilter)?.email?.toLowerCase())));
+              const getFilteredSubscribedClients = (filterVal) => {
+                if (!filterVal || filterVal === 'all') {
+                  return (!isAdmin && !isCoordinator && !isCustomerService)
+                    ? (isLeader ? leaderSubscribedClients : agentSubscribedClients)
+                    : allSubscribedClients;
+                }
+                if (filterVal === 'admin') {
+                  return allSubscribedClients.filter(c => isLeadWithAdmin(c));
+                }
+                if (filterVal.startsWith('team_')) {
+                  const leaderUid = filterVal.replace('team_', '');
+                  const leaderObj = employees.find(e => e.uid === leaderUid);
+                  const teamMembers = employees.filter(m => m.leaderUid === leaderUid || m.leaderId === leaderUid || (leaderObj?.email && m.leaderEmail?.toLowerCase() === leaderObj.email.toLowerCase()));
+                  const teamUids = new Set([leaderUid, ...teamMembers.map(m => m.uid)]);
+                  const teamMails = new Set([
+                    leaderObj?.email?.toLowerCase(),
+                    ...teamMembers.map(m => m.email?.toLowerCase()).filter(Boolean)
+                  ]);
+
+                  const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
+                  return list.filter(c => 
+                    teamUids.has(c.assignedToUid) || 
+                    teamUids.has(c.addedByUid) ||
+                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
+                  );
+                }
+
+                const targetEmp = employees.find(e => e.uid === filterVal);
+                const targetEmpMail = targetEmp?.email?.toLowerCase();
+                const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
+                return list.filter(c => c.assignedToUid === filterVal || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail));
+              };
+
+              const scopeSubscribed = getFilteredSubscribedClients(subscribedEmpFilter);
 
               return (
                 <div className="px-6 py-3.5 bg-gradient-to-r from-emerald-50/60 via-teal-50/30 to-white border-b border-emerald-100 flex flex-wrap justify-between items-center gap-3">
                   
                   <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-[200px]">
-                    {/* Employee Filter */}
+                    {/* Employee & Team Filter */}
                     {(isAdmin || isCoordinator || isCustomerService || isLeader) && (
                       <div className="relative">
                         <select
@@ -14225,20 +14261,25 @@ const handleExportBuffetToExcel = () => {
                             </option>
                           )}
                           {isLeader && (
-                            <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
-                              👑 Leader Personal ({leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} Paid)
-                            </option>
+                            <>
+                              <option value={`team_${currentUser?.uid}`} className="bg-slate-900 text-amber-300 font-bold">
+                                👑 كامل فريقي (إجمالي مبيعات الفريق: {leaderSubscribedClients.length} مشتركين)
+                              </option>
+                              <option value={currentUser?.uid} className="bg-slate-900 text-white font-bold">
+                                👤 مبيعاتي الشخصية فقط ({leaderSubscribedClients.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length} مشتركين)
+                              </option>
+                            </>
                           )}
                           {isLeader && myTeamMembers.map(emp => {
                             const count = leaderSubscribedClients.filter(c => c.assignedToUid === emp.uid || c.assignedTo?.toLowerCase() === emp.email?.toLowerCase()).length;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                                👤 Agent: {emp.username || emp.name} ({count} Paid)
+                                ↳ 👤 Agent: {emp.username || emp.name} ({count} Paid)
                               </option>
                             );
                           })}
-                          {!isLeader && employees.filter(e => e.jobTitle === 'Leader').map(leader => {
-                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                          {!isLeader && employees.filter(e => e.jobTitle === 'Leader' || e.role === 'leader').map(leader => {
+                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid || m.leaderId === leader.uid || (leader.email && m.leaderEmail?.toLowerCase() === leader.email.toLowerCase()));
                             const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
                             const teamTotalCount = allSubscribedClients.filter(c => 
                               c.assignedToUid === leader.uid || 
@@ -14253,21 +14294,24 @@ const handleExportBuffetToExcel = () => {
                                 label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount} Paid)`}
                                 className="bg-slate-900 text-amber-300 font-bold"
                               >
+                                <option value={`team_${leader.uid}`} className="bg-slate-900 text-amber-300 font-black">
+                                  👑 كامل فريق {leader.username || leader.name} (إجمالي الفريق: {teamTotalCount} مبيعات/مشتركين)
+                                </option>
                                 <option value={leader.uid} className="bg-slate-900 text-white">
-                                  👑 Leader: {leader.username || leader.name} (Personal: {leaderOwnCount} Paid)
+                                  👤 Leader: {leader.username || leader.name} (شخصي فقط: {leaderOwnCount} مشتركين)
                                 </option>
                                 {teamMembers.map(member => {
                                   const memberCount = subscribedCountsByEmp[member.uid] || 0;
                                   return (
                                     <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
-                                      👤 Agent: {member.username || member.name} ({memberCount} Paid)
+                                      ↳ 👤 Agent: {member.username || member.name} ({memberCount} Paid)
                                     </option>
                                   );
                                 })}
                               </optgroup>
                             );
                           })}
-                          {!isLeader && employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
+                          {!isLeader && employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.role !== 'leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid && !e.leaderId).map(emp => {
                             const count = subscribedCountsByEmp[emp.uid] || 0;
                             return (
                               <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
@@ -14354,6 +14398,7 @@ const handleExportBuffetToExcel = () => {
                         </button>
                       )}
                     </div>
+
                   </div>
 
                   {/* Search Input */}
@@ -14374,9 +14419,11 @@ const handleExportBuffetToExcel = () => {
                       </button>
                     )}
                   </div>
+
                 </div>
               );
             })()}
+
 
             {/* Table Content */}
             {(() => {
@@ -14385,17 +14432,41 @@ const handleExportBuffetToExcel = () => {
                 : null;
               const targetEmpMail = targetEmp?.email?.toLowerCase();
 
-              let filtered = (!isAdmin && !isCoordinator && !isCustomerService)
-                ? (isLeader
-                    ? (subscribedEmpFilter === 'all'
-                        ? leaderSubscribedClients
-                        : leaderSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail)))
-                    : agentSubscribedClients)
-                : (subscribedEmpFilter === 'all'
-                    ? allSubscribedClients
-                    : (subscribedEmpFilter === 'admin'
-                        ? allSubscribedClients.filter(c => isLeadWithAdmin(c))
-                        : allSubscribedClients.filter(c => c.assignedToUid === subscribedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail))));
+              const getFilteredSubscribedClients = (filterVal) => {
+                if (!filterVal || filterVal === 'all') {
+                  return (!isAdmin && !isCoordinator && !isCustomerService)
+                    ? (isLeader ? leaderSubscribedClients : agentSubscribedClients)
+                    : allSubscribedClients;
+                }
+                if (filterVal === 'admin') {
+                  return allSubscribedClients.filter(c => isLeadWithAdmin(c));
+                }
+                if (filterVal.startsWith('team_')) {
+                  const leaderUid = filterVal.replace('team_', '');
+                  const leaderObj = employees.find(e => e.uid === leaderUid);
+                  const teamMembers = employees.filter(m => m.leaderUid === leaderUid || m.leaderId === leaderUid || (leaderObj?.email && m.leaderEmail?.toLowerCase() === leaderObj.email.toLowerCase()));
+                  const teamUids = new Set([leaderUid, ...teamMembers.map(m => m.uid)]);
+                  const teamMails = new Set([
+                    leaderObj?.email?.toLowerCase(),
+                    ...teamMembers.map(m => m.email?.toLowerCase()).filter(Boolean)
+                  ]);
+
+                  const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
+                  return list.filter(c => 
+                    teamUids.has(c.assignedToUid) || 
+                    teamUids.has(c.addedByUid) ||
+                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
+                  );
+                }
+
+                const targetEmp = employees.find(e => e.uid === filterVal);
+                const targetEmpMail = targetEmp?.email?.toLowerCase();
+                const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
+                return list.filter(c => c.assignedToUid === filterVal || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail));
+              };
+
+              let filtered = getFilteredSubscribedClients(subscribedEmpFilter);
+
 
               if (subMonthFilter !== 'all') {
                 filtered = filtered.filter(c => {
@@ -21075,6 +21146,7 @@ const handleExportBuffetToExcel = () => {
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-400 cursor-pointer"
                     >
                       <option value="">-- اختر نوع الباقة --</option>
+                      <option value="باقة شهرية">باقة شهرية (باقة شهر)</option>
                       <option value="باقة سنوية">باقة سنوية</option>
                       <option value="باقة نصف سنوية">باقة نصف سنوية</option>
                       <option value="باقة ربع سنوية">باقة ربع سنوية</option>
