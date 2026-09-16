@@ -3090,9 +3090,14 @@ const Dashboard = () => {
     return Array.from(map.values());
   }, [isAgent, leadsCrm, employeeLeads, customers, currentUser?.uid, currentUser?.email]);
 
+  const hasSubscribedCardAccess = useMemo(() => {
+    if (isAdmin) return true;
+    return hasPermission(currentEmpUser, 'show_card_subscribed_clients') && hasPermission(currentEmpUser, 'canViewSubscribedClients');
+  }, [isAdmin, currentEmpUser]);
+
   // Expiring Subscriptions Computation (for Admin, Coordinator, Leaders, and Agents)
   const expiringSubscriptions = useMemo(() => {
-    if (!isAdmin && !isCoordinator && !isLeader && !isAgent && !isCustomerService) return [];
+    if (!hasSubscribedCardAccess) return [];
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -3119,7 +3124,7 @@ const Dashboard = () => {
         isExpired: daysDiff < 0
       };
     });
-  }, [allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isAgent, isCustomerService]);
+  }, [hasSubscribedCardAccess, allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isCustomerService]);
 
   const totalAllNotificationsCount = useMemo(() => {
     return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
@@ -10515,7 +10520,7 @@ const handleExportBuffetToExcel = () => {
                     >
                       ✉️ بريد ({unreadEmails.length})
                     </button>
-                    {(isAdmin || isCoordinator || isCustomerService) && expiringSubscriptions.length > 0 && (
+                    {hasSubscribedCardAccess && expiringSubscriptions.length > 0 && (
                       <button 
                         onClick={() => setNotifActiveTab('expiring')}
                         className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'expiring' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300 hover:text-white'}`}
@@ -10528,8 +10533,8 @@ const handleExportBuffetToExcel = () => {
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1.5 space-y-1">
-                  {/* Expiring Subscriptions for Admin, Coordinator & Customer Service */}
-                  {(isAdmin || isCoordinator || isCustomerService) && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
+                  {/* Expiring Subscriptions List */}
+                  {hasSubscribedCardAccess && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
                     <div className="p-2.5 bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 rounded-xl border border-amber-500/40 mb-2 space-y-2">
                       <div className="flex items-center justify-between text-amber-300 font-bold text-xs border-b border-amber-500/20 pb-1.5">
                         <span className="flex items-center gap-1.5">
