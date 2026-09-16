@@ -1241,19 +1241,35 @@ const Dashboard = () => {
 
   // Impersonation: When Admin enters an employee account, UI behaves 100% as that employee
   const effectiveUser = useMemo(() => {
-    return (realIsAdmin && impersonatedEmp)
-      ? { uid: impersonatedEmp.uid, email: impersonatedEmp.email, displayName: impersonatedEmp.username || impersonatedEmp.name }
-      : realCurrentUser;
-  }, [realIsAdmin, impersonatedEmp?.uid, impersonatedEmp?.email, impersonatedEmp?.name, impersonatedEmp?.username, realCurrentUser]);
+    if (realIsAdmin && impersonatedEmp) {
+      const empUid = impersonatedEmp.uid || impersonatedEmp.id;
+      const empEmail = impersonatedEmp.email || impersonatedEmp.authEmail || (impersonatedEmp.username ? `${impersonatedEmp.username}@etegah.com` : '');
+      return {
+        ...impersonatedEmp,
+        uid: empUid,
+        id: empUid,
+        email: empEmail,
+        displayName: impersonatedEmp.username || impersonatedEmp.name
+      };
+    }
+    return realCurrentUser;
+  }, [realIsAdmin, impersonatedEmp, realCurrentUser]);
 
   const effectiveEmpUser = useMemo(() => {
     if (realIsAdmin && impersonatedEmp) {
+      const targetId = impersonatedEmp.uid || impersonatedEmp.id;
       const freshEmp = employees.find(e => 
-        (e.uid && e.uid === impersonatedEmp.uid) || 
-        (e.id && (e.id === impersonatedEmp.uid || e.id === impersonatedEmp.id)) ||
+        (e.uid && (e.uid === targetId || e.uid === impersonatedEmp.uid || e.uid === impersonatedEmp.id)) || 
+        (e.id && (e.id === targetId || e.id === impersonatedEmp.uid || e.id === impersonatedEmp.id)) ||
         (e.email && e.email?.toLowerCase() === impersonatedEmp.email?.toLowerCase())
       );
-      return freshEmp ? { ...impersonatedEmp, ...freshEmp } : impersonatedEmp;
+      const merged = freshEmp ? { ...impersonatedEmp, ...freshEmp } : impersonatedEmp;
+      const empUid = merged.uid || merged.id || targetId;
+      return {
+        ...merged,
+        uid: empUid,
+        id: empUid
+      };
     }
     return employees.find(e => 
       (e.uid && e.uid === realCurrentUser?.uid) || 
@@ -1263,6 +1279,35 @@ const Dashboard = () => {
       (e.username && realCurrentUser?.email && realCurrentUser.email.toLowerCase().startsWith(e.username.toLowerCase() + '@'))
     );
   }, [realIsAdmin, impersonatedEmp, employees, realCurrentUser]);
+
+  const handleImpersonateEmployee = useCallback((empTarget) => {
+    if (!empTarget) return;
+    const targetUid = empTarget.uid || empTarget.id;
+    const freshEmp = employees.find(e => 
+      (e.uid && (e.uid === targetUid || e.uid === empTarget.id)) || 
+      (e.id && (e.id === targetUid || e.id === empTarget.uid)) ||
+      (e.email && e.email?.toLowerCase() === empTarget.email?.toLowerCase())
+    ) || empTarget;
+
+    const normalizedEmp = {
+      ...freshEmp,
+      uid: targetUid || freshEmp.uid || freshEmp.id,
+      id: targetUid || freshEmp.id || freshEmp.uid,
+      email: freshEmp.email || freshEmp.authEmail || (freshEmp.username ? `${freshEmp.username}@etegah.com` : '')
+    };
+
+    try {
+      sessionStorage.setItem('impersonatedEmp', JSON.stringify(normalizedEmp));
+    } catch (_) {}
+
+    setImpersonatedEmp(normalizedEmp);
+    setActiveTab('leads_crm');
+    toast.success(`تم الدخول إلى شاشة الموظف (${normalizedEmp.username || normalizedEmp.name}) بصلاحياته فقط 🖥️✨`);
+    
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [employees]);
 
   const currentUser = effectiveUser;
   const isAdmin = realIsAdmin && !impersonatedEmp;
@@ -17636,23 +17681,7 @@ const handleExportBuffetToExcel = () => {
                           <div className="flex items-center justify-center space-x-2 space-x-reverse">
                             {isAdmin && (
                               <button
-                                onClick={() => {
-                                  const freshEmp = employees.find(e => (e.uid && (e.uid === emp.uid || e.uid === emp.id)) || (e.id && (e.id === emp.id || e.id === emp.uid))) || emp;
-                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(freshEmp));
-                                  setImpersonatedEmp(freshEmp);
-                                  setActiveTab('leads_crm');
-                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.username || emp.name}) بصلاحياته فقط 🖥️✨`);
-                                  scrollToTable();
-                                }}
-                                onTouchEnd={(e) => {
-                                  if (e.cancelable) e.preventDefault();
-                                  sessionStorage.setItem('impersonatedEmp', JSON.stringify(emp));
-                                  setImpersonatedEmp(emp);
-                                  setActiveTab('leads_crm');
-                                  toast.success(`تم الدخول إلى لوحة تحكم الموظف (${emp.username || emp.name}) بصلاحياته فقط 🖥️✨`);
-                                  scrollToTable();
-                                }}
-                                style={{ touchAction: 'manipulation' }}
+                                onClick={() => handleImpersonateEmployee(emp)}
                                 className="p-2 sm:px-2.5 sm:py-1.5 bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl transition shadow-md flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95 border border-cyan-300/40 shrink-0"
                                 title={`دخول ومعاينة لوحة تحكم ${emp.username || emp.name} (كأنك مسجل دخوله بحسابه)`}
                               >
