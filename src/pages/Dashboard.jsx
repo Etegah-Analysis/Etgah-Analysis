@@ -3392,11 +3392,37 @@ const Dashboard = () => {
       };
     }
 
-    const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'admin' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'all')
-      ? employees.find(e => e.uid === selectedEmpFilter)
-      : null;
-    const targetEmpMail = targetEmp?.email?.toLowerCase();
-    const targetEmpName = targetEmp?.name;
+    // Helper: Thorough matching of a lead against an employee object
+    const isLeadMatchEmp = (c, empObj) => {
+      if (!c || !empObj) return false;
+      const uid = empObj.uid;
+      const email = empObj.email ? empObj.email.toLowerCase() : null;
+      const name = empObj.name ? empObj.name.toLowerCase() : null;
+      const username = empObj.username ? empObj.username.toLowerCase() : null;
+
+      if (uid && (c.assignedToUid === uid || c.addedByUid === uid || c.userId === uid || c.userUid === uid || c.empUid === uid)) {
+        return true;
+      }
+
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : '';
+      const addedBy = c.addedBy ? String(c.addedBy).toLowerCase().trim() : '';
+
+      if (email && (assignedTo === email || addedBy === email)) return true;
+      if (name && (assignedTo === name || addedBy === name)) return true;
+      if (username && (assignedTo === username || addedBy === username)) return true;
+
+      return false;
+    };
+
+    const isLeadMatchLeaderTeam = (c, leaderEmpObj, teamMembers) => {
+      if (isLeadMatchEmp(c, leaderEmpObj)) return true;
+      if (teamMembers && Array.isArray(teamMembers)) {
+        for (let j = 0; j < teamMembers.length; j++) {
+          if (isLeadMatchEmp(c, teamMembers[j])) return true;
+        }
+      }
+      return false;
+    };
 
     const regFromTime = dateFromFilter ? new Date(dateFromFilter).setHours(0, 0, 0, 0) : null;
     const regToTime = dateToFilter ? new Date(dateToFilter).setHours(23, 59, 59, 999) : null;
@@ -3407,22 +3433,30 @@ const Dashboard = () => {
     const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
     const scoped = [];
 
-    const isNonPrivileged = !isAdmin && !isCoordinator;
-    const currentUid = currentUser?.uid;
-    const currentMail = currentUser?.email?.toLowerCase();
-
     for (let i = 0; i < leadsCrm.length; i++) {
       const c = leadsCrm[i];
       let matchesScope = false;
 
-      if (isNonPrivileged) {
-        matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail));
+      if (isLeader && !isAdmin && !isCoordinator) {
+        if (selectedEmpFilter === 'all') {
+          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers);
+        } else {
+          const targetEmp = employees.find(e => e.uid === selectedEmpFilter) || (selectedEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
+          if (targetEmp) {
+            matchesScope = isLeadMatchEmp(c, targetEmp);
+          } else {
+            matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+          }
+        }
+      } else if (!isAdmin && !isCoordinator) {
+        matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
       } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (selectedEmpFilter === 'all') {
         matchesScope = isLeadAssignedToEmployee(c);
       } else if (selectedEmpFilter) {
-        matchesScope = (c.assignedToUid === selectedEmpFilter || c.addedByUid === selectedEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
+        const targetEmp = employees.find(e => e.uid === selectedEmpFilter);
+        matchesScope = targetEmp ? isLeadMatchEmp(c, targetEmp) : true;
       } else {
         matchesScope = true;
       }
@@ -3473,7 +3507,7 @@ const Dashboard = () => {
     }
 
     return { filtered, counts };
-  }, [activeTab, leadsCrm, selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, crmCommentDateFrom, crmCommentDateTo, tableSearch, leadsSortOrder, employees, isAdmin, isCoordinator, currentUser]);
+  }, [activeTab, leadsCrm, selectedEmpFilter, crmStatusFilter, dateFromFilter, dateToFilter, crmCommentDateFrom, crmCommentDateTo, tableSearch, leadsSortOrder, employees, isAdmin, isCoordinator, isLeader, currentUser, currentEmpUser, myTeamMembers]);
 
   // Top-Level Memoized Filter for Employee Leads Tab
   const memoizedEmpLeadsData = useMemo(() => {
@@ -3484,11 +3518,37 @@ const Dashboard = () => {
       };
     }
 
-    const targetEmp = (empLeadsEmpFilter && empLeadsEmpFilter !== 'admin' && empLeadsEmpFilter !== 'unassigned' && empLeadsEmpFilter !== 'all' && empLeadsEmpFilter !== currentUser?.uid)
-      ? employees.find(e => e.uid === empLeadsEmpFilter)
-      : null;
-    const targetEmpMail = targetEmp?.email?.toLowerCase();
-    const targetEmpName = targetEmp?.name;
+    // Helper: Thorough matching of a lead against an employee object
+    const isLeadMatchEmp = (c, empObj) => {
+      if (!c || !empObj) return false;
+      const uid = empObj.uid;
+      const email = empObj.email ? empObj.email.toLowerCase() : null;
+      const name = empObj.name ? empObj.name.toLowerCase() : null;
+      const username = empObj.username ? empObj.username.toLowerCase() : null;
+
+      if (uid && (c.assignedToUid === uid || c.addedByUid === uid || c.userId === uid || c.userUid === uid || c.empUid === uid)) {
+        return true;
+      }
+
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : '';
+      const addedBy = c.addedBy ? String(c.addedBy).toLowerCase().trim() : '';
+
+      if (email && (assignedTo === email || addedBy === email)) return true;
+      if (name && (assignedTo === name || addedBy === name)) return true;
+      if (username && (assignedTo === username || addedBy === username)) return true;
+
+      return false;
+    };
+
+    const isLeadMatchLeaderTeam = (c, leaderEmpObj, teamMembers) => {
+      if (isLeadMatchEmp(c, leaderEmpObj)) return true;
+      if (teamMembers && Array.isArray(teamMembers)) {
+        for (let j = 0; j < teamMembers.length; j++) {
+          if (isLeadMatchEmp(c, teamMembers[j])) return true;
+        }
+      }
+      return false;
+    };
 
     const regFromTime = empLeadsDateFrom ? new Date(empLeadsDateFrom).setHours(0, 0, 0, 0) : null;
     const regToTime = empLeadsDateTo ? new Date(empLeadsDateTo).setHours(23, 59, 59, 999) : null;
@@ -3499,34 +3559,30 @@ const Dashboard = () => {
     const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
     const scoped = [];
 
-    const isNonPrivileged = !isAdmin && !isCoordinator;
-    const currentUid = currentUser?.uid;
-    const currentMail = currentUser?.email?.toLowerCase();
-    const currentName = currentEmpUser?.name;
-    const teamUids = new Set((myTeamMembers || []).map(m => m.uid));
-
     for (let i = 0; i < employeeLeads.length; i++) {
       const c = employeeLeads[i];
       let matchesScope = false;
 
-      if (isNonPrivileged) {
-        if (isLeader) {
-          if (empLeadsEmpFilter === 'all') {
-            matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (c.assignedToUid && teamUids.has(c.assignedToUid)) || (c.addedByUid && teamUids.has(c.addedByUid)));
-          } else if (empLeadsEmpFilter === currentUid) {
-            matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail) || (currentName && c.addedBy === currentName));
-          } else {
-            matchesScope = (c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
-          }
+      if (isLeader && !isAdmin && !isCoordinator) {
+        if (empLeadsEmpFilter === 'all') {
+          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers);
         } else {
-          matchesScope = (c.assignedToUid === currentUid || c.addedByUid === currentUid || (currentMail && c.assignedTo?.toLowerCase() === currentMail));
+          const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter) || (empLeadsEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
+          if (targetEmp) {
+            matchesScope = isLeadMatchEmp(c, targetEmp);
+          } else {
+            matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+          }
         }
+      } else if (!isAdmin && !isCoordinator) {
+        matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
       } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (empLeadsEmpFilter === 'all') {
         matchesScope = isLeadAssignedToEmployee(c);
       } else if (empLeadsEmpFilter) {
-        matchesScope = (c.assignedToUid === empLeadsEmpFilter || c.addedByUid === empLeadsEmpFilter || (targetEmpMail && c.assignedTo?.toLowerCase() === targetEmpMail) || (targetEmpName && c.addedBy === targetEmpName));
+        const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter);
+        matchesScope = targetEmp ? isLeadMatchEmp(c, targetEmp) : true;
       } else {
         matchesScope = true;
       }
