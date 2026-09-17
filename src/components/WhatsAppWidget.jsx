@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageCircle, X, Send, Headphones, ShieldCheck, Sparkles, 
   Paperclip, Image as ImageIcon, Smile, Maximize2, Minimize2, 
-  Reply, User, Phone, PhoneCall, FileText, Download, CheckCheck, ArrowRight
+  Reply, User, Phone, PhoneCall, FileText, Download, CheckCheck, ArrowRight, LogOut
 } from 'lucide-react';
 import { db, collection, query, where, getDocs, getDoc, doc, setDoc, onSnapshot, serverTimestamp, addDoc } from '../firebase';
 
@@ -148,7 +148,7 @@ export default function WhatsAppWidget() {
         conversationId: cleanPhone,
         phoneNumber: userPhone,
         sender: 'client',
-        text: "📞 طلب اتصال داخلي من العميل (تنبيه انتباه ⚡)",
+        text: "تنبيه بوجود رسالة",
         timestamp: serverTimestamp()
       });
 
@@ -405,14 +405,28 @@ export default function WhatsAppWidget() {
     if (!userPhone) return;
     const cleanPhone = userPhone.replace(/[^0-9]/g, '');
     const chatId = `chat_${cleanPhone}`;
-    const chatDocRef = doc(db, 'website_chats', chatId);
 
+    // 1. Check local storage for instant state restoration
+    const savedLocalEmp = localStorage.getItem(`assignedEmp_${cleanPhone}`);
+    if (savedLocalEmp) {
+      try {
+        const parsedEmp = JSON.parse(savedLocalEmp);
+        if (parsedEmp && parsedEmp.name) {
+          setAssignedEmp(parsedEmp);
+          setWidgetStep('chat_room');
+        }
+      } catch (e) {}
+    }
+
+    // 2. Listen to Firestore website_chats for real-time assigned emp sync
+    const chatDocRef = doc(db, 'website_chats', chatId);
     const unsub = onSnapshot(chatDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.assignedEmp) {
           setAssignedEmp(data.assignedEmp);
           setWidgetStep('chat_room');
+          localStorage.setItem(`assignedEmp_${cleanPhone}`, JSON.stringify(data.assignedEmp));
         }
         if (data.name && (!userName || userName === 'عميل اتجاه')) {
           setUserName(data.name);
@@ -558,34 +572,47 @@ export default function WhatsAppWidget() {
       const q = query(collection(db, 'users'), where('empCode', '==', rawCode));
       const snap = await getDocs(q);
 
+      let empObj = null;
       if (!snap.empty) {
         const empData = snap.docs[0].data();
-        const empObj = {
+        empObj = {
           uid: snap.docs[0].id,
           name: empData.username || empData.name || `موظف #${rawCode}`,
           empCode: rawCode,
           jobTitle: empData.jobTitle || 'مستشار اتجاه'
         };
-        setAssignedEmp(empObj);
-        setWidgetStep('chat_room');
-        initChatSession(empObj);
       } else {
         const q2 = query(collection(db, 'users'), where('username', '==', rawCode));
         const snap2 = await getDocs(q2);
         if (!snap2.empty) {
           const empData = snap2.docs[0].data();
-          const empObj = {
+          empObj = {
             uid: snap2.docs[0].id,
             name: empData.username || empData.name || `موظف #${rawCode}`,
             empCode: empData.empCode || rawCode,
             jobTitle: empData.jobTitle || 'مستشار اتجاه'
           };
-          setAssignedEmp(empObj);
-          setWidgetStep('chat_room');
-          initChatSession(empObj);
-        } else {
-          setCodeError(`الكود #${rawCode} غير مسجل بالنظام، يرجى المحاولة أو التواصل مع خدمة العملاء`);
         }
+      }
+
+      if (empObj) {
+        setAssignedEmp(empObj);
+        setWidgetStep('chat_room');
+        if (userPhone) {
+          const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+          localStorage.setItem(`assignedEmp_${cleanPhone}`, JSON.stringify(empObj));
+          // Send message to staff when employee code is entered
+          addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+            conversationId: cleanPhone,
+            phoneNumber: userPhone,
+            sender: 'client',
+            text: `💬 بدء محادثة جديدة وتواصل مباشر مع المختص #${rawCode} (${empObj.name})`,
+            timestamp: serverTimestamp()
+          }).catch(console.error);
+        }
+        initChatSession(empObj);
+      } else {
+        setCodeError(`الكود #${rawCode} غير مسجل بالنظام، يرجى المحاولة أو التواصل مع خدمة العملاء`);
       }
     } catch (err) {
       console.error("Code lookup error:", err);
@@ -605,7 +632,32 @@ export default function WhatsAppWidget() {
     };
     setAssignedEmp(csObj);
     setWidgetStep('chat_room');
+    if (userPhone) {
+      const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+      localStorage.setItem(`assignedEmp_${cleanPhone}`, JSON.stringify(csObj));
+    }
     initChatSession(csObj);
+  };
+
+  // Logout from assigned employee chat session with confirmation alert
+  const handleLogoutAssignedEmp = async () => {
+    const confirmLogout = window.confirm("⚠️ تنبيه هام: عند الخروج من محادثة الموظف المختص سينتهي التخصيص ويمكنك التواصل مع موظف آخر أو خدمة العملاء. هل أنت متأكد من الاستمرار؟");
+    if (!confirmLogout) return;
+
+    if (userPhone) {
+      const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+      localStorage.removeItem(`assignedEmp_${cleanPhone}`);
+      try {
+        const chatId = `chat_${cleanPhone}`;
+        await setDoc(doc(db, 'website_chats', chatId), {
+          assignedEmp: null,
+          assignedTo: 'خدمة العملاء',
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) {}
+    }
+    setAssignedEmp(null);
+    setWidgetStep('code_input');
   };
 
   // Save session metadata in website_chats, بيانات_تسجيل_العملاء & customers
@@ -843,7 +895,7 @@ export default function WhatsAppWidget() {
         }}
         className={`fixed ${
           isExpanded 
-            ? 'inset-0 z-[9999] bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-6' 
+            ? 'inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-6 overflow-hidden' 
             : 'bottom-4 left-4 sm:bottom-6 sm:left-6 z-50'
         } font-sans transition-all duration-300`} 
         dir="rtl"
@@ -861,28 +913,40 @@ export default function WhatsAppWidget() {
         {isOpen && (
           <div className={`${
             isExpanded 
-              ? 'w-full max-w-4xl h-[92vh] rounded-3xl' 
+              ? 'w-full max-w-5xl h-[92vh] rounded-3xl' 
               : 'mb-3 w-[calc(100vw-32px)] max-w-88 sm:max-w-96 rounded-3xl h-[520px]'
-          } bg-slate-950/95 backdrop-blur-2xl border border-cyan-500/30 text-white shadow-[0_20px_80px_rgba(0,0,0,0.9)] flex flex-col relative overflow-hidden animate-fade-in border-t-2 border-t-cyan-400`}>
+          } bg-slate-950/95 backdrop-blur-2xl border border-cyan-500/40 text-white shadow-[0_20px_80px_rgba(0,0,0,0.9)] flex flex-col relative overflow-hidden animate-fade-in border-t-2 border-t-cyan-400`}>
             
             {/* Header */}
             <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="relative shrink-0">
                   <img src="/logo.jpg" alt="Logo" className="w-9 h-9 rounded-full object-cover border-2 border-cyan-400 shadow-md" />
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-slate-900"></span>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1 truncate">
                     منصة اتجاه التحليل الذكي
                   </h4>
-                  <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1">
+                  <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1 truncate">
                     {assignedEmp ? `💬 ${assignedEmp.name}` : 'تواصل مباشر ومعاينة لحظية ⚡'}
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Logout / Switch Assigned Employee */}
+                {widgetStep === 'chat_room' && assignedEmp && (
+                  <button
+                    onClick={handleLogoutAssignedEmp}
+                    className="text-[10px] text-rose-300 hover:text-rose-100 bg-rose-950/80 hover:bg-rose-900/90 border border-rose-500/50 px-2 py-1 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
+                    title="تسجيل الخروج من محادثة المختص الحالي"
+                  >
+                    <LogOut size={12} />
+                    <span>خروج من المختص</span>
+                  </button>
+                )}
+
                 {/* Back Arrow Button */}
                 <button
                   onClick={handleBackButtonClick}
@@ -929,11 +993,11 @@ export default function WhatsAppWidget() {
               <button
                 type="button"
                 onClick={handleTriggerInternalCall}
-                className="flex items-center gap-1.5 text-cyan-200 text-[11px] font-extrabold bg-gradient-to-r from-cyan-600/60 to-blue-600/60 hover:from-cyan-500 hover:to-blue-500 p-1.5 px-3 rounded-xl border border-cyan-400/50 shadow-md transition cursor-pointer active:scale-95 animate-pulse"
-                title="اضغط لإرسال تنبيه اتصال داخلي فوراً للموظف المختص 📞"
+                className="flex items-center gap-1.5 text-cyan-200 text-[10px] sm:text-[11px] font-bold bg-cyan-900/70 hover:bg-cyan-800/90 p-1.5 px-2.5 rounded-xl border border-cyan-400/50 shadow-md transition cursor-pointer active:scale-95 animate-pulse"
+                title="اضغط لإرسال اتصال داخلي للتنبيه بالرسائل فوراً 📞"
               >
-                <PhoneCall size={14} className="text-cyan-300 shrink-0" />
-                <span>🔔 تنبيه اتصال داخلي</span>
+                <PhoneCall size={13} className="text-cyan-300 shrink-0" />
+                <span>اتصال داخلي للتنبيه بالرسائل</span>
               </button>
             </div>
 
@@ -977,7 +1041,7 @@ export default function WhatsAppWidget() {
                   className="w-full flex items-center justify-between bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition-all text-xs border border-purple-400/40 cursor-pointer"
                 >
                   <span className="flex items-center gap-2">
-                    <Headphones size={16} /> 🎧 التواصل مع خدمة العملاء ( الدعم الفني )
+                    <Headphones size={16} /> التواصل مع خدمة العملاء ( الدعم الفني )
                   </span>
                   <Sparkles size={14} className="text-amber-300" />
                 </button>
