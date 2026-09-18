@@ -2606,9 +2606,11 @@ function InboxContent() {
 
                     {/* Row 2: Customer Phone Number directly BELOW Customer Name */}
                     {chat.phoneNumber && (
-                      <p className="text-xs text-cyan-300 font-mono font-bold truncate mt-0.5" dir="ltr">
-                        {chat.phoneNumber}
-                      </p>
+                      <div className="w-full text-right mt-0.5" dir="rtl">
+                        <span className="text-xs text-cyan-300 font-mono font-bold block truncate" dir="ltr">
+                          {chat.phoneNumber}
+                        </span>
+                      </div>
                     )}
 
                     {/* Row 3: Last Message Preview */}
@@ -2740,43 +2742,50 @@ function InboxContent() {
                             <span>Call</span>
                           </button>
                         )}
-                        {/* CRM Status Dropdown Selector - Compact & next to Call button */}
-                        <select
-                          value={activeChat.crmStatus || 'unassigned'}
-                          onChange={async (e) => {
-                            const newCrmStatus = e.target.value;
-                            try {
-                              await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
-                              setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
-                              toast.success('تم تحديث حالة العميل');
-                            } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
-                          }}
-                          className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
-                          title="تغيير حالة العميل CRM"
-                        >
-                          <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
-                          <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back</option>
-                          <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested</option>
-                          <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested</option>
-                          <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer</option>
-                          <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Demo</option>
-                          <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Paid</option>
-                          <option value="junk_lead" className="bg-slate-900 text-stone-300">🗑️ Junk Lead</option>
-                          <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
-                          <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
-                        </select>
+                        {/* CRM Status Dropdown Selector - Hidden for Website Leads & Campaign Leads */}
+                        {!isWebsiteLead(activeChat) && activeChat.source !== 'website' && activeChat.source !== 'excel_import' && chatTabFilter !== 'direct' && chatTabFilter !== 'website' && (
+                          <select
+                            value={activeChat.crmStatus || 'unassigned'}
+                            onChange={async (e) => {
+                              const newCrmStatus = e.target.value;
+                              try {
+                                await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
+                                setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
+                                toast.success('تم تحديث حالة العميل');
+                              } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
+                            }}
+                            className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
+                            title="تغيير حالة العميل CRM"
+                          >
+                            <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
+                            <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back</option>
+                            <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested</option>
+                            <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested</option>
+                            <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer</option>
+                            <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Demo</option>
+                            <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Paid</option>
+                            <option value="junk_lead" className="bg-slate-900 text-stone-300">🗑️ Junk Lead</option>
+                            <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
+                            <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
+                          </select>
+                        )}
 
-                        {/* شارة مصدر العميل */}
-                        {activeChat.source === 'website' ? (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                            🌐 موقع
+                        {/* شارة مصدر العميل (اسم الكارت / الحملة / الموقع) */}
+                        {activeChat.cardName || activeChat.campaignName || activeChat.cardTitle || activeChat.sourceName ? (
+                          <span className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-sm">
+                            <span>🌐</span>
+                            <span>{activeChat.cardName || activeChat.campaignName || activeChat.cardTitle || activeChat.sourceName}</span>
+                          </span>
+                        ) : activeChat.source === 'website' || isWebsiteLead(activeChat) ? (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            🌐 داتا الموقع (الواتساب)
                           </span>
                         ) : activeChat.source === 'excel_import' ? (
-                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                            📊 إكسيل
+                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            📊 عملاء الحملات (إكسيل)
                           </span>
                         ) : activeChat.source === 'manual' ? (
-                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
                             ✋ مضاف يدوياً
                           </span>
                         ) : null}
