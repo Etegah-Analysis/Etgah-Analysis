@@ -10799,6 +10799,18 @@ const handleExportBuffetToExcel = () => {
             )}
           </button>
 
+          {/* رابط الموقع الإلكتروني (يظهر لجميع الموظفين) */}
+          <a 
+            href="https://www.etegah-analysis.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-400/40 px-2.5 sm:px-3 py-1.5 rounded-xl transition text-xs font-bold gap-1 shadow-sm cursor-pointer active:scale-95 shrink-0"
+            title="الانتقال إلى الموقع الإلكتروني (etegah-analysis.com)"
+          >
+            <Globe size={15} />
+            <span className="whitespace-nowrap font-bold">الموقع الإلكتروني 🌐</span>
+          </a>
+
           {/* إضافة موظف (للأدمن فقط) */}
           {(isAdmin || hasPermission(currentEmpUser, 'canAddUsStocks')) && (
             <button 
