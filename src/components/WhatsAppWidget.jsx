@@ -935,15 +935,15 @@ export default function WhatsAppWidget() {
               </div>
               
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Logout / Switch Assigned Employee */}
-                {widgetStep === 'chat_room' && assignedEmp && (
+                {/* Logout / Switch Specialist Employee (Only in Specialist Chat, NOT Customer Service) */}
+                {widgetStep === 'chat_room' && assignedEmp && assignedEmp.empCode && assignedEmp.empCode !== 'CS' && (
                   <button
                     onClick={handleLogoutAssignedEmp}
-                    className="text-[10px] text-rose-300 hover:text-rose-100 bg-rose-950/80 hover:bg-rose-900/90 border border-rose-500/50 px-2 py-1 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
-                    title="تسجيل الخروج من محادثة المختص الحالي"
+                    className="text-[9px] font-bold text-rose-300 hover:text-white bg-rose-950/70 hover:bg-rose-900/90 border border-rose-500/40 px-1.5 py-0.5 rounded-lg transition cursor-pointer flex items-center gap-0.5 shrink-0 shadow-sm"
+                    title="تسجيل الخروج من محادثة الموظف المختص"
                   >
-                    <LogOut size={12} />
-                    <span>خروج من المختص</span>
+                    <LogOut size={11} className="shrink-0" />
+                    <span>خروج</span>
                   </button>
                 )}
 
