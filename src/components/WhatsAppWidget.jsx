@@ -1061,47 +1061,36 @@ export default function WhatsAppWidget() {
               </div>
             </div>
 
-            {/* User Status Bar with Target Contact Info & Phone on right, Internal Call Alert button on left */}
-            <div className="bg-cyan-950/40 px-4 py-2 border-b border-cyan-500/20 flex items-center justify-between text-[11px] shrink-0">
-              {/* Right Side: Connected Target Contact + Phone Number underneath */}
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 truncate">
-                  {widgetStep === 'chat_room' && assignedEmp ? (
-                    assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs' ? (
-                      <>
-                        <Headphones size={13} className="text-cyan-400 shrink-0" />
-                        <span className="font-bold text-cyan-200 truncate">خدمة العملاء والدعم الفني</span>
-                      </>
-                    ) : (
-                      <>
-                        <User size={13} className="text-cyan-400 shrink-0" />
-                        <span className="font-bold text-cyan-200 truncate">المستشار: {empDisplayName || assignedEmp.name} (كود #{assignedEmp.empCode})</span>
-                      </>
-                    )
+            {/* User Status Bar - Rendered strictly inside chat room */}
+            {widgetStep === 'chat_room' && (
+              <div className="bg-cyan-950/40 px-4 py-2 border-b border-cyan-500/20 flex items-center justify-between text-[11px] shrink-0">
+                {/* Right Side: Connected Target Contact */}
+                <div className="flex items-center gap-1.5 truncate min-w-0">
+                  {assignedEmp && (assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs') ? (
+                    <>
+                      <Headphones size={13} className="text-cyan-400 shrink-0" />
+                      <span className="font-bold text-cyan-200 truncate">خدمة العملاء والدعم الفني</span>
+                    </>
                   ) : (
                     <>
                       <User size={13} className="text-cyan-400 shrink-0" />
-                      <span className="font-bold text-cyan-200 truncate">{userName || 'عميل اتجاه'}</span>
+                      <span className="font-bold text-cyan-200 truncate">المستشار: {empDisplayName || assignedEmp?.name} (كود #{assignedEmp?.empCode})</span>
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-cyan-400/90 font-mono mt-0.5" dir="ltr">
-                  <ShieldCheck size={12} className="text-emerald-400 shrink-0" title="حساب موثق بالـ OTP" />
-                  <span>{userPhone}</span>
-                </div>
-              </div>
 
-              {/* Left Side: Standalone Internal Call Alert Trigger Button */}
-              <button
-                type="button"
-                onClick={handleTriggerInternalCall}
-                className="flex items-center gap-1.5 text-cyan-200 text-[10px] sm:text-[11px] font-bold bg-cyan-900/70 hover:bg-cyan-800/90 p-1.5 px-2.5 rounded-xl border border-cyan-400/50 shadow-md transition cursor-pointer active:scale-95 animate-pulse"
-                title="اضغط لإرسال اتصال داخلي للتنبيه بالرسائل فوراً 📞"
-              >
-                <PhoneCall size={13} className="text-cyan-300 shrink-0" />
-                <span>اتصال داخلي للتنبيه بالرسائل</span>
-              </button>
-            </div>
+                {/* Left Side: Standalone Internal Call Alert Trigger Button */}
+                <button
+                  type="button"
+                  onClick={handleTriggerInternalCall}
+                  className="flex items-center gap-1.5 text-cyan-200 text-[10px] sm:text-[11px] font-bold bg-cyan-900/70 hover:bg-cyan-800/90 p-1.5 px-2.5 rounded-xl border border-cyan-400/50 shadow-md transition cursor-pointer active:scale-95 animate-pulse shrink-0"
+                  title="اضغط لإرسال اتصال داخلي للتنبيه بالرسائل فوراً 📞"
+                >
+                  <PhoneCall size={13} className="text-cyan-300 shrink-0" />
+                  <span>اتصال داخلي للتنبيه بالرسائل</span>
+                </button>
+              </div>
+            )}
 
             {/* Step 1: Code Input / Selection */}
             {widgetStep === 'code_input' && (
