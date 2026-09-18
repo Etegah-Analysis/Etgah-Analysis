@@ -17624,85 +17624,114 @@ const handleExportBuffetToExcel = () => {
 
                 <div className="flex items-center gap-3 flex-wrap flex-1 max-w-xl justify-end">
                   {/* فلتر الموظفين: يظهر فقط للإدارة والمنسق بالكامل، وللليدر يظهر أعضاء فريقه فقط، ويختفي تماماً عن الآيجنت */}
-                  {(isAdmin || isCoordinator) && (
-                    <div className="relative min-w-[260px]">
-                      <select
-                        value={selectedEmpFilter}
-                        onChange={(e) => setSelectedEmpFilter(e.target.value)}
-                        className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
-                      >
-                        <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({customers.length} Leads)</option>
-                        {customerFilter !== 'manual' && (
-                          <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({customers.filter(c => c.status === 'unassigned' || !c.assignedTo).length} Leads)</option>
-                        )}
-                        {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
-                          const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
-                          const leaderOwnCount = customerCountsByEmp[leader.uid] || 0;
-                          const teamTotalCount = leaderOwnCount + teamMembers.reduce((acc, m) => acc + (customerCountsByEmp[m.uid] || 0), 0);
+                  {(isAdmin || isCoordinator) && (() => {
+                    const currentPool = customerFilter === 'website'
+                      ? websiteWaPool
+                      : (customerFilter === 'manual'
+                          ? scopedCustomerPool.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook')
+                          : scopedCustomerPool
+                        );
+                    const unassignedCount = currentPool.filter(c => c.status === 'unassigned' || !c.assignedTo).length;
 
-                          return (
-                            <optgroup 
-                              key={leader.uid} 
-                              label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
-                              className="bg-slate-900 text-amber-300 font-bold"
-                            >
-                              <option value={leader.uid} className="bg-slate-900 text-white">
-                                👑 Leader: {leader.username || leader.name} (Personal: {leaderOwnCount.toLocaleString()} Leads)
+                    const countsMap = {};
+                    employees.forEach(e => { countsMap[e.uid] = 0; });
+                    const empByMailMap = new Map(employees.map(e => [e.email?.toLowerCase(), e.uid]));
+
+                    currentPool.forEach(c => {
+                      const targetUid = c.assignedToUid || (c.assignedTo ? empByMailMap.get(c.assignedTo.toLowerCase()) : null);
+                      if (targetUid && countsMap[targetUid] !== undefined) {
+                        countsMap[targetUid]++;
+                      }
+                    });
+
+                    return (
+                      <div className="relative min-w-[260px]">
+                        <select
+                          value={selectedEmpFilter}
+                          onChange={(e) => setSelectedEmpFilter(e.target.value)}
+                          className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
+                        >
+                          <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({currentPool.length.toLocaleString()} Leads)</option>
+                          {customerFilter !== 'manual' && (
+                            <option value="unassigned" className="bg-slate-900 text-white">⏳ في الانتظار ({unassignedCount.toLocaleString()} Leads)</option>
+                          )}
+                          {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
+                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                            const leaderOwnCount = countsMap[leader.uid] || 0;
+                            const teamTotalCount = leaderOwnCount + teamMembers.reduce((acc, m) => acc + (countsMap[m.uid] || 0), 0);
+
+                            return (
+                              <optgroup 
+                                key={leader.uid} 
+                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'} (Total: ${teamTotalCount.toLocaleString()} Leads)`}
+                                className="bg-slate-900 text-amber-300 font-bold"
+                              >
+                                <option value={leader.uid} className="bg-slate-900 text-white">
+                                  👑 Leader: {leader.username || leader.name} (Personal: {leaderOwnCount.toLocaleString()} Leads)
+                                </option>
+                                {teamMembers.map(member => {
+                                  const count = countsMap[member.uid] || 0;
+                                  return (
+                                    <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
+                                      👤 Agent: {member.username || member.name} ({count.toLocaleString()} Leads)
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            );
+                          })}
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
+                            const count = countsMap[emp.uid] || 0;
+                            return (
+                              <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                🏢 Direct Admin: {emp.username || emp.name} ({count.toLocaleString()} Leads)
                               </option>
-                              {teamMembers.map(member => {
-                                const count = customerCountsByEmp[member.uid] || 0;
-                                return (
-                                  <option key={member.uid} value={member.uid} className="bg-slate-900 text-white">
-                                    👤 Agent: {member.username || member.name} ({count.toLocaleString()} Leads)
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                          );
-                        })}
-                        {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => {
-                          const count = customerCountsByEmp[emp.uid] || 0;
-                          return (
-                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              🏢 Direct Admin: {emp.username || emp.name} ({count.toLocaleString()} Leads)
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  )}
+                            );
+                          })}
+                        </select>
+                      </div>
+                    );
+                  })()}
 
-                  {isLeader && (
-                    <div className="relative min-w-[220px]">
-                      <select
-                        value={selectedEmpFilter}
-                        onChange={(e) => setSelectedEmpFilter(e.target.value)}
-                        className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
-                      >
-                        <option value="all" className="bg-slate-900 text-white">
-                          👥 All Team Members ({scopedCustomerPool.length.toLocaleString()} Leads)
-                        </option>
-                        {(() => {
-                          const leaderCount = scopedCustomerPool.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length;
-                          const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
-                          return (
-                            <option value={currentUser?.uid} className="bg-slate-900 text-white">
-                              👑 {leaderDisplayName} ({leaderCount.toLocaleString()} Leads)
-                            </option>
-                          );
-                        })()}
-                        {myTeamMembers.map(emp => {
-                          const count = scopedCustomerPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
-                          const empDisplayName = emp.username || emp.name;
-                          return (
-                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              👤 {empDisplayName} ({count.toLocaleString()} Leads)
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  )}
+                  {isLeader && (() => {
+                    const currentPool = customerFilter === 'website'
+                      ? websiteWaPool
+                      : (customerFilter === 'manual'
+                          ? scopedCustomerPool.filter(c => c.addedBy && c.addedBy !== 'WhatsApp Webhook')
+                          : scopedCustomerPool
+                        );
+                    return (
+                      <div className="relative min-w-[220px]">
+                        <select
+                          value={selectedEmpFilter}
+                          onChange={(e) => setSelectedEmpFilter(e.target.value)}
+                          className="w-full bg-slate-800 text-white border border-purple-500/40 rounded-xl py-1.5 px-3 text-xs font-extrabold focus:outline-none focus:border-amber-400 shadow-sm cursor-pointer"
+                        >
+                          <option value="all" className="bg-slate-900 text-white">
+                            👥 All Team Members ({currentPool.length.toLocaleString()} Leads)
+                          </option>
+                          {(() => {
+                            const leaderCount = currentPool.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length;
+                            const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
+                            return (
+                              <option value={currentUser?.uid} className="bg-slate-900 text-white">
+                                👑 {leaderDisplayName} ({leaderCount.toLocaleString()} Leads)
+                              </option>
+                            );
+                          })()}
+                          {myTeamMembers.map(emp => {
+                            const count = currentPool.filter(c => c.assignedToUid === emp.uid || c.assignedTo === emp.email).length;
+                            const empDisplayName = emp.username || emp.name;
+                            return (
+                              <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                👤 {empDisplayName} ({count.toLocaleString()} Leads)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    );
+                  })()}
 
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[170px]">
