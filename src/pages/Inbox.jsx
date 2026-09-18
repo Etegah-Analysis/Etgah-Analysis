@@ -1479,7 +1479,7 @@ function InboxContent() {
         senderType: senderType,
         timestamp: serverTimestamp(),
         metaMessageId: result.metaMessageId || null,
-        status: result.simulated ? 'sent' : 'pending',
+        status: result.simulated ? 'sent' : 'delivered',
         replyTo: replyingToMessage || null
       };
 
@@ -2294,63 +2294,64 @@ function InboxContent() {
             </span>
           </div>
         ) : (
-          <div className="grid grid-cols-5 bg-black/40 p-1 gap-1 border-b border-white/10 relative z-10 text-[10px] w-full">
+          <div className="grid grid-cols-5 bg-slate-950/90 p-1.5 gap-1 border-b border-white/10 relative z-10 w-full">
             <button 
               onClick={() => setChatTabFilter('all')}
-              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              title="الكل"
+              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md ring-1 ring-blue-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+              title="جميع المحادثات"
             >
-              <span className="truncate">💬 الكل</span>
-              <span className="text-[9px] opacity-80 font-mono">({combinedChats.length})</span>
+              <span className="truncate text-[11px] sm:text-xs">💬 الكل</span>
+              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({combinedChats.length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('direct')}
-              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              title="عملاء الحملات"
+              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md ring-1 ring-emerald-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+              title="عملاء الحملات التسويقية"
             >
-              <span className="truncate">👤 الحملات</span>
-              <span className="text-[9px] opacity-80 font-mono">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
+              <span className="truncate text-[11px] sm:text-xs">👤 الحملات</span>
+              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('website')}
-              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'}`}
-              title="واتساب الموقع"
+              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md ring-1 ring-amber-400/50' : 'bg-white/5 text-amber-300/90 hover:text-amber-200 hover:bg-white/10 border border-amber-500/20'}`}
+              title="رسائل وزوار الموقع"
             >
-              <span className="truncate">🌐 الموقع</span>
-              <span className="text-[9px] opacity-80 font-mono">({chats.filter(c => isWebsiteLead(c) && hasCustomerSentMessage(c) && !c.isGroup && !c.isDirect).length})</span>
+              <span className="truncate text-[11px] sm:text-xs">🌐 الموقع</span>
+              <span className="bg-black/40 text-amber-200 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => isWebsiteLead(c) && hasCustomerSentMessage(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('groups')}
-              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              title="الجروبات"
+              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md ring-1 ring-purple-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+              title="جروبات الموظفين"
             >
-              <span className="truncate">👥 الجروبات</span>
-              <span className="text-[9px] opacity-80 font-mono">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
+              <span className="truncate text-[11px] sm:text-xs">👥 الجروبات</span>
+              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('colleagues')}
-              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              title="الزملاء"
+              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md ring-1 ring-cyan-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+              title="محادثات الزملاء المباشرة"
             >
-              <span className="truncate">🤝 الزملاء</span>
-              <span className="text-[9px] opacity-80 font-mono">({internalGroups.filter(g => g.isDirect).length})</span>
+              <span className="truncate text-[11px] sm:text-xs">🤝 الزملاء</span>
+              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isDirect).length})</span>
             </button>
           </div>
         )}
 
         {isAdmin && (
-          <div className="bg-black/20 border-b border-white/5 p-2 px-4 relative z-10">
+          <div className="bg-black/30 border-b border-white/5 p-2 px-4 relative z-10">
             <select 
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full bg-white/10 text-white text-sm border-none rounded-lg focus:ring-0 focus:outline-none py-2 px-3 cursor-pointer appearance-none transition hover:bg-white/20"
-              style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left .7em top 50%', backgroundSize: '.65em auto' }}
+              className="w-full bg-slate-900/90 text-white text-xs font-bold border border-white/15 rounded-xl focus:ring-2 focus:ring-cyan-500 py-2 px-3 cursor-pointer transition hover:bg-slate-800"
             >
-              <option value="hide" className="text-red-600 font-bold bg-gray-100">🚫 إخفاء المحادثات</option>
-              <option value="all" className="text-black font-bold">
-                👥 جميع المحادثات ({chatTabFilter === 'website' ? chats.filter(c => isWebsiteLead(c)).length : chatTabFilter === 'direct' ? chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length : chats.length})
+              <option value="hide" className="text-red-500 font-bold bg-slate-900">🚫 إخفاء المحادثات</option>
+              <option value="all" className="text-cyan-300 font-bold bg-slate-900">
+                {chatTabFilter === 'website' ? '🌐 جميع محادثات زوار الموقع' : chatTabFilter === 'direct' ? '👤 جميع محادثات عملاء الحملات' : chatTabFilter === 'groups' ? '👥 جميع جروبات الموظفين' : chatTabFilter === 'colleagues' ? '🤝 جميع محادثات الزملاء' : '💬 جميع المحادثات'} ({filteredChats.length})
               </option>
-              <option value="unassigned" className="text-orange-700 font-bold bg-orange-50">⏳ عملاء الانتظار ({chats.filter(c => c.status === 'unassigned' || isWaitingListLead(c)).length})</option>
+              <option value="unassigned" className="text-amber-300 font-bold bg-slate-900">
+                ⏳ عملاء الانتظار {chatTabFilter === 'website' ? '(الموقع)' : chatTabFilter === 'direct' ? '(الحملات)' : ''} ({filteredChats.filter(c => c.status === 'unassigned' || isWaitingListLead(c)).length})
+              </option>
               {employees.map(emp => {
                 const empUid = emp.uid;
                 const empEmail = emp.email?.toLowerCase();
@@ -2363,27 +2364,12 @@ function InboxContent() {
                   (empName && c.assignedTo?.toLowerCase() === empName) ||
                   (empUsername && c.assignedTo?.toLowerCase() === empUsername);
 
-                let empChatsCount = 0;
-                let suffix = 'محادثة';
-                if (chatTabFilter === 'website') {
-                  empChatsCount = chats.filter(c => isEmpChat(c) && isWebsiteLead(c)).length;
-                  suffix = 'محادثة موقع';
-                } else if (chatTabFilter === 'direct') {
-                  empChatsCount = chats.filter(c => isEmpChat(c) && !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length;
-                  suffix = 'محادثة حملات';
-                } else if (chatTabFilter === 'waiting') {
-                  empChatsCount = chats.filter(c => isEmpChat(c) && isWaitingListLead(c)).length;
-                  suffix = 'في الانتظار';
-                } else {
-                  empChatsCount = chats.filter(c => isEmpChat(c) && !isWaitingListLead(c)).length;
-                  suffix = 'محادثة';
-                }
-
+                const empChatsCount = filteredChats.filter(c => isEmpChat(c)).length;
                 const displayName = emp.username || emp.name;
                 const empTitle = formatJobTitle(emp.jobTitle);
                 return (
-                  <option key={emp.uid} value={emp.uid} className="text-black font-semibold">
-                    👤 {displayName} | {empTitle} ({empChatsCount} {suffix})
+                  <option key={emp.uid} value={emp.uid} className="text-white font-semibold bg-slate-900">
+                    👤 {displayName} | {empTitle} ({empChatsCount} محادثة)
                   </option>
                 );
               })}
@@ -2392,15 +2378,18 @@ function InboxContent() {
         )}
 
         {!isAdmin && !isCoordinator && (
-          <div className="bg-black/20 border-b border-white/5 p-2 px-4 relative z-10">
+          <div className="bg-black/30 border-b border-white/5 p-2 px-4 relative z-10">
             <select 
               value={selectedEmployee === 'all' ? 'my_chats' : selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full bg-white/10 text-white text-sm border-none rounded-lg focus:ring-0 focus:outline-none py-2 px-3 cursor-pointer appearance-none transition hover:bg-white/20"
-              style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left .7em top 50%', backgroundSize: '.65em auto' }}
+              className="w-full bg-slate-900/90 text-white text-xs font-bold border border-white/15 rounded-xl focus:ring-2 focus:ring-cyan-500 py-2 px-3 cursor-pointer transition hover:bg-slate-800"
             >
-              <option value="my_chats" className="text-black font-bold">💬 محادثاتي المخصصة ({chats.filter(c => c.assignedToUid === currentUser?.uid || (c.assignedTo && currentUser?.email && c.assignedTo.toLowerCase() === currentUser?.email.toLowerCase())).length})</option>
-              <option value="unassigned" className="text-orange-700 font-bold bg-orange-50">⏳ عملاء الانتظار ({chats.filter(c => c.status === 'unassigned').length})</option>
+              <option value="my_chats" className="text-cyan-300 font-bold bg-slate-900">
+                💬 محادثاتي المخصصة {chatTabFilter === 'website' ? '(الموقع)' : chatTabFilter === 'direct' ? '(الحملات)' : ''} ({filteredChats.filter(c => c.assignedToUid === currentUser?.uid || (c.assignedTo && currentUser?.email && c.assignedTo.toLowerCase() === currentUser?.email.toLowerCase())).length})
+              </option>
+              <option value="unassigned" className="text-amber-300 font-bold bg-slate-900">
+                ⏳ عملاء الانتظار ({filteredChats.filter(c => c.status === 'unassigned').length})
+              </option>
             </select>
           </div>
         )}
@@ -2567,46 +2556,62 @@ function InboxContent() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-white text-sm flex items-center gap-2 truncate">
-                      <span className="truncate">{chat.name || chat.phoneNumber || 'عميل مسجل'}</span>
+                    {/* Row 1: Customer Name + Admin Assign Dropdown Filter + Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-bold text-white text-sm truncate max-w-[140px] sm:max-w-[170px]">
+                        {chat.name || chat.phoneNumber || 'عميل مسجل'}
+                      </h3>
+
+                      {/* Admin Transfer / Assign Dropdown Filter next to Customer Name */}
+                      {isAdmin && (
+                        <select 
+                          value={chat.assignedToUid || ""}
+                          onChange={(e) => handleAssignChat(chat.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-slate-900/90 text-cyan-300 border border-cyan-500/40 rounded-md px-1.5 py-0.5 text-[9px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer max-w-[115px] shrink-0"
+                          title="تحويل العميل إلى موظف"
+                        >
+                          <option value="" disabled className="bg-slate-900 text-gray-400">تحويل إلى...</option>
+                          <option value={currentUser.uid} className="bg-slate-900 text-amber-300 font-bold">👑 الأدمن</option>
+                          {employees
+                            .filter(emp => emp.uid !== currentUser.uid)
+                            .map(emp => {
+                              const empName = emp.username || emp.name;
+                              const empTitle = ` (${formatJobTitle(emp.jobTitle)})`;
+                              return (
+                                <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
+                                  {emp.role === 'admin' ? `👑 الإدارة (${empName})` : `${empName}${empTitle}`}
+                                </option>
+                              );
+                            })}
+                        </select>
+                      )}
+
                       {isWebsiteLead(chat) && (
                         <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0">🌐 موقع</span>
                       )}
                       {isWaitingListLead(chat) && (
                         <span className="bg-rose-600/30 text-rose-200 border border-rose-500/50 text-[9px] px-1.5 py-0.2 rounded font-black shrink-0 animate-pulse">⏳ انتظار</span>
                       )}
-                      {chat.status === 'unassigned' && !isWaitingListLead(chat) && (
-                        <span className="bg-red-600/30 text-red-200 border border-red-500/50 text-[9px] px-1.5 py-0.2 rounded font-extrabold shrink-0 animate-pulse">⏳ Waiting</span>
-                      )}
-                    </h3>
-                    <p className="text-xs text-cyan-300 font-mono font-bold truncate mt-0.5" dir="ltr">{chat.phoneNumber || chat.phone}</p>
-                    <p className={`text-xs truncate mt-1 ${isUnassignedOrUnread ? 'text-red-200 font-bold' : 'text-gray-300'}`}>{chat.lastMessage || 'بدء المحادثة...'}</p>
+                    </div>
+
+                    {/* Row 2: Customer Phone Number directly BELOW Customer Name */}
+                    {chat.phoneNumber && (
+                      <p className="text-xs text-cyan-300 font-mono font-bold truncate mt-0.5" dir="ltr">
+                        {chat.phoneNumber}
+                      </p>
+                    )}
+
+                    {/* Row 3: Last Message Preview */}
+                    <p className={`text-xs truncate mt-0.5 ${isUnassignedOrUnread ? 'text-red-200 font-bold' : 'text-gray-300'}`}>
+                      {chat.lastMessage || 'بدء المحادثة...'}
+                    </p>
                   </div>
                 </div>
-                <div className="text-left flex flex-col items-end shrink-0 ml-2">
-                  <span className="text-[10px] text-gray-400">{formatTime(chat.updatedAt)}</span>
-                  {isAdmin && (
-                    <select 
-                      value={chat.assignedToUid || ""}
-                      onChange={(e) => handleAssignChat(chat.id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-1 bg-black/40 text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer max-w-[100px]"
-                    >
-                      <option value="" disabled className="bg-slate-900 text-gray-400">تحويل إلى...</option>
-                      <option value={currentUser.uid} className="bg-slate-900 text-amber-300 font-bold">👑 تحويل إلى الأدمن</option>
-                      {employees
-                        .filter(emp => emp.uid !== currentUser.uid)
-                        .map(emp => {
-                          const empName = emp.username || emp.name;
-                          const empTitle = ` (${formatJobTitle(emp.jobTitle)})`;
-                          return (
-                            <option key={emp.uid} value={emp.uid} className="bg-slate-900 text-white">
-                              {emp.role === 'admin' ? `👑 الإدارة (${empName})` : `${empName}${empTitle}`}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  )}
+
+                {/* Right/Left Timestamp column */}
+                <div className="text-left flex flex-col items-end shrink-0 ml-1">
+                  <span className="text-[10px] text-gray-400 font-mono">{formatTime(chat.updatedAt)}</span>
                 </div>
               </div>
             );
@@ -2714,36 +2719,19 @@ function InboxContent() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="font-bold text-white text-base truncate">{activeChat.name || 'عميل بدون اسم'}</h2>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
                         {!isCoordinator && activeChat.phoneNumber && (
                           <button
                             onClick={() => handleCallViaMicroSip(activeChat.phoneNumber)}
-                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_3px_10px_rgba(37,99,235,0.4)] hover:shadow-[0_5px_15px_rgba(37,99,235,0.6)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[11px] font-black flex items-center gap-1 cursor-pointer transform hover:-translate-y-0.5 transition-all shrink-0"
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_2px_8px_rgba(37,99,235,0.4)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[10px] font-black flex items-center gap-1 cursor-pointer shrink-0"
                             title="اتصال مباشر عبر MicroSIP 📞"
                           >
-                            <PhoneCall size={12} className="animate-pulse" />
+                            <PhoneCall size={11} className="animate-pulse" />
                             <span>Call</span>
                           </button>
                         )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {/* شارة مصدر العميل */}
-                        {activeChat.source === 'website' ? (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            🌐 عميل موقع
-                          </span>
-                        ) : activeChat.source === 'excel_import' ? (
-                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            📊 حملة إكسيل
-                          </span>
-                        ) : activeChat.source === 'manual' ? (
-                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            ✋ مضاف يدوياً
-                          </span>
-                        ) : null}
-
-                        {/* CRM Status Dropdown Selector */}
+                        {/* CRM Status Dropdown Selector - Compact & next to Call button */}
                         <select
                           value={activeChat.crmStatus || 'unassigned'}
                           onChange={async (e) => {
@@ -2754,7 +2742,8 @@ function InboxContent() {
                               toast.success('تم تحديث حالة العميل');
                             } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
                           }}
-                          className="bg-slate-900 text-amber-300 border border-amber-500/40 rounded-full px-2.5 py-0.5 text-[10px] font-bold focus:outline-none cursor-pointer"
+                          className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
+                          title="تغيير حالة العميل CRM"
                         >
                           <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
                           <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back</option>
@@ -2767,6 +2756,21 @@ function InboxContent() {
                           <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
                           <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
                         </select>
+
+                        {/* شارة مصدر العميل */}
+                        {activeChat.source === 'website' ? (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            🌐 موقع
+                          </span>
+                        ) : activeChat.source === 'excel_import' ? (
+                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            📊 إكسيل
+                          </span>
+                        ) : activeChat.source === 'manual' ? (
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                            ✋ مضاف يدوياً
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </>
@@ -3032,16 +3036,14 @@ function InboxContent() {
                         <span>{formatTime(msg.timestamp)}</span>
                         {(msg.sender !== 'user' && msg.sender !== 'customer') && (
                           <span className="flex items-center">
-                            {msg.status === 'read' ? (
-                              <CheckCheck size={14} className="text-cyan-400 font-black" title="تم القراءة (تم فتح الرسالة ✔✔)" />
-                            ) : msg.status === 'delivered' ? (
-                              <CheckCheck size={14} className="text-slate-400 font-bold" title="تم التسليم للعميل (✔✔)" />
+                            {msg.status === 'read' || msg.status === 'delivered' || msg.status === 'sent' || msg.metaMessageId || !msg.status ? (
+                              <CheckCheck size={14} className={msg.status === 'read' ? "text-cyan-400 font-black" : "text-cyan-400/90 font-bold"} title={msg.status === 'read' ? "تم القراءة (تم فتح الرسالة ✔✔)" : "تم التسليم للعميل (✔✔)"} />
                             ) : msg.status === 'failed' || msg.status === 'error' ? (
                               <AlertCircle size={13} className="text-red-500 font-bold" title="فشل الإرسال ⚠️" />
-                            ) : msg.status === 'pending' || msg.status === 'sending' ? (
+                            ) : msg.status === 'sending' ? (
                               <Clock size={12} className="text-gray-400 animate-spin" title="جاري الإرسال 🕒" />
                             ) : (
-                              <Check size={14} className="text-slate-400 font-bold" title="تم الإرسال (✔)" />
+                              <CheckCheck size={14} className="text-cyan-400 font-bold" title="تم الإرسال (✔✔)" />
                             )}
                           </span>
                         )}
