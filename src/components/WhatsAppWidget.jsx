@@ -35,6 +35,7 @@ export default function WhatsAppWidget() {
   const emojiBtnRef = useRef(null);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const prevMsgCountRef = useRef(0);
   const titleIntervalRef = useRef(null);
@@ -526,13 +527,28 @@ export default function WhatsAppWidget() {
     };
   }, [userPhone, isOpen]);
 
-  // Auto scroll to latest message
-  useEffect(() => {
-    if (isOpen && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      clearNotifications();
+  // Auto scroll to latest message whenever entering chat room, opening widget, or when messages change
+  const scrollToLatestMessage = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [messages, isOpen]);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && widgetStep === 'chat_room') {
+      scrollToLatestMessage();
+      const t1 = setTimeout(scrollToLatestMessage, 50);
+      const t2 = setTimeout(scrollToLatestMessage, 200);
+      clearNotifications();
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [messages, isOpen, widgetStep]);
 
   // Handle open trigger click
   const handleTriggerClick = () => {
@@ -1063,6 +1079,7 @@ export default function WhatsAppWidget() {
 
                 {/* Message List */}
                 <div 
+                  ref={chatContainerRef}
                   onClick={() => setShowEmojiPicker(false)}
                   className="flex-1 p-3.5 space-y-3 overflow-y-auto custom-scrollbar relative z-10"
                 >

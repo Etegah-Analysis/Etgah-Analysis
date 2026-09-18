@@ -3,42 +3,78 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db, doc, onSnapshot } from './firebase';
 import { Toaster } from 'react-hot-toast';
+import { MessageCircle } from 'lucide-react';
 import Login from './pages/Login';
 import Inbox from './pages/Inbox';
 import Dashboard from './pages/Dashboard';
+import LandingPage from './pages/LandingPage';
+import Home from './pages/Home';
+import USOptions from './pages/USOptions';
+import News from './pages/News';
+import Navbar from './components/Navbar';
+
+import WhatsAppWidget from './components/WhatsAppWidget';
+import InstallPWA from './components/InstallPWA';
+
+// A layout wrapper for public pages with 3D Glassmorphism theme
+function PublicLayout({ children }) {
+  return (
+    <div className="min-h-screen bg-[#0B1120] text-white flex flex-col font-sans relative overflow-hidden">
+      {/* 3D Glassmorphism Glowing Logo Watermark Background (Non-obstructive) */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.06] overflow-hidden z-0">
+        <div className="relative flex flex-col items-center justify-center transform -rotate-12 scale-125">
+          <img 
+            src="/logo.jpg" 
+            alt="3D Logo Watermark" 
+            className="w-[550px] h-[550px] rounded-full object-cover backdrop-blur-xl drop-shadow-[0_0_80px_rgba(6,182,212,0.6)] border-4 border-cyan-400/40 shadow-[0_0_120px_rgba(6,182,212,0.4)]" 
+          />
+          <span className="text-4xl font-black tracking-widest text-cyan-300 mt-6 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)] font-sans">
+            اتجاه للتحليل الذكي
+          </span>
+        </div>
+      </div>
+      {/* Ambient Glow Effects */}
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+
+      <div className="relative z-10 flex flex-col flex-1">
+        <Navbar />
+        {children}
+        <WhatsAppWidget />
+        <InstallPWA />
+      </div>
+    </div>
+  );
+}
+
+// A protected route wrapper for visitors
+function VisitorProtectedRoute({ children }) {
+  const isVisitorLoggedIn = localStorage.getItem('visitorName');
+  if (!isVisitorLoggedIn) {
+    return <Navigate to="/visitor-login" replace />;
+  }
+  return children;
+}
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const adminEmails = ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'];
-
   useEffect(() => {
     let docUnsub = null;
-    let systemLockUnsub = null;
     
-    // Real-time listener for Global System Lock
-    systemLockUnsub = onSnapshot(doc(db, 'system_settings', 'global_access'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.isSystemLocked === true) {
-          const authUser = auth.currentUser;
-          if (authUser && authUser.email && !adminEmails.includes(authUser.email.toLowerCase())) {
-            signOut(auth);
-          }
-        }
-      }
-    });
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
+        // If it's a Phone Auth user (customer), ignore them here so LandingPage handles their session
         if (!currentUser.email) {
           setUser(null);
           setLoading(false);
           return;
         }
 
-        if (!adminEmails.includes(currentUser.email?.toLowerCase())) {
+        // When logged in, listen to their document to enforce deactivation/deletion in real-time
+        // Skip this check for the admin since they might not have a document in the users collection
+        if (currentUser.email?.toLowerCase() !== 'etegahanalysis@gmail.com') {
           docUnsub = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
             if (docSnap.exists()) {
                const data = docSnap.data();
@@ -46,6 +82,7 @@ function App() {
                    signOut(auth);
                }
             } else {
+               // If document doesn't exist, sign out
                signOut(auth);
             }
           });
@@ -64,15 +101,14 @@ function App() {
     return () => {
       unsubscribe();
       if (docUnsub) docUnsub();
-      if (systemLockUnsub) systemLockUnsub();
     };
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-bold text-gray-700">جاري التحميل...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-gray-100">جاري التحميل...</div>;
   }
 
-  const isAdmin = adminEmails.includes(user?.email?.toLowerCase());
+  const isAdmin = user?.email?.toLowerCase() === 'etegahanalysis@gmail.com';
 
   return (
     <>
@@ -81,7 +117,11 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/dashboard" /> : <Login />} 
+            element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} /> : <Login />} 
+          />
+          <Route 
+            path="/visitor-login" 
+            element={<LandingPage />} 
           />
           <Route 
             path="/inbox" 
@@ -93,11 +133,19 @@ function App() {
           />
           <Route 
             path="/" 
-            element={<Navigate to="/login" replace />} 
+            element={<PublicLayout><Home /></PublicLayout>} 
           />
           <Route 
-            path="*" 
-            element={<Navigate to="/login" replace />} 
+            path="/home" 
+            element={<Navigate to="/" replace />} 
+          />
+          <Route 
+            path="/us-options" 
+            element={<VisitorProtectedRoute><PublicLayout><USOptions /></PublicLayout></VisitorProtectedRoute>} 
+          />
+          <Route 
+            path="/news" 
+            element={<VisitorProtectedRoute><PublicLayout><News /></PublicLayout></VisitorProtectedRoute>} 
           />
         </Routes>
       </BrowserRouter>
