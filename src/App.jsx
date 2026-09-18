@@ -70,18 +70,16 @@ function App() {
           return;
         }
 
-        // When logged in, listen to their document to enforce deactivation/deletion in real-time
-        // Skip this check for the admin since they might not have a document in the users collection
-        if (currentUser.email?.toLowerCase() !== 'etegahanalysis@gmail.com') {
+        // When logged in, listen to their document to enforce deactivation in real-time
+        const isUserAdmin = Boolean(currentUser.email && ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'].includes(currentUser.email.toLowerCase()));
+        
+        if (!isUserAdmin) {
           docUnsub = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
             if (docSnap.exists()) {
                const data = docSnap.data();
                if (data.isActive === false) {
                    signOut(auth);
                }
-            } else {
-               // If document doesn't exist, sign out
-               signOut(auth);
             }
           });
         }
@@ -106,7 +104,7 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-100">جاري التحميل...</div>;
   }
 
-  const isAdmin = user?.email?.toLowerCase() === 'etegahanalysis@gmail.com';
+  const isAdmin = Boolean(user?.email && ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'].includes(user.email.toLowerCase()));
 
   return (
     <>
@@ -118,32 +116,20 @@ function App() {
             element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} /> : <Login />} 
           />
           <Route 
-            path="/visitor-login" 
-            element={<LandingPage />} 
-          />
-          <Route 
             path="/inbox" 
-            element={user ? <Inbox /> : <Navigate to="/login" />} 
+            element={user ? <Inbox /> : <Navigate to="/login" replace />} 
           />
           <Route 
             path="/dashboard" 
-            element={user ? <Dashboard /> : <Navigate to="/login" />} 
+            element={user ? <Dashboard /> : <Navigate to="/login" replace />} 
           />
           <Route 
             path="/" 
-            element={<PublicLayout><Home /></PublicLayout>} 
+            element={user ? <Navigate to={isAdmin ? "/dashboard" : "/inbox"} replace /> : <Login />} 
           />
           <Route 
-            path="/home" 
+            path="*" 
             element={<Navigate to="/" replace />} 
-          />
-          <Route 
-            path="/us-options" 
-            element={<VisitorProtectedRoute><PublicLayout><USOptions /></PublicLayout></VisitorProtectedRoute>} 
-          />
-          <Route 
-            path="/news" 
-            element={<VisitorProtectedRoute><PublicLayout><News /></PublicLayout></VisitorProtectedRoute>} 
           />
         </Routes>
       </BrowserRouter>
