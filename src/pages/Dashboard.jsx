@@ -956,6 +956,117 @@ const Dashboard = () => {
       .trim();
   };
 
+  // Helper to trace where a lead/phone number exists across all system cards/collections
+  const getSystemLeadLocation = (phoneOrObj, currentDocId) => {
+    if (!phoneOrObj) return [];
+    const rawPhone = typeof phoneOrObj === 'object' ? (phoneOrObj.phone || phoneOrObj.phoneNumber || phoneOrObj.id) : phoneOrObj;
+    if (!rawPhone) return [];
+
+    const normalizePhone = (ph) => {
+      if (!ph) return '';
+      let str = String(ph).replace(/[^0-9]/g, '');
+      if (str.length > 10 && str.startsWith('20')) {
+        str = str.substring(2);
+      } else if (str.length > 10 && str.startsWith('0')) {
+        str = str.substring(1);
+      } else if (str.startsWith('0')) {
+        str = str.substring(1);
+      }
+      return str;
+    };
+
+    const targetNorm = normalizePhone(rawPhone);
+    if (!targetNorm || targetNorm.length < 7) return [];
+
+    const getEmpName = (uidOrEmail) => {
+      if (!uidOrEmail || uidOrEmail === 'admin' || uidOrEmail === 'الإدارة') return '👑 الإدارة';
+      const emp = (employees || []).find(e => e.uid === uidOrEmail || e.email === uidOrEmail || e.username === uidOrEmail || e.name === uidOrEmail);
+      if (emp) return emp.username || emp.name || emp.email;
+      return uidOrEmail;
+    };
+
+    const locations = [];
+
+    // 1. Check Leads CRM collection
+    const crmMatch = (leadsCrm || []).find(item => item.id !== currentDocId && normalizePhone(item.phoneNumber || item.phone || item.id) === targetNorm);
+    if (crmMatch) {
+      const empName = getEmpName(crmMatch.assignedToUid || crmMatch.assignedTo);
+      const statusLabel = CRM_STATUS_MAP[crmMatch.crmStatus]?.label || crmMatch.crmStatus || 'غير محدد';
+      locations.push({
+        type: 'crm',
+        label: `🎯 Leads CRM (${empName})`,
+        subLabel: `الحالة: ${statusLabel}`,
+        bg: 'bg-blue-100 text-blue-900 border-blue-300',
+        icon: '🎯'
+      });
+    }
+
+    // 2. Check Employee Added Leads collection
+    const empLeadMatch = (employeeLeads || []).find(item => item.id !== currentDocId && normalizePhone(item.phoneNumber || item.phone || item.id) === targetNorm);
+    if (empLeadMatch) {
+      const empName = getEmpName(empLeadMatch.assignedToUid || empLeadMatch.addedBy || empLeadMatch.assignedTo);
+      const statusLabel = CRM_STATUS_MAP[empLeadMatch.crmStatus]?.label || empLeadMatch.crmStatus || 'غير محدد';
+      locations.push({
+        type: 'employee_leads',
+        label: `👤 داتا موظفين (${empName})`,
+        subLabel: `الحالة: ${statusLabel}`,
+        bg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+        icon: '👤'
+      });
+    }
+
+    // 3. Check Subscribed / Paid / Manual Customers (بيانات_تسجيل_العملاء)
+    const custMatch = (customers || []).find(item => item.id !== currentDocId && normalizePhone(item.phoneNumber || item.phone || item.id) === targetNorm);
+    if (custMatch) {
+      const empName = getEmpName(custMatch.assignedToUid || custMatch.assignedTo);
+      if (custMatch.status === 'عميل مشترك' || custMatch.status === 'مشترك' || custMatch.isSubscribed) {
+        locations.push({
+          type: 'subscribed',
+          label: `🎉 عميل مشترك Paid (${empName})`,
+          bg: 'bg-amber-100 text-amber-900 border-amber-300',
+          icon: '🎉'
+        });
+      } else if (custMatch.source === 'manual' || (custMatch.addedBy && custMatch.addedBy !== 'website_otp')) {
+        locations.push({
+          type: 'manual_customer',
+          label: `✋ عميل مضاف يدوياً (${empName})`,
+          bg: 'bg-orange-100 text-orange-900 border-orange-300',
+          icon: '✋'
+        });
+      } else if (custMatch.source === 'website' || custMatch.source === 'website_otp' || custMatch.addedBy === 'website_otp') {
+        locations.push({
+          type: 'website_customer',
+          label: `🌐 داتا الموقع (${empName})`,
+          bg: 'bg-purple-100 text-purple-900 border-purple-300',
+          icon: '🌐'
+        });
+      }
+    }
+
+    // 4. Check Website Visitors OTP collection
+    const visitorMatch = (visitors || []).find(item => item.id !== currentDocId && normalizePhone(item.phone || item.phoneNumber || item.id) === targetNorm);
+    if (visitorMatch) {
+      const empName = getEmpName(visitorMatch.assignedToUid || visitorMatch.assignedTo);
+      locations.push({
+        type: 'visitor',
+        label: `📱 زائر موقع OTP (${empName})`,
+        bg: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+        icon: '📱'
+      });
+    }
+
+    if (locations.length === 0) {
+      locations.push({
+        type: 'new',
+        label: '🆕 زائر جديد (غير مكرر بالنظام)',
+        bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        icon: '🆕'
+      });
+    }
+
+    return locations;
+  };
+
   // Column Header Filter Component for Registration Date (Compact, Pure Icon, React Portal Modal)
   const renderColHeaderRegDate3D = ({
     regFrom,
@@ -17824,6 +17935,20 @@ const handleExportBuffetToExcel = () => {
                           📦 {customer.source}
                         </span>
                       )}
+                      {/* Cross-reference System Location Badges */}
+                      {(() => {
+                        const locs = getSystemLeadLocation(customer.phoneNumber || customer.phone, customer.id);
+                        if (!locs || locs.length === 0) return null;
+                        return (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {locs.map((loc, lIdx) => (
+                              <span key={lIdx} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md border shadow-xs ${loc.bg}`} title={loc.subLabel || loc.label}>
+                                {loc.label}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">
                       {(isAdmin || isCoordinator || isLeader) ? (
@@ -18744,6 +18869,20 @@ const handleExportBuffetToExcel = () => {
                             {visitor.email && (
                               <p className="text-[11px] text-gray-400 font-mono mt-0.5" dir="ltr">{visitor.email}</p>
                             )}
+                            {/* Cross-reference System Location Badges */}
+                            {(() => {
+                              const locs = getSystemLeadLocation(visitor.phone || visitor.phoneNumber, visitor.id);
+                              if (!locs || locs.length === 0) return null;
+                              return (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                  {locs.map((loc, lIdx) => (
+                                    <span key={lIdx} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md border shadow-xs ${loc.bg}`} title={loc.subLabel || loc.label}>
+                                      {loc.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="p-4">
                             <div className="flex flex-col gap-1">
