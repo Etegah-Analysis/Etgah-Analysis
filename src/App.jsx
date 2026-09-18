@@ -20,15 +20,15 @@ import InstallPWA from './components/InstallPWA';
 function PublicLayout({ children }) {
   return (
     <div className="min-h-screen bg-[#0B1120] text-white flex flex-col font-sans relative overflow-hidden">
-      {/* 3D Glassmorphism Glowing Logo Watermark Background (Non-obstructive) */}
+      {/* 3D Glassmorphism Glowing Logo Watermark Background (Upright & Compact) */}
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.06] overflow-hidden z-0">
-        <div className="relative flex flex-col items-center justify-center transform -rotate-12 scale-125">
+        <div className="relative flex flex-col items-center justify-center">
           <img 
             src="/logo.jpg" 
             alt="3D Logo Watermark" 
-            className="w-[550px] h-[550px] rounded-full object-cover backdrop-blur-xl drop-shadow-[0_0_80px_rgba(6,182,212,0.6)] border-4 border-cyan-400/40 shadow-[0_0_120px_rgba(6,182,212,0.4)]" 
+            className="w-[280px] h-[280px] sm:w-[350px] sm:h-[350px] rounded-full object-cover backdrop-blur-md drop-shadow-[0_0_60px_rgba(6,182,212,0.5)] border-4 border-cyan-400/30 shadow-[0_0_80px_rgba(6,182,212,0.3)]" 
           />
-          <span className="text-4xl font-black tracking-widest text-cyan-300 mt-6 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)] font-sans">
+          <span className="text-2xl sm:text-3xl font-black tracking-widest text-cyan-300 mt-4 drop-shadow-[0_0_15px_rgba(6,182,212,0.7)] font-sans">
             اتجاه للتحليل الذكي
           </span>
         </div>

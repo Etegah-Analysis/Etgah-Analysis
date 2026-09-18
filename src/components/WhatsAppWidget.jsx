@@ -1068,12 +1068,12 @@ export default function WhatsAppWidget() {
             {widgetStep === 'chat_room' && (
               <div className="flex flex-col flex-1 min-h-0 relative">
                 
-                {/* 3D Glassmorphism Logo Watermark Background */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden opacity-10">
+                {/* 3D Glassmorphism Logo Watermark Background (Upright & Compact) */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden opacity-[0.06]">
                   <img 
                     src="/logo.jpg" 
                     alt="3D Logo Watermark" 
-                    className="w-48 h-48 sm:w-64 sm:h-64 rounded-full object-cover shadow-[0_0_80px_rgba(6,182,212,0.6)] backdrop-blur-xl border-4 border-cyan-400/30 transform rotate-12 scale-125" 
+                    className="w-36 h-36 sm:w-48 sm:h-48 rounded-full object-cover shadow-[0_0_60px_rgba(6,182,212,0.5)] backdrop-blur-md border-2 border-cyan-400/30" 
                   />
                 </div>
 
