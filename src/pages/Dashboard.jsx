@@ -1765,7 +1765,7 @@ const Dashboard = () => {
         const isRead = c.readBy && (c.readBy.includes(currentUser.uid) || (isAdmin && c.readBy.includes('admin')));
         if (isRead) return false;
 
-        const hasUnread = Number(c.unread) > 0;
+        const hasUnread = (Number(c.unread) > 0) || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting';
         if (!hasUnread) return false;
 
         if (isAdmin) return true; // Admin gets notifications for all customer chats
@@ -1813,7 +1813,7 @@ const Dashboard = () => {
       const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt) || 0;
       return timeB - timeA;
     });
-  }, [customers, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers]);
+  }, [customers, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers, dismissedNotifIds, currentEmpUser]);
 
   const totalUnreadWhatsAppCount = useMemo(() => {
     return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);

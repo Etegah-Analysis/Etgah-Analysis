@@ -2303,7 +2303,7 @@ function InboxContent() {
                 title="جميع المحادثات"
               >
                 <span>💬 الكل</span>
-                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({combinedChats.length})</span>
+                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => !c.isGroup && !c.isDirect && (!isWebsiteLead(c) || hasCustomerSentMessage(c))).length})</span>
               </button>
               <button 
                 onClick={() => setChatTabFilter('direct')}
@@ -2852,27 +2852,7 @@ function InboxContent() {
                         title="فتح محادثة الواتساب المباشرة"
                       >
                         <MessageCircle size={14} />
-                        <span className="hidden sm:inline">فتح الواتساب</span>
                       </button>
-                    )}
-
-                    {isAdmin && !isWebsiteLead(activeChat) && (
-                      <select
-                        value={activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')}
-                        onChange={async (e) => {
-                          const newSender = e.target.value;
-                          try {
-                            await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { assignedSender: newSender });
-                            setActiveChat(prev => ({ ...prev, assignedSender: newSender }));
-                            toast.success(`تم تحديد رقم الإرسال: ${newSender === 'website' ? 'رقم الموقع' : 'رقم الحملات'}`);
-                          } catch (err) { toast.error('خطأ في تحديث رقم الإرسال'); }
-                        }}
-                        className="bg-black/40 text-white border border-white/20 rounded-lg px-2 py-1 text-[11px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer"
-                        title="تحديد رقم الإرسال (للأدمن فقط)"
-                      >
-                        <option value="website" className="bg-slate-900 text-teal-300">📞 رقم الموقع</option>
-                        <option value="campaigns" className="bg-slate-900 text-purple-300">📣 رقم الحملات</option>
-                      </select>
                     )}
                   </>
                 )}
