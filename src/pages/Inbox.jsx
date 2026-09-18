@@ -86,15 +86,21 @@ function InboxContent() {
     if (!chat) return false;
     return (
       chat.addedBy === 'WhatsApp Webhook' ||
+      chat.addedBy === 'website_otp' ||
       chat.source === 'website' ||
       chat.source === 'website_whatsapp' ||
+      chat.source === 'website_otp' ||
       chat.source === 'موقع الويب (OTP)' ||
+      chat.status === 'website_visitor' ||
       chat.addedBy?.includes?.('WhatsApp Webhook') ||
       chat.addedBy?.includes?.('website') ||
+      chat.addedBy?.includes?.('otp') ||
       chat.isWebsiteWhatsapp === true ||
       chat.hasEmployeeCode === true ||
       chat.source?.includes?.('موقع') ||
-      chat.source?.includes?.('واتساب الموقع')
+      chat.source?.includes?.('واتساب') ||
+      chat.contactReason === 'support' ||
+      chat.contactReason === 'details'
     );
   };
 
@@ -1969,6 +1975,7 @@ function InboxContent() {
     }
 
     // Tab filter
+    if (chatTabFilter === 'all' && isWaitingListLead(chat)) return false;
     if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect || isWebsiteLead(chat))) return false;
     if (chatTabFilter === 'website' && (!isWebsiteLead(chat) || chat.isGroup || chat.isDirect)) return false;
     if (chatTabFilter === 'waiting' && (!isWaitingListLead(chat) || chat.isGroup || chat.isDirect)) return false;
@@ -2282,21 +2289,21 @@ function InboxContent() {
               className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>💬 الكل</span>
-              <span className="text-[10px] opacity-75">({combinedChats.length})</span>
+              <span className="text-[10px] opacity-75">({combinedChats.filter(c => !isWaitingListLead(c)).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('direct')}
               className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
-              <span>👤 العملاء</span>
-              <span className="text-[10px] opacity-75">({chats.filter(c => !isWebsiteLead(c)).length})</span>
+              <span>👤 عملاء الحملات</span>
+              <span className="text-[10px] opacity-75">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('website')}
               className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'}`}
             >
               <span>🌐 واتساب الموقع</span>
-              <span className="text-[10px] opacity-75">({chats.filter(isWebsiteLead).length})</span>
+              <span className="text-[10px] opacity-75">({chats.filter(c => isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('waiting')}
@@ -2331,15 +2338,43 @@ function InboxContent() {
               style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left .7em top 50%', backgroundSize: '.65em auto' }}
             >
               <option value="hide" className="text-red-600 font-bold bg-gray-100">🚫 إخفاء المحادثات</option>
-              <option value="all" className="text-black font-bold">👥 جميع المحادثات ({chats.length})</option>
-              <option value="unassigned" className="text-orange-700 font-bold bg-orange-50">⏳ عملاء الانتظار ({chats.filter(c => c.status === 'unassigned').length})</option>
+              <option value="all" className="text-black font-bold">
+                👥 جميع المحادثات ({chatTabFilter === 'website' ? chats.filter(c => isWebsiteLead(c)).length : chatTabFilter === 'direct' ? chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length : chats.filter(c => !isWaitingListLead(c)).length})
+              </option>
+              <option value="unassigned" className="text-orange-700 font-bold bg-orange-50">⏳ عملاء الانتظار ({chats.filter(c => c.status === 'unassigned' || isWaitingListLead(c)).length})</option>
               {employees.map(emp => {
-                const empChatsCount = chats.filter(c => c.assignedToUid === emp.uid).length;
-                const empName = emp.username || emp.name;
+                const empUid = emp.uid;
+                const empEmail = emp.email?.toLowerCase();
+                const empName = emp.name?.toLowerCase();
+                const empUsername = emp.username?.toLowerCase();
+
+                const isEmpChat = (c) => 
+                  c.assignedToUid === empUid ||
+                  (empEmail && c.assignedTo?.toLowerCase() === empEmail) ||
+                  (empName && c.assignedTo?.toLowerCase() === empName) ||
+                  (empUsername && c.assignedTo?.toLowerCase() === empUsername);
+
+                let empChatsCount = 0;
+                let suffix = 'محادثة';
+                if (chatTabFilter === 'website') {
+                  empChatsCount = chats.filter(c => isEmpChat(c) && isWebsiteLead(c)).length;
+                  suffix = 'محادثة موقع';
+                } else if (chatTabFilter === 'direct') {
+                  empChatsCount = chats.filter(c => isEmpChat(c) && !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length;
+                  suffix = 'محادثة حملات';
+                } else if (chatTabFilter === 'waiting') {
+                  empChatsCount = chats.filter(c => isEmpChat(c) && isWaitingListLead(c)).length;
+                  suffix = 'في الانتظار';
+                } else {
+                  empChatsCount = chats.filter(c => isEmpChat(c) && !isWaitingListLead(c)).length;
+                  suffix = 'محادثة';
+                }
+
+                const displayName = emp.username || emp.name;
                 const empTitle = formatJobTitle(emp.jobTitle);
                 return (
                   <option key={emp.uid} value={emp.uid} className="text-black font-semibold">
-                    👤 {empName} | {empTitle} ({empChatsCount} محادثة)
+                    👤 {displayName} | {empTitle} ({empChatsCount} {suffix})
                   </option>
                 );
               })}
