@@ -105,6 +105,15 @@ function InboxContent() {
     );
   };
 
+  const hasCustomerSentMessage = (chat) => {
+    if (!chat) return false;
+    if (!isWebsiteLead(chat)) return true;
+    if (chat.lastMessage && chat.lastMessage.trim() !== '' && !chat.lastMessage.includes('سجّل عبر موقع')) return true;
+    if (chat.lastMessageFrom === 'user' || chat.lastSender === 'user' || chat.lastMessageSender === 'user') return true;
+    if (Array.isArray(chat.messages) && chat.messages.some(m => m.sender === 'user' || m.from === 'user' || m.sender === 'customer')) return true;
+    return false;
+  };
+
   const isWaitingListLead = (chat) => {
     if (!isWebsiteLead(chat)) return false;
     return (
@@ -1975,6 +1984,9 @@ function InboxContent() {
       return true;
     }
 
+    // Filter out website leads that haven't actually sent a message
+    if (isWebsiteLead(chat) && !hasCustomerSentMessage(chat)) return false;
+
     // Tab filter
     if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect || isWebsiteLead(chat))) return false;
     if (chatTabFilter === 'website' && (!isWebsiteLead(chat) || chat.isGroup || chat.isDirect)) return false;
@@ -2282,41 +2294,46 @@ function InboxContent() {
             </span>
           </div>
         ) : (
-          <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs flex-wrap sm:flex-nowrap overflow-x-auto scrollbar-none">
+          <div className="grid grid-cols-5 bg-black/40 p-1 gap-1 border-b border-white/10 relative z-10 text-[10px] w-full">
             <button 
               onClick={() => setChatTabFilter('all')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              title="الكل"
             >
-              <span>💬 الكل</span>
-              <span className="text-[10px] opacity-75">({combinedChats.length})</span>
+              <span className="truncate">💬 الكل</span>
+              <span className="text-[9px] opacity-80 font-mono">({combinedChats.length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('direct')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              title="عملاء الحملات"
             >
-              <span>👤 عملاء الحملات</span>
-              <span className="text-[10px] opacity-75">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
+              <span className="truncate">👤 الحملات</span>
+              <span className="text-[9px] opacity-80 font-mono">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('website')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'}`}
+              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'}`}
+              title="واتساب الموقع"
             >
-              <span>🌐 واتساب الموقع</span>
-              <span className="text-[10px] opacity-75">({chats.filter(c => isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
+              <span className="truncate">🌐 الموقع</span>
+              <span className="text-[9px] opacity-80 font-mono">({chats.filter(c => isWebsiteLead(c) && hasCustomerSentMessage(c) && !c.isGroup && !c.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('groups')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              title="الجروبات"
             >
-              <span>👥 الجروبات</span>
-              <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
+              <span className="truncate">👥 الجروبات</span>
+              <span className="text-[9px] opacity-80 font-mono">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('colleagues')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-0.5 rounded-lg font-black transition flex flex-col sm:flex-row items-center justify-center gap-0.5 min-w-0 w-full text-center ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              title="الزملاء"
             >
-              <span>🤝 الزملاء</span>
-              <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isDirect).length})</span>
+              <span className="truncate">🤝 الزملاء</span>
+              <span className="text-[9px] opacity-80 font-mono">({internalGroups.filter(g => g.isDirect).length})</span>
             </button>
           </div>
         )}
@@ -2724,11 +2741,7 @@ function InboxContent() {
                           <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                             ✋ مضاف يدوياً
                           </span>
-                        ) : (
-                          <span className="bg-gray-500/20 text-gray-300 border border-gray-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            👤 عميل
-                          </span>
-                        )}
+                        ) : null}
 
                         {/* CRM Status Dropdown Selector */}
                         <select
@@ -2762,20 +2775,6 @@ function InboxContent() {
 
               {/* Right Side Header Controls */}
               <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSelectMode(prev => !prev);
-                      setSelectedMessageIds([]);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border ${isSelectMode ? 'bg-amber-500 text-slate-900 border-amber-300 font-bold' : 'bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700'}`}
-                    title="تحديد وإلغاء تحديد أكثر من رسالة للحذف الجماعي"
-                  >
-                    <CheckSquare size={14} />
-                    <span>{isSelectMode ? 'إغلاق التحديد' : 'تحديد رسائل'}</span>
-                  </button>
-                )}
                 {activeChat.isDirect ? (
                   /* Direct Colleague Action Buttons */
                   <div className="flex items-center gap-1.5">
@@ -2853,13 +2852,6 @@ function InboxContent() {
                         <option value="campaigns" className="bg-slate-900 text-purple-300">📣 رقم الحملات</option>
                       </select>
                     )}
-                    <button 
-                      onClick={() => setIsTemplateModalOpen(true)}
-                      className="bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse"
-                    >
-                      <Send size={14} />
-                      <span>إرسال قالب</span>
-                    </button>
                   </>
                 )}
               </div>
@@ -3038,18 +3030,18 @@ function InboxContent() {
                       </div>
                       <div className="text-[10px] text-gray-500 flex items-center justify-end gap-1 mt-1 font-mono">
                         <span>{formatTime(msg.timestamp)}</span>
-                        {msg.sender === 'agent' && (
+                        {(msg.sender !== 'user' && msg.sender !== 'customer') && (
                           <span className="flex items-center">
                             {msg.status === 'read' ? (
-                              <CheckCheck size={14} className="text-cyan-600 font-black" title="تم القراءة (تم فتح الرسالة ✔✔)" />
+                              <CheckCheck size={14} className="text-cyan-400 font-black" title="تم القراءة (تم فتح الرسالة ✔✔)" />
                             ) : msg.status === 'delivered' ? (
-                              <CheckCheck size={14} className="text-gray-500" title="تم التسليم للعميل (✔✔)" />
-                            ) : msg.status === 'sent' ? (
-                              <Check size={14} className="text-gray-500" title="تم الإرسال (✔)" />
-                            ) : msg.status === 'failed' ? (
-                              <AlertCircle size={13} className="text-red-500" title="فشل الإرسال ⚠️" />
+                              <CheckCheck size={14} className="text-slate-400 font-bold" title="تم التسليم للعميل (✔✔)" />
+                            ) : msg.status === 'failed' || msg.status === 'error' ? (
+                              <AlertCircle size={13} className="text-red-500 font-bold" title="فشل الإرسال ⚠️" />
+                            ) : msg.status === 'pending' || msg.status === 'sending' ? (
+                              <Clock size={12} className="text-gray-400 animate-spin" title="جاري الإرسال 🕒" />
                             ) : (
-                              <Clock size={12} className="text-gray-400 animate-spin" title="جاري الإرسال (بدون إنترنت أو قيد المعالجة 🕒)" />
+                              <Check size={14} className="text-slate-400 font-bold" title="تم الإرسال (✔)" />
                             )}
                           </span>
                         )}
