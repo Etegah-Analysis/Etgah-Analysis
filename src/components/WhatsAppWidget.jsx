@@ -16,6 +16,8 @@ export default function WhatsAppWidget() {
   const [widgetStep, setWidgetStep] = useState('code_input');
   const [empCodeInput, setEmpCodeInput] = useState('');
   const [assignedEmp, setAssignedEmp] = useState(null);
+  const [empDisplayName, setEmpDisplayName] = useState('');
+  const [empOnlineStatus, setEmpOnlineStatus] = useState(false);
   const [codeError, setCodeError] = useState('');
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
@@ -437,6 +439,47 @@ export default function WhatsAppWidget() {
 
     return () => unsub();
   }, [userPhone]);
+
+  // Real-time listener for assigned employee details (Alias name & Online status)
+  useEffect(() => {
+    if (!assignedEmp) {
+      setEmpDisplayName('خدمة العملاء والدعم الفني');
+      setEmpOnlineStatus(true);
+      return;
+    }
+
+    if (assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs') {
+      setEmpDisplayName('خدمة العملاء والدعم الفني');
+      setEmpOnlineStatus(true);
+      return;
+    }
+
+    const codeToSearch = assignedEmp.empCode || '';
+    if (!codeToSearch) {
+      setEmpDisplayName(assignedEmp.name || 'الموظف المختص');
+      setEmpOnlineStatus(false);
+      return;
+    }
+
+    const q = query(collection(db, 'users'), where('empCode', '==', codeToSearch));
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        const empData = snap.docs[0].data();
+        // Prefer aliasName/pseudonym from staff card in Dashboard, fallback to displayName / username / name
+        const alias = empData.aliasName || empData.pseudonym || empData.displayName || empData.username || empData.name || assignedEmp.name;
+        setEmpDisplayName(alias);
+
+        // Real-time Online status check from CRM login status
+        const isOnline = empData.isOnline === true || empData.status === 'online' || empData.crmStatus === 'online';
+        setEmpOnlineStatus(isOnline);
+      } else {
+        setEmpDisplayName(assignedEmp.name || `مستشار #${codeToSearch}`);
+        setEmpOnlineStatus(false);
+      }
+    }, (err) => console.error("Employee real-time snapshot error:", err));
+
+    return () => unsub();
+  }, [assignedEmp]);
 
   // Listen strictly to رسائل_الموظفين_للعملاء for real-time, non-duplicated messages
   useEffect(() => {
@@ -938,14 +981,41 @@ export default function WhatsAppWidget() {
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="relative shrink-0">
                   <img src="/logo.jpg" alt="Logo" className="w-9 h-9 rounded-full object-cover border-2 border-cyan-400 shadow-md" />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-slate-900"></span>
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-slate-900 ${
+                    empOnlineStatus ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                  }`} title={empOnlineStatus ? 'متصل الآن' : 'غير متصل'}></span>
                 </div>
                 <div className="min-w-0">
                   <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1 truncate">
                     منصة اتجاه التحليل الذكي
                   </h4>
-                  <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1 truncate">
-                    {assignedEmp ? `💬 ${assignedEmp.name}` : 'تواصل مباشر ومعاينة لحظية ⚡'}
+                  <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1.5 truncate">
+                    {assignedEmp ? (
+                      assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs' ? (
+                        <span className="flex items-center gap-1 text-cyan-200">
+                          <Headphones size={11} className="text-cyan-400 shrink-0" />
+                          <span>خدمة العملاء والدعم الفني</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <span>💬 المستشار: <strong className="text-white">{empDisplayName || assignedEmp.name}</strong></span>
+                          {empOnlineStatus ? (
+                            <span className="inline-flex items-center gap-0.5 text-emerald-400 text-[9px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                              متصل
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-rose-400 text-[9px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              غير متصل
+                            </span>
+                          )}
+                        </span>
+                      )
+                    ) : (
+                      'تواصل مباشر ومعاينة لحظية ⚡'
+                    )}
                   </p>
                 </div>
               </div>
