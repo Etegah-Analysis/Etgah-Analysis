@@ -2845,11 +2845,11 @@ function InboxContent() {
                 ) : (
                   /* Customer Action Buttons */
                   <>
-                    {!isWebsiteLead(activeChat) && (
+                    {!isWebsiteLead(activeChat) && activeChat.source !== 'excel_import' && chatTabFilter !== 'direct' && (
                       <button
                         onClick={() => {
-                          const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
-                          window.open(`https://wa.me/${phoneNum}`, '_blank');
+                          const phoneNum = (activeChat.phoneNumber || '').replace(/[^0-9]/g, '');
+                          if (phoneNum) window.open(`https://wa.me/${phoneNum}`, '_blank');
                         }}
                         className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
                         title="فتح محادثة الواتساب المباشرة"

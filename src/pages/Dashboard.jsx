@@ -347,6 +347,21 @@ export const getEnglishDisplayName = (empUser, fallback = 'Agent') => {
   return empUser.username || empUser.name || (empUser.email ? empUser.email.split('@')[0] : fallback);
 };
 
+export const normalizePhone = (ph) => {
+  if (!ph) return '';
+  let str = String(ph).replace(/[^0-9]/g, '');
+  if (str.length > 10 && str.startsWith('20')) {
+    str = str.substring(2);
+  } else if (str.length > 10 && str.startsWith('966')) {
+    str = str.substring(3);
+  } else if (str.length > 10 && str.startsWith('0')) {
+    str = str.substring(1);
+  } else if (str.startsWith('0')) {
+    str = str.substring(1);
+  }
+  return str;
+};
+
 /**
  * التحقق من رقم الجوال السعودي وحظر أي رقم غير سعودي
  * واستخراج النواة الأساسية (5XXXXXXXX) لمنع التكرار
