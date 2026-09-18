@@ -990,7 +990,7 @@ export default function WhatsAppWidget() {
                     منصة اتجاه التحليل الذكي
                   </h4>
                   <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1.5 truncate">
-                    {assignedEmp ? (
+                    {widgetStep === 'chat_room' && assignedEmp ? (
                       assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs' ? (
                         <span className="flex items-center gap-1 text-cyan-200">
                           <Headphones size={11} className="text-cyan-400 shrink-0" />
@@ -1061,13 +1061,29 @@ export default function WhatsAppWidget() {
               </div>
             </div>
 
-            {/* User Status Bar with Client Name & Phone on right, Internal Call Alert button on left */}
+            {/* User Status Bar with Target Contact Info & Phone on right, Internal Call Alert button on left */}
             <div className="bg-cyan-950/40 px-4 py-2 border-b border-cyan-500/20 flex items-center justify-between text-[11px] shrink-0">
-              {/* Right Side: Client Name + Phone Number underneath */}
+              {/* Right Side: Connected Target Contact + Phone Number underneath */}
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5 truncate">
-                  <User size={13} className="text-cyan-400 shrink-0" />
-                  <span className="font-bold text-cyan-200 truncate">{userName || 'عميل اتجاه'}</span>
+                  {widgetStep === 'chat_room' && assignedEmp ? (
+                    assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs' ? (
+                      <>
+                        <Headphones size={13} className="text-cyan-400 shrink-0" />
+                        <span className="font-bold text-cyan-200 truncate">خدمة العملاء والدعم الفني</span>
+                      </>
+                    ) : (
+                      <>
+                        <User size={13} className="text-cyan-400 shrink-0" />
+                        <span className="font-bold text-cyan-200 truncate">المستشار: {empDisplayName || assignedEmp.name} (كود #{assignedEmp.empCode})</span>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <User size={13} className="text-cyan-400 shrink-0" />
+                      <span className="font-bold text-cyan-200 truncate">{userName || 'عميل اتجاه'}</span>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-cyan-400/90 font-mono mt-0.5" dir="ltr">
                   <ShieldCheck size={12} className="text-emerald-400 shrink-0" title="حساب موثق بالـ OTP" />
