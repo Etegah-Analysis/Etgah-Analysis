@@ -17589,7 +17589,19 @@ const handleExportBuffetToExcel = () => {
               const search = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
 
               let filtered = scopedCustomerPool.filter(c => {
-                const matchesFilter = customerFilter === 'all' || (customerFilter === 'website' && (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy)) || (customerFilter === 'unassigned' && c.status === 'unassigned') || (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+                const isWebWa = c.addedBy === 'WhatsApp Webhook' || 
+                                c.source === 'website' || 
+                                c.source === 'website_whatsapp' || 
+                                c.addedBy?.includes?.('WhatsApp Webhook') || 
+                                c.addedBy?.includes?.('website') || 
+                                c.isWebsiteWhatsapp === true || 
+                                !c.addedBy;
+
+                const matchesFilter = customerFilter === 'all' || 
+                  (customerFilter === 'website' && isWebWa) || 
+                  (customerFilter === 'unassigned' && c.status === 'unassigned') || 
+                  (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+
                 if (!matchesFilter) return false;
 
                 // Filter by selected employee dropdown
@@ -17646,7 +17658,7 @@ const handleExportBuffetToExcel = () => {
                 rows.push(
                   <tr key={customer.id} className="hover:bg-gray-50 transition border-b border-gray-100/50">
                     <td className="p-4 text-center">
-                      <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded" />
+                      <input type="checkbox" checked={selectedCustomers.includes(customer.id)} onChange={() => toggleCustomerSelection(customer.id)} className="w-4 h-4 text-primary rounded cursor-pointer" />
                     </td>
                     <td className="px-3 py-2 text-xs font-bold text-gray-800" dir="ltr">
                       <div className="flex items-center gap-2">
@@ -17675,9 +17687,7 @@ const handleExportBuffetToExcel = () => {
                           📦 {customer.source}
                         </span>
                       )}
-                      
                     </td>
-                    <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="px-2.5 py-2 text-xs text-gray-600 font-medium min-w-[230px] text-center">
                       {(isAdmin || isCoordinator || isLeader) ? (
                         <select 
@@ -17717,13 +17727,60 @@ const handleExportBuffetToExcel = () => {
                         const assigner = getLeadAssignerDisplay(customer);
                         if (!assigner) return null;
                         return (
-                          <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm w-fit" title="من قام بتوزيع وتعيين العميل">
+                          <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-700 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shadow-sm mx-auto w-fit" title="من قام بتوزيع وتعيين العميل">
                             <span className="text-amber-600 font-black">مضاف بواسطة:</span>
                             <span className="text-gray-900 font-black">{assigner}</span>
                           </div>
                         );
                       })()}
+                      {/* Transfer Tracking Badge (تتبع النقل بين الموظفين) */}
+                      {(() => {
+                        const history = customer.assignmentHistory || [];
+                        if (!history || history.length === 0) return null;
+                        return (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenNotesModal(customer, 'بيانات_تسجيل_العملاء');
+                            }}
+                            className="mt-1.5 inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 hover:from-purple-800 hover:to-indigo-800 text-amber-300 border border-amber-400/40 px-2.5 py-1 rounded-lg text-[10px] font-black shadow-sm transition cursor-pointer mx-auto"
+                            title="انقر لتتبع مسار ونقل العميل بين الموظفين وتاريخ التعيين بالتفصيل"
+                          >
+                            <RefreshCw size={11} className="text-amber-400 animate-spin-slow" />
+                            <span>🔄 تتبع النقل ({history.length} {history.length === 1 ? 'تحويل' : 'تحويلات'})</span>
+                          </button>
+                        );
+                      })()}
                     </td>
+                    {/* حالة المتابعة وآخر تحديث */}
+                    <td className="px-3 py-2 text-xs font-semibold text-gray-700 text-center min-w-[200px]">
+                      {(() => {
+                        const statusKey = (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : (customer.status === 'unassigned' ? 'unassigned' : 'unassigned');
+                        const statusObj = CRM_STATUS_MAP[statusKey] || CRM_STATUS_MAP.unassigned;
+                        const notesArr = customer.notesHistory || [];
+                        const lastNote = notesArr.length > 0 ? notesArr[notesArr.length - 1] : null;
+
+                        return (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusObj.bg}`}>
+                              {statusObj.label}
+                            </span>
+                            {lastNote ? (
+                              <div className="text-[10px] text-gray-700 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 max-w-[190px] truncate shadow-xs" title={lastNote.text || lastNote.note}>
+                                <span className="font-black text-amber-900">آخر تحديث: </span>
+                                <span>{lastNote.text || lastNote.note}</span>
+                              </div>
+                            ) : customer.notes ? (
+                              <div className="text-[10px] text-gray-700 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 max-w-[190px] truncate shadow-xs" title={customer.notes}>
+                                <span className="font-black text-amber-900">ملاحظة: </span>
+                                <span>{customer.notes}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className="p-4 text-xs text-gray-500 text-center" dir="ltr">{formatDate(customer.createdAt || customer.updatedAt)}</td>
                     <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                       <button 
                         onClick={() => handleOpenNotesModal(customer, 'بيانات_تسجيل_العملاء')}
@@ -17751,7 +17808,7 @@ const handleExportBuffetToExcel = () => {
                       {isAdmin && !isLeader && (
                         <button
                           onClick={() => handleDeleteSingleCustomer(customer)}
-                          className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm"
+                          className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition shadow-sm cursor-pointer"
                           title="حذف ونقل إلى سلة المهملات"
                         >
                           <Trash2 size={14} />
@@ -17778,20 +17835,21 @@ const handleExportBuffetToExcel = () => {
                           </th>
                           <th className="p-4 font-extrabold text-amber-300 text-xs">رقم الهاتف</th>
                           <th className="p-4 font-extrabold text-amber-300 text-xs">اسم العميل</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs min-w-[220px] text-center">الموظف المسؤول (حالياً عند مين)</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs min-w-[200px] text-center">حالة المتابعة وآخر تحديث</th>
                           <th 
-                            className="p-4 font-extrabold text-amber-300 text-xs cursor-pointer hover:bg-white/5 transition select-none"
+                            className="p-4 font-extrabold text-amber-300 text-xs cursor-pointer hover:bg-white/5 transition select-none text-center"
                             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                             title="انقر للتغيير بين الأحدث والأقدم"
                           >
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5">
                               <span>التاريخ والوقت</span>
                               <span className="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-400/40">
-                                {sortOrder === 'desc' ? '⬇️ الأحدث أولاً' : '⬆️ الأقدم أولاً'}
+                                {sortOrder === 'desc' ? '⬇️ الأحدث' : '⬆️ الأقدم'}
                               </span>
                             </div>
                           </th>
-                          <th className="p-4 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
-                          <th className="p-4 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>
+                          <th className="p-4 font-extrabold text-amber-300 text-xs text-center">الإجراءات</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -18567,13 +18625,32 @@ const handleExportBuffetToExcel = () => {
                             </div>
                           </td>
                           <td className="p-4">
-                            {visitor.status === 'unassigned' || visitor.crmStatus === 'unassigned' ? (
-                              <span className="bg-red-100 text-red-700 border border-red-200 px-2.5 py-1 rounded-full text-xs font-bold">• في الانتظار</span>
-                            ) : visitor.status === 'website_visitor' ? (
-                              <span className="bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-bold">🌐 مسجل OTP</span>
-                            ) : (
-                              <span className="bg-green-100 text-green-700 border border-green-200 px-2.5 py-1 rounded-full text-xs font-bold">✓ مستلمة</span>
-                            )}
+                            {(() => {
+                              const rawObj = visitor._raw || visitor;
+                              const crmSt = (rawObj.crmStatus && rawObj.crmStatus !== 'assigned') ? rawObj.crmStatus : (visitor.status === 'unassigned' ? 'unassigned' : 'unassigned');
+                              const statusObj = CRM_STATUS_MAP[crmSt] || (visitor.status === 'website_visitor' ? { label: '🌐 مسجل OTP', bg: 'bg-purple-100 text-purple-700 border-purple-200' } : CRM_STATUS_MAP.unassigned);
+                              const notesArr = rawObj.notesHistory || visitor.notesHistory || [];
+                              const lastNote = notesArr.length > 0 ? notesArr[notesArr.length - 1] : null;
+
+                              return (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusObj.bg}`}>
+                                    {statusObj.label}
+                                  </span>
+                                  {lastNote ? (
+                                    <div className="text-[10px] text-gray-700 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 max-w-[190px] truncate shadow-xs" title={lastNote.text || lastNote.note}>
+                                      <span className="font-black text-amber-900">آخر تحديث: </span>
+                                      <span>{lastNote.text || lastNote.note}</span>
+                                    </div>
+                                  ) : rawObj.notes ? (
+                                    <div className="text-[10px] text-gray-700 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 max-w-[190px] truncate shadow-xs" title={rawObj.notes}>
+                                      <span className="font-black text-amber-900">ملاحظة: </span>
+                                      <span>{rawObj.notes}</span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* الموظف المسؤول والموزع Dropdown */}
@@ -18682,14 +18759,53 @@ const handleExportBuffetToExcel = () => {
                                 ) : (
                                   <span className="text-[10px] text-gray-400 font-medium">لم يتم التوزيع</span>
                                 )}
+
+                                {/* شارة تتبع النقل بين الموظفين */}
+                                {(() => {
+                                  const history = visitor.assignmentHistory || visitor._raw?.assignmentHistory || [];
+                                  if (!history || history.length === 0) return null;
+                                  return (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenNotesModal(visitor._raw || visitor, visitor.isVisitorDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء');
+                                      }}
+                                      className="mt-1.5 inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 hover:from-purple-800 hover:to-indigo-800 text-amber-300 border border-amber-400/40 px-2.5 py-1 rounded-lg text-[10px] font-black shadow-sm transition cursor-pointer"
+                                      title="انقر لتتبع مسار ونقل العميل بين الموظفين وتاريخ التعيين بالتفصيل"
+                                    >
+                                      <RefreshCw size={11} className="text-amber-400 animate-spin-slow" />
+                                      <span>🔄 تتبع النقل ({history.length} {history.length === 1 ? 'تحويل' : 'تحويلات'})</span>
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             ) : (
-                              <span className="text-xs font-bold text-gray-700">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-xs font-bold text-gray-700">
+                                  {(() => {
+                                    const vEmp = employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo);
+                                    return `👤 ${vEmp?.username || vEmp?.name || '👑 الإدارة'} (${getJobTitleEnglish(vEmp?.jobTitle || (visitor.assignedToUid === 'admin' ? 'Admin' : 'Agent'))})`;
+                                  })()}
+                                </span>
+                                {/* شارة تتبع النقل للأيجنت */}
                                 {(() => {
-                                  const vEmp = employees.find(e => e.uid === visitor.assignedToUid || e.email === visitor.assignedTo);
-                                  return `👤 ${vEmp?.username || vEmp?.name || '👑 الإدارة'} (${getJobTitleEnglish(vEmp?.jobTitle || (visitor.assignedToUid === 'admin' ? 'Admin' : 'Agent'))})`;
+                                  const history = visitor.assignmentHistory || visitor._raw?.assignmentHistory || [];
+                                  if (!history || history.length === 0) return null;
+                                  return (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenNotesModal(visitor._raw || visitor, visitor.isVisitorDoc ? 'visitor_customers' : 'بيانات_تسجيل_العملاء');
+                                      }}
+                                      className="mt-1.5 inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 hover:from-purple-800 hover:to-indigo-800 text-amber-300 border border-amber-400/40 px-2.5 py-1 rounded-lg text-[10px] font-black shadow-sm transition cursor-pointer"
+                                      title="انقر لتتبع مسار ونقل العميل بين الموظفين وتاريخ التعيين بالتفصيل"
+                                    >
+                                      <RefreshCw size={11} className="text-amber-400 animate-spin-slow" />
+                                      <span>🔄 تتبع النقل ({history.length} {history.length === 1 ? 'تحويل' : 'تحويلات'})</span>
+                                    </button>
+                                  );
                                 })()}
-                              </span>
+                              </div>
                             )}
                           </td>
 
