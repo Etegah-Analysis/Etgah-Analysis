@@ -423,6 +423,103 @@ const Dashboard = () => {
   const [recycleBin, setRecycleBin] = useState([]);
   const [rbFilter, setRbFilter] = useState('all');
   const [templateMessages, setTemplateMessages] = useState([]);
+
+  const getCleanPhoneNum = (obj) => {
+    if (!obj) return '';
+    const raw = obj.phoneNumber || obj.phone || obj.mobile || obj.id || '';
+    return typeof raw === 'string' ? raw.replace(/[^0-9]/g, '') : '';
+  };
+
+  const leadsCrmByPhoneMap = useMemo(() => {
+    const map = new Map();
+    if (!Array.isArray(leadsCrm)) return map;
+    for (let i = 0; i < leadsCrm.length; i++) {
+      const item = leadsCrm[i];
+      const ph = getCleanPhoneNum(item);
+      if (ph) {
+        map.set(ph, item);
+      }
+    }
+    return map;
+  }, [leadsCrm]);
+
+  const enrichedCustomers = useMemo(() => {
+    if (!Array.isArray(customers)) return [];
+    return customers.map(cust => {
+      const ph = getCleanPhoneNum(cust);
+      const crmMatch = ph ? leadsCrmByPhoneMap.get(ph) : null;
+      if (!crmMatch) return cust;
+
+      const assignedToUid = crmMatch.assignedToUid || cust.assignedToUid;
+      const assignedTo = crmMatch.assignedTo || cust.assignedTo;
+
+      const crmHistory = crmMatch.assignmentHistory || [];
+      const custHistory = cust.assignmentHistory || [];
+      const assignmentHistory = crmHistory.length >= custHistory.length ? crmHistory : custHistory;
+
+      const crmNotesHistory = crmMatch.notesHistory || [];
+      const custNotesHistory = cust.notesHistory || [];
+      const notesHistory = crmNotesHistory.length >= custNotesHistory.length ? crmNotesHistory : custNotesHistory;
+
+      const notes = crmNotesHistory.length > 0
+        ? (crmNotesHistory[crmNotesHistory.length - 1]?.text || crmNotesHistory[crmNotesHistory.length - 1]?.note || crmMatch.notes || cust.notes)
+        : (cust.notes || crmMatch.notes);
+
+      const crmStatus = (crmMatch.crmStatus && crmMatch.crmStatus !== 'unassigned')
+        ? crmMatch.crmStatus
+        : (cust.crmStatus || cust.status || crmMatch.crmStatus);
+
+      return {
+        ...cust,
+        assignedToUid,
+        assignedTo,
+        assignmentHistory,
+        notesHistory,
+        notes,
+        crmStatus,
+        status: (assignedToUid && assignedToUid !== 'admin') ? 'assigned' : (cust.status || crmMatch.status)
+      };
+    });
+  }, [customers, leadsCrmByPhoneMap]);
+
+  const enrichedVisitors = useMemo(() => {
+    if (!Array.isArray(visitors)) return [];
+    return visitors.map(vis => {
+      const ph = getCleanPhoneNum(vis);
+      const crmMatch = ph ? leadsCrmByPhoneMap.get(ph) : null;
+      if (!crmMatch) return vis;
+
+      const assignedToUid = crmMatch.assignedToUid || vis.assignedToUid;
+      const assignedTo = crmMatch.assignedTo || vis.assignedTo;
+
+      const crmHistory = crmMatch.assignmentHistory || [];
+      const visHistory = vis.assignmentHistory || [];
+      const assignmentHistory = crmHistory.length >= visHistory.length ? crmHistory : visHistory;
+
+      const crmNotesHistory = crmMatch.notesHistory || [];
+      const visNotesHistory = vis.notesHistory || [];
+      const notesHistory = crmNotesHistory.length >= visNotesHistory.length ? crmNotesHistory : visNotesHistory;
+
+      const notes = crmNotesHistory.length > 0
+        ? (crmNotesHistory[crmNotesHistory.length - 1]?.text || crmNotesHistory[crmNotesHistory.length - 1]?.note || crmMatch.notes || vis.notes)
+        : (vis.notes || crmMatch.notes);
+
+      const crmStatus = (crmMatch.crmStatus && crmMatch.crmStatus !== 'unassigned')
+        ? crmMatch.crmStatus
+        : (vis.crmStatus || vis.status || crmMatch.crmStatus);
+
+      return {
+        ...vis,
+        assignedToUid,
+        assignedTo,
+        assignmentHistory,
+        notesHistory,
+        notes,
+        crmStatus,
+        status: (assignedToUid && assignedToUid !== 'admin') ? 'assigned' : (vis.status || crmMatch.status)
+      };
+    });
+  }, [visitors, leadsCrmByPhoneMap]);
   
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedLeadsCrm, setSelectedLeadsCrm] = useState([]);
@@ -17447,11 +17544,57 @@ const handleExportBuffetToExcel = () => {
         {activeTab === 'customers' && (() => {
           // حوكمة الداتا: عند الآيجنت عملاؤه فقط، عند الليدر عملاء فريقه فقط، وعند الإدارة والمنسق الجميع
           const scopedCustomerPool = (isAdmin || isCoordinator)
-            ? customers
+            ? enrichedCustomers
             : (isLeader
-                ? customers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase()))
-                : customers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
+                ? enrichedCustomers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase()))
+                : enrichedCustomers.filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())
               );
+
+          const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'all' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'admin')
+            ? employees.find(e => e.uid === selectedEmpFilter)
+            : null;
+          const targetEmpMail = targetEmp?.email?.toLowerCase();
+          const search = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
+
+          const websiteWaPool = scopedCustomerPool.filter(c => 
+            c.addedBy === 'WhatsApp Webhook' || 
+            c.source === 'website' || 
+            c.source === 'website_whatsapp' || 
+            c.addedBy?.includes?.('WhatsApp Webhook') || 
+            c.addedBy?.includes?.('website') || 
+            c.isWebsiteWhatsapp === true || 
+            !c.addedBy
+          );
+
+          let filteredPool = scopedCustomerPool.filter(c => {
+            const isWebWa = c.addedBy === 'WhatsApp Webhook' || 
+                            c.source === 'website' || 
+                            c.source === 'website_whatsapp' || 
+                            c.addedBy?.includes?.('WhatsApp Webhook') || 
+                            c.addedBy?.includes?.('website') || 
+                            c.isWebsiteWhatsapp === true || 
+                            !c.addedBy;
+
+            const matchesFilter = customerFilter === 'all' || 
+              (customerFilter === 'website' && isWebWa) || 
+              (customerFilter === 'unassigned' && c.status === 'unassigned') || 
+              (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+
+            if (!matchesFilter) return false;
+
+            if (selectedEmpFilter && selectedEmpFilter !== 'all') {
+              if (selectedEmpFilter === 'unassigned') {
+                if (c.status !== 'unassigned' && c.assignedTo) return false;
+              } else if (selectedEmpFilter === 'admin') {
+                if (c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo)) return false;
+              } else {
+                if (c.assignedToUid !== selectedEmpFilter && (c.assignedTo !== targetEmp?.email && c.assignedTo?.toLowerCase() !== targetEmpMail)) return false;
+              }
+            }
+
+            if (!search) return true;
+            return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
+          });
 
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/50 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -17463,7 +17606,7 @@ const handleExportBuffetToExcel = () => {
                        customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
                        '🌐 Data website by whatsapp'}</span>
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                        {scopedCustomerPool.length.toLocaleString()} Leads
+                        {(customerFilter === 'website' ? websiteWaPool.length : (customerFilter !== 'all' || (selectedEmpFilter && selectedEmpFilter !== 'all') || search ? filteredPool.length : scopedCustomerPool.length)).toLocaleString()} Leads
                       </span>
                     </h2>
                     <p className="text-xs text-purple-200 mt-0.5 font-medium">
@@ -17582,42 +17725,7 @@ const handleExportBuffetToExcel = () => {
             </div>
             {/* Customers Tab Table */}
             {(() => {
-              const targetEmp = (selectedEmpFilter && selectedEmpFilter !== 'all' && selectedEmpFilter !== 'unassigned' && selectedEmpFilter !== 'admin')
-                ? employees.find(e => e.uid === selectedEmpFilter)
-                : null;
-              const targetEmpMail = targetEmp?.email?.toLowerCase();
-              const search = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
-
-              let filtered = scopedCustomerPool.filter(c => {
-                const isWebWa = c.addedBy === 'WhatsApp Webhook' || 
-                                c.source === 'website' || 
-                                c.source === 'website_whatsapp' || 
-                                c.addedBy?.includes?.('WhatsApp Webhook') || 
-                                c.addedBy?.includes?.('website') || 
-                                c.isWebsiteWhatsapp === true || 
-                                !c.addedBy;
-
-                const matchesFilter = customerFilter === 'all' || 
-                  (customerFilter === 'website' && isWebWa) || 
-                  (customerFilter === 'unassigned' && c.status === 'unassigned') || 
-                  (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
-
-                if (!matchesFilter) return false;
-
-                // Filter by selected employee dropdown
-                if (selectedEmpFilter && selectedEmpFilter !== 'all') {
-                  if (selectedEmpFilter === 'unassigned') {
-                    if (c.status !== 'unassigned' && c.assignedTo) return false;
-                  } else if (selectedEmpFilter === 'admin') {
-                    if (c.assignedToUid && c.assignedToUid !== 'admin' && !isAdminIdentifier(c.assignedTo)) return false;
-                  } else {
-                    if (c.assignedToUid !== selectedEmpFilter && (c.assignedTo !== targetEmp?.email && c.assignedTo?.toLowerCase() !== targetEmpMail)) return false;
-                  }
-                }
-
-                if (!search) return true;
-                return c.name?.toLowerCase().includes(search) || c.phoneNumber?.includes(search);
-              });
+              let filtered = filteredPool;
 
               const sortMultiplier = sortOrder === 'desc' ? 1 : -1;
               const listWithTime = filtered.map(item => ({
@@ -18469,8 +18577,8 @@ const handleExportBuffetToExcel = () => {
                           checked={selectedVisitors.length > 0} 
                           onChange={() => {
                             const combinedIds = [
-                              ...visitors.map(v => v.id),
-                              ...customers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').map(c => c.id)
+                              ...enrichedVisitors.map(v => v.id),
+                              ...enrichedCustomers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').map(c => c.id)
                             ];
                             if (selectedVisitors.length > 0) setSelectedVisitors([]);
                             else setSelectedVisitors(combinedIds);
@@ -18502,7 +18610,7 @@ const handleExportBuffetToExcel = () => {
                   {(() => {
                     const sortMultiplier = sortOrder === 'desc' ? 1 : -1;
                     const combined = [
-                      ...visitors.map(v => ({ 
+                      ...enrichedVisitors.map(v => ({ 
                         id: v.id, 
                         name: `${v.firstName || ''} ${v.lastName || ''}`.trim() || 'زائر موقع', 
                         phone: v.phone || v.phoneNumber, 
@@ -18516,10 +18624,12 @@ const handleExportBuffetToExcel = () => {
                         assignedBy: v.assignedBy,
                         assignedByRole: v.assignedByRole,
                         assignedByUid: v.assignedByUid,
+                        assignmentHistory: v.assignmentHistory || [],
+                        notesHistory: v.notesHistory || [],
                         isVisitorDoc: true,
                         _raw: v 
                       })),
-                      ...customers.filter(c => 
+                      ...enrichedCustomers.filter(c => 
                         c.addedBy === 'website_otp' || 
                         c.source === 'website_otp' || 
                         c.status === 'website_visitor'
@@ -18537,6 +18647,8 @@ const handleExportBuffetToExcel = () => {
                         assignedBy: c.assignedBy,
                         assignedByRole: c.assignedByRole,
                         assignedByUid: c.assignedByUid,
+                        assignmentHistory: c.assignmentHistory || [],
+                        notesHistory: c.notesHistory || [],
                         isVisitorDoc: false,
                         _raw: c 
                       }))
