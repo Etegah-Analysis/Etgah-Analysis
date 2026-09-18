@@ -10912,11 +10912,11 @@ const handleExportBuffetToExcel = () => {
           );
         })()}
 
-        {/* Stats Cards: Divided into (1) Sheets & Client Databases on TOP, (2) Performance Analytics on BOTTOM */}
+        {/* Stats Cards: Divided into (1) Sheets & Client Databases, (2) Performance Analytics, (3) Subscriptions & Recommendations, (4) Accounts & Finance Unit */}
         {isAdmin ? (
           <div className="space-y-4 mb-6 md:mb-8">
-            {/* 1. Upper Section: Sheets & Client Databases (9 Cards) */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
+            {/* 1. Upper Section: Sheets & Client Databases (8 Cards) */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {/* Card 1: Dedicated Leads CRM */}
               <div 
                 onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -10946,29 +10946,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Card 3: Subscribed Clients (العملاء المشتركين) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Award className="text-amber-400" size={28} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                  <div className="mt-1">
-                    <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
-                      {allSubscribedClients.length.toLocaleString()} Paid
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              
-
-
-              {/* Card 4: Total Customers */}
+              {/* Card 3: Total Customers */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsSystemTotalClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -10983,7 +10961,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
               
-              {/* Card 5: Pending Customers (All Sources) */}
+              {/* Card 4: Pending Customers (All Sources) */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setIsPendingClientsModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -10995,11 +10973,10 @@ const handleExportBuffetToExcel = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">⏳ Total Pending Leads</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{totalPendingAll.toLocaleString()}</h3>
-                  
                 </div>
               </div>
 
-              {/* Card 6: Website WhatsApp Leads */}
+              {/* Card 5: Website WhatsApp Leads */}
               <div 
                 onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11011,11 +10988,10 @@ const handleExportBuffetToExcel = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  
                 </div>
               </div>
 
-              {/* Card 8: Visitors */}
+              {/* Card 6: Visitors */}
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'whatsapp_visitors' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11043,7 +11019,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Card 9: Recycle Bin */}
+              {/* Card 8: Recycle Bin */}
               <div 
                 onClick={(e) => handleCardClick(e, 'recycle_bin', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'recycle_bin' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11058,7 +11034,7 @@ const handleExportBuffetToExcel = () => {
               </div>
             </div>
 
-            {/* Section Divider: Performance & Analytics */}
+            {/* Section Divider 1: Performance & Analytics */}
             <div className="flex items-center gap-2 pt-2">
               <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
                 <BarChart3 size={15} className="text-cyan-400" />
@@ -11067,9 +11043,9 @@ const handleExportBuffetToExcel = () => {
               <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
             </div>
 
-            {/* 2. Lower Section: Performance Analytics & Recommendations & Buffet (6 Cards) */}
+            {/* 2. Lower Section: Performance Analytics (3 Cards) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-              {/* Card 10: Leads CRM Analysis */}
+              {/* Card: Leads CRM Analysis */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -11083,11 +11059,10 @@ const handleExportBuffetToExcel = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
                   </h3>
-                  
                 </div>
               </div>
 
-              {/* Card 11: Call Performance Analytics (تحليل أداء المكالمات) */}
+              {/* Card: Call Performance Analytics */}
               <div 
                 onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
@@ -11101,11 +11076,10 @@ const handleExportBuffetToExcel = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
                   </h3>
-                  
                 </div>
               </div>
 
-              {/* Card 12: Campaigns */}
+              {/* Card: Campaigns */}
               <div 
                 onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11118,36 +11092,22 @@ const handleExportBuffetToExcel = () => {
                   <h3 className="text-xl sm:text-2xl font-black text-amber-300">
                     {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
                   </h3>
-                  
                 </div>
               </div>
+            </div>
 
-              {/* Admin Card 13: Saudi Market Recommendations (v2.24 - Moved to Analytics) */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
-                  <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
-                    <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span>توصيات السوق السعودي</span>
-                  </p>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
-                      {saudiRecommendations.length.toLocaleString()} توصية
-                    </span>
-                    <span className="text-[11px] text-amber-400 font-bold">
-                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                    </span>
-                  </div>
-                </div>
-              </div>
+            {/* Section Divider 2: Subscriptions & Recommendations */}
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5">
+                <Award size={16} className="text-amber-400" />
+                <span>🎉 الاشتراكات والتوصيات الاستثمارية (سعودي وأمريكي)</span>
+              </span>
+              <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
+            </div>
 
-              {/* Admin Card 14: US Market Recommendations (v2.24 - Moved to Analytics) */}
+            {/* 3. Subscriptions & Recommendations Section (3 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+              {/* US Recommendations Card */}
               <div 
                 onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11172,21 +11132,63 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Buffet Card: Expenses & Inventory (v2.24) */}
+              {/* Saudi Recommendations Card */}
               <div 
-                onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة توصيات السوق السعودي وإشعار الواتساب"
               >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <span className="text-2xl">☕</span>
+                <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                  <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                    <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>توصيات السوق السعودي</span>
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                      {saudiRecommendations.length.toLocaleString()} توصية
+                    </span>
+                    <span className="text-[11px] text-amber-400 font-bold">
+                      ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Payroll & Attendance Card (v2.25) */}
+              {/* Subscribed Clients (Paid Clients) Card */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <Award className="text-amber-400" size={28} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">Paid Clients 🎉</p>
+                  <div className="mt-1">
+                    <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                      {allSubscribedClients.length.toLocaleString()} Paid
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Divider 3: Accounts & Finance Unit */}
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                <CreditCard size={16} className="text-emerald-400" />
+                <span>💼 وحدة الحسابات والمالية</span>
+              </span>
+              <div className="h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-400/10 flex-1"></div>
+            </div>
+
+            {/* 4. Accounts & Finance Unit Section (2 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+              {/* Attendance & Payroll Card */}
               <div 
                 onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
@@ -11200,7 +11202,19 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              
+              {/* Buffet Expenses & Inventory Card */}
+              <div 
+                onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+              >
+                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                  <span className="text-2xl">☕</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : isCoordinator ? (
@@ -11305,274 +11319,301 @@ const handleExportBuffetToExcel = () => {
               )}
             </div>
 
-            {/* Section Divider: Performance & Analytics & Services */}
+            {/* Section Divider 1: Performance Analytics */}
             {(hasPermission(currentEmpUser, 'show_card_leads_analysis') ||
               hasPermission(currentEmpUser, 'show_card_calls_analytics') ||
-              hasPermission(currentEmpUser, 'show_card_marketing_analytics') ||
-              hasPermission(currentEmpUser, 'show_card_buffet') ||
-              hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
-              hasPermission(currentEmpUser, 'show_card_us_stocks') ||
-              hasPermission(currentEmpUser, 'show_card_attendance_payroll')) && (
+              hasPermission(currentEmpUser, 'show_card_marketing_analytics')) && (
               <>
                 <div className="flex items-center gap-2 pt-2">
                   <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
                     <BarChart3 size={15} className="text-cyan-400" />
-                    <span>📊 تحليلات ومؤشرات الأداء والخدمات</span>
+                    <span>📊 تحليلات ومؤشرات الأداء</span>
                   </span>
                   <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
                 </div>
 
-                {/* 2. Lower Section: Performance Analytics & Services (Cards auto-align side by side) */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
-              <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
-                title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <BarChart3 className="text-amber-300" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
-                  </h3>
-                  
-                </div>
-              </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
-              <div 
-                onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
-                title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <PhoneCall className="text-amber-300 animate-pulse" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
-                  </h3>
-                  
-                </div>
-              </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
-              <div 
-                onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <BarChart3 className="text-amber-400" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                    {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
-                  </h3>
-                  
-                </div>
-              </div>
-              )}
-
-              {/* Buffet Card: Expenses & Inventory (v2.24) */}
-              {hasPermission(currentEmpUser, 'show_card_buffet') && (
-                <div 
-                  onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                    <span className="text-2xl">☕</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Saudi Recommendations Card for Coordinator */}
-              {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
-                <div 
-                  onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض ومتابعة توصيات السوق السعودي"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
-                    <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
-                      <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span>توصيات السوق السعودي</span>
-                    </p>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
-                        {saudiRecommendations.length.toLocaleString()} توصية
-                      </span>
-                      <span className="text-[11px] text-amber-400 font-bold">
-                        ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                      </span>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                  {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لعرض تقرير تحليلات الأداء الشاملة لكل الموظفين"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-amber-300" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-amber-300">
+                          {totalDistributedAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                        </h3>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* US Recommendations Card for Coordinator */}
-              {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
-                <div 
-                  onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
-                    <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words inline-flex items-center gap-1.5">
-                      <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span>توصيات السوق الأمريكي</span>
-                    </p>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
-                        {usRecommendations.length.toLocaleString()} توصية
-                      </span>
-                      <span className="text-[11px] text-amber-400 font-bold">
-                        ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
-                      </span>
+                  )}
+                  {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
+                    <div 
+                      onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('all'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                      title="انقر لعرض تقرير وتحليل أداء مكالمات الموظفين اليومية والتراكمية"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <PhoneCall className="text-amber-300 animate-pulse" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-amber-300">
+                          {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
+                        </h3>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'campaigns', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض تقرير وتحليل أداء حملات الواتساب الشاملة"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <BarChart3 className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-amber-300">
+                          {new Set(templateMessages.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
+                        </h3>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </>
+            )}
 
-              {/* Payroll & Attendance Card for Coordinator */}
-              {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
-                <div 
-                  onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                  className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                  title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
-                >
-                  <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                    <span className="text-2xl">⏰</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
-                  </div>
+            {/* Section Divider 2: Subscriptions & Recommendations */}
+            {(hasPermission(currentEmpUser, 'show_card_subscribed_clients') ||
+              hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+              hasPermission(currentEmpUser, 'show_card_us_stocks')) && (
+              <>
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5">
+                    <Award size={16} className="text-amber-400" />
+                    <span>🎉 الاشتراكات والتوصيات الاستثمارية (سعودي وأمريكي)</span>
+                  </span>
+                  <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                  {/* US Recommendations Card */}
+                  {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                        <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                          <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>توصيات السوق الأمريكي</span>
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                            {usRecommendations.length.toLocaleString()} توصية
+                          </span>
+                          <span className="text-[11px] text-amber-400 font-bold">
+                            ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Saudi Recommendations Card */}
+                  {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض ومتابعة توصيات السوق السعودي"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                        <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                          <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>توصيات السوق السعودي</span>
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                            {saudiRecommendations.length.toLocaleString()} توصية
+                          </span>
+                          <span className="text-[11px] text-amber-400 font-bold">
+                            ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subscribed Clients (Paid Clients) Card */}
+                  {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم وإشعارات التحويل"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Award className="text-amber-400" size={28} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">Paid Clients 🎉</p>
+                        <div className="mt-1">
+                          <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                            {allSubscribedClients.length.toLocaleString()} Paid
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Section Divider 3: Accounts & Finance Unit */}
+            {(hasPermission(currentEmpUser, 'show_card_attendance_payroll') ||
+              hasPermission(currentEmpUser, 'show_card_buffet')) && (
+              <>
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                    <CreditCard size={16} className="text-emerald-400" />
+                    <span>💼 وحدة الحسابات والمالية</span>
+                  </span>
+                  <div className="h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-400/10 flex-1"></div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+                  {/* Attendance & Payroll Card for Coordinator */}
+                  {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <span className="text-2xl">⏰</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Buffet Card for Coordinator */}
+                  {hasPermission(currentEmpUser, 'show_card_buffet') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <span className="text-2xl">☕</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
         ) : isLeader ? (
-          /* Leader Dashboard Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
+          /* Leader Dashboard Cards View: Upper = Sheets & Data, Lower = Performance Analytics & Services */
           (() => {
             const leaderTeamEmails = [currentUser?.email?.toLowerCase(), ...myTeamMembers.map(m => m.email?.toLowerCase())].filter(Boolean);
             const leaderTeamTemplateMsgs = templateMessages.filter(m => leaderTeamEmails.includes(m.senderEmail?.toLowerCase()) || m.senderUid === currentUser?.uid || myTeamMembers.some(tm => tm.uid === m.senderUid));
             
             return (
               <div className="space-y-4 mb-6">
-                {/* 1. Upper Section: Sheets & Team Data (5 Cards) */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
-              {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض جدول Leads CRM الخاص بك"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <FileSpreadsheet className="text-amber-400" size={28} />
+                {/* 1. Upper Section: Sheets & Team Data (4 Cards) */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+                  {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'leads_crm' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض جدول Leads CRM الخاص بك"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <FileSpreadsheet className="text-amber-400" size={28} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {myAssignedLeadsCount.toLocaleString()} Leads
+                        </h3>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">🎯 Leads CRM - {getEnglishDisplayName(currentEmpUser, 'Leader')}</p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {myAssignedLeadsCount.toLocaleString()} Leads
-                      </h3>
+                  )}
+                  {hasPermission(currentEmpUser, 'show_card_team_leads') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Upload className="text-amber-400" size={28} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">📁 Team Added Leads</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {leaderTeamEmpLeadsCount.toLocaleString()} Team Leads
+                        </h3>
+                      </div>
                     </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'employee_leads', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'employee_leads' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض الداتا المضافة وإضافة داتا جديدة"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Upload className="text-amber-400" size={28} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">📁 Team Added Leads</p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {leaderTeamEmpLeadsCount.toLocaleString()} Team Leads
-                      </h3>
-                    </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_team_leads') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لمتابعة عملاء فريقك وسحب الداتا"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Users className="text-amber-400" size={28} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">
-                        👥 Team Leader {getEnglishDisplayName(currentEmpUser, 'Leader')} CRM Data
-                      </p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {myTeamMembers.length} موظف
-                      </h3>
-                      <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
-                        ({leaderTeamLeadsCount.toLocaleString()} Leads in Team)
-                      </span>
-                    </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Award className="text-amber-400" size={28} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                      <div className="mt-1">
-                        <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
-                          {leaderSubscribedClients.length.toLocaleString()} Paid
+                  )}
+                  {hasPermission(currentEmpUser, 'show_card_team_leads') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'team_leads_tracking', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'team_leads_tracking' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لمتابعة عملاء فريقك وسحب الداتا"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Users className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">
+                          👥 Team Leader {getEnglishDisplayName(currentEmpUser, 'Leader')} CRM Data
+                        </p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {myTeamMembers.length} موظف
+                        </h3>
+                        <span className="text-[11px] text-purple-300 font-bold block mt-0.5">
+                          ({leaderTeamLeadsCount.toLocaleString()} Leads in Team)
                         </span>
                       </div>
                     </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Globe className="text-amber-400" size={28} />
+                  )}
+                  {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
+                    <div 
+                      onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                      title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
+                    >
+                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                        <Globe className="text-amber-400" size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
+                        <h3 className="text-2xl font-black text-amber-300">
+                          {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
+                        </h3>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
-                      </h3>
-                    </div>
-                  </div>
-              )}
+                  )}
                 </div>
 
-                {/* Section Divider: Performance & Analytics */}
+                {/* Section Divider 1: Performance & Analytics */}
                 {(hasPermission(currentEmpUser, 'show_card_leads_analysis') ||
                   hasPermission(currentEmpUser, 'show_card_calls_analytics') ||
                   hasPermission(currentEmpUser, 'show_card_marketing_analytics')) && (
@@ -11585,65 +11626,197 @@ const handleExportBuffetToExcel = () => {
                       <div className="h-px bg-gradient-to-l from-transparent via-purple-500/30 to-purple-400/10 flex-1"></div>
                     </div>
 
-                    {/* 2. Lower Section: Performance Analytics (3 Cards auto-align side by side) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-              {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
-                  <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
-                    title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <BarChart3 className="text-amber-300" size={28} />
+                      {hasPermission(currentEmpUser, 'show_card_leads_analysis') && (
+                        <div 
+                          onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setLeadsAnalysisModalMode('auto'); setIsLeadsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                          title="انقر لعرض تقرير تحليلات أداء ونسبة نجاح فريقك"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <BarChart3 className="text-amber-300" size={28} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
+                            <h3 className="text-xl font-black text-amber-300">
+                              {leaderAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
+                            </h3>
+                            <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
+                              (داتا تقييم الفريق)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
+                        <div 
+                          onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('auto'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
+                          title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <PhoneCall className="text-amber-300 animate-pulse" size={28} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
+                            <h3 className="text-xl font-black text-amber-300">
+                              {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
+                            </h3>
+                          </div>
+                        </div>
+                      )}
+                      {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'campaigns', 'team')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <BarChart3 className="text-amber-400" size={28} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
+                            <h3 className="text-2xl font-black text-amber-300">
+                              {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
+                            </h3>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📊 Leads CRM Analysis</p>
-                      <h3 className="text-xl font-black text-amber-300">
-                        {leaderAnalysisCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Leads</span>
-                      </h3>
-                      <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
-                        (داتا تقييم الفريق)
+                  </>
+                )}
+
+                {/* Section Divider 2: Subscriptions & Recommendations */}
+                {(hasPermission(currentEmpUser, 'show_card_subscribed_clients') ||
+                  hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+                  hasPermission(currentEmpUser, 'show_card_us_stocks')) && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5">
+                        <Award size={16} className="text-amber-400" />
+                        <span>🎉 الاشتراكات والتوصيات الاستثمارية (سعودي وأمريكي)</span>
                       </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
                     </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_calls_analytics') && (
-                  <div 
-                    onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); setCallsAnalysisModalMode('auto'); setIsCallsAnalysisModalOpen(true); }} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)] flex items-center cursor-pointer transition-all transform"
-                    title="انقر لعرض تقرير وتحليل أداء مكالماتك ومكالمات فريقك"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <PhoneCall className="text-amber-300 animate-pulse" size={28} />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                      {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                            <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                              <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>توصيات السوق الأمريكي</span>
+                            </p>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                                {usRecommendations.length.toLocaleString()} توصية
+                              </span>
+                              <span className="text-[11px] text-amber-400 font-bold">
+                                ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة توصيات السوق السعودي"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                            <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                              <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>توصيات السوق السعودي</span>
+                            </p>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                                {saudiRecommendations.length.toLocaleString()} توصية
+                              </span>
+                              <span className="text-[11px] text-amber-400 font-bold">
+                                ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة العملاء المشتركين بالفريق"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <Award className="text-amber-400" size={28} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">Paid Clients 🎉</p>
+                            <div className="mt-1">
+                              <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                                {leaderSubscribedClients.length.toLocaleString()} Paid
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📞 Calls Performance Analysis</p>
-                      <h3 className="text-xl font-black text-amber-300">
-                        {todayCallLogsCount.toLocaleString()} <span className="text-xs text-purple-300 font-normal">Today</span>
-                      </h3>
-                      
+                  </>
+                )}
+
+                {/* Section Divider 3: Accounts & Finance Unit */}
+                {(hasPermission(currentEmpUser, 'show_card_attendance_payroll') ||
+                  hasPermission(currentEmpUser, 'show_card_buffet')) && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                        <CreditCard size={16} className="text-emerald-400" />
+                        <span>💼 وحدة الحسابات والمالية</span>
+                      </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-400/10 flex-1"></div>
                     </div>
-                  </div>
-              )}
-              {hasPermission(currentEmpUser, 'show_card_marketing_analytics') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'campaigns', 'team')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'campaigns' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض تقرير وتحليل أداء حملات الواتساب لفريقك"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <BarChart3 className="text-amber-400" size={28} />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+                      {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">⏰</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_buffet') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">☕</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">📢 Marketing Analytics</p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {new Set(leaderTeamTemplateMsgs.map(m => m.templateName || (m.text?.match(/[قالب.*?:(.*?)]/)?.[1]?.trim() || 'قالب غير معروف'))).size.toLocaleString()} Marketing Messages
-                      </h3>
-                      
-                    </div>
-                  </div>
-              )}
-                </div>
                   </>
                 )}
               </div>
@@ -11890,7 +12063,55 @@ const handleExportBuffetToExcel = () => {
                 )}
 
                 {/* --------------------------------------------------------------------- */}
-                {/* LEVEL 4: كروت متابعة الموظفين - الصف الأخير (Staff Monitoring - 3 Cards) */}
+                {/* LEVEL 4: وحدة الحسابات والمالية (Accounts & Finance Unit)             */}
+                {/* --------------------------------------------------------------------- */}
+                {(hasPermission(currentEmpUser, 'show_card_attendance_payroll') ||
+                  hasPermission(currentEmpUser, 'show_card_buffet')) && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                        <CreditCard size={16} className="text-emerald-400" />
+                        <span>💼 وحدة الحسابات والمالية</span>
+                      </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-400/10 flex-1"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+                      {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">⏰</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_buffet') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">☕</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* --------------------------------------------------------------------- */}
+                {/* LEVEL 5: كروت متابعة الموظفين - الصف الأخير (Staff Monitoring - 3 Cards) */}
                 {/* --------------------------------------------------------------------- */}
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
@@ -11968,14 +12189,14 @@ const handleExportBuffetToExcel = () => {
             );
           })()
         ) : (
-          /* Regular Employee (Agent) Cards View: Upper = Sheets & Data, Lower = Performance Analytics */
+          /* Regular Employee (Agent) Cards View: 4 Dedicated Vertical Sections */
           (() => {
             const agentTemplateMsgs = templateMessages.filter(m => m.senderEmail?.toLowerCase() === currentUser?.email?.toLowerCase() || m.senderUid === currentUser?.uid);
 
             return (
               <div className="space-y-4 mb-6">
-                {/* 1. Upper Section: Sheets & Personal Leads Data (4 Cards) */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+                {/* 1. Upper Section: Sheets & Personal Leads Data (3 Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {hasPermission(currentEmpUser, 'show_card_leads_crm') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'leads_crm', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -12010,25 +12231,6 @@ const handleExportBuffetToExcel = () => {
                     </div>
                   </div>
               )}
-              {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Award className="text-amber-400" size={28} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
-                      <div className="mt-1">
-                        <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
-                          {agentSubscribedClients.length.toLocaleString()} Paid
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-              )}
               {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
                   <div 
                     onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -12048,7 +12250,7 @@ const handleExportBuffetToExcel = () => {
               )}
                 </div>
 
-                {/* Section Divider: Performance & Analytics */}
+                {/* Section Divider 1: Performance & Analytics */}
                 <div className="flex items-center gap-2 pt-2">
                   <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
                     <BarChart3 size={15} className="text-cyan-400" />
@@ -12117,6 +12319,141 @@ const handleExportBuffetToExcel = () => {
                   </div>
               )}
                 </div>
+
+                {/* Section Divider 2: Subscriptions & Recommendations */}
+                {(hasPermission(currentEmpUser, 'show_card_subscribed_clients') ||
+                  hasPermission(currentEmpUser, 'show_card_saudi_stocks') ||
+                  hasPermission(currentEmpUser, 'show_card_us_stocks')) && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5">
+                        <Award size={16} className="text-amber-400" />
+                        <span>🎉 الاشتراكات والتوصيات الاستثمارية (سعودي وأمريكي)</span>
+                      </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-400/10 flex-1"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+                      {hasPermission(currentEmpUser, 'show_card_us_stocks') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'us_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'us_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة توصيات السوق الأمريكي (أسهم وعقود)"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                            <UsFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                              <UsFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>توصيات السوق الأمريكي</span>
+                            </p>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                                {usRecommendations.length.toLocaleString()} توصية
+                              </span>
+                              <span className="text-[11px] text-amber-400 font-bold">
+                                ({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_saudi_stocks') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'saudi_signals', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'saudi_signals' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة توصيات السوق السعودي"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0 flex items-center justify-center">
+                            <SaudiFlagIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words inline-flex items-center gap-1.5">
+                              <SaudiFlagIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>توصيات السوق السعودي</span>
+                            </p>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-block px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm shadow-sm" dir="ltr">
+                                {saudiRecommendations.length.toLocaleString()} توصية
+                              </span>
+                              <span className="text-[11px] text-amber-400 font-bold">
+                                ({saudiRecommendations.filter(s => s.status === 'active').length} سارية ⏳)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_subscribed_clients') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'subscribed_clients', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'subscribed_clients' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض ومتابعة العملاء المشتركين وتفاصيل باقاتهم"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <Award className="text-amber-400" size={28} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🎉 Paid Clients</p>
+                            <div className="mt-1">
+                              <span className="inline-block px-3.5 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/70 text-amber-300 font-black text-sm sm:text-base shadow-sm" dir="ltr">
+                                {(allSubscribedClients || []).filter(c => c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase()).length.toLocaleString()} Paid
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Section Divider 3: Accounts & Finance Unit */}
+                {(hasPermission(currentEmpUser, 'show_card_attendance_payroll') ||
+                  hasPermission(currentEmpUser, 'show_card_buffet')) && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                        <CreditCard size={16} className="text-emerald-400" />
+                        <span>💼 وحدة الحسابات والمالية</span>
+                      </span>
+                      <div className="h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-400/10 flex-1"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+                      {hasPermission(currentEmpUser, 'show_card_attendance_payroll') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'payroll_attendance', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'payroll_attendance' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة حضور وانصراف وبصمة ورواتب وخصومات الموظفين"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">⏰</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">⏰ حضور وانصراف وخصومات الموظفين</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasPermission(currentEmpUser, 'show_card_buffet') && (
+                        <div 
+                          onClick={(e) => handleCardClick(e, 'buffet_inventory', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                          className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'buffet_inventory' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
+                          title="انقر لعرض وإدارة مصروفات ومحتويات البوفيه والفواتير وملف الإكسيل"
+                        >
+                          <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
+                            <span className="text-2xl">☕</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-0 leading-snug break-words">☕ مصروفات ومحتويات البوفيه</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             );
           })()
