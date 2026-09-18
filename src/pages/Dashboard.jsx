@@ -11184,20 +11184,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
 
-              {/* Card 5: Website WhatsApp Leads */}
-              <div 
-                onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-amber-400" size={28} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                </div>
-              </div>
+              {/* Card 5: Website WhatsApp Leads Hidden */}
 
               {/* Card 6: Visitors */}
               <div 
@@ -11491,22 +11478,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
               </div>
               )}
-              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
-              <div 
-                onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                title="عملاء ورسائل الواتساب الواردة من الموقع الإلكتروني"
-              >
-                <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                  <Globe className="text-amber-400" size={28} />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs md:text-sm sm:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website_whatsapp' || c.source === 'webhook') && !c.addedByUid && c.source !== 'whatsapp_manual' && c.source !== 'crm_sheet' && c.source !== 'manual').length.toLocaleString()}</h3>
-                  
-                </div>
-              </div>
-              )}
+              {/* Card Data website by whatsapp Hidden */}
               {hasPermission(currentEmpUser, 'show_card_visitors_otp') && (
               <div 
                 onClick={(e) => handleCardClick(e, 'whatsapp_visitors', 'all')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -11802,23 +11774,7 @@ const handleExportBuffetToExcel = () => {
                       </div>
                     </div>
                   )}
-                  {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
-                    <div 
-                      onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                      title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-                    >
-                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                        <Globe className="text-amber-400" size={28} />
-                      </div>
-                      <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                        <h3 className="text-2xl font-black text-amber-300">
-                          {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || myTeamMembers.some(m => m.uid === c.assignedToUid))).length.toLocaleString()}
-                        </h3>
-                      </div>
-                    </div>
-                  )}
+                  {/* Card Data website by whatsapp Hidden */}
                 </div>
 
                 {/* Section Divider 1: Performance & Analytics */}
@@ -12088,23 +12044,7 @@ const handleExportBuffetToExcel = () => {
                       </div>
                     </div>
               )}
-              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
-                    <div 
-                      onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                      className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                      title="انقر لعرض عملاء واتساب الموقع الإلكتروني المخصصين لك"
-                    >
-                      <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                        <Globe className="text-amber-400" size={28} />
-                      </div>
-                      <div>
-                        <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                        <h3 className="text-2xl font-black text-amber-300">
-                          {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
-                        </h3>
-                      </div>
-                    </div>
-              )}
+              {/* Card Data website by whatsapp Hidden */}
                   </div>
                 </div>
 
@@ -12439,23 +12379,7 @@ const handleExportBuffetToExcel = () => {
                     </div>
                   </div>
               )}
-              {hasPermission(currentEmpUser, 'show_card_website_whatsapp') && (
-                  <div 
-                    onClick={(e) => handleCardClick(e, 'customers', 'website')} style={{ touchAction: 'manipulation', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                    className={`bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 text-white rounded-xl sm:rounded-2xl shadow-[0_6px_20px_rgba(147,51,234,0.35)] min-h-[85px] sm:min-h-[96px] md:min-h-[104px] p-3 sm:p-4 md:p-4.5 border ${activeTab === 'customers' && customerFilter === 'website' ? 'border-amber-400 scale-105 shadow-[0_8px_25px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/30' : 'border-amber-400/50 md:hover:border-amber-300 md:hover:scale-105 md:hover:shadow-[0_8px_25px_rgba(245,158,11,0.35)]'} flex items-center cursor-pointer transition-all transform`}
-                    title="انقر لعرض عملاء واتساب الموقع الإلكتروني"
-                  >
-                    <div className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3.5 rounded-full ml-2.5 sm:ml-3.5 shadow-inner border border-white/20 shrink-0">
-                      <Globe className="text-amber-400" size={28} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Data website by whatsapp</p>
-                      <h3 className="text-2xl font-black text-amber-300">
-                        {customers.filter(c => (c.addedBy === 'WhatsApp Webhook' || c.source === 'website' || !c.addedBy) && (c.assignedToUid === currentUser?.uid || c.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase())).length.toLocaleString()}
-                      </h3>
-                    </div>
-                  </div>
-              )}
+              {/* Card Data website by whatsapp Hidden */}
                 </div>
 
                 {/* Section Divider 1: Performance & Analytics */}
@@ -17715,7 +17639,7 @@ const handleExportBuffetToExcel = () => {
                     <h2 className="text-lg font-black text-white flex items-center gap-2">
                       <span>{customerFilter === 'manual' ? 'العملاء المضافين يدوياً' :
                        customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
-                       '🌐 Data website by whatsapp'}</span>
+                       '🌐 عملاء ورسائل الواتساب (الموقع)'}</span>
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
                         {(customerFilter === 'website' ? websiteWaPool.length : (customerFilter !== 'all' || (selectedEmpFilter && selectedEmpFilter !== 'all') || search ? filteredPool.length : scopedCustomerPool.length)).toLocaleString()} Leads
                       </span>

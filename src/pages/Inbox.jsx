@@ -2294,47 +2294,54 @@ function InboxContent() {
             </span>
           </div>
         ) : (
-          <div className="grid grid-cols-5 bg-slate-950/90 p-1.5 gap-1 border-b border-white/10 relative z-10 w-full">
-            <button 
-              onClick={() => setChatTabFilter('all')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md ring-1 ring-blue-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
-              title="جميع المحادثات"
-            >
-              <span className="truncate text-[11px] sm:text-xs">💬 الكل</span>
-              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({combinedChats.length})</span>
-            </button>
-            <button 
-              onClick={() => setChatTabFilter('direct')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md ring-1 ring-emerald-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
-              title="عملاء الحملات التسويقية"
-            >
-              <span className="truncate text-[11px] sm:text-xs">👤 الحملات</span>
-              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
-            </button>
-            <button 
-              onClick={() => setChatTabFilter('website')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md ring-1 ring-amber-400/50' : 'bg-white/5 text-amber-300/90 hover:text-amber-200 hover:bg-white/10 border border-amber-500/20'}`}
-              title="رسائل وزوار الموقع"
-            >
-              <span className="truncate text-[11px] sm:text-xs">🌐 الموقع</span>
-              <span className="bg-black/40 text-amber-200 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => isWebsiteLead(c) && hasCustomerSentMessage(c) && !c.isGroup && !c.isDirect).length})</span>
-            </button>
-            <button 
-              onClick={() => setChatTabFilter('groups')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md ring-1 ring-purple-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
-              title="جروبات الموظفين"
-            >
-              <span className="truncate text-[11px] sm:text-xs">👥 الجروبات</span>
-              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
-            </button>
-            <button 
-              onClick={() => setChatTabFilter('colleagues')}
-              className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col sm:flex-row items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md ring-1 ring-cyan-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
-              title="محادثات الزملاء المباشرة"
-            >
-              <span className="truncate text-[11px] sm:text-xs">🤝 الزملاء</span>
-              <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isDirect).length})</span>
-            </button>
+          <div className="bg-slate-950/90 p-2 border-b border-white/10 relative z-10 w-full space-y-1.5">
+            {/* Row 1: External Customer Tabs (الكل / الحملات / الموقع) */}
+            <div className="grid grid-cols-3 gap-1.5 w-full">
+              <button 
+                onClick={() => setChatTabFilter('all')}
+                className={`py-1.5 px-1 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md ring-1 ring-blue-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+                title="جميع المحادثات"
+              >
+                <span>💬 الكل</span>
+                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({combinedChats.length})</span>
+              </button>
+              <button 
+                onClick={() => setChatTabFilter('direct')}
+                className={`py-1.5 px-1 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md ring-1 ring-emerald-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+                title="عملاء الحملات التسويقية"
+              >
+                <span>👤 الحملات</span>
+                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
+              </button>
+              <button 
+                onClick={() => setChatTabFilter('website')}
+                className={`py-1.5 px-1 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md ring-1 ring-amber-400/50' : 'bg-white/5 text-amber-300/90 hover:text-amber-200 hover:bg-white/10 border border-amber-500/20'}`}
+                title="رسائل وزوار الموقع"
+              >
+                <span>🌐 الموقع</span>
+                <span className="bg-black/40 text-amber-200 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({chats.filter(c => isWebsiteLead(c) && hasCustomerSentMessage(c) && !c.isGroup && !c.isDirect).length})</span>
+              </button>
+            </div>
+
+            {/* Row 2: Internal Staff Tabs (جروبات الموظفين / محادثات الزملاء) */}
+            <div className="grid grid-cols-2 gap-1.5 w-full">
+              <button 
+                onClick={() => setChatTabFilter('groups')}
+                className={`py-1.5 px-1 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md ring-1 ring-purple-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+                title="جروبات الموظفين الداخلية"
+              >
+                <span>👥 جروبات الموظفين</span>
+                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
+              </button>
+              <button 
+                onClick={() => setChatTabFilter('colleagues')}
+                className={`py-1.5 px-1 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 min-w-0 w-full text-center ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md ring-1 ring-cyan-400/50' : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/10'}`}
+                title="محادثات الزملاء المباشرة"
+              >
+                <span>🤝 محادثات الزملاء</span>
+                <span className="bg-black/40 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold font-mono">({internalGroups.filter(g => g.isDirect).length})</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -2556,19 +2563,24 @@ function InboxContent() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    {/* Row 1: Customer Name + Admin Assign Dropdown Filter + Badges */}
+                    {/* Row 1: Customer Name + Website Badge + Admin Assign Dropdown Filter */}
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-bold text-white text-sm truncate max-w-[140px] sm:max-w-[170px]">
+                      <h3 className="font-bold text-white text-sm truncate max-w-[120px] sm:max-w-[150px]">
                         {chat.name || chat.phoneNumber || 'عميل مسجل'}
                       </h3>
 
-                      {/* Admin Transfer / Assign Dropdown Filter next to Customer Name */}
+                      {/* 1. Website Badge directly next to Customer Name */}
+                      {isWebsiteLead(chat) && (
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0">🌐 موقع</span>
+                      )}
+
+                      {/* 2. Admin Transfer / Assign Dropdown Filter to the left of Website Badge */}
                       {isAdmin && (
                         <select 
                           value={chat.assignedToUid || ""}
                           onChange={(e) => handleAssignChat(chat.id, e.target.value)}
                           onClick={(e) => e.stopPropagation()}
-                          className="bg-slate-900/90 text-cyan-300 border border-cyan-500/40 rounded-md px-1.5 py-0.5 text-[9px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer max-w-[115px] shrink-0"
+                          className="bg-slate-900/90 text-cyan-300 border border-cyan-500/40 rounded-md px-1.5 py-0.5 text-[9px] font-bold focus:outline-none focus:border-cyan-400 cursor-pointer max-w-[110px] shrink-0"
                           title="تحويل العميل إلى موظف"
                         >
                           <option value="" disabled className="bg-slate-900 text-gray-400">تحويل إلى...</option>
@@ -2587,9 +2599,6 @@ function InboxContent() {
                         </select>
                       )}
 
-                      {isWebsiteLead(chat) && (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0">🌐 موقع</span>
-                      )}
                       {isWaitingListLead(chat) && (
                         <span className="bg-rose-600/30 text-rose-200 border border-rose-500/50 text-[9px] px-1.5 py-0.2 rounded font-black shrink-0 animate-pulse">⏳ انتظار</span>
                       )}
