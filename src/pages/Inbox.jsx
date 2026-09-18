@@ -1,3 +1,4 @@
+// WhatsApp Inbox - Version 1.5 - Updated Campaign Customers & Website WhatsApp Filters
 import { setGlobalNotificationAlert } from '../utils/notificationBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc } from '../firebase';
