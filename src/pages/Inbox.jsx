@@ -73,10 +73,42 @@ function InboxContent() {
   const [selectedGroupMemberUids, setSelectedGroupMemberUids] = useState([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isGroupInfoModalOpen, setIsGroupInfoModalOpen] = useState(false);
-  const [chatTabFilter, setChatTabFilter] = useState('all'); // 'all' | 'direct' | 'groups' | 'colleagues'
+  const [chatTabFilter, setChatTabFilter] = useState('all'); // 'all' | 'direct' | 'website' | 'waiting' | 'groups' | 'colleagues'
   const [newMemberToAddUid, setNewMemberToAddUid] = useState('');
   const [isDirectModalOpen, setIsDirectModalOpen] = useState(false);
   const [directSearchTerm, setDirectSearchTerm] = useState('');
+
+  // Admin Bulk Message Selection & Delete States
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+
+  const isWebsiteLead = (chat) => {
+    if (!chat) return false;
+    return (
+      chat.addedBy === 'WhatsApp Webhook' ||
+      chat.source === 'website' ||
+      chat.source === 'website_whatsapp' ||
+      chat.source === 'موقع الويب (OTP)' ||
+      chat.addedBy?.includes?.('WhatsApp Webhook') ||
+      chat.addedBy?.includes?.('website') ||
+      chat.isWebsiteWhatsapp === true ||
+      chat.hasEmployeeCode === true ||
+      chat.source?.includes?.('موقع') ||
+      chat.source?.includes?.('واتساب الموقع')
+    );
+  };
+
+  const isWaitingListLead = (chat) => {
+    if (!isWebsiteLead(chat)) return false;
+    return (
+      chat.isResponded !== true &&
+      chat.hasReplied !== true &&
+      chat.waitingStatus !== 'responded' &&
+      chat.lastMessageFrom !== 'emp' &&
+      chat.lastMessageFrom !== 'agent' &&
+      chat.lastMessageFrom !== 'admin'
+    );
+  };
 
 
   const messagesContainerRef = useRef(null);
@@ -954,6 +986,38 @@ function InboxContent() {
     }, 100);
   };
 
+  const handleBulkDeleteMessages = async () => {
+    if (!selectedMessageIds || selectedMessageIds.length === 0) return;
+    const count = selectedMessageIds.length;
+    if (!window.confirm(`هل أنت متأكد من حذف ${count} رسالة محددة نهائياً من عند الموظفين والعملاء؟`)) {
+      return;
+    }
+
+    const deleteSet = new Set(selectedMessageIds);
+    const deleteList = [...selectedMessageIds];
+
+    // 1. INSTANT ZERO-LATENCY OPTIMISTIC UI REMOVAL (0ms)
+    setMessages(prev => prev.filter(m => !deleteSet.has(m.id)));
+    setSelectedMessageIds([]);
+    setIsSelectMode(false);
+    toast.success(`تم حذف ${count} رسالة بنجاح 🗑️`);
+
+    // 2. Fast background Firestore batch delete
+    try {
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < deleteList.length; i += BATCH_SIZE) {
+        const chunk = deleteList.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        for (const mId of chunk) {
+          batch.delete(doc(db, 'رسائل_الموظفين_للعملاء', mId));
+        }
+        await batch.commit().catch(() => {});
+      }
+    } catch (err) {
+      console.error('Error during bulk message delete:', err);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/login');
@@ -1422,6 +1486,14 @@ function InboxContent() {
         unread: 0
       };
 
+      if (isWebsiteLead(activeChat)) {
+        updateData.isResponded = true;
+        updateData.hasReplied = true;
+        updateData.waitingStatus = 'responded';
+        updateData.lastMessageFrom = 'emp';
+        updateData.lastRepliedAt = serverTimestamp();
+      }
+
       if (activeChat.status === 'unassigned') {
         updateData.status = 'assigned';
         updateData.assignedTo = currentUser.email;
@@ -1429,7 +1501,11 @@ function InboxContent() {
         updateData.assignedAt = serverTimestamp();
       }
 
-      await updateDoc(chatRef, updateData);
+      await updateDoc(chatRef, updateData).catch(() => {});
+
+      // Sync local states immediately (0ms) so waiting list lead automatically leaves the waiting list
+      setChats(prev => prev.map(c => c.id === activeChat.id ? { ...c, ...updateData, isResponded: true, hasReplied: true, waitingStatus: 'responded', lastMessageFrom: 'emp' } : c));
+      setActiveChat(prev => (prev && prev.id === activeChat.id ? { ...prev, ...updateData, isResponded: true, hasReplied: true, waitingStatus: 'responded', lastMessageFrom: 'emp' } : prev));
     } catch (err) {
       console.error("خطأ الإرسال:", err);
       toast.error(`خطأ في الإرسال: ${err.message || 'حدث خطأ غير متوقع'}`);
@@ -1893,7 +1969,9 @@ function InboxContent() {
     }
 
     // Tab filter
-    if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect)) return false;
+    if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect || isWebsiteLead(chat))) return false;
+    if (chatTabFilter === 'website' && (!isWebsiteLead(chat) || chat.isGroup || chat.isDirect)) return false;
+    if (chatTabFilter === 'waiting' && (!isWaitingListLead(chat) || chat.isGroup || chat.isDirect)) return false;
     if (chatTabFilter === 'groups' && (!chat.isGroup || chat.isDirect)) return false;
     if (chatTabFilter === 'colleagues' && !chat.isDirect) return false;
 
@@ -2198,31 +2276,45 @@ function InboxContent() {
             </span>
           </div>
         ) : (
-          <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs">
+          <div className="flex items-center bg-black/40 p-1.5 gap-1 border-b border-white/10 relative z-10 text-xs flex-wrap sm:flex-nowrap overflow-x-auto scrollbar-none">
             <button 
               onClick={() => setChatTabFilter('all')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>💬 الكل</span>
               <span className="text-[10px] opacity-75">({combinedChats.length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('direct')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'direct' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>👤 العملاء</span>
-              <span className="text-[10px] opacity-75">({chats.length})</span>
+              <span className="text-[10px] opacity-75">({chats.filter(c => !isWebsiteLead(c)).length})</span>
+            </button>
+            <button 
+              onClick={() => setChatTabFilter('website')}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'website' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm' : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'}`}
+            >
+              <span>🌐 واتساب الموقع</span>
+              <span className="text-[10px] opacity-75">({chats.filter(isWebsiteLead).length})</span>
+            </button>
+            <button 
+              onClick={() => setChatTabFilter('waiting')}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'waiting' ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-sm animate-pulse' : 'text-rose-400 hover:text-rose-200 hover:bg-white/5'}`}
+            >
+              <span>⏳ قائمة الانتظار</span>
+              <span className="text-[10px] bg-rose-500/30 text-rose-200 px-1.5 rounded-full font-black">({chats.filter(isWaitingListLead).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('groups')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'groups' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>👥 الجروبات</span>
               <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isGroup && !g.isDirect).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('colleagues')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'colleagues' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>🤝 الزملاء</span>
               <span className="text-[10px] opacity-75">({internalGroups.filter(g => g.isDirect).length})</span>
@@ -2432,12 +2524,18 @@ function InboxContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-white text-sm flex items-center gap-2 truncate">
-                      <span>{chat.name || 'عميل بدون اسم'}</span>
-                      {chat.status === 'unassigned' && (
-                        <span className="bg-red-600/30 text-red-200 border border-red-500/50 text-[10px] px-1.5 py-0.2 rounded font-extrabold shrink-0 animate-pulse">⏳ Waiting</span>
+                      <span className="truncate">{chat.name || chat.phoneNumber || 'عميل مسجل'}</span>
+                      {isWebsiteLead(chat) && (
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0">🌐 موقع</span>
+                      )}
+                      {isWaitingListLead(chat) && (
+                        <span className="bg-rose-600/30 text-rose-200 border border-rose-500/50 text-[9px] px-1.5 py-0.2 rounded font-black shrink-0 animate-pulse">⏳ انتظار</span>
+                      )}
+                      {chat.status === 'unassigned' && !isWaitingListLead(chat) && (
+                        <span className="bg-red-600/30 text-red-200 border border-red-500/50 text-[9px] px-1.5 py-0.2 rounded font-extrabold shrink-0 animate-pulse">⏳ Waiting</span>
                       )}
                     </h3>
-                    <p className="text-xs text-gray-400 font-mono truncate" dir="ltr">{chat.phoneNumber}</p>
+                    <p className="text-xs text-cyan-300 font-mono font-bold truncate mt-0.5" dir="ltr">{chat.phoneNumber || chat.phone}</p>
                     <p className={`text-xs truncate mt-1 ${isUnassignedOrUnread ? 'text-red-200 font-bold' : 'text-gray-300'}`}>{chat.lastMessage || 'بدء المحادثة...'}</p>
                   </div>
                 </div>
@@ -2604,14 +2702,6 @@ function InboxContent() {
                             👤 عميل
                           </span>
                         )}
-                        {/* شارة رقم الإرسال */}
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                          (activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website'
-                            ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
-                            : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                        }`}>
-                          📞 {(activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')) === 'website' ? 'رقم الموقع' : 'رقم الحملات'}
-                        </span>
 
                         {/* CRM Status Dropdown Selector */}
                         <select
@@ -2645,6 +2735,20 @@ function InboxContent() {
 
               {/* Right Side Header Controls */}
               <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSelectMode(prev => !prev);
+                      setSelectedMessageIds([]);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border ${isSelectMode ? 'bg-amber-500 text-slate-900 border-amber-300 font-bold' : 'bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700'}`}
+                    title="تحديد وإلغاء تحديد أكثر من رسالة للحذف الجماعي"
+                  >
+                    <CheckSquare size={14} />
+                    <span>{isSelectMode ? 'إغلاق التحديد' : 'تحديد رسائل'}</span>
+                  </button>
+                )}
                 {activeChat.isDirect ? (
                   /* Direct Colleague Action Buttons */
                   <div className="flex items-center gap-1.5">
@@ -2690,19 +2794,21 @@ function InboxContent() {
                 ) : (
                   /* Customer Action Buttons */
                   <>
-                    <button
-                      onClick={() => {
-                        const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
-                        window.open(`https://wa.me/${phoneNum}`, '_blank');
-                      }}
-                      className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                      title="فتح محادثة الواتساب المباشرة"
-                    >
-                      <MessageCircle size={14} />
-                      <span className="hidden sm:inline">فتح الواتساب</span>
-                    </button>
+                    {!isWebsiteLead(activeChat) && (
+                      <button
+                        onClick={() => {
+                          const phoneNum = activeChat.phoneNumber.replace(/[^0-9]/g, '');
+                          window.open(`https://wa.me/${phoneNum}`, '_blank');
+                        }}
+                        className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                        title="فتح محادثة الواتساب المباشرة"
+                      >
+                        <MessageCircle size={14} />
+                        <span className="hidden sm:inline">فتح الواتساب</span>
+                      </button>
+                    )}
 
-                    {isAdmin && (
+                    {isAdmin && !isWebsiteLead(activeChat) && (
                       <select
                         value={activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns')}
                         onChange={async (e) => {
