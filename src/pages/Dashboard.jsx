@@ -1026,19 +1026,19 @@ const Dashboard = () => {
           bg: 'bg-amber-100 text-amber-900 border-amber-300',
           icon: '🎉'
         });
+      } else if (custMatch.source === 'website' || custMatch.source === 'website_otp' || custMatch.addedBy === 'website_otp' || custMatch.isWebsiteLead) {
+        locations.push({
+          type: 'website_customer',
+          label: `🌐 مسجّل عبر موقع الويب (OTP) (${empName})`,
+          bg: 'bg-purple-100 text-purple-900 border-purple-300',
+          icon: '🌐'
+        });
       } else if (custMatch.source === 'manual' || (custMatch.addedBy && custMatch.addedBy !== 'website_otp')) {
         locations.push({
           type: 'manual_customer',
           label: `✋ عميل مضاف يدوياً (${empName})`,
           bg: 'bg-orange-100 text-orange-900 border-orange-300',
           icon: '✋'
-        });
-      } else if (custMatch.source === 'website' || custMatch.source === 'website_otp' || custMatch.addedBy === 'website_otp') {
-        locations.push({
-          type: 'website_customer',
-          label: `🌐 داتا الموقع (${empName})`,
-          bg: 'bg-purple-100 text-purple-900 border-purple-300',
-          icon: '🌐'
         });
       }
     }
@@ -1756,16 +1756,30 @@ const Dashboard = () => {
   const unreadWhatsAppChats = useMemo(() => {
     if (!currentUser) return [];
 
+    let allCandidateCustomerChats = [...(customers || [])];
+    if (visitors && visitors.length > 0) {
+      visitors.forEach(v => {
+        const vPhoneNorm = normalizePhone(v.phone || v.phoneNumber || v.id);
+        if (!allCandidateCustomerChats.some(c => c.id === v.id || (vPhoneNorm && normalizePhone(c.phoneNumber || c.phone || c.id) === vPhoneNorm))) {
+          allCandidateCustomerChats.push({
+            ...v,
+            source: v.source || 'website_otp',
+            addedBy: v.addedBy || 'website_otp'
+          });
+        }
+      });
+    }
+
     // A. Filter Customer Chats (Strictly real unread messages, excluded if already read or dismissed)
     let filteredCustomerChats = [];
     if (!isCoordinator) {
-      filteredCustomerChats = (customers || []).filter(c => {
+      filteredCustomerChats = allCandidateCustomerChats.filter(c => {
         if (dismissedNotifIds.includes(c.id)) return false;
 
         const isRead = c.readBy && (c.readBy.includes(currentUser.uid) || (isAdmin && c.readBy.includes('admin')));
         if (isRead) return false;
 
-        const hasUnread = (Number(c.unread) > 0) || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting';
+        const hasUnread = (Number(c.unread) > 0) || c.unread === true || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting' || (c.lastMessage && !c.lastMessageFrom && c.isResponded !== true);
         if (!hasUnread) return false;
 
         if (isAdmin) return true; // Admin gets notifications for all customer chats
@@ -1813,7 +1827,7 @@ const Dashboard = () => {
       const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt) || 0;
       return timeB - timeA;
     });
-  }, [customers, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers, dismissedNotifIds, currentEmpUser]);
+  }, [customers, visitors, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers, dismissedNotifIds, currentEmpUser]);
 
   const totalUnreadWhatsAppCount = useMemo(() => {
     return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);
@@ -5212,23 +5226,53 @@ const Dashboard = () => {
 
   const handleTransferToWhatsapp = async (customer) => {
     try {
-      let rawPhone = customer.phoneNumber || customer.phone || '';
-      let phoneNum = rawPhone.replace(/[^0-9]/g, '');
-      const waUrl = `https://wa.me/${phoneNum}`;
+      let rawPhone = customer.phoneNumber || customer.phone || customer.id || '';
+      let targetNorm = normalizePhone(rawPhone);
       
-      window.open(waUrl, '_blank');
+      let targetDocId = customer.id;
+      let existingCustDoc = (customers || []).find(c => c.id === customer.id || normalizePhone(c.phoneNumber || c.phone || c.id) === targetNorm);
+      
+      const empUid = customer.assignedToUid || currentUser?.uid || 'admin';
+      const empEmail = customer.assignedTo || currentUser?.email || 'الإدارة';
 
-      const targetColl = determineCustomerCollection(customer);
-      await updateDoc(doc(db, targetColl, customer.id), {
-        transferredToWhatsapp: true,
-        transferredAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      if (existingCustDoc) {
+        targetDocId = existingCustDoc.id;
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', targetDocId), {
+          transferredToWhatsapp: true,
+          transferredAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          assignedToUid: empUid,
+          assignedTo: empEmail,
+          status: 'assigned',
+          isResponded: true
+        }).catch(err => console.error(err));
+      } else {
+        const custName = customer.name || customer.firstName || `${rawPhone}`;
+        const newRef = doc(collection(db, 'بيانات_تسجيل_العملاء'));
+        targetDocId = newRef.id;
+        await setDoc(newRef, {
+          id: targetDocId,
+          name: custName,
+          phone: rawPhone,
+          phoneNumber: rawPhone,
+          source: customer.source || 'website',
+          addedBy: 'website_otp',
+          assignedToUid: empUid,
+          assignedTo: empEmail,
+          status: 'assigned',
+          transferredToWhatsapp: true,
+          unread: 0,
+          isResponded: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
 
-      toast.success('تم فتح الواتساب بنجاح 💬');
+      toast.success('تم التوجيه إلى انبوكس الواتساب 💬');
+      navigate('/inbox', { state: { selectedCustomerId: targetDocId, searchPhone: targetNorm } });
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ عند فتح الواتساب');
+      toast.error('حدث خطأ عند التوجيه للواتساب');
     }
   };
 
@@ -10897,8 +10941,8 @@ const handleExportBuffetToExcel = () => {
                               <span className={`text-xs font-bold text-white truncate ${c.isGroup ? 'group-hover:text-indigo-300' : 'group-hover:text-emerald-300'} transition`}>
                                 {c.isGroup ? `👥 ${c.name}` : (c.name || c.phoneNumber)}
                               </span>
-                              <span className={`${c.isGroup ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-500/40' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'} text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0`}>
-                                {c.isGroup ? 'جروب موظفين 👥' : 'واتساب 💬'}
+                              <span className={`${c.isGroup ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-500/40' : (c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website_otp' || c.status === 'website_visitor' ? 'bg-purple-950/90 text-purple-300 border border-purple-500/40' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30')} text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0`}>
+                                {c.isGroup ? 'جروب موظفين 👥' : (c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website_otp' || c.status === 'website_visitor' ? '🌐 عملاء الموقع' : 'واتساب 💬')}
                               </span>
                             </div>
                             <p className={`text-[11px] ${c.isGroup ? 'text-indigo-200/90 font-bold' : 'text-emerald-200/90 font-medium'} truncate`}>

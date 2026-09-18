@@ -108,6 +108,7 @@ function InboxContent() {
   const hasCustomerSentMessage = (chat) => {
     if (!chat) return false;
     if (!isWebsiteLead(chat)) return true;
+    if (chat.assignedToUid || chat.status === 'assigned' || chat.isResponded || chat.transferredToWhatsapp || isAdmin) return true;
     if (chat.lastMessage && chat.lastMessage.trim() !== '' && !chat.lastMessage.includes('سجّل عبر موقع')) return true;
     if (chat.lastMessageFrom === 'user' || chat.lastSender === 'user' || chat.lastMessageSender === 'user') return true;
     if (Array.isArray(chat.messages) && chat.messages.some(m => m.sender === 'user' || m.from === 'user' || m.sender === 'customer')) return true;
@@ -927,7 +928,9 @@ function InboxContent() {
       setChats(chatsData);
 
       if (location.state?.selectedCustomerId && !activeChat) {
-        const foundChat = chatsData.find(c => c.id === location.state.selectedCustomerId);
+        const targetId = location.state.selectedCustomerId;
+        const targetPhone = location.state.searchPhone ? normalizePhone(location.state.searchPhone) : normalizePhone(targetId);
+        const foundChat = chatsData.find(c => c.id === targetId || (targetPhone && normalizePhone(c.phoneNumber || c.phone) === targetPhone));
         if (foundChat) {
           setActiveChat(foundChat);
         }
