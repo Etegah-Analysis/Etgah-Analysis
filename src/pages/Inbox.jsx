@@ -1976,10 +1976,8 @@ function InboxContent() {
     }
 
     // Tab filter
-    if (chatTabFilter === 'all' && isWaitingListLead(chat)) return false;
     if (chatTabFilter === 'direct' && (chat.isGroup || chat.isDirect || isWebsiteLead(chat))) return false;
     if (chatTabFilter === 'website' && (!isWebsiteLead(chat) || chat.isGroup || chat.isDirect)) return false;
-    if (chatTabFilter === 'waiting' && (!isWaitingListLead(chat) || chat.isGroup || chat.isDirect)) return false;
     if (chatTabFilter === 'groups' && (!chat.isGroup || chat.isDirect)) return false;
     if (chatTabFilter === 'colleagues' && !chat.isDirect) return false;
 
@@ -2290,7 +2288,7 @@ function InboxContent() {
               className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
               <span>💬 الكل</span>
-              <span className="text-[10px] opacity-75">({combinedChats.filter(c => !isWaitingListLead(c)).length})</span>
+              <span className="text-[10px] opacity-75">({combinedChats.length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('direct')}
@@ -2305,13 +2303,6 @@ function InboxContent() {
             >
               <span>🌐 واتساب الموقع</span>
               <span className="text-[10px] opacity-75">({chats.filter(c => isWebsiteLead(c) && !c.isGroup && !c.isDirect).length})</span>
-            </button>
-            <button 
-              onClick={() => setChatTabFilter('waiting')}
-              className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1 shrink-0 ${chatTabFilter === 'waiting' ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-sm animate-pulse' : 'text-rose-400 hover:text-rose-200 hover:bg-white/5'}`}
-            >
-              <span>⏳ قائمة الانتظار</span>
-              <span className="text-[10px] bg-rose-500/30 text-rose-200 px-1.5 rounded-full font-black">({chats.filter(isWaitingListLead).length})</span>
             </button>
             <button 
               onClick={() => setChatTabFilter('groups')}
@@ -2340,7 +2331,7 @@ function InboxContent() {
             >
               <option value="hide" className="text-red-600 font-bold bg-gray-100">🚫 إخفاء المحادثات</option>
               <option value="all" className="text-black font-bold">
-                👥 جميع المحادثات ({chatTabFilter === 'website' ? chats.filter(c => isWebsiteLead(c)).length : chatTabFilter === 'direct' ? chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length : chats.filter(c => !isWaitingListLead(c)).length})
+                👥 جميع المحادثات ({chatTabFilter === 'website' ? chats.filter(c => isWebsiteLead(c)).length : chatTabFilter === 'direct' ? chats.filter(c => !isWebsiteLead(c) && !c.isGroup && !c.isDirect).length : chats.length})
               </option>
               <option value="unassigned" className="text-orange-700 font-bold bg-orange-50">⏳ عملاء الانتظار ({chats.filter(c => c.status === 'unassigned' || isWaitingListLead(c)).length})</option>
               {employees.map(emp => {
