@@ -927,11 +927,22 @@ function InboxContent() {
       isFirstLoad.current = false;
       setChats(chatsData);
 
-      if (location.state?.selectedCustomerId && !activeChat) {
+      if (location.state?.selectedCustomerId) {
         const targetId = location.state.selectedCustomerId;
         const targetPhone = location.state.searchPhone ? normalizePhone(location.state.searchPhone) : normalizePhone(targetId);
-        const foundChat = chatsData.find(c => c.id === targetId || (targetPhone && normalizePhone(c.phoneNumber || c.phone) === targetPhone));
-        if (foundChat) {
+        let foundChat = chatsData.find(c => c.id === targetId || (targetPhone && normalizePhone(c.phoneNumber || c.phone || c.id) === targetPhone));
+        if (!foundChat) {
+          foundChat = {
+            id: targetId,
+            name: location.state.customerName || 'عميل اتجاه',
+            phone: targetPhone || targetId,
+            phoneNumber: targetPhone || targetId,
+            assignedTo: currentUser?.email || 'admin',
+            assignedToUid: currentUser?.uid || 'admin',
+            unread: 0
+          };
+        }
+        if (foundChat && (!activeChat || activeChat.id !== foundChat.id)) {
           setActiveChat(foundChat);
         }
       }
@@ -941,6 +952,35 @@ function InboxContent() {
 
     return () => unsubscribe();
   }, [currentUser, isAdmin, isCoordinator, location.state]);
+
+  // Instant selection and opening of transferred chat on navigation
+  useEffect(() => {
+    if (location.state?.selectedCustomerId) {
+      const targetId = location.state.selectedCustomerId;
+      const targetPhone = location.state.searchPhone ? normalizePhone(location.state.searchPhone) : normalizePhone(targetId);
+      
+      const foundInChats = chats.find(c => c.id === targetId || (targetPhone && normalizePhone(c.phoneNumber || c.phone || c.id) === targetPhone));
+      
+      const fallbackChat = foundInChats || {
+        id: targetId,
+        name: location.state.customerName || 'عميل اتجاه',
+        phone: targetPhone || targetId,
+        phoneNumber: targetPhone || targetId,
+        assignedTo: currentUser?.email || 'admin',
+        assignedToUid: currentUser?.uid || 'admin',
+        unread: 0
+      };
+
+      if (!activeChat || activeChat.id !== fallbackChat.id) {
+        setActiveChat(fallbackChat);
+      }
+    } else if (location.state?.selectedGroupId) {
+      const foundGroup = chats.find(c => c.id === location.state.selectedGroupId);
+      if (foundGroup && (!activeChat || activeChat.id !== foundGroup.id)) {
+        setActiveChat(foundGroup);
+      }
+    }
+  }, [location.state]);
 
   // حماية إضافية لحساب المنسق: إغلاق أي شات ليس جروب فوراً
   useEffect(() => {
@@ -1620,6 +1660,66 @@ function InboxContent() {
     } catch (err) {
       console.error("خطأ الإرسال:", err);
       toast.error(`خطأ في الإرسال: ${err.message || 'حدث خطأ غير متوقع'}`);
+    }
+  };
+
+  // Trigger internal call alert from top header across ALL chat types (Customers, Direct Colleague, Groups)
+  const handleTriggerInternalCallFromHeader = async () => {
+    if (!activeChat) return;
+
+    try {
+      const targetPhone = (activeChat.phoneNumber || activeChat.phone || activeChat.id || '').replace(/[^0-9]/g, '');
+      const callDocId = targetPhone || activeChat.id;
+      const callDocRef = doc(db, 'internal_calls', callDocId);
+
+      const callerName = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف');
+
+      const chatName = activeChat.name || activeChat.cardName || activeChat.title || 'المحادثة';
+
+      await setDoc(callDocRef, {
+        id: callDocId,
+        userPhone: activeChat.phoneNumber || activeChat.phone || activeChat.id,
+        cleanPhone: callDocId,
+        clientName: chatName,
+        callerType: 'staff',
+        callerName: callerName,
+        callerUid: currentUser?.uid,
+        status: 'ringing',
+        chatId: activeChat.id,
+        isGroupCall: Boolean(activeChat.isGroup),
+        isDirectCall: Boolean(activeChat.isDirect),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      // Add alert message into the active conversation history
+      await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+        conversationId: activeChat.id,
+        phoneNumber: activeChat.phoneNumber || activeChat.phone || activeChat.id,
+        sender: 'system',
+        senderName: callerName,
+        text: `📞 اتصال تنبيه داخلي جاري بالرسائل من الموظف (${callerName})...`,
+        timestamp: serverTimestamp(),
+        isGroupMessage: Boolean(activeChat.isGroup),
+        isDirectMessage: Boolean(activeChat.isDirect)
+      });
+
+      toast.success(`تم إرسال اتصال تنبيه داخلي بالرسائل بنجاح 📞🔔`);
+
+      // Auto cancel after 30 seconds if still ringing
+      setTimeout(async () => {
+        try {
+          const snap = await getDoc(callDocRef);
+          if (snap.exists() && snap.data().status === 'ringing') {
+            await setDoc(callDocRef, { status: 'cancelled' }, { merge: true });
+          }
+        } catch (e) {}
+      }, 30000);
+
+    } catch (err) {
+      console.error("Error triggering internal call:", err);
+      toast.error('خطأ في إرسال اتصال التنبيه: ' + (err.message || 'حاول مرة أخرى'));
     }
   };
 
@@ -2951,6 +3051,17 @@ function InboxContent() {
 
               {/* Right Side Header Controls */}
               <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
+                {/* Internal Call Alert Button for ALL conversation types */}
+                <button
+                  type="button"
+                  onClick={handleTriggerInternalCallFromHeader}
+                  className="bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 text-amber-300 hover:text-white border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0"
+                  title="إجراء اتصال تنبيه داخلي بالرسائل لهذه المحادثة"
+                >
+                  <PhoneCall size={14} className="text-amber-400 animate-pulse" />
+                  <span>اتصال داخلي للتنبيه بالرسائل</span>
+                </button>
+
                 {activeChat.isDirect ? (
                   /* Direct Colleague Action Buttons */
                   <div className="flex items-center gap-1.5">

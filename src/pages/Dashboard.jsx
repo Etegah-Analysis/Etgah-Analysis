@@ -5292,7 +5292,8 @@ const Dashboard = () => {
       }
 
       toast.success('تم التوجيه إلى انبوكس الواتساب 💬');
-      navigate('/inbox', { state: { selectedCustomerId: targetDocId, searchPhone: targetNorm } });
+      const custName = customer.name || customer.firstName || `${rawPhone}`;
+      navigate('/inbox', { state: { selectedCustomerId: targetDocId, searchPhone: targetNorm, customerName: custName } });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ عند التوجيه للواتساب');
