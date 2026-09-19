@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video } from 'lucide-react';
+import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video, Printer } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
@@ -8961,39 +8961,45 @@ const handleModalPasteBuffetItem = (e) => {
     }
   };
 
-  const handleExportOrPublishPdf = async (market) => {
+  const [pdfReportModalMarket, setPdfReportModalMarket] = useState(null);
+  const [publishedWeeklyReports, setPublishedWeeklyReports] = useState({ saudi: null, us: null });
+
+  useEffect(() => {
+    const unsubR = onSnapshot(collection(db, 'weekly_reports'), (snapshot) => {
+      const repMap = { saudi: null, us: null };
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.market === 'saudi' || docSnap.id === 'saudi_latest') {
+          repMap.saudi = data;
+        } else if (data.market === 'us' || docSnap.id === 'us_latest') {
+          repMap.us = data;
+        }
+      });
+      setPublishedWeeklyReports(repMap);
+    }, (err) => console.warn('Error reading weekly_reports in Dashboard:', err));
+    return () => unsubR();
+  }, []);
+
+  const handleExportOrPublishPdf = (market) => {
+    setPdfReportModalMarket(market);
+  };
+
+  const handleUploadWebsitePdfDirect = (market) => {
     const isSaudi = market === 'saudi';
     const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
-
-    const choice = window.confirm(
-      `اختر الإجراء المطلوب لتقرير ${marketTitle}:\n\n` +
-      `• اضغط (موافق OK) لتأكيد وتحويل/رفع التقرير مباشرة لموقع المنصة وتنبيه العملاء فوراً 🚀✨\n` +
-      `• اضغط (إلغاء Cancel) لتحميل وطباعة التقرير كملف PDF محلياً بـ لوجو الشركة 📄`
-    );
-
-    if (!choice) {
-      if (typeof handleExportSignalsPdf === 'function') {
-        handleExportSignalsPdf(market);
-      } else {
-        window.print();
-      }
-      return;
-    }
-
-    const toastId = toast.loading(`جاري رفع وتحويل تقرير ${marketTitle} لموقع المنصة... ⏳`);
-    const now = new Date();
-    const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-    const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
     const docId = isSaudi ? 'saudi_latest' : 'us_latest';
+    const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
 
-    let fileSelected = false;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/pdf,.pdf';
     input.onchange = async (e) => {
-      fileSelected = true;
       const file = e.target.files?.[0];
       if (!file) return;
+
+      const toastId = toast.loading(`جاري رفع وتحويل تقرير ${marketTitle} لموقع المنصة... ⏳`);
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
       try {
         let downloadUrl = '';
@@ -9048,23 +9054,33 @@ const handleModalPasteBuffetItem = (e) => {
     };
 
     input.click();
+  };
 
-    setTimeout(async () => {
-      if (!fileSelected) {
-        const defaultReportPayload = {
-          market: market,
-          title: isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي',
-          pdfUrl: '#',
-          uploadedAt: serverTimestamp(),
-          uploadedAtFormatted: formattedNow,
-          uploadedBy: userRole,
-          fileName: `${market}_report_${Date.now()}.pdf`
-        };
+  const handleDeletePublishedPdfReport = async (market) => {
+    const isSaudi = market === 'saudi';
+    const marketTitle = isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي';
+    const docId = isSaudi ? 'saudi_latest' : 'us_latest';
 
-        await setDoc(doc(db, 'weekly_reports', docId), defaultReportPayload, { merge: true }).catch(console.error);
-        toast.success(`تم تأكيد ونشر تقرير ${marketTitle} على موقع المنصة بنجاح 🚀✨`, { id: toastId, duration: 6000 });
-      }
-    }, 1200);
+    if (!window.confirm(`هل أنت تأكد من رغبتك في حذف وإلغاء نشر ${marketTitle} من موقع المنصة فوراً؟`)) {
+      return;
+    }
+
+    const toastId = toast.loading(`جاري حذف وإلغاء نشر التقرير لـ ${marketTitle} من الموقع... ⏳`);
+    try {
+      await deleteDoc(doc(db, 'weekly_reports', docId)).catch(() => {});
+      await setDoc(doc(db, 'weekly_reports', docId), {
+        pdfUrl: '',
+        title: marketTitle,
+        uploadedAtFormatted: '',
+        uploadedBy: '',
+        fileName: ''
+      });
+
+      toast.success(`تم حذف وإلغاء نشر تقرير ${marketTitle} من موقع المنصة بنجاح وتحديث الموقع فوراً 🗑️✨`, { id: toastId, duration: 5000 });
+    } catch (err) {
+      console.error('Error deleting weekly PDF report:', err);
+      toast.error('حدث خطأ أثناء حذف التقرير من الموقع: ' + (err.message || ''), { id: toastId });
+    }
   };
 
   // --- PLATFORM VIDEO UPLOADER HANDLERS (v2.26) ---
@@ -25202,6 +25218,170 @@ const handleExportBuffetToExcel = () => {
             </div>
           </div>
         )}
+        {/* PDF & Report Management Modal (v2.30) */}
+        {pdfReportModalMarket && (() => {
+          const isSaudi = pdfReportModalMarket === 'saudi';
+          const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
+          const publishedReport = publishedWeeklyReports[pdfReportModalMarket];
+          const hasPublishedReport = !!(publishedReport && publishedReport.pdfUrl && publishedReport.pdfUrl !== '#');
+
+          return (
+            <div 
+              onClick={() => setPdfReportModalMarket(null)}
+              className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-200"
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-slate-900 border-2 border-purple-500/50 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col"
+                dir="rtl"
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 p-4 border-b border-purple-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 text-lg shadow">
+                      📄
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm sm:text-base text-white">
+                        خيارات وإدارة تقرير PDF - {marketTitle}
+                      </h3>
+                      <p className="text-[11px] text-purple-200/80 mt-0.5">
+                        طباعة، تحميل محلي، رفع ملف للموقع، أو حذف التقرير المرفوع حالياً
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setPdfReportModalMarket(null)}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Current Live Status */}
+                <div className="p-4 bg-slate-950/70 border-b border-white/5">
+                  <div className={`p-3 rounded-2xl border text-xs flex flex-col gap-1 ${
+                    hasPublishedReport 
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' 
+                      : 'bg-rose-950/30 border-rose-500/30 text-rose-300'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-black flex items-center gap-1.5">
+                        <span>{hasPublishedReport ? '🟢 التقرير منشور ومتاح حالياً على موقع المنصة' : '🔴 لم يتم رفع تقرير على موقع المنصة حالياً'}</span>
+                      </span>
+                      {hasPublishedReport && (
+                        <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                          مباشر LIVE
+                        </span>
+                      )}
+                    </div>
+                    {hasPublishedReport && (
+                      <div className="text-[11px] text-slate-300 mt-1 space-y-0.5 font-mono">
+                        <div>📅 تاريخ ووقت الرفع: <span className="text-emerald-300 font-bold">{publishedReport.uploadedAtFormatted}</span></div>
+                        {publishedReport.uploadedBy && <div>👤 تم الرفع بواسطة: <span className="text-white font-bold">{publishedReport.uploadedBy}</span></div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Options Grid */}
+                <div className="p-4 sm:p-5 space-y-3">
+                  <p className="text-xs font-bold text-slate-300 mb-2">اختر الإجراء المطلوب لتقرير PDF:</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* 1. Print */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = pdfReportModalMarket;
+                        setPdfReportModalMarket(null);
+                        handleExportSignalsPdf(targetM);
+                      }}
+                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-amber-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <Printer size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-white block">🖨️ طباعة التقرير مباشرة</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">طباعة ملخص التوصيات بـ لوجو المنصة</span>
+                      </div>
+                    </button>
+
+                    {/* 2. Download */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = pdfReportModalMarket;
+                        setPdfReportModalMarket(null);
+                        handleExportSignalsPdf(targetM);
+                      }}
+                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-cyan-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <Download size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-white block">📥 تحميل ملف PDF محلياً</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">حفظ التقرير كملف PDF على جهازك</span>
+                      </div>
+                    </button>
+
+                    {/* 3. Upload to website */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = pdfReportModalMarket;
+                        setPdfReportModalMarket(null);
+                        handleUploadWebsitePdfDirect(targetM);
+                      }}
+                      className="p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 hover:from-emerald-900 hover:to-teal-900 text-white rounded-2xl border border-emerald-500/40 hover:border-emerald-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <Upload size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-emerald-300 block">🚀 رفع ونشر تقرير لموقع المنصة</span>
+                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">اختيار ملف PDF ونشره فوراً للعملاء</span>
+                      </div>
+                    </button>
+
+                    {/* 4. Delete from website */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = pdfReportModalMarket;
+                        setPdfReportModalMarket(null);
+                        handleDeletePublishedPdfReport(targetM);
+                      }}
+                      className="p-3 bg-gradient-to-r from-rose-950/80 to-red-950/80 hover:from-rose-900 hover:to-red-900 text-white rounded-2xl border border-rose-500/40 hover:border-rose-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <Trash2 size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-rose-300 block">🗑️ حذف وإلغاء نشر التقرير</span>
+                        <span className="text-[10px] text-rose-200/70 block mt-0.5">حذف التقرير المرفوع حالياً من الموقع فوراً</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-3 bg-slate-950 border-t border-white/5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPdfReportModalMarket(null)}
+                    className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                  >
+                    إغلاق النافذة ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
     </div>
   );
