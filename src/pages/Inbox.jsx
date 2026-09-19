@@ -1034,6 +1034,49 @@ function InboxContent() {
     return () => unsub();
   }, [activeChat?.id]);
 
+  const [activeRingingCall, setActiveRingingCall] = useState(null);
+  const audioCallRef = useRef(null);
+
+  // Global listener for real-time customer internal call ringing status
+  useEffect(() => {
+    const qCalls = query(collection(db, 'internal_calls'), where('status', '==', 'ringing'));
+    const unsubCalls = onSnapshot(qCalls, (snap) => {
+      if (!snap.empty) {
+        const docItem = snap.docs[0];
+        const data = docItem.data();
+        setActiveRingingCall({ id: docItem.id, ...data });
+
+        // Play ringing sound
+        try {
+          if (!audioCallRef.current) {
+            audioCallRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audioCallRef.current.loop = true;
+          }
+          audioCallRef.current.play().catch(() => {});
+        } catch (e) {}
+
+        // Desktop Push Notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('📞 اتصال تنبيه داخلي جاري!', {
+              body: `اتصال من العميل (${data.clientName || 'عميل اتجاه'}) - يرغب في التواصل الفوري معك!`,
+              icon: '/logo.jpg',
+              requireInteraction: true
+            });
+          } catch (nErr) {}
+        }
+      } else {
+        setActiveRingingCall(null);
+        if (audioCallRef.current) {
+          audioCallRef.current.pause();
+          audioCallRef.current.currentTime = 0;
+        }
+      }
+    }, (err) => console.error("Global internal calls listener error:", err));
+
+    return () => unsubCalls();
+  }, []);
+
   // Listen for real-time Broadcast lists from Firestore
   useEffect(() => {
     const q = query(collection(db, 'broadcast_lists'));
@@ -2563,6 +2606,59 @@ function InboxContent() {
 
   return (
     <div className="flex flex-col fixed inset-0 w-full font-sans overflow-hidden bg-slate-900" dir="rtl" onClick={() => setShowOnlyUnreplied(false)}>
+      {/* Floating Ringing Call Banner / Modal for Staff (Image 1) */}
+      {activeRingingCall && activeRingingCall.status === 'ringing' && (
+        <div className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] bg-gradient-to-r from-slate-900/95 via-indigo-950/95 to-slate-900/95 backdrop-blur-2xl border-2 border-cyan-400 text-white p-4.5 rounded-3xl shadow-[0_20px_60px_rgba(6,182,212,0.6)] animate-bounce font-sans border-t-2 border-t-cyan-300" dir="rtl">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center text-cyan-300 animate-ping shrink-0">
+              <PhoneCall size={24} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-extrabold text-xs sm:text-sm text-cyan-300">
+                📞 اتصال داخلي جاري من {activeRingingCall.clientName || 'العميل'}!
+              </h4>
+              <p className="text-[11px] text-gray-200 mt-0.5">ويرغب في تنبيهك والتواصل الفوري معك في الشات.</p>
+            </div>
+          </div>
+          <div className="mt-3.5 flex gap-2">
+            <button
+              onClick={async () => {
+                if (audioCallRef.current) {
+                  audioCallRef.current.pause();
+                  audioCallRef.current.currentTime = 0;
+                }
+                try {
+                  await setDoc(doc(db, 'internal_calls', activeRingingCall.id), { status: 'answered' }, { merge: true });
+                } catch (e) {}
+                const targetPhone = (activeRingingCall.userPhone || activeRingingCall.cleanPhone || activeRingingCall.id || '').replace(/[^0-9]/g, '');
+                const targetChat = chats.find(c => (c.phoneNumber || c.phone || c.id || '').replace(/[^0-9]/g, '').includes(targetPhone));
+                if (targetChat) {
+                  setActiveChat(targetChat);
+                }
+                setActiveRingingCall(null);
+              }}
+              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold py-2 px-3 rounded-xl text-xs shadow-md cursor-pointer transition active:scale-95 text-center font-bold"
+            >
+              فتح المحادثة والرد 💬
+            </button>
+            <button
+              onClick={async () => {
+                if (audioCallRef.current) {
+                  audioCallRef.current.pause();
+                  audioCallRef.current.currentTime = 0;
+                }
+                try {
+                  await setDoc(doc(db, 'internal_calls', activeRingingCall.id), { status: 'cancelled' }, { merge: true });
+                } catch (e) {}
+                setActiveRingingCall(null);
+              }}
+              className="bg-rose-950/80 hover:bg-rose-900/90 border border-rose-500/40 text-rose-300 font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition"
+            >
+              إلغاء / كنسل
+            </button>
+          </div>
+        </div>
+      )}
       {/* Floating Impersonation Banner for WhatsApp */}
       {impersonatedEmp && (
         <div className="shrink-0 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-amber-300 z-50">
