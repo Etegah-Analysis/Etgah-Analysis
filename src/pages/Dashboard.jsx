@@ -5299,6 +5299,32 @@ const Dashboard = () => {
     }
   };
 
+  const handleSmartWhatsappClick = (customer) => {
+    if (!customer) return;
+    const src = String(customer.source || '').toLowerCase();
+    const added = String(customer.addedBy || '').toLowerCase();
+    const isWebsiteCustomer = 
+      added === 'website_otp' || 
+      added.includes('website') ||
+      src === 'website' || 
+      src.includes('موقع الويب') ||
+      src.includes('otp') ||
+      customer.isWebsiteLead === true;
+
+    if (isWebsiteCustomer) {
+      handleTransferToWhatsapp(customer);
+    } else {
+      let rawPhone = customer.phoneNumber || customer.phone || customer.id || '';
+      let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) cleanPhone = '20' + cleanPhone.substring(1);
+      else if (cleanPhone.startsWith('5')) cleanPhone = '966' + cleanPhone;
+      else if (!cleanPhone.startsWith('20') && !cleanPhone.startsWith('966')) cleanPhone = '20' + cleanPhone;
+
+      const waUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}`;
+      window.open(waUrl, '_blank');
+    }
+  };
+
   const handleUpdateCustomerCrmStatus = async (customerId, newStatus) => {
     try {
       const targetColl = determineCustomerCollection(customerId);
@@ -13325,7 +13351,7 @@ const handleExportBuffetToExcel = () => {
                             <td className="p-3.5 text-center">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button 
-                                  onClick={() => handleTransferToWhatsapp(customer)}
+                                  onClick={() => handleSmartWhatsappClick(customer)}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
                                   title="مراسلة عبر واتساب"
                                 >
@@ -14000,7 +14026,7 @@ const handleExportBuffetToExcel = () => {
                             <td className="px-2.5 py-2 flex items-center gap-1.5 justify-center">
                               {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid))) && (
                                 <button 
-                                  onClick={() => handleTransferToWhatsapp(customer)}
+                                  onClick={() => handleSmartWhatsappClick(customer)}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
                                   title="مراسلة عبر واتساب"
                                 >
@@ -14758,7 +14784,7 @@ const handleExportBuffetToExcel = () => {
                                     <div className="flex items-center justify-center gap-1.5">
                                       {!isCoordinator && (isAdmin || customer.assignedToUid === currentUser?.uid || customer.addedByUid === currentUser?.uid || customer.assignedTo?.toLowerCase() === currentUser?.email?.toLowerCase() || (isLeader && myTeamMembers.some(m => m.uid === customer.assignedToUid || m.uid === customer.addedByUid))) && (
                                         <button 
-                                          onClick={() => handleTransferToWhatsapp(customer)}
+                                          onClick={() => handleSmartWhatsappClick(customer)}
                                           className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
                                           title="مراسلة عبر واتساب"
                                         >
@@ -19105,7 +19131,7 @@ const handleExportBuffetToExcel = () => {
                             <div className="flex items-center gap-1.5">
                               {!isCoordinator && visitor.status !== 'website_visitor' && (
                                 <button 
-                                  onClick={() => navigate('/inbox', { state: { selectedCustomerId: visitor.id } })}
+                                  onClick={() => handleSmartWhatsappClick(visitor._raw || visitor)}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
                                   title="مراسلة عبر واتساب"
                                 >
