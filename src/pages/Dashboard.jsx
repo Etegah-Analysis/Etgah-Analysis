@@ -1819,7 +1819,30 @@ const Dashboard = () => {
       );
       if (isRead) return false;
 
-      const hasUnread = (Number(c.unread) > 0) || c.unread === true || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting' || (c.lastMessage && !c.lastMessageFrom && c.isResponded !== true);
+      // Unread notification MUST be an actual INCOMING message from the customer or website lead
+      const isIncomingMsg = (
+        c.lastMessageFrom === 'user' || 
+        c.lastMessageFrom === 'client' || 
+        c.lastMessageFrom === 'customer' ||
+        c.lastSender === 'user' || 
+        c.lastMessageSender === 'user' || 
+        c.lastMessageSenderType === 'user' ||
+        c.source === 'website' || 
+        c.source === 'website_otp' || 
+        c.addedBy === 'website_otp'
+      );
+
+      // Must NOT be outgoing system/bot/me broadcast without user reply
+      const isOutgoingOnly = (
+        c.lastMessageFrom === 'me' || 
+        c.lastMessageFrom === 'agent' || 
+        c.lastMessageFrom === 'system' || 
+        c.lastMessageFrom === 'bot' || 
+        c.lastSender === 'me' || 
+        c.lastSender === 'agent'
+      );
+
+      const hasUnread = (Number(c.unread) > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
       if (!hasUnread) return false;
 
       // 1. Admin receives all customer chats
@@ -1831,7 +1854,7 @@ const Dashboard = () => {
                          (currentUser.email && c.assignedTo?.toLowerCase() === currentUser.email.toLowerCase()) ||
                          (currentEmpUser?.uid && c.assignedToUid === currentEmpUser.uid) ||
                          (currentEmpUser?.email && c.assignedTo?.toLowerCase() === currentEmpUser.email.toLowerCase());
-        const isTeamChat = myTeamMembers && myTeamMembers.some(m => m.uid === c.assignedToUid || (m.email && c.assignedTo?.toLowerCase() === m.email.toLowerCase()));
+        const isTeamChat = myTeamMembers && myTeamMembers.some(m => m.uid === c.assignedToUid || (m.email && c.assignedTo?.toLowerCase() === m.email.toLowerCase()) || (m.name && c.assignedEmpName && c.assignedEmpName.toLowerCase() === m.name.toLowerCase()));
         return isMyChat || isTeamChat;
       }
 
@@ -1839,7 +1862,8 @@ const Dashboard = () => {
       return c.assignedToUid === currentUser.uid ||
              (currentUser.email && c.assignedTo?.toLowerCase() === currentUser.email.toLowerCase()) ||
              (currentEmpUser?.uid && c.assignedToUid === currentEmpUser.uid) ||
-             (currentEmpUser?.email && c.assignedTo?.toLowerCase() === currentEmpUser.email.toLowerCase());
+             (currentEmpUser?.email && c.assignedTo?.toLowerCase() === currentEmpUser.email.toLowerCase()) ||
+             (currentEmpUser?.name && c.assignedEmpName && c.assignedEmpName.toLowerCase() === currentEmpUser.name.toLowerCase());
     });
 
     // B. Filter Employee Groups strictly for members only
