@@ -9411,7 +9411,6 @@ const handleModalPasteBuffetItem = (e) => {
               <th>حالة التوصية</th>
               <th>${isSaudi ? 'المكسب (ر.س)' : 'المكسب ($)'}</th>
               <th>نسبة الإنجاز %</th>
-              <th>وقت الرفع</th>
             </tr>
           </thead>
           <tbody>
@@ -9429,7 +9428,6 @@ const handleModalPasteBuffetItem = (e) => {
                   <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
                   <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
                   <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
-                  <td>${sig.uploadedAtFormatted || '-'}</td>
                 </tr>
               `;
             }).join('')}
@@ -15959,15 +15957,26 @@ const handleExportBuffetToExcel = () => {
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportSaudiStocks')) && (
-                  <button 
-                    onClick={() => handleExportSignalsPdf('saudi')}
-                    className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                    title="تحميل وطباعة تقرير التوصيات كـ PDF بلوجو الشركة"
-                  >
-                    <Download size={14} />
-                    <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
-                  </button>)}
+                    <>
+                      <button 
+                        onClick={() => handleOpenUploadVideoModal('saudi')}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border border-purple-400/30"
+                        title="رفع فيديو تحليل وتوضيح للمنصة"
+                      >
+                        <Video size={14} />
+                        <span>رفع فيديو للمنصة 🎥</span>
+                      </button>
 
+                      <button 
+                        onClick={() => handleExportOrPublishPdf('saudi')}
+                        className="bg-gradient-to-r from-rose-700 via-red-600 to-amber-600 hover:from-rose-600 hover:to-amber-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border border-rose-400/30"
+                        title="تحميل أو طباعة أو تحويل لموقع المنصة PDF"
+                      >
+                        <Download size={14} />
+                        <span>تحميل / طباعة / تحويل لموقع المنصة PDF 📄</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -16585,14 +16594,27 @@ const handleExportBuffetToExcel = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button 
-                    onClick={() => handleExportSignalsPdf('us')}
-                    className="bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                    title="تحميل وطباعة تقرير التوصيات كـ PDF بلوجو الشركة"
-                  >
-                    <Download size={14} />
-                    <span>تحميل تقرير PDF (بلوجو الشركة) 📄</span>
-                  </button>
+                  {(isAdmin || hasPermission(currentEmpUser, 'canExportUsStocks')) && (
+                    <>
+                      <button 
+                        onClick={() => handleOpenUploadVideoModal('us')}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border border-purple-400/30"
+                        title="رفع فيديو تحليل وتوضيح للمنصة"
+                      >
+                        <Video size={14} />
+                        <span>رفع فيديو للمنصة 🎥</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleExportOrPublishPdf('us')}
+                        className="bg-gradient-to-r from-rose-700 via-red-600 to-amber-600 hover:from-rose-600 hover:to-amber-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer border border-rose-400/30"
+                        title="تحميل أو طباعة أو تحويل لموقع المنصة PDF"
+                      >
+                        <Download size={14} />
+                        <span>تحميل / طباعة / تحويل لموقع المنصة PDF 📄</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -24865,28 +24887,22 @@ const handleExportBuffetToExcel = () => {
           document.body
         )}
 
-        {/* INCOMING INTERNAL CALL POPUP BANNER (v2.26) */}
+        {/* Floating Ringing Call Banner for Staff - Top of Dashboard (Image 1 Parity) */}
         {incomingInternalCall && (
-          <div className="fixed bottom-6 right-6 z-[9999] animate-bounce-slow max-w-md w-full p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-teal-900/90 to-cyan-950/90 backdrop-blur-xl border border-emerald-400/40 shadow-2xl text-white flex items-center justify-between gap-4 transition-all duration-300" dir="rtl">
+          <div className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] bg-gradient-to-r from-slate-900/95 via-indigo-950/95 to-slate-900/95 backdrop-blur-2xl border-2 border-cyan-400 text-white p-4.5 rounded-3xl shadow-[0_20px_60px_rgba(6,182,212,0.6)] animate-bounce font-sans border-t-2 border-t-cyan-300" dir="rtl">
             <div className="flex items-center gap-3">
-              <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-400/50 animate-pulse">
-                <span className="text-2xl">📞</span>
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
+              <div className="w-12 h-12 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center text-cyan-300 animate-ping shrink-0">
+                <PhoneCall size={24} />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-sm text-emerald-300">اتصال داخلي مباشر 🌐</span>
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/30 animate-pulse">يرن الآن...</span>
-                </div>
-                <p className="text-xs text-white/90 font-bold mt-0.5">{incomingInternalCall.callerName || incomingInternalCall.clientName || 'عميل من موقع الويب'}</p>
-                <p className="text-[11px] text-white/70">{incomingInternalCall.phone || incomingInternalCall.phoneNumber || 'طلب محادثة أو استشارة'}</p>
+              <div className="flex-1">
+                <h4 className="font-extrabold text-xs sm:text-sm text-cyan-300">
+                  📞 اتصال داخلي جاري من {incomingInternalCall.callerName || incomingInternalCall.clientName || 'العميل'}!
+                </h4>
+                <p className="text-[11px] text-gray-200 mt-0.5">ويرغب في تنبيهك والتواصل الفوري معك في الشات.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button 
+            <div className="mt-3.5 flex gap-2">
+              <button
                 onClick={async () => {
                   try {
                     await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'answered', answeredBy: currentEmpUser?.name || 'الموظف' });
@@ -24897,11 +24913,12 @@ const handleExportBuffetToExcel = () => {
                     console.error('Error answering call:', err);
                   }
                 }}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg transition"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
               >
-                رد 📞
+                <MessageCircle size={14} />
+                <span>فتح المحادثة والرد</span>
               </button>
-              <button 
+              <button
                 onClick={async () => {
                   try {
                     await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'rejected' });
@@ -24910,10 +24927,100 @@ const handleExportBuffetToExcel = () => {
                     console.error('Error rejecting call:', err);
                   }
                 }}
-                className="px-3 py-1.5 bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold rounded-xl shadow transition"
+                className="px-4 bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 py-2 rounded-2xl text-xs font-bold transition cursor-pointer"
               >
-                إنهاء ❌
+                إلغاء / كنسل
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* PLATFORM VIDEO UPLOADER MODAL (v2.26) */}
+        {isUploadVideoModalOpen && (
+          <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+            <div className="bg-slate-900 border-2 border-purple-500/40 text-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-5 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                    <Video size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base text-amber-300">رفع فيديو جديد للمنصة 🎥</h3>
+                    <p className="text-xs text-slate-300">للسوق {videoMarket === 'saudi' ? 'السعودي 🇸🇦' : 'الأمريكي 🇺🇸'}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsUploadVideoModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePlatformVideo} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">عنوان الفيديو 🎥 <span className="text-rose-400">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={videoTitle}
+                    onChange={(e) => setVideoTitle(e.target.value)}
+                    placeholder="مثال: شرح طريقة الدخول في صفقات الأسهم النسرية..."
+                    className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">السوق الموجه له الفيديو</label>
+                  <select
+                    value={videoMarket}
+                    onChange={(e) => setVideoMarket(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="saudi">🇸🇦 السوق السعودي (تاسي)</option>
+                    <option value="us">🇺🇸 السوق الأمريكي (أسهم وعقود)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">وصف أو تفاصيل ملخصة</label>
+                  <textarea
+                    rows="3"
+                    value={videoDescription}
+                    onChange={(e) => setVideoDescription(e.target.value)}
+                    placeholder="توضيح مختصر لأبرز المحاور والنقاط..."
+                    className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  ></textarea>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">اختر ملف الفيديو (.mp4, .mov, .webm) <span className="text-rose-400">*</span></label>
+                  <input
+                    type="file"
+                    accept="video/*,.mp4,.mov,.webm,.mkv"
+                    required
+                    onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-500"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadVideoModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold text-xs transition"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={videoUploading}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs transition shadow-lg flex items-center gap-1.5"
+                  >
+                    {videoUploading ? 'جاري الرفع... ⏳' : 'نشر الفيديو 🎥'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
