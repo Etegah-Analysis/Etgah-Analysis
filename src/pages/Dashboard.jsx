@@ -1041,14 +1041,22 @@ const Dashboard = () => {
           bg: 'bg-amber-100 text-amber-900 border-amber-300',
           icon: '🎉'
         });
-      } else if (custMatch.source === 'website' || custMatch.source === 'website_otp' || custMatch.addedBy === 'website_otp' || custMatch.isWebsiteLead) {
+      } else if (
+        custMatch.source === 'website' || 
+        custMatch.source === 'website_otp' || 
+        custMatch.source === 'موقع الويب (OTP)' || 
+        custMatch.addedBy === 'website_otp' || 
+        custMatch.isWebsiteLead || 
+        (typeof phoneOrObj === 'object' && (phoneOrObj.source === 'موقع الويب (OTP)' || phoneOrObj.addedBy === 'website_otp' || phoneOrObj.isVisitorDoc || phoneOrObj.status === 'website_visitor')) ||
+        (visitors || []).some(v => normalizePhone(v.phone || v.phoneNumber || v.id) === targetNorm)
+      ) {
         locations.push({
           type: 'website_customer',
           label: `🌐 مسجّل عبر موقع الويب (OTP) (${empName})`,
           bg: 'bg-purple-100 text-purple-900 border-purple-300',
           icon: '🌐'
         });
-      } else if (custMatch.source === 'manual' || (custMatch.addedBy && custMatch.addedBy !== 'website_otp')) {
+      } else if (custMatch.source === 'manual') {
         locations.push({
           type: 'manual_customer',
           label: `✋ عميل مضاف يدوياً (${empName})`,
