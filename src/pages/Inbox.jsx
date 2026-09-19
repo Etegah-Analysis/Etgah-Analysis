@@ -82,6 +82,7 @@ function InboxContent() {
   // Admin Bulk Message Selection & Delete States
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+  const [isHeaderCallRinging, setIsHeaderCallRinging] = useState(false);
 
   const isWebsiteLead = (chat) => {
     if (!chat) return false;
@@ -991,6 +992,34 @@ function InboxContent() {
     }
   }, [location.state]);
 
+  // Listen for real-time internal call ringing status for activeChat
+  useEffect(() => {
+    if (!activeChat) {
+      setIsHeaderCallRinging(false);
+      return;
+    }
+
+    const targetPhone = (activeChat.phoneNumber || activeChat.phone || activeChat.id || '').replace(/[^0-9]/g, '');
+    const callDocId = targetPhone || activeChat.id;
+    if (!callDocId) return;
+
+    const callDocRef = doc(db, 'internal_calls', callDocId);
+    const unsub = onSnapshot(callDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.status === 'ringing') {
+          setIsHeaderCallRinging(true);
+        } else {
+          setIsHeaderCallRinging(false);
+        }
+      } else {
+        setIsHeaderCallRinging(false);
+      }
+    }, (err) => console.error("Call status listener error:", err));
+
+    return () => unsub();
+  }, [activeChat?.id]);
+
   // حماية إضافية لحساب المنسق: إغلاق أي شات ليس جروب فوراً
   useEffect(() => {
     if (isCoordinator && activeChat && !activeChat.isGroup) {
@@ -1672,19 +1701,51 @@ function InboxContent() {
     }
   };
 
-  // Trigger internal call alert from top header across ALL chat types (Customers, Direct Colleague, Groups)
+  // Toggle trigger or cancel internal call alert from top header across ALL chat types (Customers, Direct Colleague, Groups)
   const handleTriggerInternalCallFromHeader = async () => {
     if (!activeChat) return;
 
+    const targetPhone = (activeChat.phoneNumber || activeChat.phone || activeChat.id || '').replace(/[^0-9]/g, '');
+    const callDocId = targetPhone || activeChat.id;
+    const callDocRef = doc(db, 'internal_calls', callDocId);
+
+    const callerName = isAdmin 
+      ? '👑 الإدارة' 
+      : (currentEmpName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف');
+
+    if (isHeaderCallRinging) {
+      // End / Cancel active internal call alert
+      try {
+        await setDoc(callDocRef, {
+          status: 'cancelled',
+          cancelledBy: callerName,
+          cancelledByUid: currentUser?.uid,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        setIsHeaderCallRinging(false);
+
+        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
+          conversationId: activeChat.id,
+          phoneNumber: activeChat.phoneNumber || activeChat.phone || activeChat.id,
+          sender: 'system',
+          senderName: callerName,
+          text: `🛑 تم إنهاء اتصال التنبيه الداخلي بواسطة (${callerName})`,
+          timestamp: serverTimestamp(),
+          isGroupMessage: Boolean(activeChat.isGroup),
+          isDirectMessage: Boolean(activeChat.isDirect)
+        });
+
+        toast.success(`تم إنهاء اتصال التنبيه الداخلي 🛑`);
+      } catch (err) {
+        console.error("Error cancelling call:", err);
+        toast.error('خطأ في إنهاء التنبيه: ' + (err.message || 'حاول مرة أخرى'));
+      }
+      return;
+    }
+
+    // Otherwise, start/trigger internal call alert
     try {
-      const targetPhone = (activeChat.phoneNumber || activeChat.phone || activeChat.id || '').replace(/[^0-9]/g, '');
-      const callDocId = targetPhone || activeChat.id;
-      const callDocRef = doc(db, 'internal_calls', callDocId);
-
-      const callerName = isAdmin 
-        ? '👑 الإدارة' 
-        : (currentEmpName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'موظف');
-
       const chatName = activeChat.name || activeChat.cardName || activeChat.title || 'المحادثة';
 
       await setDoc(callDocRef, {
@@ -1702,6 +1763,8 @@ function InboxContent() {
         updatedAt: serverTimestamp()
       }, { merge: true });
 
+      setIsHeaderCallRinging(true);
+
       // Add alert message into the active conversation history
       await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), {
         conversationId: activeChat.id,
@@ -1714,7 +1777,7 @@ function InboxContent() {
         isDirectMessage: Boolean(activeChat.isDirect)
       });
 
-      toast.success(`تم إرسال اتصال تنبيه داخلي بالرسائل بنجاح 📞🔔`);
+      toast.success(`تم إرسال اتصال تنبيه داخلي بالرسائل بنجاح 📞🔔 (اضغط مجدداً لإنهاء التنبيه)`);
 
       // Auto cancel after 30 seconds if still ringing
       setTimeout(async () => {
@@ -3064,11 +3127,24 @@ function InboxContent() {
                 <button
                   type="button"
                   onClick={handleTriggerInternalCallFromHeader}
-                  className="bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 text-amber-300 hover:text-white border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0"
-                  title="إجراء اتصال تنبيه داخلي بالرسائل لهذه المحادثة"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0 border ${
+                    isHeaderCallRinging
+                      ? 'bg-rose-950/90 hover:bg-rose-900 text-rose-200 border-rose-500/80 animate-pulse ring-2 ring-rose-500/40'
+                      : 'bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 text-amber-300 hover:text-white border-amber-500/40'
+                  }`}
+                  title={isHeaderCallRinging ? "انقر لإنهاء اتصال التنبيه الداخلي 🛑" : "إجراء اتصال تنبيه داخلي بالرسائل لهذه المحادثة 📞"}
                 >
-                  <PhoneCall size={14} className="text-amber-400 animate-pulse" />
-                  <span>اتصال داخلي للتنبيه بالرسائل</span>
+                  {isHeaderCallRinging ? (
+                    <>
+                      <PhoneCall size={14} className="text-rose-400 animate-spin" />
+                      <span>🛑 إنهاء اتصال التنبيه</span>
+                    </>
+                  ) : (
+                    <>
+                      <PhoneCall size={14} className="text-amber-400 animate-pulse" />
+                      <span>اتصال داخلي للتنبيه بالرسائل</span>
+                    </>
+                  )}
                 </button>
 
                 {activeChat.isDirect ? (
