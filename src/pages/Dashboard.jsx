@@ -2518,7 +2518,10 @@ const Dashboard = () => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       data.sort((a, b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0));
       setCustomers(data);
-      try { localStorage.setItem('cache_customers', JSON.stringify(data.slice(0, 500))); } catch(e){}
+      try { 
+        localStorage.setItem('cache_customers', JSON.stringify(data.slice(0, 500))); 
+        localStorage.setItem('cache_customers_total_count', String(data.length));
+      } catch(e){}
     });
 
     const leadsCrmUnsub = onSnapshot(collection(db, 'leads_crm'), (snapshot) => {
@@ -2533,7 +2536,10 @@ const Dashboard = () => {
       });
       data.sort((a, b) => (b._ts - a._ts) || (b.id || '').localeCompare(a.id || ''));
       setLeadsCrm(data);
-      try { localStorage.setItem('cache_leadsCrm', JSON.stringify(data.slice(0, 500))); } catch(e){}
+      try { 
+        localStorage.setItem('cache_leadsCrm', JSON.stringify(data.slice(0, 500))); 
+        localStorage.setItem('cache_leadsCrm_total_count', String(data.length));
+      } catch(e){}
     }, (error) => {
       console.error("Error fetching leads_crm:", error);
       toast.error("خطأ في جلب بيانات Leads CRM: " + error.message);
@@ -2568,6 +2574,7 @@ const Dashboard = () => {
         return (tB - tA) || (b.id || '').localeCompare(a.id || '');
       });
       setEmployeeLeads(data);
+      try { localStorage.setItem('cache_employeeLeads_total_count', String(data.length)); } catch(e){}
     }, (error) => {
       console.error("Error fetching employee_leads:", error);
     });
@@ -2595,6 +2602,10 @@ const Dashboard = () => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       data.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
       setVisitors(data);
+      try { 
+        localStorage.setItem('cache_visitors', JSON.stringify(data.slice(0, 500))); 
+        localStorage.setItem('cache_visitors_total_count', String(data.length));
+      } catch(e){}
     }, (error) => {
       console.error('Error fetching visitor_customers:', error);
     });
@@ -3289,6 +3300,42 @@ const Dashboard = () => {
     return (visitors?.length || 0) + (customers?.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor')?.length || 0);
   }, [visitors, customers]);
 
+  const displayLeadsCrmCount = useMemo(() => {
+    const cached = Number(localStorage.getItem('cache_leadsCrm_total_count') || 0);
+    return Math.max(Array.isArray(leadsCrm) ? leadsCrm.length : 0, cached);
+  }, [leadsCrm]);
+
+  const displayEmployeeLeadsCount = useMemo(() => {
+    const cached = Number(localStorage.getItem('cache_employeeLeads_total_count') || 0);
+    return Math.max(Array.isArray(employeeLeads) ? employeeLeads.length : 0, cached);
+  }, [employeeLeads]);
+
+  const displayCustomersCount = useMemo(() => {
+    const cached = Number(localStorage.getItem('cache_customers_total_count') || 0);
+    return Math.max(Array.isArray(customers) ? customers.length : 0, cached);
+  }, [customers]);
+
+  const displayVisitorsCount = useMemo(() => {
+    const cached = Number(localStorage.getItem('cache_visitors_total_count') || 0);
+    return Math.max(whatsappVisitorsCount, cached);
+  }, [whatsappVisitorsCount]);
+
+  const displayTotalSystemCount = useMemo(() => {
+    return displayLeadsCrmCount + displayEmployeeLeadsCount + displayCustomersCount + displayVisitorsCount;
+  }, [displayLeadsCrmCount, displayEmployeeLeadsCount, displayCustomersCount, displayVisitorsCount]);
+
+  const websiteLeadsCount = useMemo(() => {
+    if (!Array.isArray(leadsCrm)) return 0;
+    return leadsCrm.filter(c => Boolean(c.isWebsiteLead) ||
+      ['website', 'website_otp', 'موقع', 'موقع الاتجاه (otp)', 'otp', 'webhook'].some(w => 
+        (c.source || '').toLowerCase().includes(w) ||
+        (c.addedBy || '').toLowerCase().includes(w) ||
+        (c.assignedBy || '').toLowerCase().includes(w) ||
+        (c.status || '').toLowerCase().includes(w)
+      )
+    ).length;
+  }, [leadsCrm]);
+
   // --- SUBSCRIBED CLIENTS DATA POOL (العملاء المشتركين) ---
   const getIsSubscribed = (c) => {
     if (!c) return false;
@@ -3737,6 +3784,14 @@ const Dashboard = () => {
         matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
       } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
+      } else if (selectedEmpFilter === 'website_visitors' || selectedEmpFilter === 'website_otp') {
+        matchesScope = Boolean(c.isWebsiteLead) ||
+          ['website', 'website_otp', 'موقع', 'موقع الاتجاه (otp)', 'otp', 'webhook'].some(w => 
+            (c.source || '').toLowerCase().includes(w) ||
+            (c.addedBy || '').toLowerCase().includes(w) ||
+            (c.assignedBy || '').toLowerCase().includes(w) ||
+            (c.status || '').toLowerCase().includes(w)
+          );
       } else if (selectedEmpFilter === 'all') {
         matchesScope = isLeadAssignedToEmployee(c);
       } else if (selectedEmpFilter) {
@@ -11439,7 +11494,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">🎯 Leads CRM</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayLeadsCrmCount.toLocaleString()}</h3>
                 </div>
               </div>
 
@@ -11454,7 +11509,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">📁 Team Added Leads</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayEmployeeLeadsCount.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
 
@@ -11469,7 +11524,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover border border-amber-300/60 shrink-0" /><span>Total System Leads</span></p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayTotalSystemCount.toLocaleString()}</h3>
                 </div>
               </div>
               
@@ -11500,7 +11555,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Website Visitors (OTP)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayVisitorsCount.toLocaleString()}</h3>
                 </div>
               </div>
               
@@ -11730,7 +11785,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">🎯 Leads CRM</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{leadsCrm.length.toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayLeadsCrmCount.toLocaleString()}</h3>
                 </div>
               </div>
               )}
@@ -11745,7 +11800,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold leading-snug break-words mb-1">📁 Team Added Leads</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{employeeLeads.length.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayEmployeeLeadsCount.toLocaleString()} <span className="text-xs font-bold text-amber-400">Team Leads</span></h3>
                 </div>
               </div>
               )}
@@ -11762,7 +11817,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words flex items-center gap-1.5"><img src="/logo.jpg" alt="Etegah" className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover border border-amber-300/60 shrink-0" /><span>Total System Leads</span></p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{(leadsCrm.length + customers.length + employeeLeads.length + whatsappVisitorsCount).toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayTotalSystemCount.toLocaleString()}</h3>
                 </div>
               </div>
               )}
@@ -11794,7 +11849,7 @@ const handleExportBuffetToExcel = () => {
                 </div>
                 <div>
                   <p className="text-[11px] sm:text-xs md:text-sm text-amber-200 font-extrabold mb-1 leading-snug break-words">🌐 Website Visitors (OTP)</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{whatsappVisitorsCount.toLocaleString()}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-300">{displayVisitorsCount.toLocaleString()}</h3>
                   <span className="text-[10px] text-purple-300 font-bold block mt-0.5" dir="rtl">
                     (تحويل وتوزيع للموظفين)
                   </span>
@@ -13707,6 +13762,7 @@ const handleExportBuffetToExcel = () => {
                             <>
                               <option value="admin" className="bg-purple-950 text-white">👑 Admin ({leadsWithAdminCount.toLocaleString()} Leads)</option>
                               <option value="all" className="bg-purple-950 text-white">👥 جميع الموظفين ({leadsWithEmployeesCount.toLocaleString()} Leads)</option>
+                              <option value="website_visitors" className="bg-purple-950 text-white font-bold">🌐 Website Visitors ({websiteLeadsCount.toLocaleString()} Leads)</option>
                             </>
                           )}
                           {isLeader ? (
@@ -19006,7 +19062,13 @@ const handleExportBuffetToExcel = () => {
                           <option value="all">🎯 جميع الحالات</option>
                           <option value="unassigned">⏳ في الانتظار (غير مسند)</option>
                           <option value="website_visitor">🌐 مسجل OTP</option>
-                          <option value="assigned">✓ مستلمة (مسند)</option>
+                          <option value="call_back">📞 Call Back / تم التواصل والرد</option>
+                          <option value="interested">⭐ Interested / مهتم بالاشتراك</option>
+                          <option value="not_interested">❌ Not Interested / غير مهتم حالياً</option>
+                          <option value="no_answer">📵 No Answer / لا يرد / مغلق</option>
+                          <option value="started_trial">🚀 Demo / بدأ الفترة التجريبية</option>
+                          <option value="subscribed">🎉 Paid / مشترك مدفوع</option>
+                          <option value="junk_lead">🗑️ Junk Lead / غير جاد / وهمي</option>
                         </select>
                       </div>
                     </th>
@@ -19019,10 +19081,29 @@ const handleExportBuffetToExcel = () => {
                           className="bg-slate-800 text-amber-300 border border-purple-400/40 rounded-lg text-[11px] px-2 py-0.5 font-bold focus:outline-none cursor-pointer"
                         >
                           <option value="all">👥 جميع الموظفين</option>
-                          <option value="admin">👑 الإدارة</option>
-                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Coordinator').map(emp => (
-                            <option key={emp.uid} value={emp.uid}>
-                              👤 {emp.name || emp.username}
+                          <option value="admin">👑 Admin / الإدارة</option>
+                          {employees.filter(e => e.jobTitle === 'Leader').map(leader => {
+                            const teamMembers = employees.filter(m => m.leaderUid === leader.uid);
+                            return (
+                              <optgroup 
+                                key={leader.uid} 
+                                label={`👑 Team Leader: ${leader.username || leader.name || 'Leader'}`}
+                                className="bg-slate-900 text-amber-300 font-bold"
+                              >
+                                <option value={leader.uid} className="bg-slate-800 text-white">
+                                  👑 Leader: {leader.username || leader.name}
+                                </option>
+                                {teamMembers.map(member => (
+                                  <option key={member.uid} value={member.uid} className="bg-slate-800 text-white">
+                                    👤 Agent: {member.username || member.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            );
+                          })}
+                          {employees.filter(e => e.role !== 'admin' && e.jobTitle !== 'Leader' && e.jobTitle !== 'Coordinator' && !e.leaderUid).map(emp => (
+                            <option key={emp.uid} value={emp.uid} className="bg-slate-800 text-white">
+                              🏢 Direct Admin: {emp.username || emp.name}
                             </option>
                           ))}
                         </select>
@@ -19108,12 +19189,15 @@ const handleExportBuffetToExcel = () => {
                       }
 
                       if (visitorStatusFilter !== 'all') {
+                        const crmSt = (v.crmStatus && v.crmStatus !== 'assigned') ? v.crmStatus : (v.status || 'unassigned');
                         if (visitorStatusFilter === 'unassigned') {
-                          if (v.status !== 'unassigned' && v.crmStatus !== 'unassigned') return false;
+                          if (v.status !== 'unassigned' && crmSt !== 'unassigned') return false;
                         } else if (visitorStatusFilter === 'website_visitor') {
-                          if (v.status !== 'website_visitor') return false;
-                        } else if (visitorStatusFilter === 'assigned') {
-                          if (v.status !== 'assigned' && v.crmStatus !== 'assigned') return false;
+                          if (v.status !== 'website_visitor' && crmSt !== 'website_visitor') return false;
+                        } else if (visitorStatusFilter === 'junk_lead') {
+                          if (crmSt !== 'junk_lead' && crmSt !== 'junk') return false;
+                        } else if (crmSt !== visitorStatusFilter) {
+                          return false;
                         }
                       }
 
@@ -19495,12 +19579,15 @@ const handleExportBuffetToExcel = () => {
                   }
                 }
                 if (visitorStatusFilter !== 'all') {
+                  const crmSt = (v.crmStatus && v.crmStatus !== 'assigned') ? v.crmStatus : (v.status || 'unassigned');
                   if (visitorStatusFilter === 'unassigned') {
-                    if (v.status !== 'unassigned' && v.crmStatus !== 'unassigned') return false;
+                    if (v.status !== 'unassigned' && crmSt !== 'unassigned') return false;
                   } else if (visitorStatusFilter === 'website_visitor') {
-                    if (v.status !== 'website_visitor') return false;
-                  } else if (visitorStatusFilter === 'assigned') {
-                    if (v.status !== 'assigned' && v.crmStatus !== 'assigned') return false;
+                    if (v.status !== 'website_visitor' && crmSt !== 'website_visitor') return false;
+                  } else if (visitorStatusFilter === 'junk_lead') {
+                    if (crmSt !== 'junk_lead' && crmSt !== 'junk') return false;
+                  } else if (crmSt !== visitorStatusFilter) {
+                    return false;
                   }
                 }
                 return true;
