@@ -10413,8 +10413,28 @@ const handleExportBuffetToExcel = () => {
     if (crmCampaignFileInputRef.current) crmCampaignFileInputRef.current.value = '';
     setIsCrmCampaignModalOpen(false);
 
+    // Redirect to WhatsApp Web for selected target clients with prefilled text
+    if (selectedTargets && selectedTargets.length > 0) {
+      selectedTargets.forEach((lead, index) => {
+        let cleanPhone = String(lead.phoneNumber || '').replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('0')) cleanPhone = '20' + cleanPhone.substring(1);
+        else if (cleanPhone.startsWith('5')) cleanPhone = '966' + cleanPhone;
+        else if (!cleanPhone.startsWith('20') && !cleanPhone.startsWith('966')) cleanPhone = '20' + cleanPhone;
+
+        const waUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}${msgText ? `&text=${encodeURIComponent(msgText)}` : ''}`;
+
+        if (index === 0) {
+          window.open(waUrl, '_blank');
+        } else {
+          setTimeout(() => {
+            window.open(waUrl, '_blank');
+          }, index * 400);
+        }
+      });
+    }
+
     if (successCount > 0) {
-      toast.success(`تم إرسال الحملة الإعلانية بنجاح لـ (${successCount}) عميل 🚀 (محمية من التكرار لمدة يومين)`, { duration: 6000 });
+      toast.success(`تم إرسال وتوثيق الحملة بنجاح لـ (${successCount}) عميل وتحويلك إلى واتساب ويب 🚀`, { duration: 6000 });
     }
     if (failCount > 0) {
       toast.error(`تعذر إرسال (${failCount}) أرقام.`);
@@ -13406,9 +13426,9 @@ const handleExportBuffetToExcel = () => {
               <div className="flex items-center gap-2 flex-wrap">
 
                 <button 
-                    onClick={() => window.open('https://web.whatsapp.com', '_blank')}
+                    onClick={() => openCrmCampaignModal('leads_crm')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="فتح واتساب ويب لعملاء Leads CRM"
+                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء Leads CRM (من 1 إلى 15 عميل)"
                   >
                     <MessageSquare size={14} className="text-emerald-200" />
                     <span>📢 إرسال حملة واتساب (Leads CRM)</span>
@@ -14148,9 +14168,9 @@ const handleExportBuffetToExcel = () => {
                 )}
 
                 <button 
-                  onClick={() => window.open('https://web.whatsapp.com', '_blank')}
+                  onClick={() => openCrmCampaignModal('employee_leads')}
                   className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                  title="فتح واتساب ويب لعملاء Added Leads"
+                  title="إرسال رسائل وحملات واتساب ترويجية لعملاء Added Leads (من 1 إلى 15 عميل)"
                 >
                   <MessageSquare size={14} className="text-emerald-200" />
                   <span>📢 إرسال حملة واتساب (Added Leads)</span>
