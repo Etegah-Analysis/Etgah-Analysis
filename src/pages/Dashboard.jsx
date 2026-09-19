@@ -13406,9 +13406,9 @@ const handleExportBuffetToExcel = () => {
               <div className="flex items-center gap-2 flex-wrap">
 
                 <button 
-                    onClick={() => openCrmCampaignModal('leads_crm')}
+                    onClick={() => window.open('https://web.whatsapp.com', '_blank')}
                     className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                    title="إرسال رسائل وحملات واتساب ترويجية لعملاء Leads CRM (من 1 إلى 15 عميل)"
+                    title="فتح واتساب ويب لعملاء Leads CRM"
                   >
                     <MessageSquare size={14} className="text-emerald-200" />
                     <span>📢 إرسال حملة واتساب (Leads CRM)</span>
@@ -14148,9 +14148,9 @@ const handleExportBuffetToExcel = () => {
                 )}
 
                 <button 
-                  onClick={() => openCrmCampaignModal('employee_leads')}
+                  onClick={() => window.open('https://web.whatsapp.com', '_blank')}
                   className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer border border-emerald-400/30"
-                  title="إرسال رسائل وحملات واتساب ترويجية لعملاء Added Leads (من 1 إلى 15 عميل)"
+                  title="فتح واتساب ويب لعملاء Added Leads"
                 >
                   <MessageSquare size={14} className="text-emerald-200" />
                   <span>📢 إرسال حملة واتساب (Added Leads)</span>
