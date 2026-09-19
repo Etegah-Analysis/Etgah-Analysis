@@ -649,6 +649,7 @@ const Dashboard = () => {
   const [subReceiptFileUrl, setSubReceiptFileUrl] = useState('');
   const [subNotes, setSubNotes] = useState('');
   const [subSaving, setSubSaving] = useState(false);
+  const [incomingInternalCall, setIncomingInternalCall] = useState(null);
   const [isAddingNewReceipt, setIsAddingNewReceipt] = useState(false);
   const [editingReceiptId, setEditingReceiptId] = useState(null);
   const [editReceiptPaidAmount, setEditReceiptPaidAmount] = useState('');
@@ -3400,6 +3401,29 @@ const Dashboard = () => {
   // طلب إذن إشعارات النظام تلقائياً على سطح المكتب والموبايل
   useEffect(() => {
     requestSystemNotificationPermission();
+  }, []);
+
+  // Real-time listener for Website Client Internal Ringing Calls (v2.26)
+  useEffect(() => {
+    const qCalls = query(collection(db, 'internal_calls'), where('status', '==', 'ringing'));
+    const unsubCalls = onSnapshot(qCalls, (snapshot) => {
+      if (!snapshot.empty) {
+        const docSnap = snapshot.docs[0];
+        const callData = { id: docSnap.id, ...docSnap.data() };
+        setIncomingInternalCall(callData);
+        playNotificationChime();
+        triggerNativeNotification({
+          title: '📞 اتصال داخلي وارد من الموقع!',
+          body: `اتصال وارد من: ${callData.callerName || callData.clientName || 'عميل جديد'}`,
+          icon: '/logo.jpg',
+          url: '/dashboard'
+        });
+      } else {
+        setIncomingInternalCall(null);
+      }
+    }, (err) => console.warn('internal_calls listener error:', err));
+
+    return () => unsubCalls();
   }, []);
 
   // تحديث شارة التبويب (Favicon) وإطلاق إشعار نظام حقيقي على شاشة اللابتوب والموبايل بصوت التنبيه
