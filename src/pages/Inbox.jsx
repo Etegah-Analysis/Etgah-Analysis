@@ -1,7 +1,7 @@
 // WhatsApp Inbox - Version 1.5 - Updated Campaign Customers & Website WhatsApp Filters
 import { setGlobalNotificationAlert } from '../utils/notificationBadge';
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc } from '../firebase';
+import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc, writeBatch } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
@@ -1090,8 +1090,8 @@ function InboxContent() {
 
     const count = chatList.length;
     const confirmMsg = count === 1 
-      ? `هل أنت متأكد من مسح العميل (${chatList[0].name || chatList[0].phoneNumber || 'هذا العميل'}) ونقله لسلة المهملات لدى الإدارة؟`
-      : `هل أنت متأكد من مسح ${count} عميل محدد ونقلهم لسلة المهملات لدى الإدارة؟`;
+      ? `هل أنت متأكد من مسح شات العميل (${chatList[0].name || chatList[0].phoneNumber || 'هذا العميل'}) من الانبوكس؟\n(ملاحظة: سيتم الاحتفاظ بالعميل في كارت CRM والحملات كالمعتاد)`
+      : `هل أنت متأكد من مسح شات ${count} عميل محدد من الانبوكس؟\n(ملاحظة: سيتم الاحتفاظ بالعملاء في كروت CRM والحملات كالمعتاد)`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -1114,7 +1114,6 @@ function InboxContent() {
       for (const chatItem of chatList) {
         const docId = chatItem.id;
         const rawPhone = chatItem.phoneNumber || chatItem.phone || docId;
-        const normPhone = normalizePhone(rawPhone);
 
         const trashRef = doc(collection(db, 'recycle_bin'));
         const trashObj = {
@@ -1135,14 +1134,10 @@ function InboxContent() {
         };
         batch.set(trashRef, trashObj);
 
+        // Delete ONLY from inbox collections (بيانات_تسجيل_العملاء & visitor_customers)
+        // Keep customer card intact in leads_crm and employee_leads as requested!
         batch.delete(doc(db, 'بيانات_تسجيل_العملاء', docId));
         batch.delete(doc(db, 'visitor_customers', docId));
-
-        if (normPhone) {
-          const crmDocId = normPhone;
-          batch.delete(doc(db, 'leads_crm', crmDocId));
-          batch.delete(doc(db, 'employee_leads', crmDocId));
-        }
 
         if (activeChat?.id === docId) {
           setActiveChat(null);
@@ -1155,10 +1150,10 @@ function InboxContent() {
       setChats(prev => prev.filter(c => !deletedIdsSet.has(c.id)));
       setSelectedChatIds([]);
 
-      toast.success(count === 1 ? 'تم نقل العميل إلى سلة المهملات لدى الإدارة 🗑️' : `تم نقل ${count} عميل إلى سلة المهملات لدى الإدارة 🗑️`);
+      toast.success(count === 1 ? 'تم مسح شات العميل ونقله لسلة المهملات لدى الإدارة 🗑️' : `تم مسح شات ${count} عميل ونقلهم لسلة المهملات لدى الإدارة 🗑️`);
     } catch (err) {
       console.error('Error soft-deleting chat:', err);
-      toast.error('حدث خطأ أثناء مسح العميل: ' + err.message);
+      toast.error('حدث خطأ أثناء مسح شات العميل: ' + err.message);
     }
   };
 
@@ -2527,7 +2522,7 @@ function InboxContent() {
                 title="تحديد عملاء متعدد للمسح"
               >
                 <CheckSquare size={13} />
-                <span>{isChatSelectMode ? 'إلغاء' : 'تحديد ⚔️'}</span>
+                <span>{isChatSelectMode ? 'إلغاء التحديد' : 'تحديد مسح 🗑️'}</span>
               </button>
             )}
           </div>
@@ -2779,21 +2774,9 @@ function InboxContent() {
                   </div>
                 </div>
 
-                {/* Right/Left Timestamp column & Delete Button for all employees */}
+                {/* Right/Left Timestamp column */}
                 <div className="text-left flex flex-col items-end shrink-0 ml-1">
                   <span className="text-[10px] text-gray-400 font-mono">{formatTime(chat.updatedAt)}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSoftDeleteChat(chat);
-                    }}
-                    className="mt-1.5 px-2 py-0.5 rounded-md bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/40 transition shadow-sm flex items-center gap-1 text-[10px] font-black cursor-pointer active:scale-95"
-                    title="مسح العميل ونقله لسلة المهملات لدى الإدارة 🗑️"
-                  >
-                    <Trash2 size={11} className="text-rose-400" />
-                    <span>مسح</span>
-                  </button>
                 </div>
               </div>
             );
