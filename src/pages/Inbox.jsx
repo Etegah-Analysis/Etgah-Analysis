@@ -105,6 +105,15 @@ function InboxContent() {
     );
   };
 
+  const normalizePhone = (p) => {
+    if (!p) return '';
+    let str = String(p).replace(/[^0-9]/g, '');
+    if (str.startsWith('0')) str = '20' + str.substring(1);
+    else if (str.startsWith('5')) str = '966' + str.substring(1);
+    else if (str.length === 10 && str.startsWith('1')) str = '20' + str;
+    return str;
+  };
+
   const hasCustomerSentMessage = (chat) => {
     if (!chat) return false;
     if (!isWebsiteLead(chat)) return true;
