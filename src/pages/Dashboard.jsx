@@ -1764,11 +1764,39 @@ const Dashboard = () => {
     }
   };
 
+  const getClientNameOrPhone = (c) => {
+    if (!c) return 'عميل المنصة';
+    if (c.isGroup) return c.name || 'جروب الموظفين 👥';
+    const name = c.name || c.clientName || c.displayName || c.fullName || c.visitorName;
+    const phone = c.phoneNumber || c.phone || c.mobile || c.cleanPhone || c.id;
+    if (name && name.toString().trim()) return name.toString().trim();
+    if (phone && phone.toString().trim()) return phone.toString().trim();
+    return 'عميل مسجل بالمنصة';
+  };
+
   // Unified Real-Time Notification Center State for Dashboard (WhatsApp + Internal Mail)
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
   const [notifActiveTab, setNotifActiveTab] = useState('all'); // 'all' | 'whatsapp' | 'email'
-  const [dismissedNotifIds, setDismissedNotifIds] = useState([]);
+  const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('etegah_dashboard_dismissed_notif_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch(e) {
+      return [];
+    }
+  });
+
+  const dismissNotifIds = (idsToDismiss) => {
+    setDismissedNotifIds(prev => {
+      const arrayToDismiss = Array.isArray(idsToDismiss) ? idsToDismiss : [idsToDismiss];
+      const next = Array.from(new Set([...prev, ...arrayToDismiss]));
+      try {
+        localStorage.setItem('etegah_dashboard_dismissed_notif_ids', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
   const notifDropdownRef = useRef(null);
   const prevUnreadMapRef = useRef({});
   const isFirstLoadRef = useRef(true);
@@ -1968,7 +1996,7 @@ const Dashboard = () => {
           (t) => (
             <div 
               onClick={async () => {
-                setDismissedNotifIds(prev => [...prev, c.id]);
+                dismissNotifIds(c.id);
                 toast.dismiss(t.id);
                 const uid = currentUser?.uid || '';
                 if (c.isGroup || c.isDirect) {
@@ -2008,10 +2036,10 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs font-black text-gray-900 truncate">
                     {c.isGroup 
-                      ? `👥 رسالة جديدة في جروب (${c.name})` 
+                      ? `👥 رسالة جديدة في جروب (${c.name || 'الموظفين'})` 
                       : isWebsiteLead 
-                        ? `🌐 تسجيل دخول جديد بالموقع: ${c.name || c.phoneNumber}`
-                        : `📩 رسالة جديدة من: ${c.name || c.phoneNumber}`
+                        ? `🌐 تسجيل دخول جديد بالموقع: ${getClientNameOrPhone(c)}`
+                        : `📩 رسالة جديدة من: ${getClientNameOrPhone(c)}`
                     }
                   </p>
                 </div>
@@ -11210,7 +11238,7 @@ const handleExportBuffetToExcel = () => {
                               ...unreadWhatsAppChats.map(c => c.id),
                               ...unreadEmails.map(m => m.id)
                             ];
-                            setDismissedNotifIds(prev => [...prev, ...allIds]);
+                            dismissNotifIds(allIds);
                             setHasViewedNotifications(true);
 
                             const uid = currentUser?.uid || '';
@@ -11396,7 +11424,7 @@ const handleExportBuffetToExcel = () => {
                       <div 
                         key={`notif-conv-${c.id}`}
                         onClick={async () => {
-                          setDismissedNotifIds(prev => [...prev, c.id]);
+                          dismissNotifIds(c.id);
                           setIsNotifDropdownOpen(false);
                           const uid = currentUser?.uid || '';
                           if (c.isGroup || c.isDirect) {
@@ -11433,7 +11461,7 @@ const handleExportBuffetToExcel = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
                               <span className={`text-xs font-bold text-white truncate ${c.isGroup ? 'group-hover:text-indigo-300' : 'group-hover:text-emerald-300'} transition`}>
-                                {c.isGroup ? `👥 ${c.name}` : (c.name || c.phoneNumber)}
+                                {c.isGroup ? `👥 ${c.name || 'جروب موظفين'}` : getClientNameOrPhone(c)}
                               </span>
                               <span className={`${c.isGroup ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-500/40' : (c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website_otp' || c.status === 'website_visitor' ? 'bg-purple-950/90 text-purple-300 border border-purple-500/40' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30')} text-[9px] px-1.5 py-0.2 rounded-full font-bold shrink-0`}>
                                 {c.isGroup ? 'جروب موظفين 👥' : (c.source === 'website' || c.source === 'website_otp' || c.addedBy === 'website_otp' || c.status === 'website_visitor' ? '🌐 عملاء الموقع' : 'واتساب 💬')}
