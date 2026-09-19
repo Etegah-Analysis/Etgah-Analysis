@@ -19,7 +19,8 @@ import {
   serverTimestamp, 
   onSnapshot, 
   arrayUnion, 
-  writeBatch 
+  writeBatch,
+  limit 
 } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { getStorage } from "firebase/storage";
@@ -77,6 +78,7 @@ export {
   onSnapshot, 
   arrayUnion, 
   writeBatch, 
+  limit,
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged 
