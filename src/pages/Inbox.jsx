@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc, writeBatch } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone, Radio } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hasPermission } from '../config/permissionsConfig';
 import * as XLSX from 'xlsx';
@@ -83,6 +83,20 @@ function InboxContent() {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState([]);
   const [isHeaderCallRinging, setIsHeaderCallRinging] = useState(false);
+
+  // Broadcast Lists States
+  const [broadcastLists, setBroadcastLists] = useState([]);
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastTab, setBroadcastTab] = useState('lists'); // 'lists' | 'create' | 'members' | 'send'
+  const [newBroadcastName, setNewBroadcastName] = useState('');
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState('');
+  const [broadcastSelectedCustomerIds, setBroadcastSelectedCustomerIds] = useState([]);
+  const [broadcastSearchCustomer, setBroadcastSearchCustomer] = useState('');
+  const [broadcastCustomerSourceFilter, setBroadcastCustomerSourceFilter] = useState('all'); // 'all' | 'website' | 'campaign'
+  const [broadcastMessageText, setBroadcastMessageText] = useState('');
+  const [broadcastAttachment, setBroadcastAttachment] = useState(null);
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, currentName: '' });
 
   const isWebsiteLead = (chat) => {
     if (!chat) return false;
@@ -1020,6 +1034,22 @@ function InboxContent() {
     return () => unsub();
   }, [activeChat?.id]);
 
+  // Listen for real-time Broadcast lists from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'broadcast_lists'));
+    const unsub = onSnapshot(q, (snap) => {
+      const lists = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      lists.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
+      setBroadcastLists(lists);
+    }, (err) => console.error("Broadcast lists listener error:", err));
+
+    return () => unsub();
+  }, []);
+
   // حماية إضافية لحساب المنسق: إغلاق أي شات ليس جروب فوراً
   useEffect(() => {
     if (isCoordinator && activeChat && !activeChat.isGroup) {
@@ -1793,6 +1823,208 @@ function InboxContent() {
       console.error("Error triggering internal call:", err);
       toast.error('خطأ في إرسال اتصال التنبيه: ' + (err.message || 'حاول مرة أخرى'));
     }
+  };
+
+  // Create Broadcast List
+  const handleCreateBroadcastList = async (e) => {
+    e.preventDefault();
+    if (!newBroadcastName.trim()) {
+      toast.error('يرجى كتابة اسم قائمة الـ Broadcast');
+      return;
+    }
+    if (broadcastSelectedCustomerIds.length === 0) {
+      toast.error('يرجى اختيار عميل واحد على الأقل لإضافته للقائمة');
+      return;
+    }
+
+    try {
+      const selectedCustomerObjects = chats
+        .filter(c => !c.isGroup && !c.isDirect && broadcastSelectedCustomerIds.includes(c.id))
+        .map(c => ({
+          id: c.id,
+          name: c.name || c.cardName || 'عميل اتجاه',
+          phone: c.phoneNumber || c.phone || c.id,
+          phoneNumber: c.phoneNumber || c.phone || c.id,
+          source: c.source || (isWebsiteLead(c) ? 'website' : 'excel_import')
+        }));
+
+      const creatorName = isAdmin ? '👑 الإدارة' : (currentEmpName || currentUser?.email?.split('@')[0] || 'موظف');
+
+      const newDocRef = await addDoc(collection(db, 'broadcast_lists'), {
+        name: newBroadcastName.trim(),
+        createdBy: currentUser?.email || 'admin',
+        createdByName: creatorName,
+        createdByUid: currentUser?.uid || 'admin',
+        members: selectedCustomerObjects,
+        memberCount: selectedCustomerObjects.length,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success(`تم إنشاء قائمة الـ Broadcast (${newBroadcastName.trim()}) بنجاح 🎉`);
+      setNewBroadcastName('');
+      setBroadcastSelectedCustomerIds([]);
+      setSelectedBroadcastId(newDocRef.id);
+      setBroadcastTab('lists');
+    } catch (err) {
+      console.error("Error creating broadcast list:", err);
+      toast.error('خطأ في إنشاء القائمة: ' + (err.message || 'حاول مرة أخرى'));
+    }
+  };
+
+  // Delete Broadcast List
+  const handleDeleteBroadcastList = async (listId, listName) => {
+    if (!isAdmin) {
+      toast.error('حذف القوائم متاح للإدارة فقط 🔒');
+      return;
+    }
+    if (!window.confirm(`هل أنت متأكد من حذف قائمة الـ Broadcast (${listName || 'المحددة'}) نهائياً؟`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'broadcast_lists', listId));
+      if (selectedBroadcastId === listId) setSelectedBroadcastId('');
+      toast.success('تم حذف قائمة الـ Broadcast بنجاح');
+    } catch (err) {
+      console.error("Error deleting broadcast list:", err);
+      toast.error('خطأ في حذف القائمة');
+    }
+  };
+
+  // Remove Member from Broadcast List
+  const handleRemoveMemberFromBroadcast = async (listId, memberId, memberName) => {
+    const list = broadcastLists.find(l => l.id === listId);
+    if (!list) return;
+
+    try {
+      const updatedMembers = (list.members || []).filter(m => m.id !== memberId);
+      await updateDoc(doc(db, 'broadcast_lists', listId), {
+        members: updatedMembers,
+        memberCount: updatedMembers.length,
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`تم حذف العميل (${memberName || 'المحدد'}) من القائمة`);
+    } catch (err) {
+      console.error("Error removing broadcast member:", err);
+      toast.error('خطأ في حذف العميل من القائمة');
+    }
+  };
+
+  // Send Broadcast Message individually to all list members
+  const handleSendBroadcastMessage = async (e) => {
+    e.preventDefault();
+    if (!selectedBroadcastId) {
+      toast.error('يرجى تحديد قائمة Broadcast أولاً');
+      return;
+    }
+    const targetList = broadcastLists.find(l => l.id === selectedBroadcastId);
+    if (!targetList || !targetList.members || targetList.members.length === 0) {
+      toast.error('القائمة المحددة لا تحتوي على أي عملاء لإرسال الرسائل لهم');
+      return;
+    }
+    if (!broadcastMessageText.trim() && !broadcastAttachment) {
+      toast.error('يرجى كتابة نص الرسالة أو إرفاق ملف قبل الإرسال');
+      return;
+    }
+
+    const membersToReceive = targetList.members;
+    const msgContent = broadcastMessageText.trim();
+
+    setIsSendingBroadcast(true);
+    setBroadcastProgress({ current: 0, total: membersToReceive.length, currentName: membersToReceive[0]?.name || '' });
+
+    let mediaUrl = null;
+    let fileType = null;
+    let fileName = null;
+
+    if (broadcastAttachment) {
+      try {
+        const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const fileRef = ref(storage, `chat_media/broadcast_${selectedBroadcastId}_${uniqueId}_${broadcastAttachment.name}`);
+        await uploadBytes(fileRef, broadcastAttachment);
+        mediaUrl = await getDownloadURL(fileRef);
+        fileType = broadcastAttachment.type;
+        fileName = broadcastAttachment.name;
+        setBroadcastAttachment(null);
+      } catch (err) {
+        console.error("Broadcast attachment upload error:", err);
+        toast.error('خطأ في رفع مرفق البرودكاست: ' + err.message);
+        setIsSendingBroadcast(false);
+        return;
+      }
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < membersToReceive.length; i++) {
+      const member = membersToReceive[i];
+      setBroadcastProgress({
+        current: i + 1,
+        total: membersToReceive.length,
+        currentName: member.name || member.phoneNumber || `عميل ${i + 1}`
+      });
+
+      try {
+        const phone = (member.phoneNumber || member.phone || member.id || '').replace(/[^0-9]/g, '');
+        const senderType = member.source === 'website' ? 'website' : 'campaigns';
+
+        // 1. Call API to send WhatsApp message individually
+        const response = await fetch('/api/sendMessage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: phone,
+            text: msgContent,
+            mediaUrl: mediaUrl,
+            fileType: fileType,
+            fileName: fileName,
+            senderType: senderType
+          })
+        });
+
+        const resData = await response.json();
+
+        // 2. Save individual 1-on-1 message in Firestore chat history for this customer
+        const msgData = {
+          conversationId: member.id,
+          phoneNumber: phone,
+          text: msgContent,
+          mediaUrl: mediaUrl,
+          fileType: fileType,
+          fileName: fileName,
+          sender: currentUser?.uid || 'admin',
+          senderEmail: currentUser?.email || 'admin',
+          senderName: isAdmin ? '👑 الإدارة' : (currentEmpName || 'الموظف'),
+          timestamp: serverTimestamp(),
+          status: response.ok && resData.success ? 'sent' : 'pending',
+          metaMessageId: resData.metaMessageId || null,
+          isBroadcastSent: true,
+          broadcastListName: targetList.name
+        };
+
+        await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), msgData);
+
+        // 3. Update customer doc lastMessage so it appears in normal conversation list
+        const customerRef = doc(db, 'بيانات_تسجيل_العملاء', member.id);
+        await updateDoc(customerRef, {
+          lastMessage: msgContent || (fileName ? `📎 ${fileName}` : 'مرفق'),
+          updatedAt: serverTimestamp(),
+          unread: 0
+        }).catch(() => {});
+
+        successCount++;
+      } catch (err) {
+        console.error(`Error sending broadcast to ${member.name}:`, err);
+        failCount++;
+      }
+
+      // Small delay between calls for API stability
+      await new Promise(res => setTimeout(res, 400));
+    }
+
+    setIsSendingBroadcast(false);
+    setBroadcastMessageText('');
+    toast.success(`تم الانتهاء من إرسال البرودكاست بنجاح! 🚀 (تم إرسال ${successCount} من أصل ${membersToReceive.length})`);
   };
 
   const handleSendSingleTemplate = async (e) => {
@@ -2682,20 +2914,34 @@ function InboxContent() {
               <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={13} />
             </div>
             {!isCoordinator && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsChatSelectMode(prev => !prev);
-                  if (isChatSelectMode) setSelectedChatIds([]);
-                }}
-                className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 border ${
-                  isChatSelectMode ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black' : 'bg-white/10 text-gray-200 hover:bg-white/20 border-white/10'
-                }`}
-                title="تحديد عملاء متعدد للمسح"
-              >
-                <CheckSquare size={13} />
-                <span>{isChatSelectMode ? 'إلغاء التحديد' : 'تحديد مسح 🗑️'}</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBroadcastModalOpen(true);
+                    setBroadcastTab('lists');
+                  }}
+                  className="px-2.5 py-1.5 rounded-full text-[11px] font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white border border-purple-400/40 flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md active:scale-95"
+                  title="إدارة وإرسال قوائم Broadcast الجماعية"
+                >
+                  <Radio size={13} className="text-cyan-300 animate-pulse" />
+                  <span>Broadcast 📢</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChatSelectMode(prev => !prev);
+                    if (isChatSelectMode) setSelectedChatIds([]);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 border ${
+                    isChatSelectMode ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black' : 'bg-white/10 text-gray-200 hover:bg-white/20 border-white/10'
+                  }`}
+                  title="تحديد عملاء متعدد للمسح"
+                >
+                  <CheckSquare size={13} />
+                  <span>{isChatSelectMode ? 'إلغاء التحديد' : 'تحديد مسح 🗑️'}</span>
+                </button>
+              </>
             )}
           </div>
 
@@ -4292,6 +4538,474 @@ function InboxContent() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal: إدارة وإرسال قوائم الـ Broadcast الجماعية */}
+      {isBroadcastModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-purple-500/40 rounded-3xl p-6 w-full max-w-3xl shadow-[0_10px_50px_rgba(147,51,234,0.35)] text-right max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <Radio className="text-cyan-400 animate-pulse" size={24} />
+                <div>
+                  <h3 className="font-black text-white text-lg flex items-center gap-2">
+                    <span>📢 WhatsApp Broadcast Lists</span>
+                    <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">
+                      قوائم المراسلة الجماعية
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    إرسال رسائل خاصة منفردة 1-on-1 لأي عدد من العملاء دون أن يعلم العميل بوجود قائمة
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsBroadcastModalOpen(false)} 
+                className="text-gray-400 hover:text-white transition p-1.5 rounded-xl hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 mb-4 bg-slate-900/90 p-1.5 rounded-2xl border border-white/10 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBroadcastTab('lists')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                  broadcastTab === 'lists' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>📋 قوائم الـ Broadcast ({broadcastLists.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBroadcastTab('create');
+                  setNewBroadcastName('');
+                  setBroadcastSelectedCustomerIds([]);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                  broadcastTab === 'create' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Plus size={14} />
+                <span>➕ إنشاء قائمة جديدة</span>
+              </button>
+              {selectedBroadcastId && (
+                <button
+                  type="button"
+                  onClick={() => setBroadcastTab('send')}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                    broadcastTab === 'send' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md' : 'text-emerald-400 hover:bg-emerald-500/10'
+                  }`}
+                >
+                  <Send size={14} />
+                  <span>✉️ إرسال برودكاست</span>
+                </button>
+              )}
+            </div>
+
+            {/* Tab 1: View all Broadcast Lists */}
+            {broadcastTab === 'lists' && (
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {broadcastLists.map((list) => {
+                  const isSelected = selectedBroadcastId === list.id;
+                  return (
+                    <div 
+                      key={list.id} 
+                      className={`p-4 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        isSelected 
+                          ? 'bg-purple-950/40 border-purple-400/80 ring-1 ring-purple-500/40' 
+                          : 'bg-slate-900/80 border-white/10 hover:border-purple-500/40'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-white text-sm dir-auto">{list.name}</h4>
+                          <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {list.members?.length || 0} عميل
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          أنشئت بواسطة: <span className="text-cyan-300 font-bold">{list.createdByName || 'الموظف'}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBroadcastId(list.id);
+                            setBroadcastTab('send');
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-3.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <Send size={13} />
+                          <span>إرسال برودكاست ✉️</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBroadcastId(list.id);
+                            setBroadcastTab('members');
+                          }}
+                          className="bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Users size={13} />
+                          <span>الأعضاء ({list.members?.length || 0})</span>
+                        </button>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBroadcastList(list.id, list.name)}
+                            className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-xs font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+                            title="حذف هذه القائمة نهائياً"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {broadcastLists.length === 0 && (
+                  <div className="text-center py-12 bg-slate-900/40 rounded-3xl border border-dashed border-white/10">
+                    <Radio className="mx-auto text-purple-400/50 mb-2" size={40} />
+                    <h4 className="text-white font-bold text-sm">لا توجد قوائم Broadcast منشأة حالياً</h4>
+                    <p className="text-gray-400 text-xs mt-1 mb-4">قم بإنشاء أول قائمة برودكاست جديدة وتحديد العملاء المستهدفين لها</p>
+                    <button
+                      type="button"
+                      onClick={() => setBroadcastTab('create')}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg hover:from-purple-500 hover:to-indigo-500 transition"
+                    >
+                      ➕ إنشاء قائمة جديدة الآن
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Create New Broadcast List */}
+            {broadcastTab === 'create' && (
+              <form onSubmit={handleCreateBroadcastList} className="flex-1 flex flex-col overflow-hidden space-y-3">
+                <div className="shrink-0">
+                  <label className="block text-xs font-bold text-purple-200 mb-1">
+                    اسم قائمة الـ Broadcast (باللغة الإنجليزية أو العربية): <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: Broadcast 1, VIP Customers, Website Leads..."
+                    value={newBroadcastName}
+                    onChange={(e) => setNewBroadcastName(e.target.value)}
+                    className="w-full bg-slate-900 text-white border border-purple-500/40 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                {/* Filter and Selection Header */}
+                <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-slate-900/60 p-2.5 rounded-2xl border border-white/10">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="ابحث بالاسم أو الهاتف للتحديد..."
+                      value={broadcastSearchCustomer}
+                      onChange={(e) => setBroadcastSearchCustomer(e.target.value)}
+                      className="w-full bg-black/40 text-white placeholder-gray-400 border border-white/10 rounded-xl py-1.5 pr-8 pl-3 text-xs focus:outline-none focus:border-purple-400"
+                    />
+                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={broadcastCustomerSourceFilter}
+                      onChange={(e) => setBroadcastCustomerSourceFilter(e.target.value)}
+                      className="bg-slate-900 text-white text-xs border border-white/15 rounded-xl py-1.5 px-2 font-bold cursor-pointer"
+                    >
+                      <option value="all">جميع المصادر (الموقع + الحملات)</option>
+                      <option value="website">🌐 عملاء موقع الويب فقط</option>
+                      <option value="campaign">📊 عملاء الحملات (إكسيل) فقط</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allFiltered = chats
+                          .filter(c => !c.isGroup && !c.isDirect)
+                          .filter(c => {
+                            if (broadcastCustomerSourceFilter === 'website') return isWebsiteLead(c);
+                            if (broadcastCustomerSourceFilter === 'campaign') return !isWebsiteLead(c);
+                            return true;
+                          })
+                          .map(c => c.id);
+                        setBroadcastSelectedCustomerIds(allFiltered);
+                      }}
+                      className="text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-xl font-bold hover:bg-cyan-500/30 transition"
+                    >
+                      تحديد الكل
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBroadcastSelectedCustomerIds([])}
+                      className="text-[11px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded-xl font-bold hover:bg-rose-500/30 transition"
+                    >
+                      إلغاء الكل
+                    </button>
+                  </div>
+                </div>
+
+                {/* Customers Selection Scroll List */}
+                <div className="flex-1 overflow-y-auto bg-slate-900/90 rounded-2xl border border-white/10 p-2 space-y-1.5">
+                  {chats
+                    .filter(c => !c.isGroup && !c.isDirect)
+                    .filter(c => {
+                      if (broadcastCustomerSourceFilter === 'website') return isWebsiteLead(c);
+                      if (broadcastCustomerSourceFilter === 'campaign') return !isWebsiteLead(c);
+                      return true;
+                    })
+                    .filter(c => {
+                      if (!broadcastSearchCustomer.trim()) return true;
+                      const q = broadcastSearchCustomer.toLowerCase();
+                      return (
+                        (c.name || '').toLowerCase().includes(q) ||
+                        (c.phoneNumber || c.phone || c.id || '').includes(q)
+                      );
+                    })
+                    .map((cust) => {
+                      const isSelected = broadcastSelectedCustomerIds.includes(cust.id);
+                      return (
+                        <div
+                          key={cust.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setBroadcastSelectedCustomerIds(prev => prev.filter(id => id !== cust.id));
+                            } else {
+                              setBroadcastSelectedCustomerIds(prev => [...prev, cust.id]);
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
+                            isSelected ? 'bg-purple-950/60 border-purple-400' : 'bg-slate-900 border-white/5 hover:border-purple-500/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="w-4 h-4 rounded text-purple-600 focus:ring-0 cursor-pointer"
+                            />
+                            <div>
+                              <span className="text-xs font-bold text-white block">
+                                {cust.name || cust.cardName || 'عميل اتجاه'}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono block">
+                                {cust.phoneNumber || cust.phone || cust.id}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            isWebsiteLead(cust)
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                          }`}>
+                            {isWebsiteLead(cust) ? '🌐 موقع الويب' : '📊 عميل حملة (إكسيل)'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Footer submit buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 shrink-0">
+                  <span className="text-xs text-purple-300 font-bold">
+                    تم تحديد ({broadcastSelectedCustomerIds.length}) عميل
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBroadcastTab('lists')}
+                      className="px-4 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!newBroadcastName.trim() || broadcastSelectedCustomerIds.length === 0}
+                      className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg disabled:opacity-50 transition active:scale-95 cursor-pointer"
+                    >
+                      🚀 حفظ وإنشاء قائمة الـ Broadcast
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* Tab 3: Manage Members of Selected Broadcast List */}
+            {broadcastTab === 'members' && selectedBroadcastId && (() => {
+              const currentList = broadcastLists.find(l => l.id === selectedBroadcastId);
+              if (!currentList) return null;
+              return (
+                <div className="flex-1 flex flex-col overflow-hidden space-y-3">
+                  <div className="flex items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-white/10 shrink-0">
+                    <div>
+                      <h4 className="text-sm font-black text-white">{currentList.name}</h4>
+                      <p className="text-xs text-gray-400">إجمالي الأعضاء: <span className="text-cyan-300 font-bold">{currentList.members?.length || 0} عميل</span></p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBroadcastId(currentList.id);
+                        setBroadcastTab('send');
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4 py-2 rounded-xl shadow-md transition flex items-center gap-1.5"
+                    >
+                      <Send size={14} />
+                      <span>إرسال برودكاست للقائمة ✉️</span>
+                    </button>
+                  </div>
+
+                  {/* Members list */}
+                  <div className="flex-1 overflow-y-auto bg-slate-900/90 rounded-2xl border border-white/10 p-2 space-y-2">
+                    {(currentList.members || []).map((m) => (
+                      <div key={m.id} className="p-3 bg-slate-900 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">{m.name || 'عميل اتجاه'}</span>
+                          <span className="text-[10px] text-gray-400 font-mono block">{m.phoneNumber || m.phone || m.id}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMemberFromBroadcast(currentList.id, m.id, m.name)}
+                          className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                        >
+                          <Trash2 size={12} />
+                          <span>إزالة العميل</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-white/10 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setBroadcastTab('lists')}
+                      className="px-4 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition"
+                    >
+                      عودة للقوائم
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Tab 4: Send Broadcast Message */}
+            {broadcastTab === 'send' && selectedBroadcastId && (() => {
+              const currentList = broadcastLists.find(l => l.id === selectedBroadcastId);
+              if (!currentList) return null;
+              return (
+                <form onSubmit={handleSendBroadcastMessage} className="flex-1 flex flex-col overflow-hidden space-y-3">
+                  <div className="bg-slate-900/80 p-3 rounded-2xl border border-purple-500/30 flex items-center justify-between shrink-0">
+                    <div>
+                      <span className="text-[10px] text-purple-300 font-bold block">القائمة المستهدفة للإرسال:</span>
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <span>📢 {currentList.name}</span>
+                        <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full">
+                          ({currentList.members?.length || 0} عميل مستهدف)
+                        </span>
+                      </h4>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setBroadcastTab('lists')}
+                      className="text-xs text-cyan-300 hover:underline font-bold"
+                    >
+                      تغيير القائمة
+                    </button>
+                  </div>
+
+                  {/* Message Input Box */}
+                  <div className="flex-1 flex flex-col space-y-2">
+                    <label className="block text-xs font-bold text-purple-200">
+                      نص الرسالة الفردية المستقلة: <span className="text-rose-400">*</span>
+                    </label>
+                    <textarea
+                      required={!broadcastAttachment}
+                      rows={5}
+                      placeholder="اكتب نص الرسالة التي ستصل كرسالة خاصة لكل عميل على حظى دون معرفة أنها برودكاست..."
+                      value={broadcastMessageText}
+                      onChange={(e) => setBroadcastMessageText(e.target.value)}
+                      className="w-full flex-1 bg-slate-900 text-white placeholder-gray-500 border border-purple-500/40 rounded-2xl p-3.5 text-xs font-bold focus:outline-none focus:border-cyan-400 resize-none dir-auto"
+                    />
+
+                    {/* File Attachment Input */}
+                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-white/10 shrink-0">
+                      <Paperclip size={16} className="text-purple-400" />
+                      <input
+                        type="file"
+                        onChange={(e) => setBroadcastAttachment(e.target.files[0] || null)}
+                        className="text-xs text-gray-300 file:mr-4 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer"
+                      />
+                      {broadcastAttachment && (
+                        <span className="text-xs text-emerald-400 font-bold truncate max-w-[200px]">
+                          📎 {broadcastAttachment.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Live Sending Progress Indicator */}
+                  {isSendingBroadcast && (
+                    <div className="bg-purple-950/80 border border-purple-500/50 p-3 rounded-2xl space-y-1.5 shrink-0 animate-pulse">
+                      <div className="flex justify-between items-center text-xs font-black text-white">
+                        <span>🚀 جاري الإرسال الفردي الحصري...</span>
+                        <span className="text-cyan-300 font-mono">
+                          {broadcastProgress.current} / {broadcastProgress.total}
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-white/10">
+                        <div
+                          className="bg-gradient-to-r from-purple-500 to-cyan-400 h-2 transition-all duration-300"
+                          style={{
+                            width: `${(broadcastProgress.current / (broadcastProgress.total || 1)) * 100}%`
+                          }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-purple-200">
+                        جاري إرسال الرسالة إلى: <span className="text-amber-300 font-bold">{broadcastProgress.currentName}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isSendingBroadcast}
+                      onClick={() => setBroadcastTab('lists')}
+                      className="px-4 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20 text-xs font-bold transition disabled:opacity-50"
+                    >
+                      إلغاء
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={isSendingBroadcast || (!broadcastMessageText.trim() && !broadcastAttachment)}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-lg disabled:opacity-50 transition active:scale-95 cursor-pointer flex items-center gap-2"
+                    >
+                      <Send size={15} />
+                      <span>{isSendingBroadcast ? 'جاري الإرسال للجميع...' : '🚀 إرسال البرودكاست الآن للجميع'}</span>
+                    </button>
+                  </div>
+                </form>
+              );
+            })()}
+
           </div>
         </div>
       )}
