@@ -1742,26 +1742,78 @@ const Dashboard = () => {
     }
   };
 
-  // Web Audio Notification Chime (Crystal Clear Synthesized Chime)
+  // AudioContext Ref for persistent Web Audio API unlocking
+  const audioCtxRef = useRef(null);
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume();
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
+
+  // Web Audio Notification Chime (Crystal Clear Synthesized Loud Chime)
   const playNotificationSound = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.35);
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = AudioCtx ? new AudioCtx() : null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+
+      if (audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        
+        // Osc 1: Primary D5 -> A5 Loud Chime
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, now);
+        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        gain1.gain.setValueAtTime(0.5, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.4);
+
+        // Osc 2: High harmony E6 bell accent
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1318.51, now + 0.12);
+        gain2.gain.setValueAtTime(0.3, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.5);
+      }
     } catch (e) {
-      // Audio playback policy silent catch
+      console.warn('Notification sound playback error:', e);
     }
+  };
+
+  const getItemMsgKey = (item) => {
+    if (!item) return '';
+    const msg = item.lastMessage || item.message || item.lastMsg || '';
+    const time = getTimestampMillis(item.updatedAt) || getTimestampMillis(item.createdAt) || item.timestampMillis || '';
+    const unread = item.unread || 0;
+    return `${msg}_${unread}_${time}`;
   };
 
   const getClientNameOrPhone = (c) => {
@@ -1787,14 +1839,37 @@ const Dashboard = () => {
     }
   });
 
+  const [dismissedNotifMap, setDismissedNotifMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('etegah_dashboard_dismissed_notif_map');
+      return saved ? JSON.parse(saved) : {};
+    } catch(e) {
+      return {};
+    }
+  });
+
   const dismissNotifIds = (idsToDismiss) => {
+    const list = Array.isArray(idsToDismiss) ? idsToDismiss : [idsToDismiss];
     setDismissedNotifIds(prev => {
-      const arrayToDismiss = Array.isArray(idsToDismiss) ? idsToDismiss : [idsToDismiss];
-      const next = Array.from(new Set([...prev, ...arrayToDismiss]));
+      const idArray = list.map(i => typeof i === 'string' ? i : i.id);
+      const next = Array.from(new Set([...prev, ...idArray]));
       try {
         localStorage.setItem('etegah_dashboard_dismissed_notif_ids', JSON.stringify(next));
       } catch (e) {}
       return next;
+    });
+
+    setDismissedNotifMap(prevMap => {
+      const newMap = { ...prevMap };
+      list.forEach(item => {
+        const id = typeof item === 'string' ? item : item.id;
+        const key = typeof item === 'string' ? 'dismissed' : getItemMsgKey(item);
+        newMap[id] = key || 'dismissed';
+      });
+      try {
+        localStorage.setItem('etegah_dashboard_dismissed_notif_map', JSON.stringify(newMap));
+      } catch(e) {}
+      return newMap;
     });
   };
   const notifDropdownRef = useRef(null);
