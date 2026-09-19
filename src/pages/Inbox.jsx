@@ -1801,7 +1801,7 @@ function InboxContent() {
         phoneNumber: activeChat.phoneNumber || activeChat.phone || activeChat.id,
         sender: 'system',
         senderName: callerName,
-        text: `📞 اتصال تنبيه داخلي جاري بالرسائل من الموظف (${callerName})...`,
+        text: `📞 اتصال تنبيه داخلي جاري بالرسائل من (${callerName})...`,
         timestamp: serverTimestamp(),
         isGroupMessage: Boolean(activeChat.isGroup),
         isDirectMessage: Boolean(activeChat.isDirect)
