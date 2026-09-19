@@ -1808,31 +1808,23 @@ const Dashboard = () => {
       });
     }
 
-    // A. Filter Customer Chats (Strictly real unread messages, excluded if already read or dismissed)
-    let filteredCustomerChats = [];
-    if (!isCoordinator) {
-      filteredCustomerChats = allCandidateCustomerChats.filter(c => {
-        if (dismissedNotifIds.includes(c.id)) return false;
+    // A. Filter Customer Chats for ALL employees (Admin, Leaders, Agents, Coordinators)
+    const filteredCustomerChats = allCandidateCustomerChats.filter(c => {
+      if (dismissedNotifIds.includes(c.id)) return false;
 
-        const isRead = c.readBy && (c.readBy.includes(currentUser.uid) || (isAdmin && c.readBy.includes('admin')));
-        if (isRead) return false;
+      const isRead = c.readBy && (
+        c.readBy.includes(currentUser.uid) || 
+        (isAdmin && c.readBy.includes('admin')) ||
+        (currentEmpUser?.uid && c.readBy.includes(currentEmpUser.uid))
+      );
+      if (isRead) return false;
 
-        const hasUnread = (Number(c.unread) > 0) || c.unread === true || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting' || (c.lastMessage && !c.lastMessageFrom && c.isResponded !== true);
-        if (!hasUnread) return false;
+      const hasUnread = (Number(c.unread) > 0) || c.unread === true || c.status === 'unassigned' || c.lastMessageFrom === 'user' || c.lastSender === 'user' || c.lastMessageSender === 'user' || c.waitingStatus === 'waiting' || (c.lastMessage && !c.lastMessageFrom && c.isResponded !== true);
+      if (!hasUnread) return false;
 
-        if (isAdmin) return true; // Admin gets notifications for all customer chats
-
-        if (isLeader) {
-          return c.assignedToUid === currentUser.uid ||
-                 c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase() ||
-                 myTeamMembers.some(m => m.uid === c.assignedToUid);
-        }
-
-        // Regular Agent
-        return c.assignedToUid === currentUser.uid ||
-               c.assignedTo?.toLowerCase() === currentUser.email?.toLowerCase();
-      });
-    }
+      // Enable for ALL employees across website, campaigns, and inbox
+      return true;
+    });
 
     // B. Filter Employee Groups strictly for members only
     const filteredGroups = (internalGroups || []).filter(g => {
@@ -3436,8 +3428,8 @@ const Dashboard = () => {
   }, [hasSubscribedCardAccess, allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isCustomerService]);
 
   const totalAllNotificationsCount = useMemo(() => {
-    return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0);
-  }, [unreadWhatsAppChats, unreadEmails, expiringSubscriptions]);
+    return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0) + (incomingInternalCall && incomingInternalCall.status === 'ringing' ? 1 : 0);
+  }, [unreadWhatsAppChats, unreadEmails, expiringSubscriptions, incomingInternalCall]);
 
   const prevTotalNotifsRef = useRef(totalAllNotificationsCount);
   const prevUnreadChatsRef = useRef(unreadWhatsAppChats?.length || 0);
@@ -11156,6 +11148,55 @@ const handleExportBuffetToExcel = () => {
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1.5 space-y-1">
+                  {/* Active Ringing Internal Call Notification Card inside Notification Center */}
+                  {incomingInternalCall && incomingInternalCall.status === 'ringing' && (
+                    <div className="p-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl border-2 border-cyan-400 text-white mb-2 shadow-[0_10px_30px_rgba(6,182,212,0.5)] animate-pulse" dir="rtl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center text-cyan-300 animate-ping shrink-0">
+                          <PhoneCall size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-extrabold text-xs text-cyan-300 truncate">
+                            📞 اتصال داخلي جاري من {incomingInternalCall.callerName || incomingInternalCall.clientName || 'الموظف'}!
+                          </h4>
+                          <p className="text-[11px] text-gray-200 mt-0.5 truncate">ويرغب في تنبيهك والتواصل الفوري معك في الشات.</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'answered', answeredBy: currentEmpUser?.name || 'الموظف' });
+                              setIncomingInternalCall(null);
+                              setIsNotifDropdownOpen(false);
+                              setActiveTab('calls');
+                              toast.success('تم الرد على الاتصال الداخلي بنجاح 📞✨');
+                            } catch(err) {
+                              console.error('Error answering call:', err);
+                            }
+                          }}
+                          className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold py-1.5 px-3 rounded-xl text-xs shadow-md cursor-pointer transition active:scale-95 flex items-center justify-center gap-1"
+                        >
+                          <MessageCircle size={13} />
+                          <span>فتح المحادثة والرد 💬</span>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'rejected' });
+                              setIncomingInternalCall(null);
+                            } catch(err) {
+                              console.error('Error rejecting call:', err);
+                            }
+                          }}
+                          className="bg-rose-950/80 hover:bg-rose-900/90 border border-rose-500/40 text-rose-300 font-bold py-1.5 px-3 rounded-xl text-xs cursor-pointer transition"
+                        >
+                          إلغاء / كنسل
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Expiring Subscriptions List */}
                   {hasSubscribedCardAccess && (notifActiveTab === 'all' || notifActiveTab === 'expiring') && expiringSubscriptions.length > 0 && (
                     <div className="p-2.5 bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-950 rounded-xl border border-amber-500/40 mb-2 space-y-2">
@@ -24974,53 +25015,7 @@ const handleExportBuffetToExcel = () => {
           document.body
         )}
 
-        {/* Floating Ringing Call Banner for Staff - Top of Dashboard (Image 1 Parity) */}
-        {incomingInternalCall && (
-          <div className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] bg-gradient-to-r from-slate-900/95 via-indigo-950/95 to-slate-900/95 backdrop-blur-2xl border-2 border-cyan-400 text-white p-4.5 rounded-3xl shadow-[0_20px_60px_rgba(6,182,212,0.6)] animate-bounce font-sans border-t-2 border-t-cyan-300" dir="rtl">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center text-cyan-300 animate-ping shrink-0">
-                <PhoneCall size={24} />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-extrabold text-xs sm:text-sm text-cyan-300">
-                  📞 اتصال داخلي جاري من {incomingInternalCall.callerName || incomingInternalCall.clientName || 'العميل'}!
-                </h4>
-                <p className="text-[11px] text-gray-200 mt-0.5">ويرغب في تنبيهك والتواصل الفوري معك في الشات.</p>
-              </div>
-            </div>
-            <div className="mt-3.5 flex gap-2">
-              <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'answered', answeredBy: currentEmpUser?.name || 'الموظف' });
-                    setIncomingInternalCall(null);
-                    setActiveTab('calls');
-                    toast.success('تم الرد على الاتصال الداخلي بنجاح 📞✨');
-                  } catch(err) {
-                    console.error('Error answering call:', err);
-                  }
-                }}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
-              >
-                <MessageCircle size={14} />
-                <span>فتح المحادثة والرد</span>
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'internal_calls', incomingInternalCall.id), { status: 'rejected' });
-                    setIncomingInternalCall(null);
-                  } catch(err) {
-                    console.error('Error rejecting call:', err);
-                  }
-                }}
-                className="px-4 bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 py-2 rounded-2xl text-xs font-bold transition cursor-pointer"
-              >
-                إلغاء / كنسل
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Ringing Call alert integrated inside Notification Center bell */}
 
         {/* PLATFORM VIDEO UPLOADER MODAL (v2.26) */}
         {isUploadVideoModalOpen && (

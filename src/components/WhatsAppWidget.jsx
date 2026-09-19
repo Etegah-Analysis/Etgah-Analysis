@@ -888,36 +888,7 @@ export default function WhatsAppWidget() {
 
   return (
     <>
-      {/* Floating Ringing Call Banner / Modal */}
-      {activeInternalCall && activeInternalCall.status === 'ringing' && (
-        <div className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] bg-gradient-to-r from-slate-900/95 via-indigo-950/95 to-slate-900/95 backdrop-blur-2xl border-2 border-cyan-400 text-white p-4.5 rounded-3xl shadow-[0_20px_60px_rgba(6,182,212,0.6)] animate-bounce font-sans border-t-2 border-t-cyan-300" dir="rtl">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center text-cyan-300 animate-ping shrink-0">
-              <PhoneCall size={24} />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-extrabold text-xs sm:text-sm text-cyan-300">
-                📞 اتصال داخلي جاري من {activeInternalCall.empName || 'الموظف'}!
-              </h4>
-              <p className="text-[11px] text-gray-200 mt-0.5">ويرغب في تنبيهك والتواصل الفوري معك في الشات.</p>
-            </div>
-          </div>
-          <div className="mt-3.5 flex gap-2">
-            <button
-              onClick={handleAnswerCall}
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold py-2 px-3 rounded-xl text-xs shadow-md cursor-pointer transition active:scale-95"
-            >
-              فتح المحادثة والرد 💬
-            </button>
-            <button
-              onClick={handleCancelCall}
-              className="bg-rose-950/80 hover:bg-rose-900/90 border border-rose-500/40 text-rose-300 font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition"
-            >
-              إلغاء / كنسل
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Internal Call Ringing active state is integrated into the Notification Center */}
 
       {/* In-App Floating Toast Alert Banner */}
       {toastAlert && !isOpen && (
