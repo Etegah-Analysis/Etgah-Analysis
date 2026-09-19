@@ -1065,6 +1065,103 @@ function InboxContent() {
     }
   };
 
+  // Bulk Customer Selection & Delete States for Inbox Sidebar (All Employees)
+  const [isChatSelectMode, setIsChatSelectMode] = useState(false);
+  const [selectedChatIds, setSelectedChatIds] = useState([]);
+
+  const toggleSelectChat = (chatId) => {
+    setSelectedChatIds(prev => 
+      prev.includes(chatId) ? prev.filter(id => id !== chatId) : [...prev, chatId]
+    );
+  };
+
+  const toggleSelectAllChats = () => {
+    const candidateIds = filteredChats.filter(c => !c.isGroup && !c.isDirect).map(c => c.id);
+    if (selectedChatIds.length === candidateIds.length && candidateIds.length > 0) {
+      setSelectedChatIds([]);
+    } else {
+      setSelectedChatIds(candidateIds);
+    }
+  };
+
+  const handleSoftDeleteChat = async (targetChats) => {
+    const chatList = Array.isArray(targetChats) ? targetChats : [targetChats];
+    if (chatList.length === 0) return;
+
+    const count = chatList.length;
+    const confirmMsg = count === 1 
+      ? `هل أنت متأكد من مسح العميل (${chatList[0].name || chatList[0].phoneNumber || 'هذا العميل'}) ونقله لسلة المهملات لدى الإدارة؟`
+      : `هل أنت متأكد من مسح ${count} عميل محدد ونقلهم لسلة المهملات لدى الإدارة؟`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      let empName = 'الموظف';
+      if (isAdmin) {
+        empName = '👑 الإدارة';
+      } else if (isLeader) {
+        const leaderName = currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName;
+        empName = `⭐ ليدر: ${leaderName || 'قائد فريق'}`;
+      } else {
+        const name = currentEmpUser?.username || currentEmpUser?.name || employees.find(e => e.email?.toLowerCase() === currentUser?.email?.toLowerCase() || e.uid === currentUser?.uid)?.name || currentUser?.displayName;
+        empName = `👤 ${name || currentUser?.email?.split('@')[0] || 'موظف'}`;
+      }
+
+      const empUid = currentUser?.uid || '';
+      const empRole = isAdmin ? 'admin' : (isLeader ? 'leader' : 'agent');
+      const batch = writeBatch(db);
+
+      for (const chatItem of chatList) {
+        const docId = chatItem.id;
+        const rawPhone = chatItem.phoneNumber || chatItem.phone || docId;
+        const normPhone = normalizePhone(rawPhone);
+
+        const trashRef = doc(collection(db, 'recycle_bin'));
+        const trashObj = {
+          id: trashRef.id,
+          originalDocId: docId,
+          type: isWebsiteLead(chatItem) ? 'visitor' : 'customer',
+          originalCollection: 'بيانات_تسجيل_العملاء',
+          name: chatItem.name || rawPhone || 'عميل محذوف',
+          phone: rawPhone,
+          phoneNumber: rawPhone,
+          source: chatItem.source || (isWebsiteLead(chatItem) ? 'موقع الويب (OTP)' : 'عملاء الحملات'),
+          deletedBy: empName,
+          deletedByUid: empUid,
+          deletedByRole: empRole,
+          deletedAt: serverTimestamp(),
+          deletedAtFormatted: new Date().toLocaleString('ar-EG'),
+          data: chatItem
+        };
+        batch.set(trashRef, trashObj);
+
+        batch.delete(doc(db, 'بيانات_تسجيل_العملاء', docId));
+        batch.delete(doc(db, 'visitor_customers', docId));
+
+        if (normPhone) {
+          const crmDocId = normPhone;
+          batch.delete(doc(db, 'leads_crm', crmDocId));
+          batch.delete(doc(db, 'employee_leads', crmDocId));
+        }
+
+        if (activeChat?.id === docId) {
+          setActiveChat(null);
+        }
+      }
+
+      await batch.commit();
+
+      const deletedIdsSet = new Set(chatList.map(c => c.id));
+      setChats(prev => prev.filter(c => !deletedIdsSet.has(c.id)));
+      setSelectedChatIds([]);
+
+      toast.success(count === 1 ? 'تم نقل العميل إلى سلة المهملات لدى الإدارة 🗑️' : `تم نقل ${count} عميل إلى سلة المهملات لدى الإدارة 🗑️`);
+    } catch (err) {
+      console.error('Error soft-deleting chat:', err);
+      toast.error('حدث خطأ أثناء مسح العميل: ' + err.message);
+    }
+  };
+
   // Admin-only: Permanently delete any internal group and all its messages
   const handleDeleteGroup = async (group) => {
     if (!isAdmin) {
@@ -2404,18 +2501,65 @@ function InboxContent() {
           </div>
         )}
 
-        {/* البحث في قائمة المحادثات */}
-        <div className="p-3 bg-black/10 border-b border-white/5 relative z-10">
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder={isCoordinator ? "ابحث عن اسم الجروب..." : "ابحث عن اسم، رقم، أو جروب..."} 
-              value={sidebarSearch}
-              onChange={(e) => setSidebarSearch(e.target.value)}
-              className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/10 rounded-full py-2 pr-9 pl-4 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/30 transition-all"
-            />
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+        {/* البحث في قائمة المحادثات والتحديد المتعدد */}
+        <div className="p-3 bg-black/10 border-b border-white/5 relative z-10 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative flex-1">
+              <input 
+                type="text" 
+                placeholder={isCoordinator ? "ابحث عن اسم الجروب..." : "ابحث عن اسم، رقم، أو جروب..."} 
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/10 rounded-full py-1.5 pr-8 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/30 transition-all"
+              />
+              <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={13} />
+            </div>
+            {!isCoordinator && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChatSelectMode(prev => !prev);
+                  if (isChatSelectMode) setSelectedChatIds([]);
+                }}
+                className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 border ${
+                  isChatSelectMode ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black' : 'bg-white/10 text-gray-200 hover:bg-white/20 border-white/10'
+                }`}
+                title="تحديد عملاء متعدد للمسح"
+              >
+                <CheckSquare size={13} />
+                <span>{isChatSelectMode ? 'إلغاء' : 'تحديد ⚔️'}</span>
+              </button>
+            )}
           </div>
+
+          {/* شريط الإجراءات عند تفعيل التحديد المتعدد */}
+          {isChatSelectMode && !isCoordinator && (
+            <div className="flex items-center justify-between bg-slate-900/90 border border-cyan-500/40 rounded-xl px-3 py-1.5 text-xs text-white shadow-md animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleSelectAllChats}
+                  className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 underline cursor-pointer"
+                >
+                  {selectedChatIds.length > 0 && selectedChatIds.length === filteredChats.filter(c => !c.isGroup && !c.isDirect).length ? 'إلغاء الكل' : 'تحديد الكل'}
+                </button>
+                <span className="text-[10px] text-gray-400 font-mono">({selectedChatIds.length} محدد)</span>
+              </div>
+              {selectedChatIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDelete = filteredChats.filter(c => selectedChatIds.includes(c.id));
+                    handleSoftDeleteChat(toDelete);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md cursor-pointer transition active:scale-95"
+                >
+                  <Trash2 size={12} />
+                  <span>مسح ({selectedChatIds.length}) 🗑️</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* قائمة الشات والجروبات الجانبية */}
@@ -2552,9 +2696,21 @@ function InboxContent() {
               <div 
                 key={chat.id}
                 onClick={() => handleChatClick(chat)}
-                className={`p-4 cursor-pointer transition flex items-center justify-between ${itemBg}`}
+                className={`p-4 cursor-pointer transition flex items-center justify-between ${itemBg} ${selectedChatIds.includes(chat.id) ? 'bg-cyan-950/40 border-cyan-400' : ''}`}
               >
                 <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
+                  {isChatSelectMode && (
+                    <input 
+                      type="checkbox" 
+                      checked={selectedChatIds.includes(chat.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelectChat(chat.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 text-cyan-500 rounded border-gray-400 cursor-pointer shrink-0 ml-1 accent-cyan-500"
+                    />
+                  )}
                   <div className="relative shrink-0">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md ${isUnassignedOrUnread ? 'bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-tr from-cyan-600 to-blue-500 text-white'}`}>
                       {chat.name ? chat.name.charAt(0) : <User size={20} />}
@@ -2623,9 +2779,21 @@ function InboxContent() {
                   </div>
                 </div>
 
-                {/* Right/Left Timestamp column */}
+                {/* Right/Left Timestamp column & Delete Button for all employees */}
                 <div className="text-left flex flex-col items-end shrink-0 ml-1">
                   <span className="text-[10px] text-gray-400 font-mono">{formatTime(chat.updatedAt)}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSoftDeleteChat(chat);
+                    }}
+                    className="mt-1.5 px-2 py-0.5 rounded-md bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/40 transition shadow-sm flex items-center gap-1 text-[10px] font-black cursor-pointer active:scale-95"
+                    title="مسح العميل ونقله لسلة المهملات لدى الإدارة 🗑️"
+                  >
+                    <Trash2 size={11} className="text-rose-400" />
+                    <span>مسح</span>
+                  </button>
                 </div>
               </div>
             );
@@ -2857,6 +3025,15 @@ function InboxContent() {
                         <MessageCircle size={14} />
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleSoftDeleteChat(activeChat)}
+                      className="bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+                      title="مسح العميل ونقله لسلة المهملات لدى الإدارة 🗑️"
+                    >
+                      <Trash2 size={13} className="text-rose-400" />
+                      <span className="hidden sm:inline">مسح المحادثة</span>
+                    </button>
                   </>
                 )}
               </div>
