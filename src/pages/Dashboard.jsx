@@ -5301,20 +5301,27 @@ const Dashboard = () => {
 
   const handleSmartWhatsappClick = (customer) => {
     if (!customer) return;
-    const src = String(customer.source || '').toLowerCase();
-    const added = String(customer.addedBy || '').toLowerCase();
+    const rawObj = customer._raw || customer;
+    const src = String(customer.source || rawObj.source || '').toLowerCase();
+    const added = String(customer.addedBy || rawObj.addedBy || '').toLowerCase();
+    const status = String(customer.status || rawObj.status || '').toLowerCase();
+
     const isWebsiteCustomer = 
+      customer.isVisitorDoc === true ||
+      customer.isWebsiteLead === true ||
+      rawObj.isVisitorDoc === true ||
+      rawObj.isWebsiteLead === true ||
       added === 'website_otp' || 
       added.includes('website') ||
       src === 'website' || 
       src.includes('موقع الويب') ||
       src.includes('otp') ||
-      customer.isWebsiteLead === true;
+      status === 'website_visitor';
 
     if (isWebsiteCustomer) {
       handleTransferToWhatsapp(customer);
     } else {
-      let rawPhone = customer.phoneNumber || customer.phone || customer.id || '';
+      let rawPhone = customer.phoneNumber || customer.phone || rawObj.phoneNumber || rawObj.phone || customer.id || '';
       let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
       if (cleanPhone.startsWith('0')) cleanPhone = '20' + cleanPhone.substring(1);
       else if (cleanPhone.startsWith('5')) cleanPhone = '966' + cleanPhone;
@@ -19129,9 +19136,9 @@ const handleExportBuffetToExcel = () => {
                           <td className="p-4 text-xs text-gray-500" dir="ltr">{formatDate(visitor.createdAt)}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-1.5">
-                              {!isCoordinator && visitor.status !== 'website_visitor' && (
+                              {!isCoordinator && (
                                 <button 
-                                  onClick={() => handleSmartWhatsappClick(visitor._raw || visitor)}
+                                  onClick={() => handleSmartWhatsappClick(visitor)}
                                   className="bg-gradient-to-tr from-emerald-600 via-green-500 to-emerald-400 hover:from-emerald-500 hover:to-green-400 text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(16,185,129,0.4)] hover:shadow-[0_4px_14px_rgba(16,185,129,0.6)] active:scale-95 cursor-pointer border border-emerald-300/40 whitespace-nowrap"
                                   title="مراسلة عبر واتساب"
                                 >
