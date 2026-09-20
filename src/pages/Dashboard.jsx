@@ -1843,9 +1843,13 @@ const Dashboard = () => {
 
   const getItemMsgKey = (item) => {
     if (!item) return '';
-    const msg = item.lastMessage || item.message || item.lastMsg || '';
-    const time = getTimestampMillis(item.updatedAt) || getTimestampMillis(item.createdAt) || item.timestampMillis || '';
-    const unread = item.unread || 0;
+    const msg = item.lastMessage || item.message || item.lastMsg || item.lastMsgText || item.text || '';
+    const time = getTimestampMillis(item.updatedAt) || 
+                 getTimestampMillis(item.createdAt) || 
+                 getTimestampMillis(item.lastMsgTime) || 
+                 (item.timestampMillis ? Number(item.timestampMillis) : 0) || 
+                 (item.lastMsgTime ? Number(item.lastMsgTime) : 0) || '';
+    const unread = Number(item.unreadCountStaff) || Number(item.unreadCount) || Number(item.unread) || Number(item.unreadUser) || 0;
     return `${msg}_${unread}_${time}`;
   };
 
@@ -1970,13 +1974,14 @@ const Dashboard = () => {
         const wcPhoneNorm = normalizePhone(wc.phoneNumber || wc.cleanPhone || wc.phone || wc.id);
         const existingIdx = allCandidateCustomerChats.findIndex(c => c.id === wc.id || (wcPhoneNorm && normalizePhone(c.phoneNumber || c.phone || c.id) === wcPhoneNorm));
         
-        const wcUnread = Number(wc.unreadCountStaff) || Number(wc.unread) || 0;
+        const wcUnread = Number(wc.unreadCountStaff) || Number(wc.unreadCount) || Number(wc.unread) || 0;
         if (existingIdx === -1) {
           allCandidateCustomerChats.push({
             ...wc,
             phoneNumber: wc.phoneNumber || wc.cleanPhone,
             name: wc.name || wc.clientName || 'عميل اتجاه',
-            unread: wcUnread > 0 ? wcUnread : 1,
+            unread: wcUnread > 0 ? wcUnread : (wc.lastMsgText ? 1 : 0),
+            unreadCount: wcUnread > 0 ? wcUnread : (wc.lastMsgText ? 1 : 0),
             lastMessage: wc.lastMsgText || wc.lastMessage || 'وصلت رسالة موقع جديدة',
             lastMessageFrom: 'user',
             source: 'website_whatsapp',
@@ -1984,16 +1989,17 @@ const Dashboard = () => {
           });
         } else {
           const existing = allCandidateCustomerChats[existingIdx];
-          const exUnread = Number(existing.unread) || 0;
+          const exUnread = Number(existing.unread) || Number(existing.unreadCount) || Number(existing.unreadCountStaff) || 0;
           const mergedUnread = Math.max(exUnread, wcUnread);
-          if (wcUnread > 0 || wc.lastMsgText) {
+          if (wcUnread > 0 || wc.lastMsgText || wc.lastMessage) {
             allCandidateCustomerChats[existingIdx] = {
               ...existing,
               ...wc,
-              unread: mergedUnread > 0 ? mergedUnread : existing.unread,
-              lastMessage: wc.lastMsgText || existing.lastMessage || 'رسالة جديدة',
+              unread: mergedUnread > 0 ? mergedUnread : (existing.unread || 1),
+              unreadCount: mergedUnread > 0 ? mergedUnread : (existing.unreadCount || 1),
+              lastMessage: wc.lastMsgText || wc.lastMessage || existing.lastMessage || 'رسالة جديدة',
               lastMessageFrom: 'user',
-              readBy: (wcUnread > 0 && exUnread === 0) ? [] : existing.readBy
+              readBy: wcUnread > 0 ? [] : existing.readBy
             };
           }
         }
@@ -2008,7 +2014,12 @@ const Dashboard = () => {
         return false;
       }
 
-      const isRead = c.readBy && (
+      const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || Number(c.unread) || 0;
+      const hasActiveUnreadCount = unreadNum > 0 || c.unread === true;
+
+      // isRead applies ONLY if there is NO active positive unread count.
+      // If there is an active unread count > 0, an old readBy array entry MUST NOT block the new message!
+      const isRead = !hasActiveUnreadCount && c.readBy && (
         c.readBy.includes(currentUser.uid) || 
         (isAdmin && c.readBy.includes('admin')) ||
         (currentEmpUser?.uid && c.readBy.includes(currentEmpUser.uid))
@@ -2024,10 +2035,15 @@ const Dashboard = () => {
         c.lastMessageSender === 'user' || 
         c.lastMessageSenderType === 'user' ||
         c.sender === 'client' ||
+        c.sender === 'customer' ||
         c.source === 'website' || 
         c.source === 'website_otp' || 
         c.addedBy === 'website_otp' ||
-        c.source === 'website_whatsapp'
+        c.source === 'website_whatsapp' ||
+        c.source === 'website_visitor' ||
+        c.addedBy === 'website_visitor' ||
+        c.addedBy === 'WhatsApp Webhook' ||
+        c.addedBy === 'website'
       );
 
       // Must NOT be outgoing system/bot/me broadcast without user reply
@@ -2041,7 +2057,7 @@ const Dashboard = () => {
         c.lastMessageFrom === 'emp'
       );
 
-      const hasUnread = (Number(c.unread) > 0 || Number(c.unreadCountStaff) > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
+      const hasUnread = (unreadNum > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
       if (!hasUnread) return false;
 
       // 1. Admin receives all customer chats

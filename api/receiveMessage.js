@@ -74,14 +74,20 @@ export default async function handler(req, res) {
               createdAt: FieldValue.serverTimestamp(),
               updatedAt: FieldValue.serverTimestamp(),
               lastMessage: textMessage || 'مرفق وسائط',
-              unreadCount: 1
+              lastMessageFrom: 'user',
+              readBy: [],
+              unreadCount: 1,
+              unread: 1
             });
           } else {
             const currentData = customerSnap.data();
             await customerRef.update({
               lastMessage: textMessage || 'مرفق وسائط',
+              lastMessageFrom: 'user',
               updatedAt: FieldValue.serverTimestamp(),
-              unreadCount: (currentData.unreadCount || 0) + 1,
+              unreadCount: (currentData.unreadCount || currentData.unread || 0) + 1,
+              unread: (currentData.unread || currentData.unreadCount || 0) + 1,
+              readBy: [],
               name: (currentData.name && currentData.name !== 'عميل جديد (واتساب)') ? currentData.name : customerName
             });
           }
