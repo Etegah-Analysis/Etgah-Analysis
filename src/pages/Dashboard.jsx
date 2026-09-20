@@ -1998,9 +1998,9 @@ const Dashboard = () => {
             ...wc,
             phoneNumber: wc.phoneNumber || wc.cleanPhone,
             name: wc.name || wc.clientName || 'عميل اتجاه',
-            unread: wcUnread > 0 ? wcUnread : (wc.lastMsgText ? 1 : 0),
-            unreadCount: wcUnread > 0 ? wcUnread : (wc.lastMsgText ? 1 : 0),
-            lastMessage: wc.lastMsgText || wc.lastMessage || 'وصلت رسالة موقع جديدة',
+            unread: wcUnread,
+            unreadCount: wcUnread,
+            lastMessage: wc.lastMsgText || wc.lastMessage || 'رسالة جديدة',
             lastMessageFrom: 'user',
             source: 'website_whatsapp',
             addedBy: 'website_whatsapp'
@@ -2009,12 +2009,12 @@ const Dashboard = () => {
           const existing = allCandidateCustomerChats[existingIdx];
           const exUnread = Number(existing.unread) || Number(existing.unreadCount) || Number(existing.unreadCountStaff) || 0;
           const mergedUnread = Math.max(exUnread, wcUnread);
-          if (wcUnread > 0 || wc.lastMsgText || wc.lastMessage) {
+          if (mergedUnread > 0 || wcUnread > 0) {
             allCandidateCustomerChats[existingIdx] = {
               ...existing,
               ...wc,
-              unread: mergedUnread > 0 ? mergedUnread : (existing.unread || 1),
-              unreadCount: mergedUnread > 0 ? mergedUnread : (existing.unreadCount || 1),
+              unread: mergedUnread,
+              unreadCount: mergedUnread,
               lastMessage: wc.lastMsgText || wc.lastMessage || existing.lastMessage || 'رسالة جديدة',
               lastMessageFrom: 'user',
               readBy: wcUnread > 0 ? [] : existing.readBy
@@ -2032,12 +2032,12 @@ const Dashboard = () => {
         return false;
       }
 
-      const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || Number(c.unread) || 0;
-      const hasActiveUnreadCount = unreadNum > 0 || c.unread === true;
+      const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || (c.unread === true ? 1 : (Number(c.unread) || 0));
+      const hasActiveUnreadCount = unreadNum > 0;
+      if (!hasActiveUnreadCount) return false;
 
       // isRead applies ONLY if there is NO active positive unread count.
-      // If there is an active unread count > 0, an old readBy array entry MUST NOT block the new message!
-      const isRead = !hasActiveUnreadCount && c.readBy && (
+      const isRead = c.readBy && (
         c.readBy.includes(currentUser.uid) || 
         (isAdmin && c.readBy.includes('admin')) ||
         (currentEmpUser?.uid && c.readBy.includes(currentEmpUser.uid))
