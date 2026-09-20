@@ -9340,10 +9340,12 @@ const handleModalPasteBuffetItem = (e) => {
     }
   };
 
-  const handleUploadWebsitePdfDirect = (market) => {
-    const isSaudi = market === 'saudi';
+  const handleUploadWebsitePdfDirect = (targetMarket) => {
+    const marketType = (targetMarket === 'us' || targetMarket === 'us_latest') ? 'us' : 'saudi';
+    const isSaudi = marketType === 'saudi';
     const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
     const docId = isSaudi ? 'saudi_latest' : 'us_latest';
+    const docIdAlt = isSaudi ? 'saudi' : 'us';
     const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
 
     const input = document.createElement('input');
@@ -9361,7 +9363,7 @@ const handleModalPasteBuffetItem = (e) => {
         let downloadUrl = '';
         if (storage) {
           try {
-            const storagePath = `weekly_pdf_reports/weekly_report_${market}_${Date.now()}.pdf`;
+            const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.pdf`;
             const fileRef = ref(storage, storagePath);
             await uploadBytes(fileRef, file);
             downloadUrl = await getDownloadURL(fileRef);
@@ -9380,7 +9382,7 @@ const handleModalPasteBuffetItem = (e) => {
         }
 
         const reportPayload = {
-          market: market,
+          market: marketType,
           title: isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي',
           pdfUrl: downloadUrl,
           uploadedAt: serverTimestamp(),
@@ -9390,13 +9392,14 @@ const handleModalPasteBuffetItem = (e) => {
         };
 
         await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
+        await setDoc(doc(db, 'weekly_reports', docIdAlt), reportPayload, { merge: true });
         await addDoc(collection(db, 'weekly_reports_history'), reportPayload).catch(() => {});
 
         await addDoc(collection(db, 'platform_notifications'), {
           title: isSaudi ? '📄 تقرير أسبوعي جديد للسوق السعودي' : '📄 تقرير أسبوعي جديد للسوق الأمريكي',
           body: `تم رفع وتحديث التقرير الأسبوعي الشامل لـ ${marketTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
           type: 'pdf_report',
-          market: market,
+          market: marketType,
           url: '/platform-videos',
           createdAt: serverTimestamp(),
           timestampMillis: Date.now()
@@ -9413,10 +9416,12 @@ const handleModalPasteBuffetItem = (e) => {
     input.click();
   };
 
-  const handleDeletePublishedPdfReport = async (market) => {
-    const isSaudi = market === 'saudi';
+  const handleDeletePublishedPdfReport = async (targetMarket) => {
+    const marketType = (targetMarket === 'us' || targetMarket === 'us_latest') ? 'us' : 'saudi';
+    const isSaudi = marketType === 'saudi';
     const marketTitle = isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي';
     const docId = isSaudi ? 'saudi_latest' : 'us_latest';
+    const docIdAlt = isSaudi ? 'saudi' : 'us';
 
     if (!window.confirm(`هل أنت تأكد من رغبتك في حذف وإلغاء نشر ${marketTitle} من موقع المنصة فوراً؟`)) {
       return;
@@ -9425,19 +9430,28 @@ const handleModalPasteBuffetItem = (e) => {
     const toastId = toast.loading(`جاري حذف وإلغاء نشر التقرير لـ ${marketTitle} من الموقع... ⏳`);
     try {
       await deleteDoc(doc(db, 'weekly_reports', docId)).catch(() => {});
+      await deleteDoc(doc(db, 'weekly_reports', docIdAlt)).catch(() => {});
       await setDoc(doc(db, 'weekly_reports', docId), {
         pdfUrl: '',
+        market: marketType,
         title: marketTitle,
         uploadedAtFormatted: '',
         uploadedBy: '',
         fileName: ''
       });
-
-      toast.success(`تم حذف وإلغاء نشر تقرير ${marketTitle} من موقع المنصة بنجاح وتحديث الموقع فوراً 🗑️✨`, { id: toastId, duration: 5000 });
+      await setDoc(doc(db, 'weekly_reports', docIdAlt), {
+        pdfUrl: '',
+        market: marketType,
+        title: marketTitle,
+        uploadedAtFormatted: '',
+        uploadedBy: '',
+        fileName: ''
+      });
+      toast.success(`تم حذف وإلغاء نشر ${marketTitle} من موقع المنصة بنجاح 🗑️`, { id: toastId });
       setPdfReportModalMarket(null);
-    } catch (err) {
-      console.error('Error deleting weekly PDF report:', err);
-      toast.error('حدث خطأ أثناء حذف التقرير من الموقع: ' + (err.message || ''), { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error('حدث خطأ أثناء إلغاء التقرير', { id: toastId });
     }
   };
 
