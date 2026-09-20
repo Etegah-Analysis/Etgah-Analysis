@@ -9157,10 +9157,25 @@ const handleModalPasteBuffetItem = (e) => {
       const repMap = { saudi: null, us: null };
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data.market === 'saudi' || docSnap.id === 'saudi_latest') {
-          repMap.saudi = data;
-        } else if (data.market === 'us' || docSnap.id === 'us_latest') {
-          repMap.us = data;
+        if (!data) return;
+
+        const isSaudi = data.market === 'saudi' || docSnap.id === 'saudi_latest' || docSnap.id === 'saudi';
+        const isUs = data.market === 'us' || docSnap.id === 'us_latest' || docSnap.id === 'us';
+
+        if (isSaudi) {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) {
+            repMap.saudi = data;
+          } else if (!repMap.saudi) {
+            repMap.saudi = data;
+          }
+        }
+
+        if (isUs) {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) {
+            repMap.us = data;
+          } else if (!repMap.us) {
+            repMap.us = data;
+          }
         }
       });
       setPublishedWeeklyReports(repMap);
