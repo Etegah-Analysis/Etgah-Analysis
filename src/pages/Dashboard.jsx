@@ -9305,22 +9305,20 @@ const handleModalPasteBuffetItem = (e) => {
 </body>
 </html>`;
 
-      let downloadUrl = '';
-      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-
+      let downloadUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
       if (storage) {
         try {
-          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.pdf`;
+          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.html`;
           const fileRef = ref(storage, storagePath);
-          await uploadBytes(fileRef, blob);
-          downloadUrl = await getDownloadURL(fileRef);
+          const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+          const uploadedUrl = await Promise.race([
+            uploadBytes(fileRef, blob).then(() => getDownloadURL(fileRef)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage timeout')), 3000))
+          ]);
+          if (uploadedUrl) downloadUrl = uploadedUrl;
         } catch (stErr) {
-          console.warn('Storage upload error fallback to html data URL:', stErr);
+          console.warn('Storage upload timeout or error fallback to html data URL:', stErr);
         }
-      }
-
-      if (!downloadUrl) {
-        downloadUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
       }
 
       const reportPayload = {
@@ -9380,10 +9378,12 @@ const handleModalPasteBuffetItem = (e) => {
           try {
             const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.pdf`;
             const fileRef = ref(storage, storagePath);
-            await uploadBytes(fileRef, file);
-            downloadUrl = await getDownloadURL(fileRef);
+            downloadUrl = await Promise.race([
+              uploadBytes(fileRef, file).then(() => getDownloadURL(fileRef)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Storage timeout')), 3500))
+            ]);
           } catch (stErr) {
-            console.warn('Storage upload error fallback to base64:', stErr);
+            console.warn('Storage upload error or timeout fallback to base64:', stErr);
           }
         }
 
