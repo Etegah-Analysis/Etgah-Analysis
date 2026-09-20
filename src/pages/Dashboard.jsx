@@ -25775,25 +25775,6 @@ const handleExportBuffetToExcel = () => {
                       </div>
                     </button>
 
-                    {/* 3b. Manual PDF upload from device */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = pdfReportModalMarket;
-                        setPdfReportModalMarket(null);
-                        handleUploadWebsitePdfDirect(targetM);
-                      }}
-                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-2xl border border-white/10 hover:border-slate-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <Upload size={18} />
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-white block">📁 رفع ونشر ملف PDF خارجي من جهازك</span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">اختيار ملف PDF يدوي من جهازك ونشره للموقع</span>
-                      </div>
-                    </button>
-
                     {/* 4. Delete from website */}
                     <button
                       type="button"
