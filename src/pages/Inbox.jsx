@@ -247,6 +247,10 @@ function InboxContent() {
     setTouchStart(e.targetTouches[0].clientX);
   };
 
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
   const closeActiveChat = useCallback(() => {
     setActiveChat(null);
     try {
