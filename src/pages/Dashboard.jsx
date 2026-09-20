@@ -11865,7 +11865,7 @@ const handleExportBuffetToExcel = () => {
                   <div className="flex items-center bg-slate-950/80 p-1 rounded-xl gap-1 border border-white/5 text-[11px] font-bold flex-wrap">
                     <button 
                       onClick={() => setNotifActiveTab('all')}
-                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'all' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                     >
                       🔔 الكل ({totalAllNotificationsCount})
                     </button>
