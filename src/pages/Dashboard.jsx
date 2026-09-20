@@ -989,7 +989,8 @@ const Dashboard = () => {
   // Helper to trace where a lead/phone number exists across all system cards/collections
   const getSystemLeadLocation = (phoneOrObj, currentDocId) => {
     if (!phoneOrObj) return [];
-    const rawPhone = typeof phoneOrObj === 'object' ? (phoneOrObj.phone || phoneOrObj.phoneNumber || phoneOrObj.id) : phoneOrObj;
+    const targetObj = typeof phoneOrObj === 'object' ? phoneOrObj : null;
+    const rawPhone = targetObj ? (targetObj.phone || targetObj.phoneNumber || targetObj.id) : phoneOrObj;
     if (!rawPhone) return [];
 
     const normalizePhone = (ph) => {
@@ -1094,12 +1095,32 @@ const Dashboard = () => {
     }
 
     if (locations.length === 0) {
-      locations.push({
-        type: 'new',
-        label: '🆕 زائر جديد (غير مكرر بالنظام)',
-        bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        icon: '🆕'
-      });
+      const isWebsiteOtp = targetObj && (
+        targetObj.source === 'موقع الويب (OTP)' || 
+        targetObj.source === 'website_otp' || 
+        targetObj.source === 'website' || 
+        targetObj.addedBy === 'website_otp' || 
+        targetObj.isVisitorDoc || 
+        targetObj.status === 'website_visitor' ||
+        (targetObj.source && String(targetObj.source).includes('OTP')) ||
+        (targetObj.source && String(targetObj.source).includes('موقع'))
+      );
+
+      if (isWebsiteOtp) {
+        locations.push({
+          type: 'website_otp',
+          label: '📦 موقع الويب (OTP)',
+          bg: 'bg-purple-100 text-purple-900 border-purple-300',
+          icon: '📦'
+        });
+      } else {
+        locations.push({
+          type: 'new',
+          label: '🆕 زائر جديد (غير مكرر بالنظام)',
+          bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+          icon: '🆕'
+        });
+      }
     }
 
     return locations;
@@ -18750,14 +18771,14 @@ const handleExportBuffetToExcel = () => {
                         </span>
                         <span className="font-extrabold text-gray-900">{customer.name || 'عميل مسجل'}</span>
                       </div>
-                      {(isAdmin || isCoordinator) && customer.source && (
+                      {(isAdmin || isCoordinator) && customer.source && !customer.source.includes('OTP') && !customer.source.includes('موقع') && (
                         <span className="inline-block text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full mt-1 font-bold">
                           📦 {customer.source}
                         </span>
                       )}
                       {/* Cross-reference System Location Badges */}
                       {(() => {
-                        const locs = getSystemLeadLocation(customer.phoneNumber || customer.phone, customer.id);
+                        const locs = getSystemLeadLocation(customer, customer.id);
                         if (!locs || locs.length === 0) return null;
                         return (
                           <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -19775,7 +19796,7 @@ const handleExportBuffetToExcel = () => {
                             )}
                             {/* Cross-reference System Location Badges */}
                             {(() => {
-                              const locs = getSystemLeadLocation(visitor.phone || visitor.phoneNumber, visitor.id);
+                              const locs = getSystemLeadLocation(visitor, visitor.id);
                               if (!locs || locs.length === 0) return null;
                               return (
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1">
