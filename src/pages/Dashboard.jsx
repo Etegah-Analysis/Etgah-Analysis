@@ -3452,9 +3452,20 @@ const Dashboard = () => {
   const totalPendingAll = useMemo(() => unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount, [unassignedWhatsappCount, unassignedLeadsCrmCount, unassignedEmployeeLeadsCount]);
   const unassignedCount = unassignedWhatsappCount;
 
+  const isWebsiteVisitorLead = useCallback((c) => {
+    if (!c) return false;
+    if (c.isWebsiteLead) return true;
+    const matchStrings = ['website', 'website_otp', 'website_visitor', 'موقع', 'موقع الويب (otp)', 'موقع الاتجاه (otp)', 'otp', 'webhook'];
+    const src = (c.source || '').toLowerCase();
+    const added = (c.addedBy || '').toLowerCase();
+    const assigned = (c.assignedBy || '').toLowerCase();
+    const st = (c.status || '').toLowerCase();
+    return matchStrings.some(w => src.includes(w) || added.includes(w) || assigned.includes(w) || st.includes(w));
+  }, []);
+
   const whatsappVisitorsCount = useMemo(() => {
-    return (visitors?.length || 0) + (customers?.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor')?.length || 0);
-  }, [visitors, customers]);
+    return (visitors?.length || 0) + (customers?.filter(isWebsiteVisitorLead)?.length || 0);
+  }, [visitors, customers, isWebsiteVisitorLead]);
 
   const displayLeadsCrmCount = useMemo(() => {
     const cached = Number(localStorage.getItem('cache_leadsCrm_total_count') || 0);
@@ -19376,7 +19387,7 @@ const handleExportBuffetToExcel = () => {
                           onChange={() => {
                             const combinedIds = [
                               ...enrichedVisitors.map(v => v.id),
-                              ...enrichedCustomers.filter(c => c.addedBy === 'website_otp' || c.source === 'website_otp' || c.status === 'website_visitor').map(c => c.id)
+                              ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => c.id)
                             ];
                             if (selectedVisitors.length > 0) setSelectedVisitors([]);
                             else setSelectedVisitors(combinedIds);
@@ -19483,11 +19494,7 @@ const handleExportBuffetToExcel = () => {
                         isVisitorDoc: true,
                         _raw: v 
                       })),
-                      ...enrichedCustomers.filter(c => 
-                        c.addedBy === 'website_otp' || 
-                        c.source === 'website_otp' || 
-                        c.status === 'website_visitor'
-                      ).map(c => ({ 
+                      ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => ({ 
                         id: c.id, 
                         name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
                         phone: c.phoneNumber || c.phone, 
@@ -19882,11 +19889,7 @@ const handleExportBuffetToExcel = () => {
                   assignedTo: v.assignedTo || 'الإدارة',
                   assignedToUid: v.assignedToUid || 'admin'
                 })),
-                ...enrichedCustomers.filter(c => 
-                  c.addedBy === 'website_otp' || 
-                  c.source === 'website_otp' || 
-                  c.status === 'website_visitor'
-                ).map(c => ({ 
+                ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => ({ 
                   id: c.id, 
                   name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
                   phone: c.phoneNumber || c.phone, 
