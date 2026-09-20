@@ -3336,14 +3336,14 @@ function InboxContent() {
         {activeChat ? (
           <>
             {/* هيدر الشات */}
-            <div onClick={(e) => e.stopPropagation()} className="bg-black/40 backdrop-blur-md p-4 border-b border-white/10 flex justify-between items-center shadow-md">
-              <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
+            <div onClick={(e) => e.stopPropagation()} className="bg-black/50 backdrop-blur-md p-2.5 sm:p-4 border-b border-white/10 flex justify-between items-center gap-2 shadow-md">
+              <div className="flex items-center space-x-2 sm:space-x-3 space-x-reverse min-w-0 flex-1">
                 <button 
                   onClick={closeActiveChat} 
-                  className="md:hidden text-gray-300 hover:text-white p-1 ml-1 transition shrink-0"
+                  className="md:hidden text-gray-300 hover:text-white p-1 transition shrink-0"
                   title="رجوع للقائمة"
                 >
-                  <ChevronRight size={24} />
+                  <ChevronRight size={22} />
                 </button>
                 
                 {activeChat.isDirect ? (
@@ -3359,16 +3359,16 @@ function InboxContent() {
                     return (
                       <>
                         <div className="relative shrink-0">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md border border-cyan-400/40">
-                            <User size={20} />
+                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md border border-cyan-400/40">
+                            <User size={18} />
                           </div>
                           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full shadow-xs"></span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h2 className="font-bold text-white text-base flex items-center gap-1.5 truncate">
-                            <span className="text-cyan-400">💬</span>
+                          <h2 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-1.5 truncate">
+                            <span className="text-cyan-400 shrink-0">💬</span>
                             <span className="truncate">{otherName}</span>
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shrink-0 ${
+                            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full border shrink-0 ${
                               isOtherAdmin 
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
                                 : formattedRole === 'Leader' 
@@ -3380,9 +3380,9 @@ function InboxContent() {
                               {formattedRole === 'Leader' ? '👑 Leader' : (formattedRole === 'Coordinator' ? '📋 منسق' : (isOtherAdmin ? '👑 الإدارة' : '👤 Agent'))}
                             </span>
                           </h2>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-300 flex-wrap">
-                            <span className="text-[11px] text-cyan-300 font-medium">
-                              محادثة مباشرة 1-on-1 (خاصة ومشفرة 🔒)
+                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-300 flex-wrap">
+                            <span className="text-[10px] sm:text-[11px] text-cyan-300 font-medium">
+                              محادثة مباشرة (مشفرة 🔒)
                             </span>
                             {otherEmp?.email && (
                               <span className="text-[10px] text-gray-400 font-mono hidden sm:inline" dir="ltr">
@@ -3397,19 +3397,19 @@ function InboxContent() {
                 ) : activeChat.isGroup ? (
                   /* Group Header Avatar & Title */
                   <>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center text-white font-bold shadow-md shrink-0 border border-purple-400/40">
-                      <Users size={22} />
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center text-white font-bold shadow-md shrink-0 border border-purple-400/40">
+                      <Users size={20} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-bold text-white text-base flex items-center gap-1.5 truncate">
-                        <span className="text-purple-300">👥</span>
+                      <h2 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-1.5 truncate">
+                        <span className="text-purple-300 shrink-0">👥</span>
                         <span className="truncate">{activeChat.name}</span>
                       </h2>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-purple-200/80 flex-wrap">
-                        <span className="bg-purple-900/60 border border-purple-400/40 text-[10px] px-2 py-0.2 rounded-full font-bold">
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-purple-200/80 flex-wrap">
+                        <span className="bg-purple-900/60 border border-purple-400/40 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.2 rounded-full font-bold">
                           {getGroupMembersCount(activeChat.members)} أعضاء
                         </span>
-                        <span className="text-[11px] text-gray-300">
+                        <span className="text-[10px] sm:text-[11px] text-gray-300 truncate">
                           أنشئ بواسطة: <span className="font-bold text-cyan-300">{activeChat.createdByName}</span>
                         </span>
                       </div>
@@ -3418,24 +3418,24 @@ function InboxContent() {
                 ) : (
                   /* Customer Header Avatar & Title */
                   <>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-md shrink-0">
-                      {activeChat.name ? activeChat.name.charAt(0) : <User size={20} />}
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-md shrink-0">
+                      {activeChat.name ? activeChat.name.charAt(0) : <User size={18} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-bold text-white text-base truncate">{activeChat.name || 'عميل بدون اسم'}</h2>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <p className="text-xs text-gray-400 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
+                      <h2 className="font-black text-white text-sm sm:text-base truncate max-w-[140px] xs:max-w-[180px] sm:max-w-none">{activeChat.name || 'عميل بدون اسم'}</h2>
+                      <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 flex-wrap">
+                        <p className="text-[11px] sm:text-xs text-gray-300 font-mono" dir="ltr">{activeChat.phoneNumber}</p>
                         {!isCoordinator && activeChat.phoneNumber && (
                           <button
                             onClick={() => handleCallViaMicroSip(activeChat.phoneNumber)}
-                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_2px_8px_rgba(37,99,235,0.4)] active:scale-95 border border-blue-300/40 rounded-lg px-2 py-0.5 text-[10px] font-black flex items-center gap-1 cursor-pointer shrink-0"
+                            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_2px_8px_rgba(37,99,235,0.4)] active:scale-95 border border-blue-300/40 rounded-lg px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black flex items-center gap-0.5 sm:gap-1 cursor-pointer shrink-0"
                             title="اتصال مباشر عبر MicroSIP 📞"
                           >
-                            <PhoneCall size={11} className="animate-pulse" />
+                            <PhoneCall size={10} className="animate-pulse shrink-0" />
                             <span>Call</span>
                           </button>
                         )}
-                        {/* CRM Status Dropdown Selector - Hidden for Website Leads & Campaign Leads */}
+                        {/* CRM Status Dropdown Selector */}
                         {!isWebsiteLead(activeChat) && activeChat.source !== 'website' && activeChat.source !== 'excel_import' && chatTabFilter !== 'direct' && chatTabFilter !== 'website' && (
                           <select
                             value={activeChat.crmStatus || 'unassigned'}
@@ -3447,7 +3447,7 @@ function InboxContent() {
                                 toast.success('تم تحديث حالة العميل');
                               } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
                             }}
-                            className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
+                            className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
                             title="تغيير حالة العميل CRM"
                           >
                             <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
@@ -3465,20 +3465,20 @@ function InboxContent() {
 
                         {/* شارة مصدر العميل (اسم الكارت / الحملة / الموقع) */}
                         {activeChat.cardName || activeChat.campaignName || activeChat.cardTitle || activeChat.sourceName ? (
-                          <span className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-sm">
+                          <span className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-0.5 sm:gap-1 shrink-0 shadow-sm">
                             <span>🌐</span>
                             <span>{activeChat.cardName || activeChat.campaignName || activeChat.cardTitle || activeChat.sourceName}</span>
                           </span>
                         ) : activeChat.source === 'website' || isWebsiteLead(activeChat) ? (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-0.5 sm:gap-1 shrink-0">
                             🌐 داتا الموقع (الواتساب)
                           </span>
                         ) : activeChat.source === 'excel_import' ? (
-                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-0.5 sm:gap-1 shrink-0">
                             📊 عملاء الحملات (إكسيل)
                           </span>
                         ) : activeChat.source === 'manual' ? (
-                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-0.5 sm:gap-1 shrink-0">
                             ✋ مضاف يدوياً
                           </span>
                         ) : null}
@@ -3489,12 +3489,12 @@ function InboxContent() {
               </div>
 
               {/* Right Side Header Controls */}
-              <div className="flex items-center space-x-2 space-x-reverse flex-col sm:flex-row gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 {/* Internal Call Alert Button for ALL conversation types */}
                 <button
                   type="button"
                   onClick={handleTriggerInternalCallFromHeader}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0 border ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black transition flex items-center gap-1 sm:gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0 border ${
                     isHeaderCallRinging
                       ? 'bg-rose-950/90 hover:bg-rose-900 text-rose-200 border-rose-500/80 animate-pulse ring-2 ring-rose-500/40'
                       : 'bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 text-amber-300 hover:text-white border-amber-500/40'
@@ -3503,29 +3503,31 @@ function InboxContent() {
                 >
                   {isHeaderCallRinging ? (
                     <>
-                      <PhoneCall size={14} className="text-rose-400 animate-spin" />
-                      <span>🛑 إنهاء اتصال التنبيه</span>
+                      <PhoneCall size={12} className="text-rose-400 animate-spin shrink-0" />
+                      <span className="hidden sm:inline">🛑 إنهاء اتصال التنبيه</span>
+                      <span className="sm:hidden">🛑 إنهاء</span>
                     </>
                   ) : (
                     <>
-                      <PhoneCall size={14} className="text-amber-400 animate-pulse" />
-                      <span>اتصال داخلي للتنبيه بالرسائل</span>
+                      <PhoneCall size={12} className="text-amber-400 animate-pulse shrink-0" />
+                      <span className="hidden sm:inline">اتصال داخلي للتنبيه بالرسائل</span>
+                      <span className="sm:hidden">اتصال تنبيه 📞</span>
                     </>
                   )}
                 </button>
 
                 {activeChat.isDirect ? (
                   /* Direct Colleague Action Buttons */
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <span className="text-[10px] sm:text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 sm:py-1 rounded-xl font-bold flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                      <span>نشط الآن</span>
+                      <span className="hidden sm:inline">نشط الآن</span>
                     </span>
                     {isAdmin && (
                       <button
                         type="button"
                         onClick={() => handleDeleteGroup(activeChat)}
-                        className="bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 px-2.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+                        className="bg-rose-950/70 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
                         title="حذف هذه المحادثة نهائياً (للإدارة فقط)"
                       >
                         <Trash2 size={13} className="text-rose-400" />
