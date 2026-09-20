@@ -2564,11 +2564,11 @@ function InboxContent() {
     let matchEmployee = true;
     if (isAdmin) {
       if (selectedEmployee === 'hide') matchEmployee = false;
-      else if (selectedEmployee === 'unassigned') matchEmployee = chat.status === 'unassigned';
+      else if (selectedEmployee === 'unassigned') matchEmployee = chat.status === 'unassigned' || isWaitingListLead(chat);
       else if (selectedEmployee && selectedEmployee !== 'all') matchEmployee = chat.assignedToUid === selectedEmployee;
     } else {
       if (selectedEmployee === 'unassigned') {
-        matchEmployee = chat.status === 'unassigned';
+        matchEmployee = chat.status === 'unassigned' || isWaitingListLead(chat);
       } else {
         matchEmployee = chat.assignedToUid === currentUser?.uid || (chat.assignedTo && currentUser?.email && chat.assignedTo.toLowerCase() === currentUser?.email.toLowerCase());
       }
