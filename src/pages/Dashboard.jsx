@@ -3613,7 +3613,11 @@ const Dashboard = () => {
       
       // Hide from notification bell once acknowledged/opened by THIS specific user (local or Firestore)
       if (dismissedSubNotifMap[c.id] === sub.endDate) return false;
-      if (myUid && Array.isArray(sub.alertDismissedUsers) && sub.alertDismissedUsers.includes(myUid)) return false;
+      const isDismissedByMe = myUid && (
+        (Array.isArray(sub?.alertDismissedUsers) && sub.alertDismissedUsers.includes(myUid)) ||
+        (Array.isArray(c?.alertDismissedUsers) && c.alertDismissedUsers.includes(myUid))
+      );
+      if (isDismissedByMe) return false;
 
       return true;
     }).map(c => {
@@ -11546,12 +11550,19 @@ const handleExportBuffetToExcel = () => {
                                 if (endD) {
                                   dismissSubNotif(subItem.id, endD);
                                   if (myUid) {
-                                    await updateDoc(doc(db, 'leads_crm', subItem.id), {
-                                      'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
-                                    }).catch(() => {});
-                                    await updateDoc(doc(db, 'employee_leads', subItem.id), {
-                                      'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
-                                    }).catch(() => {});
+                                    const payload = {
+                                      'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid),
+                                      alertDismissedUsers: arrayUnion(myUid)
+                                    };
+                                    await updateDoc(doc(db, 'leads_crm', subItem.id), payload).catch(() => {});
+                                    await updateDoc(doc(db, 'employee_leads', subItem.id), payload).catch(() => {});
+                                    await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', subItem.id), payload).catch(() => {});
+                                    if (subItem.phoneNumber) {
+                                      const cleanPhone = subItem.phoneNumber.replace(/[^0-9]/g, '');
+                                      if (cleanPhone) {
+                                        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', cleanPhone), payload).catch(() => {});
+                                      }
+                                    }
                                   }
                                 }
                               });
@@ -11709,12 +11720,19 @@ const handleExportBuffetToExcel = () => {
                               if (endD) {
                                 dismissSubNotif(subItem.id, endD);
                                 if (myUid) {
-                                  await updateDoc(doc(db, 'leads_crm', subItem.id), {
-                                    'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
-                                  }).catch(() => {});
-                                  await updateDoc(doc(db, 'employee_leads', subItem.id), {
-                                    'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
-                                  }).catch(() => {});
+                                  const payload = {
+                                    'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid),
+                                    alertDismissedUsers: arrayUnion(myUid)
+                                  };
+                                  await updateDoc(doc(db, 'leads_crm', subItem.id), payload).catch(() => {});
+                                  await updateDoc(doc(db, 'employee_leads', subItem.id), payload).catch(() => {});
+                                  await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', subItem.id), payload).catch(() => {});
+                                  if (subItem.phoneNumber) {
+                                    const cleanPhone = subItem.phoneNumber.replace(/[^0-9]/g, '');
+                                    if (cleanPhone) {
+                                      await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', cleanPhone), payload).catch(() => {});
+                                    }
+                                  }
                                 }
                               }
                             }}
