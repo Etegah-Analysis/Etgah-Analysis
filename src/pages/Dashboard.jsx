@@ -9289,12 +9289,12 @@ const handleModalPasteBuffetItem = (e) => {
 
       if (storage) {
         try {
-          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.html`;
+          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.pdf`;
           const fileRef = ref(storage, storagePath);
-          await uploadBytes(fileRef, blob, { contentType: 'text/html;charset=utf-8' });
+          await uploadBytes(fileRef, blob);
           downloadUrl = await getDownloadURL(fileRef);
         } catch (stErr) {
-          console.warn('Storage upload error fallback to base64 data URL:', stErr);
+          console.warn('Storage upload error fallback to html data URL:', stErr);
         }
       }
 
@@ -9309,7 +9309,7 @@ const handleModalPasteBuffetItem = (e) => {
         uploadedAt: serverTimestamp(),
         uploadedAtFormatted: formattedNow,
         uploadedBy: userRole,
-        fileName: `تقرير_توصيات_${isSaudi ? 'السعودي' : 'الأمريكي'}_${Date.now()}.html`
+        fileName: `تقرير_توصيات_${isSaudi ? 'السعودي' : 'الأمريكي'}_${Date.now()}.pdf`
       };
 
       await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
