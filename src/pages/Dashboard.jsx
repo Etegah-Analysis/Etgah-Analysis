@@ -9279,23 +9279,29 @@ const handleModalPasteBuffetItem = (e) => {
       </tr>
     </thead>
     <tbody>
-      ${list.map((sig, idx) => {
-        const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
-        const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
-        return `
-          <tr>
-            <td>${idx + 1}</td>
-            <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
-            <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
-            <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
-            <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
-            <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
-            <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
-            <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
-            <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
-          </tr>
-        `;
-      }).join('')}
+      ${(() => {
+        const completedList = list.filter(sig => sig.status !== 'active');
+        if (completedList.length === 0) {
+          return `<tr><td colspan="9" style="padding: 15px; text-align: center; color: #64748b; font-weight: bold;">جميع التوصيات الحالية سارية ⏳ (لا توجد توصيات منتهية لعرضها في الجدول)</td></tr>`;
+        }
+        return completedList.map((sig, idx) => {
+          const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
+          const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
+              <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
+              <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
+              <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
+              <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
+              <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
+              <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
+              <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
+            </tr>
+          `;
+        }).join('');
+      })()}
     </tbody>
   </table>
 
@@ -9917,23 +9923,29 @@ const handleModalPasteBuffetItem = (e) => {
             </tr>
           </thead>
           <tbody>
-            ${list.map((sig, idx) => {
-              const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
-              const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
-              return `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
-                  <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
-                  <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
-                  <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
-                  <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
-                  <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
-                  <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
-                  <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
-                </tr>
-              `;
-            }).join('')}
+            ${(() => {
+              const completedList = list.filter(sig => sig.status !== 'active');
+              if (completedList.length === 0) {
+                return `<tr><td colspan="9" style="padding: 15px; text-align: center; color: #64748b; font-weight: bold;">جميع التوصيات الحالية سارية ⏳ (لا توجد توصيات منتهية لعرضها في الجدول)</td></tr>`;
+              }
+              return completedList.map((sig, idx) => {
+                const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
+                const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
+                    <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
+                    <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
+                    <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
+                    <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
+                    <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
+                    <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
+                    <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
+                  </tr>
+                `;
+              }).join('');
+            })()}
           </tbody>
         </table>
 
