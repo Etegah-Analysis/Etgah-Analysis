@@ -1879,7 +1879,15 @@ const Dashboard = () => {
   const [dismissedNotifMap, setDismissedNotifMap] = useState(() => {
     try {
       const saved = localStorage.getItem('etegah_dashboard_dismissed_notif_map');
-      return saved ? JSON.parse(saved) : {};
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      const cleaned = {};
+      Object.keys(parsed).forEach(k => {
+        if (parsed[k] && parsed[k] !== 'dismissed') {
+          cleaned[k] = parsed[k];
+        }
+      });
+      return cleaned;
     } catch(e) {
       return {};
     }
@@ -1900,8 +1908,18 @@ const Dashboard = () => {
       const newMap = { ...prevMap };
       list.forEach(item => {
         const id = typeof item === 'string' ? item : item.id;
-        const key = typeof item === 'string' ? 'dismissed' : getItemMsgKey(item);
-        newMap[id] = key || 'dismissed';
+        let key = typeof item === 'object' ? getItemMsgKey(item) : '';
+        if (!key && typeof item === 'string') {
+          const cand = (customers || []).find(c => c.id === item) || 
+                       (websiteChats || []).find(w => w.id === item) || 
+                       (internalGroups || []).find(g => g.id === item);
+          if (cand) key = getItemMsgKey(cand);
+        }
+        if (key && key !== 'dismissed') {
+          newMap[id] = key;
+        } else {
+          delete newMap[id];
+        }
       });
       try {
         localStorage.setItem('etegah_dashboard_dismissed_notif_map', JSON.stringify(newMap));
@@ -2010,7 +2028,7 @@ const Dashboard = () => {
     const filteredCustomerChats = allCandidateCustomerChats.filter(c => {
       const itemKey = getItemMsgKey(c);
       const savedDismissedKey = dismissedNotifMap[c.id];
-      if (savedDismissedKey && (savedDismissedKey === itemKey || savedDismissedKey === 'dismissed')) {
+      if (savedDismissedKey && savedDismissedKey === itemKey) {
         return false;
       }
 
@@ -2085,7 +2103,7 @@ const Dashboard = () => {
     const filteredGroups = (internalGroups || []).filter(g => {
       const groupKey = getItemMsgKey(g);
       const savedGroupKey = dismissedNotifMap[g.id];
-      if (savedGroupKey && (savedGroupKey === groupKey || savedGroupKey === 'dismissed')) {
+      if (savedGroupKey && savedGroupKey === groupKey) {
         return false;
       }
       if (!g.lastMessage) return false;
@@ -11753,11 +11771,11 @@ const handleExportBuffetToExcel = () => {
                         <button
                           type="button"
                           onClick={async () => {
-                            const allIds = [
-                              ...unreadWhatsAppChats.map(c => c.id),
-                              ...unreadEmails.map(m => m.id)
+                            const allItems = [
+                              ...unreadWhatsAppChats,
+                              ...unreadEmails
                             ];
-                            dismissNotifIds(allIds);
+                            dismissNotifIds(allItems);
                             setHasViewedNotifications(true);
 
                             const myUid = currentUser?.uid || currentEmpUser?.uid || '';
@@ -11981,7 +11999,7 @@ const handleExportBuffetToExcel = () => {
                       <div 
                         key={`notif-conv-${c.id}`}
                         onClick={async () => {
-                          dismissNotifIds(c.id);
+                          dismissNotifIds(c);
                           setIsNotifDropdownOpen(false);
                           const myUid = currentUser?.uid || currentEmpUser?.uid || '';
                           if (c.isGroup || c.isDirect) {
