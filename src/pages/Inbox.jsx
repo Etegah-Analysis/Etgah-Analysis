@@ -247,15 +247,18 @@ function InboxContent() {
     setTouchStart(e.targetTouches[0].clientX);
   };
 
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
+  const closeActiveChat = useCallback(() => {
+    setActiveChat(null);
+    try {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (_) {}
+  }, []);
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
     if (distance > 50) {
-      setActiveChat(null);
+      closeActiveChat();
     }
   };
 
@@ -514,7 +517,7 @@ function InboxContent() {
         else if (isForwardModalOpen) setIsForwardModalOpen(false);
         else if (isAnalyticsModalOpen) setIsAnalyticsModalOpen(false);
         else if (replyingToMessage) setReplyingToMessage(null);
-        else if (activeChat && window.innerWidth < 768) setActiveChat(null);
+        else if (activeChat && window.innerWidth < 768) closeActiveChat();
       }
     };
     window.addEventListener('keydown', handleGlobalEsc);
@@ -998,11 +1001,17 @@ function InboxContent() {
       if (!activeChat || activeChat.id !== fallbackChat.id) {
         setActiveChat(fallbackChat);
       }
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (_) {}
     } else if (location.state?.selectedGroupId) {
       const foundGroup = chats.find(c => c.id === location.state.selectedGroupId);
       if (foundGroup && (!activeChat || activeChat.id !== foundGroup.id)) {
         setActiveChat(foundGroup);
       }
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (_) {}
     }
   }, [location.state]);
 
@@ -3305,7 +3314,7 @@ function InboxContent() {
 
       {/* منطقة الشات الرئيسية */}
       <div 
-        onClick={() => setActiveChat(null)}
+        onClick={closeActiveChat}
         className={`flex-1 flex-col bg-black/40 backdrop-blur-2xl relative z-10 ${!activeChat ? 'hidden md:flex' : 'flex'}`}
       >
         {activeChat ? (
@@ -3314,7 +3323,7 @@ function InboxContent() {
             <div onClick={(e) => e.stopPropagation()} className="bg-black/40 backdrop-blur-md p-4 border-b border-white/10 flex justify-between items-center shadow-md">
               <div className="flex items-center space-x-3 space-x-reverse min-w-0 flex-1">
                 <button 
-                  onClick={() => setActiveChat(null)} 
+                  onClick={closeActiveChat} 
                   className="md:hidden text-gray-300 hover:text-white p-1 ml-1 transition shrink-0"
                   title="رجوع للقائمة"
                 >
@@ -3569,7 +3578,7 @@ function InboxContent() {
               onTouchEnd={onTouchEnd}
               onClick={(e) => {
                 if (e.target === messagesContainerRef.current) {
-                  setActiveChat(null);
+                  closeActiveChat();
                 }
               }}
               className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40 cursor-pointer"

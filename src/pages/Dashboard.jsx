@@ -9147,6 +9147,171 @@ const handleModalPasteBuffetItem = (e) => {
     setPdfReportModalMarket(market);
   };
 
+  const handleAutoPublishRecommendationsPdf = async (marketType = 'saudi') => {
+    const isSaudi = marketType === 'saudi';
+    const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
+    const docId = isSaudi ? 'saudi_latest' : 'us_latest';
+    const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
+    const list = isSaudi ? saudiRecommendations : usRecommendations;
+    const title = isSaudi ? 'تقرير توصيات السوق السعودي' : 'تقرير توصيات السوق الأمريكي';
+    const logoUrl = window.location.origin + '/logo.jpg';
+
+    const toastId = toast.loading(`جاري توليد ونشر تقرير توصيات ${marketTitle} لموقع المنصة تلقائياً... ⏳`);
+
+    try {
+      const total = list.length;
+      const activeCount = list.filter(s => s.status === 'active').length;
+      const t1Count = list.filter(s => s.status === 'target1').length;
+      const t2Count = list.filter(s => s.status === 'target2').length;
+      const slCount = list.filter(s => s.status === 'stop_loss').length;
+      const winCount = t1Count + t2Count;
+      const winRate = total > 0 ? Math.round((winCount / (total - activeCount || total)) * 100) : 0;
+
+      const now = new Date();
+      const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+      const htmlContent = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <title>${title} - منصة اتجاه التحليل الذكي</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; color: #1e293b; background: #fff; direction: rtl; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f59e0b; padding-bottom: 12px; margin-bottom: 15px; }
+    .logo-box { display: flex; align-items: center; gap: 12px; }
+    .logo-box img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #f59e0b; }
+    .title-box h1 { margin: 0; font-size: 20px; color: #0f172a; }
+    .title-box p { margin: 3px 0 0; font-size: 11px; color: #64748b; }
+    .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 15px; }
+    .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; text-align: center; }
+    .stat-card .val { font-size: 16px; font-weight: bold; color: #0f172a; }
+    .stat-card .lbl { font-size: 10px; color: #64748b; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
+    th { background: #1e1b4b; color: #fde68a; padding: 6px 8px; font-weight: 800; border: 1px solid #cbd5e1; text-align: center; }
+    td { padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; }
+    .badge-active { background: #fef3c7; color: #92400e; }
+    .badge-t1 { background: #d1fae5; color: #065f46; }
+    .badge-t2 { background: #cffafe; color: #155e75; }
+    .badge-sl { background: #ffe4e6; color: #9f1239; }
+    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-box">
+      <img src="${logoUrl}" alt="لوجو اتجاه" />
+      <div class="title-box">
+        <h1>منصة اتجاه التحليل الذكي</h1>
+        <p>${title} • تاريخ النشر: ${formattedNow}</p>
+      </div>
+    </div>
+    <div style="text-align: left; font-size: 11px; color: #475569;">
+      <div><strong>تقرير رسمي معتمد</strong></div>
+      <div>Etegah Intelligent Analysis</div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="val">${total}</div><div class="lbl">إجمالي التوصيات</div></div>
+    <div class="stat-card"><div class="val" style="color:#d97706;">${activeCount}</div><div class="lbl">سارية ⏳</div></div>
+    <div class="stat-card"><div class="val" style="color:#059669;">${t1Count + t2Count}</div><div class="lbl">محققة للأهداف 🎯</div></div>
+    <div class="stat-card"><div class="val" style="color:#e11d48;">${slCount}</div><div class="lbl">وقف خسارة 🛑</div></div>
+    <div class="stat-card"><div class="val" style="color:#10b981;">${winRate}%</div><div class="lbl">نسبة النجاح العامة 📈</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>${isSaudi ? 'اسم وكود السهم' : 'الرمز (Symbol) والنوع'}</th>
+        <th>${isSaudi ? 'دعم 1 (الأساسي)' : 'دخول (Buy)'}</th>
+        <th>${isSaudi ? 'مقاومة 1' : 'الهدف 1 (T)'}</th>
+        <th>${isSaudi ? 'مقاومة 2' : 'الهدف 2 (T2)'}</th>
+        <th>وقف الخسارة (SL)</th>
+        <th>حالة التوصية</th>
+        <th>${isSaudi ? 'المكسب (ر.س)' : 'المكسب ($)'}</th>
+        <th>نسبة الإنجاز %</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${list.map((sig, idx) => {
+        const statusLbl = sig.status === 'target2' ? 'حقق Target 2 🚀' : sig.status === 'target1' ? 'حقق Target 1 🎯' : sig.status === 'stop_loss' ? 'وقف خسارة 🛑' : sig.status === 'cancelled' ? 'ملغاة ❌' : 'سارية ⏳';
+        const badgeClass = sig.status === 'target2' ? 'badge-t2' : sig.status === 'target1' ? 'badge-t1' : sig.status === 'stop_loss' ? 'badge-sl' : 'badge-active';
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${isSaudi ? `${sig.stockName} (${sig.stockCode})` : `${sig.symbol} (${sig.marketType === 'options' ? 'عقود' : 'أسهم'})`}</strong></td>
+            <td>${isSaudi ? sig.support1 : sig.buyPrice}</td>
+            <td>${isSaudi ? sig.resistance1 : sig.target1}</td>
+            <td>${isSaudi ? (sig.resistance2 || '-') : (sig.target2 || '-')}</td>
+            <td style="color:#e11d48; font-weight:bold;">${sig.stopLoss || '-'}</td>
+            <td><span class="badge ${badgeClass}">${statusLbl}</span></td>
+            <td style="font-weight:bold; font-family:monospace; color:${(isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig)) >= 0 ? '#047857' : '#e11d48'};">${(() => { const g = isSaudi ? calculateSaudiGainValue(sig) : calculateUsGainValue(sig); return g !== null ? (g >= 0 ? '+' + g.toFixed(2) : g.toFixed(2)) + (isSaudi ? ' ر.س' : ' $') : '-'; })()}</td>
+            <td style="font-weight:bold; color:#047857;">${(() => { const p = isSaudi ? calculateSaudiPercentage(sig) : calculateUsPercentage(sig); return p !== null ? (p >= 0 ? '+' + p.toFixed(2) + '%' : p.toFixed(2) + '%') : '-'; })()}</td>
+          </tr>
+        `;
+      }).join('')}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    جميع البيانات تم إنشاؤها عبر منصة اتجاه التحليل الذكي للأسهم © ${new Date().getFullYear()} • سرية ومخصصة للاستخدام المصرح به
+  </div>
+</body>
+</html>`;
+
+      let downloadUrl = '';
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+
+      if (storage) {
+        try {
+          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.html`;
+          const fileRef = ref(storage, storagePath);
+          await uploadBytes(fileRef, blob, { contentType: 'text/html;charset=utf-8' });
+          downloadUrl = await getDownloadURL(fileRef);
+        } catch (stErr) {
+          console.warn('Storage upload error fallback to base64 data URL:', stErr);
+        }
+      }
+
+      if (!downloadUrl) {
+        downloadUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
+      }
+
+      const reportPayload = {
+        market: marketType,
+        title: isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي',
+        pdfUrl: downloadUrl,
+        uploadedAt: serverTimestamp(),
+        uploadedAtFormatted: formattedNow,
+        uploadedBy: userRole,
+        fileName: `تقرير_توصيات_${isSaudi ? 'السعودي' : 'الأمريكي'}_${Date.now()}.html`
+      };
+
+      await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
+      await addDoc(collection(db, 'weekly_reports_history'), reportPayload).catch(() => {});
+
+      await addDoc(collection(db, 'platform_notifications'), {
+        title: isSaudi ? '📄 تقرير أسبوعي جديد للسوق السعودي' : '📄 تقرير أسبوعي جديد للسوق الأمريكي',
+        body: `تم رفع وتحديث التقرير الأسبوعي الشامل لـ ${marketTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
+        type: 'pdf_report',
+        market: marketType,
+        url: '/platform-videos',
+        createdAt: serverTimestamp(),
+        timestampMillis: Date.now()
+      }).catch(() => {});
+
+      toast.success(`تم إنشاء ونشر تقرير توصيات ${marketTitle} فوراً على موقع المنصة بنجاح! 🚀✨`, { id: toastId, duration: 6000 });
+      setPdfReportModalMarket(null);
+    } catch (err) {
+      console.error('Error auto publishing recommendations report:', err);
+      toast.error('حدث خطأ أثناء نشر تقرير التوصيات: ' + (err.message || ''), { id: toastId });
+    }
+  };
+
   const handleUploadWebsitePdfDirect = (market) => {
     const isSaudi = market === 'saudi';
     const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
@@ -25521,7 +25686,26 @@ const handleExportBuffetToExcel = () => {
                       </div>
                     </button>
 
-                    {/* 3. Upload to website */}
+                    {/* 3. Auto Upload to website (1-click) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = pdfReportModalMarket;
+                        setPdfReportModalMarket(null);
+                        handleAutoPublishRecommendationsPdf(targetM);
+                      }}
+                      className="p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 hover:from-emerald-900 hover:to-teal-900 text-white rounded-2xl border border-emerald-500/40 hover:border-emerald-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md col-span-1 sm:col-span-2"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <Upload size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-emerald-300 block">🚀 رفع ونشر تقرير التوصيات الحالي فوراً لموقع المنصة (بضغطة واحدة)</span>
+                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">توليد ونشر تقرير التوصيات الحالي تلقائياً على المنصة بدون اختيار ملف</span>
+                      </div>
+                    </button>
+
+                    {/* 3b. Manual PDF upload from device */}
                     <button
                       type="button"
                       onClick={() => {
@@ -25529,14 +25713,14 @@ const handleExportBuffetToExcel = () => {
                         setPdfReportModalMarket(null);
                         handleUploadWebsitePdfDirect(targetM);
                       }}
-                      className="p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 hover:from-emerald-900 hover:to-teal-900 text-white rounded-2xl border border-emerald-500/40 hover:border-emerald-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-2xl border border-white/10 hover:border-slate-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
                         <Upload size={18} />
                       </div>
                       <div>
-                        <span className="font-bold text-xs text-emerald-300 block">🚀 رفع ونشر تقرير لموقع المنصة</span>
-                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">اختيار ملف PDF ونشره فوراً للعملاء</span>
+                        <span className="font-bold text-xs text-white block">📁 رفع ونشر ملف PDF خارجي من جهازك</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">اختيار ملف PDF يدوي من جهازك ونشره للموقع</span>
                       </div>
                     </button>
 
