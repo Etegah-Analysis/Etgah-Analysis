@@ -3495,9 +3495,78 @@ const Dashboard = () => {
     return matchStrings.some(w => src.includes(w) || added.includes(w) || assigned.includes(w) || st.includes(w));
   }, []);
 
+  const combinedDeduplicatedVisitors = useMemo(() => {
+    const rawList = [
+      ...(enrichedVisitors || []).map(v => ({ 
+        id: v.id, 
+        name: `${v.firstName || ''} ${v.lastName || ''}`.trim() || 'زائر موقع', 
+        phone: v.phone || v.phoneNumber, 
+        email: v.email,
+        source: 'موقع الويب (OTP)', 
+        createdAt: v.createdAt, 
+        status: v.status || 'website_visitor', 
+        crmStatus: v.crmStatus || 'unassigned',
+        assignedTo: v.assignedTo || 'الإدارة',
+        assignedToUid: v.assignedToUid || 'admin',
+        assignedBy: v.assignedBy,
+        assignedByRole: v.assignedByRole,
+        assignedByUid: v.assignedByUid,
+        assignmentHistory: v.assignmentHistory || [],
+        notesHistory: v.notesHistory || [],
+        isVisitorDoc: true,
+        _raw: v 
+      })),
+      ...(enrichedCustomers || []).filter(isWebsiteVisitorLead).map(c => ({ 
+        id: c.id, 
+        name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
+        phone: c.phoneNumber || c.phone, 
+        email: c.email,
+        source: 'موقع الويب (OTP)', 
+        createdAt: c.createdAt, 
+        status: c.status || 'website_visitor', 
+        crmStatus: c.crmStatus || 'unassigned',
+        assignedTo: c.assignedTo || 'الإدارة',
+        assignedToUid: c.assignedToUid || 'admin',
+        assignedBy: c.assignedBy,
+        assignedByRole: c.assignedByRole,
+        assignedByUid: c.assignedByUid,
+        assignmentHistory: c.assignmentHistory || [],
+        notesHistory: c.notesHistory || [],
+        isVisitorDoc: false,
+        _raw: c 
+      }))
+    ];
+
+    const visPhoneMap = new Map();
+    rawList.forEach(item => {
+      const cleanPhone = (item.phone || item.id || '').replace(/[^0-9]/g, '');
+      const key = cleanPhone || item.id;
+      if (!visPhoneMap.has(key)) {
+        visPhoneMap.set(key, item);
+      } else {
+        const existing = visPhoneMap.get(key);
+        const itemAssigned = item.assignedToUid && item.assignedToUid !== 'admin';
+        const existingAssigned = existing.assignedToUid && existing.assignedToUid !== 'admin';
+        if (itemAssigned && !existingAssigned) {
+          visPhoneMap.set(key, item);
+        } else if (!itemAssigned && existingAssigned) {
+          // keep existing
+        } else {
+          const timeItem = getTimestampMillis(item.createdAt);
+          const timeExisting = getTimestampMillis(existing.createdAt);
+          if (timeItem > timeExisting) {
+            visPhoneMap.set(key, item);
+          }
+        }
+      }
+    });
+
+    return Array.from(visPhoneMap.values());
+  }, [enrichedVisitors, enrichedCustomers, isWebsiteVisitorLead]);
+
   const whatsappVisitorsCount = useMemo(() => {
-    return (visitors?.length || 0) + (customers?.filter(isWebsiteVisitorLead)?.length || 0);
-  }, [visitors, customers, isWebsiteVisitorLead]);
+    return combinedDeduplicatedVisitors.length;
+  }, [combinedDeduplicatedVisitors]);
 
   const displayLeadsCrmCount = useMemo(() => {
     const cached = Number(localStorage.getItem('cache_leadsCrm_total_count') || 0);
@@ -19646,10 +19715,7 @@ const handleExportBuffetToExcel = () => {
                           type="checkbox" 
                           checked={selectedVisitors.length > 0} 
                           onChange={() => {
-                            const combinedIds = [
-                              ...enrichedVisitors.map(v => v.id),
-                              ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => c.id)
-                            ];
+                            const combinedIds = combinedDeduplicatedVisitors.map(v => v.id);
                             if (selectedVisitors.length > 0) setSelectedVisitors([]);
                             else setSelectedVisitors(combinedIds);
                           }} 
@@ -19734,46 +19800,7 @@ const handleExportBuffetToExcel = () => {
                 <tbody>
                   {(() => {
                     const sortMultiplier = sortOrder === 'desc' ? 1 : -1;
-                    const combined = [
-                      ...enrichedVisitors.map(v => ({ 
-                        id: v.id, 
-                        name: `${v.firstName || ''} ${v.lastName || ''}`.trim() || 'زائر موقع', 
-                        phone: v.phone || v.phoneNumber, 
-                        email: v.email,
-                        source: 'موقع الويب (OTP)', 
-                        createdAt: v.createdAt, 
-                        status: v.status || 'website_visitor', 
-                        crmStatus: v.crmStatus || 'unassigned',
-                        assignedTo: v.assignedTo || 'الإدارة',
-                        assignedToUid: v.assignedToUid || 'admin',
-                        assignedBy: v.assignedBy,
-                        assignedByRole: v.assignedByRole,
-                        assignedByUid: v.assignedByUid,
-                        assignmentHistory: v.assignmentHistory || [],
-                        notesHistory: v.notesHistory || [],
-                        isVisitorDoc: true,
-                        _raw: v 
-                      })),
-                      ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => ({ 
-                        id: c.id, 
-                        name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
-                        phone: c.phoneNumber || c.phone, 
-                        email: c.email,
-                        source: 'موقع الويب (OTP)', 
-                        createdAt: c.createdAt, 
-                        status: c.status || 'website_visitor', 
-                        crmStatus: c.crmStatus || 'unassigned',
-                        assignedTo: c.assignedTo || 'الإدارة',
-                        assignedToUid: c.assignedToUid || 'admin',
-                        assignedBy: c.assignedBy,
-                        assignedByRole: c.assignedByRole,
-                        assignedByUid: c.assignedByUid,
-                        assignmentHistory: c.assignmentHistory || [],
-                        notesHistory: c.notesHistory || [],
-                        isVisitorDoc: false,
-                        _raw: c 
-                      }))
-                    ].filter(v => {
+                    const combined = combinedDeduplicatedVisitors.filter(v => {
                       const search = tableSearch.trim() || dashboardSearch.trim();
                       if (search) {
                         const term = search.toLowerCase();
@@ -20136,32 +20163,7 @@ const handleExportBuffetToExcel = () => {
 
             {/* Pagination Controls Bar for Website Visitors */}
             {(() => {
-              const combinedList = [
-                ...enrichedVisitors.map(v => ({ 
-                  id: v.id, 
-                  name: `${v.firstName || ''} ${v.lastName || ''}`.trim() || 'زائر موقع', 
-                  phone: v.phone || v.phoneNumber, 
-                  email: v.email,
-                  source: 'موقع الويب (OTP)', 
-                  createdAt: v.createdAt, 
-                  status: v.status || 'website_visitor', 
-                  crmStatus: v.crmStatus || 'unassigned',
-                  assignedTo: v.assignedTo || 'الإدارة',
-                  assignedToUid: v.assignedToUid || 'admin'
-                })),
-                ...enrichedCustomers.filter(isWebsiteVisitorLead).map(c => ({ 
-                  id: c.id, 
-                  name: c.name || c.phoneNumber || 'عميل مسجل OTP', 
-                  phone: c.phoneNumber || c.phone, 
-                  email: c.email,
-                  source: 'موقع الويب (OTP)', 
-                  createdAt: c.createdAt, 
-                  status: c.status || 'website_visitor', 
-                  crmStatus: c.crmStatus || 'unassigned',
-                  assignedTo: c.assignedTo || 'الإدارة',
-                  assignedToUid: c.assignedToUid || 'admin'
-                }))
-              ].filter(v => {
+              const combinedList = combinedDeduplicatedVisitors.filter(v => {
                 const search = tableSearch.trim() || dashboardSearch.trim();
                 if (search) {
                   const term = search.toLowerCase();
