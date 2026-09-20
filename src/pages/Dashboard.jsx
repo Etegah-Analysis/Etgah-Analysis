@@ -1872,6 +1872,27 @@ const Dashboard = () => {
       return newMap;
     });
   };
+
+  const [dismissedSubNotifMap, setDismissedSubNotifMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('etegah_dismissed_sub_notifs');
+      return saved ? JSON.parse(saved) : {};
+    } catch(e) {
+      return {};
+    }
+  });
+
+  const dismissSubNotif = (subId, endDate) => {
+    if (!subId || !endDate) return;
+    setDismissedSubNotifMap(prev => {
+      const updated = { ...prev, [subId]: endDate };
+      try {
+        localStorage.setItem('etegah_dismissed_sub_notifs', JSON.stringify(updated));
+      } catch(e) {}
+      return updated;
+    });
+  };
+
   const notifDropdownRef = useRef(null);
   const prevUnreadMapRef = useRef({});
   const isFirstLoadRef = useRef(true);
@@ -3544,6 +3565,7 @@ const Dashboard = () => {
     if (!hasSubscribedCardAccess) return [];
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const myUid = currentUser?.uid || currentEmpUser?.uid || '';
 
     const pool = (isAdmin || isCoordinator || isCustomerService) 
       ? (allSubscribedClients || [])
@@ -3556,8 +3578,11 @@ const Dashboard = () => {
       if (!sub?.endDate) return false;
       if (sub.serviceType === 'اتفاق نسبة' || sub.paymentType === 'percentage') return false;
       if (sub.endDate > in7Days) return false;
-      // Hide from notification bell once acknowledged/opened for this specific endDate
-      if (sub.alertDismissedEndDate === sub.endDate) return false;
+      
+      // Hide from notification bell once acknowledged/opened by THIS specific user (local or Firestore)
+      if (dismissedSubNotifMap[c.id] === sub.endDate) return false;
+      if (myUid && Array.isArray(sub.alertDismissedUsers) && sub.alertDismissedUsers.includes(myUid)) return false;
+
       return true;
     }).map(c => {
       const sub = c.subscriptionDetails;
@@ -3568,7 +3593,7 @@ const Dashboard = () => {
         isExpired: daysDiff < 0
       };
     });
-  }, [hasSubscribedCardAccess, allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isCustomerService]);
+  }, [hasSubscribedCardAccess, allSubscribedClients, leaderSubscribedClients, agentSubscribedClients, isAdmin, isCoordinator, isLeader, isCustomerService, currentUser?.uid, currentEmpUser?.uid, dismissedSubNotifMap]);
 
   const totalAllNotificationsCount = useMemo(() => {
     return (unreadWhatsAppChats?.length || 0) + (unreadEmails?.length || 0) + (expiringSubscriptions?.length || 0) + (incomingInternalCall && incomingInternalCall.status === 'ringing' ? 1 : 0);
@@ -11316,32 +11341,52 @@ const handleExportBuffetToExcel = () => {
                             dismissNotifIds(allIds);
                             setHasViewedNotifications(true);
 
-                            const uid = currentUser?.uid || '';
+                            const myUid = currentUser?.uid || currentEmpUser?.uid || '';
+
+                            if (expiringSubscriptions && expiringSubscriptions.length > 0) {
+                              expiringSubscriptions.forEach(async (subItem) => {
+                                const endD = subItem.subscriptionDetails?.endDate;
+                                if (endD) {
+                                  dismissSubNotif(subItem.id, endD);
+                                  if (myUid) {
+                                    await updateDoc(doc(db, 'leads_crm', subItem.id), {
+                                      'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
+                                    }).catch(() => {});
+                                    await updateDoc(doc(db, 'employee_leads', subItem.id), {
+                                      'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
+                                    }).catch(() => {});
+                                  }
+                                }
+                              });
+                            }
+
                             unreadWhatsAppChats.forEach(async (c) => {
                               try {
-                                if (c.isGroup || c.isDirect) {
-                                  await updateDoc(doc(db, 'internal_groups', c.id), {
-                                    readBy: arrayUnion(uid, 'admin'),
-                                    unread: 0
-                                  });
-                                } else {
-                                  await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
-                                    readBy: arrayUnion(uid, 'admin'),
-                                    unread: 0
-                                  });
+                                if (myUid) {
+                                  if (c.isGroup || c.isDirect) {
+                                    await updateDoc(doc(db, 'internal_groups', c.id), {
+                                      readBy: arrayUnion(myUid)
+                                    });
+                                  } else {
+                                    await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                                      readBy: arrayUnion(myUid)
+                                    });
+                                  }
                                 }
                               } catch(e) {}
                             });
 
                             unreadEmails.forEach(async (m) => {
                               try {
-                                await updateDoc(doc(db, 'internal_emails', m.id), {
-                                  readBy: arrayUnion(myUid, uid, 'admin')
-                                });
+                                if (myUid) {
+                                  await updateDoc(doc(db, 'internal_emails', m.id), {
+                                    readBy: arrayUnion(myUid)
+                                  });
+                                }
                               } catch(e) {}
                             });
 
-                            toast.success('تم قراءة وتصفير جميع الإشعارات بنجاح ✓✓');
+                            toast.success('تم قراءة وتصفير جميع الإشعارات الخاصة بك بنجاح ✓✓');
                           }}
                           className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-400/40 text-[10px] px-2 py-0.5 rounded-full font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
                           title="تحديد وقراءة كافة الإشعارات فوراً"
@@ -11372,7 +11417,7 @@ const handleExportBuffetToExcel = () => {
                     </button>
                     <button 
                       onClick={() => setNotifActiveTab('email')}
-                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'email' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                      className={`flex-1 py-1 px-2 rounded-lg transition text-center ${notifActiveTab === 'email' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                     >
                       ✉️ بريد ({unreadEmails.length})
                     </button>
@@ -11463,13 +11508,17 @@ const handleExportBuffetToExcel = () => {
                               setIsNotifDropdownOpen(false);
                               openSubscriptionModal(subItem);
                               const endD = subItem.subscriptionDetails?.endDate;
+                              const myUid = currentUser?.uid || currentEmpUser?.uid || '';
                               if (endD) {
-                                await updateDoc(doc(db, 'leads_crm', subItem.id), {
-                                  'subscriptionDetails.alertDismissedEndDate': endD
-                                }).catch(() => {});
-                                await updateDoc(doc(db, 'employee_leads', subItem.id), {
-                                  'subscriptionDetails.alertDismissedEndDate': endD
-                                }).catch(() => {});
+                                dismissSubNotif(subItem.id, endD);
+                                if (myUid) {
+                                  await updateDoc(doc(db, 'leads_crm', subItem.id), {
+                                    'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
+                                  }).catch(() => {});
+                                  await updateDoc(doc(db, 'employee_leads', subItem.id), {
+                                    'subscriptionDetails.alertDismissedUsers': arrayUnion(myUid)
+                                  }).catch(() => {});
+                                }
                               }
                             }}
                             className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition shadow-md active:scale-95 cursor-pointer"
@@ -11501,21 +11550,23 @@ const handleExportBuffetToExcel = () => {
                         onClick={async () => {
                           dismissNotifIds(c.id);
                           setIsNotifDropdownOpen(false);
-                          const uid = currentUser?.uid || '';
+                          const myUid = currentUser?.uid || currentEmpUser?.uid || '';
                           if (c.isGroup || c.isDirect) {
                             try {
-                              await updateDoc(doc(db, 'internal_groups', c.id), {
-                                readBy: arrayUnion(myUid, uid, 'admin'),
-                                unread: 0
-                              });
+                              if (myUid) {
+                                await updateDoc(doc(db, 'internal_groups', c.id), {
+                                  readBy: arrayUnion(myUid)
+                                });
+                              }
                             } catch(e) {}
                             navigate('/inbox', { state: { selectedGroupId: c.id } });
                           } else {
                             try {
-                              await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
-                                readBy: arrayUnion(myUid, uid, 'admin'),
-                                unread: 0
-                              });
+                              if (myUid) {
+                                await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
+                                  readBy: arrayUnion(myUid)
+                                });
+                              }
                             } catch(e) {}
                             navigate('/inbox', { state: { selectedCustomerId: c.id } });
                           }
@@ -11561,10 +11612,13 @@ const handleExportBuffetToExcel = () => {
                           setIsNotifDropdownOpen(false);
                           setIsMailModalOpen(true);
                           setMailActiveFolder('inbox');
+                          const myUid = currentUser?.uid || currentEmpUser?.uid || '';
                           try {
-                            await updateDoc(doc(db, 'internal_emails', mail.id), {
-                              readBy: arrayUnion(myUid, currentUser?.uid || '', 'admin')
-                            });
+                            if (myUid) {
+                              await updateDoc(doc(db, 'internal_emails', mail.id), {
+                                readBy: arrayUnion(myUid)
+                              });
+                            }
                           } catch(e) {}
                           handleOpenEmailDetails(mail);
                         }}
