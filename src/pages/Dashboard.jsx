@@ -582,6 +582,17 @@ const Dashboard = () => {
   const [importTarget, setImportTarget] = useState('employee_leads'); // 'leads_crm' | 'employee_leads'
 
   const openImportModal = (target = 'employee_leads') => {
+    if (target === 'employee_leads') {
+      if (!isAdmin && !hasPermission(currentEmpUser, 'canImportEmployeeLeadsData')) {
+        toast.error('صلاحية رفع واستيراد داتا (Team Added Leads) غير مفعلة في حسابك 🔒');
+        return;
+      }
+    } else {
+      if (!isAdmin && !hasPermission(currentEmpUser, 'canImportData')) {
+        toast.error('صلاحية رفع واستيراد الداتا الرئيسية (Leads CRM) غير مفعلة في حسابك 🔒');
+        return;
+      }
+    }
     setImportTarget(target);
     setImportTab('file');
     setIsImportModalOpen(true);
@@ -15044,7 +15055,7 @@ const handleExportBuffetToExcel = () => {
                   <span>📢 إرسال حملة واتساب (Added Leads)</span>
                 </button>
 
-                {(isAdmin || hasPermission(currentEmpUser, 'canImportData')) && (
+                {(isAdmin || hasPermission(currentEmpUser, 'canImportEmployeeLeadsData')) && (
                   <button 
                     onClick={() => openImportModal('employee_leads')}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
@@ -15397,12 +15408,14 @@ const handleExportBuffetToExcel = () => {
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
-                                <button
-                                  onClick={() => openImportModal('employee_leads')}
-                                  className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
-                                >
-                                  + إضافة / رفع داتا الآن
-                                </button>
+                                {(isAdmin || hasPermission(currentEmpUser, 'canImportEmployeeLeadsData')) && (
+                                  <button
+                                    onClick={() => openImportModal('employee_leads')}
+                                    className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
+                                  >
+                                    + إضافة / رفع داتا الآن
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

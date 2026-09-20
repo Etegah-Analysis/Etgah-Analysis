@@ -313,6 +313,14 @@ export const CARDS_PERMISSIONS_CONFIG = [
         riskLevel: 'low',
         riskLabel: 'عادي',
         defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
+      },
+      {
+        id: 'canImportEmployeeLeadsData',
+        title: 'رفع واستيراد داتا جديدة (Team Added Leads)',
+        description: 'رفع واستيراد ملفات إكسيل وإضافة داتا جديدة داخل كارت عملاء فريق العمل.',
+        riskLevel: 'medium',
+        riskLabel: 'متوسط',
+        defaultByRole: { admin: true, coordinator: true, leader: true, agent: true, customer_service: true }
       }
     ]
   },
