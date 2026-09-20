@@ -3834,7 +3834,8 @@ const Dashboard = () => {
           title: '📞 اتصال داخلي وارد من الموقع!',
           body: `اتصال وارد من: ${callData.callerName || callData.clientName || 'عميل جديد'}`,
           icon: '/logo.jpg',
-          url: '/dashboard'
+          url: '/dashboard',
+          tag: 'internal_call_' + docSnap.id
         });
       } else {
         setIncomingInternalCall(null);

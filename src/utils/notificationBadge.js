@@ -252,7 +252,7 @@ export function playNotificationChime() {
  * @param {string} [options.icon] مسار الشعار
  * @param {string} [options.url] الرابط للتركيز عند النقر
  */
-export async function triggerNativeNotification({ title = '🔔 منصة اتجاه', body = 'وصلك تنبيه جديد', icon = '/logo.jpg', url = '/dashboard' } = {}) {
+export async function triggerNativeNotification({ title = '🔔 منصة اتجاه', body = 'وصلك تنبيه جديد', icon = '/logo.jpg', url = '/dashboard', tag } = {}) {
   if (typeof window === 'undefined') return;
 
   // 1. تشغيل صوت التنبيه
@@ -268,6 +268,8 @@ export async function triggerNativeNotification({ title = '🔔 منصة اتج�
 
   if (perm !== 'granted') return;
 
+  const notifTag = tag || 'etegah-system-alert';
+
   try {
     // محاولة الإرسال عبر Service Worker لدعم الهواتف والخلفية
     if ('serviceWorker' in navigator) {
@@ -278,8 +280,8 @@ export async function triggerNativeNotification({ title = '🔔 منصة اتج�
           icon,
           badge: icon,
           vibrate: [200, 100, 200],
-          tag: 'etegah-system-alert-' + Date.now(),
-          renotify: true,
+          tag: notifTag,
+          renotify: false,
           data: { url }
         });
         return;
@@ -292,7 +294,7 @@ export async function triggerNativeNotification({ title = '🔔 منصة اتج�
       icon,
       badge: icon,
       silent: false,
-      tag: 'etegah-system-alert-' + Date.now()
+      tag: notifTag
     });
 
     notif.onclick = () => {

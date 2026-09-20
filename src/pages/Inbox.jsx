@@ -1089,16 +1089,7 @@ function InboxContent() {
           audioCallRef.current.play().catch(() => {});
         } catch (e) {}
 
-        // Desktop Push Notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification('📞 اتصال تنبيه داخلي جاري!', {
-              body: `اتصال من العميل (${data.clientName || 'عميل اتجاه'}) - يرغب في التواصل الفوري معك!`,
-              icon: '/logo.jpg',
-              requireInteraction: true
-            });
-          } catch (nErr) {}
-        }
+        // Note: Global ringing notification is handled by Dashboard.jsx to prevent duplicate alerts
       } else {
         setActiveRingingCall(null);
         if (audioCallRef.current) {
