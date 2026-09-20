@@ -3852,74 +3852,72 @@ const Dashboard = () => {
     return `${chatKeys}__${emailKeys}__${subKeys}`;
   }, [unreadWhatsAppChats, unreadEmails, expiringSubscriptions]);
 
-  const prevFingerprintRef = useRef(unreadMessagesFingerprint);
-
-  const mountTimestampRef = useRef(Date.now());
+  const prevKnownChatKeysRef = useRef(null);
 
   // تحديث شارة التبويب (Favicon) وإطلاق إشعار نظام حقيقي على شاشة اللابتوب والموبايل بصوت التنبيه
   useEffect(() => {
     setGlobalNotificationAlert(totalAllNotificationsCount, 'CRM WhatsApp Etegah');
 
-    if (isInitialNotifMount.current) {
-      isInitialNotifMount.current = false;
+    const currentChatKeys = new Set(
+      (unreadWhatsAppChats || []).map(c => `${c.id}_${getItemMsgKey(c)}`)
+    );
+
+    // Initial mount: capture existing chats/notifications silently without pushing notifications
+    if (prevKnownChatKeysRef.current === null) {
+      prevKnownChatKeysRef.current = currentChatKeys;
       prevTotalNotifsRef.current = totalAllNotificationsCount;
       prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
       prevUnreadEmailsRef.current = unreadEmails?.length || 0;
       prevExpiringRef.current = expiringSubscriptions?.length || 0;
-      prevFingerprintRef.current = unreadMessagesFingerprint;
       return;
     }
 
-    const hasNewOrUpdatedMessages = unreadMessagesFingerprint !== prevFingerprintRef.current;
-    const isNewCountIncrease = totalAllNotificationsCount > prevTotalNotifsRef.current;
+    // Detect TRULY NEW chat messages that arrived after component mounted
+    const newChatKeys = Array.from(currentChatKeys).filter(k => !prevKnownChatKeysRef.current.has(k));
+    const hasFreshWhatsAppMessage = newChatKeys.length > 0;
+    const hasFreshEmail = (unreadEmails?.length || 0) > prevUnreadEmailsRef.current;
+    const hasFreshExpiringSub = (expiringSubscriptions?.length || 0) > prevExpiringRef.current;
 
-    if (hasNewOrUpdatedMessages || isNewCountIncrease) {
-      let bodyText = 'وصلك تنبيه جديد في النظام 🔔';
-      let notifUrl = '/dashboard';
-      let isRealtimeNewMessage = false;
+    if (hasFreshWhatsAppMessage) {
+      const latestChat = unreadWhatsAppChats[0];
+      const senderName = getClientNameOrPhone(latestChat);
+      const msgText = latestChat?.lastMessage || latestChat?.lastMsgText || 'رسالة جديدة...';
+      const bodyText = `💬 رسالة جديدة من (${senderName}): ${msgText}`;
 
-      if ((unreadWhatsAppChats?.length || 0) > 0) {
-        const latestChat = unreadWhatsAppChats[0];
-        const senderName = getClientNameOrPhone(latestChat);
-        const msgText = latestChat?.lastMessage || latestChat?.lastMsgText || 'رسالة جديدة...';
-        bodyText = `💬 رسالة جديدة من (${senderName}): ${msgText}`;
-        notifUrl = '/inbox';
-
-        const msgTimestamp = latestChat?.lastMessageTimestamp?.toMillis 
-          ? latestChat.lastMessageTimestamp.toMillis()
-          : (latestChat?.updatedAt?.toMillis ? latestChat.updatedAt.toMillis() : (latestChat?.timestamp?.toMillis ? latestChat.timestamp.toMillis() : 0));
-
-        // Ensure push notification is ONLY triggered for fresh messages arriving after page load (not old historical messages loaded on refresh)
-        if (msgTimestamp > (mountTimestampRef.current - 10000)) {
-          isRealtimeNewMessage = true;
-        }
-      } else if ((unreadEmails?.length || 0) > prevUnreadEmailsRef.current) {
-        bodyText = 'وصلك بريد داخلي جديد في Email-Etegah 📬';
-        notifUrl = '/dashboard';
-        isRealtimeNewMessage = true;
-      } else if ((expiringSubscriptions?.length || 0) > prevExpiringRef.current) {
-        bodyText = 'تنبيه: توجد اشتراكات عملاء قريبة الانتهاء بحاجة للمتابعة ⏰';
-        notifUrl = '/dashboard';
-        isRealtimeNewMessage = true;
-      }
-
-      if (isRealtimeNewMessage) {
-        playNotificationChime();
-        triggerNativeNotification({
-          title: '🔔 تنبيه جديد - منصة اتجاه',
-          body: bodyText,
-          icon: '/logo.jpg',
-          url: notifUrl
-        });
-      }
+      playNotificationChime();
+      triggerNativeNotification({
+        title: '🔔 تنبيه جديد - منصة اتجاه',
+        body: bodyText,
+        icon: '/logo.jpg',
+        url: '/inbox',
+        tag: 'whatsapp_msg_' + (latestChat?.id || Date.now())
+      });
+    } else if (hasFreshEmail) {
+      playNotificationChime();
+      triggerNativeNotification({
+        title: '🔔 تنبيه جديد - منصة اتجاه',
+        body: 'وصلك بريد داخلي جديد في Email-Etegah 📬',
+        icon: '/logo.jpg',
+        url: '/dashboard',
+        tag: 'email_notif_' + Date.now()
+      });
+    } else if (hasFreshExpiringSub) {
+      playNotificationChime();
+      triggerNativeNotification({
+        title: '🔔 تنبيه جديد - منصة اتجاه',
+        body: 'تنبيه: توجد اشتراكات عملاء قريبة الانتهاء بحاجة للمتابعة ⏰',
+        icon: '/logo.jpg',
+        url: '/dashboard',
+        tag: 'expiring_sub_' + Date.now()
+      });
     }
 
+    prevKnownChatKeysRef.current = currentChatKeys;
     prevTotalNotifsRef.current = totalAllNotificationsCount;
     prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
     prevUnreadEmailsRef.current = unreadEmails?.length || 0;
     prevExpiringRef.current = expiringSubscriptions?.length || 0;
-    prevFingerprintRef.current = unreadMessagesFingerprint;
-  }, [totalAllNotificationsCount, unreadWhatsAppChats, unreadEmails, expiringSubscriptions, unreadMessagesFingerprint]);
+  }, [totalAllNotificationsCount, unreadWhatsAppChats, unreadEmails, expiringSubscriptions]);
 
   // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
 
