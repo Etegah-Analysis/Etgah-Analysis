@@ -904,7 +904,7 @@ function InboxContent() {
     const q = query(collection(db, 'بيانات_تسجيل_العملاء'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const chatsData = [];
+      const rawChats = [];
       const currentUnreadMap = {};
 
       snapshot.forEach((doc) => {
@@ -940,11 +940,32 @@ function InboxContent() {
           }
         }
 
-        chatsData.push({
+        rawChats.push({
           id: chatId,
           ...data
         });
       });
+
+      // Smart Deduplication by phone number to eliminate duplicate chat items
+      const phoneMap = new Map();
+      rawChats.forEach(item => {
+        const rawPhone = item.phoneNumber || item.phone || item.id;
+        const cleanKey = rawPhone ? String(rawPhone).replace(/[^0-9]/g, '') : item.id;
+
+        if (!phoneMap.has(cleanKey)) {
+          phoneMap.set(cleanKey, item);
+        } else {
+          const existing = phoneMap.get(cleanKey);
+          const timeExisting = existing.updatedAt?.toMillis ? existing.updatedAt.toMillis() : (existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0);
+          const timeItem = item.updatedAt?.toMillis ? item.updatedAt.toMillis() : (item.updatedAt ? new Date(item.updatedAt).getTime() : 0);
+
+          if (timeItem > timeExisting || (item.unread || 0) > (existing.unread || 0) || (item.lastMessage && existing.lastMessage === 'بدء المحادثة...')) {
+            phoneMap.set(cleanKey, item);
+          }
+        }
+      });
+
+      const chatsData = Array.from(phoneMap.values());
 
       chatsData.sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
