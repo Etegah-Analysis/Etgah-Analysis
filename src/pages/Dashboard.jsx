@@ -444,6 +444,7 @@ const Dashboard = () => {
   const [employeeLeads, setEmployeeLeads] = useState(() => getInitialCache('cache_employeeLeads', []));
   const [employees, setEmployees] = useState(() => getInitialCache('cache_employees', []));
   const [visitors, setVisitors] = useState(() => getInitialCache('cache_visitors', []));
+  const [websiteChats, setWebsiteChats] = useState([]);
   const [recycleBin, setRecycleBin] = useState([]);
   const [rbFilter, setRbFilter] = useState('all');
   const [templateMessages, setTemplateMessages] = useState([]);
@@ -1964,9 +1965,48 @@ const Dashboard = () => {
       });
     }
 
+    if (websiteChats && websiteChats.length > 0) {
+      websiteChats.forEach(wc => {
+        const wcPhoneNorm = normalizePhone(wc.phoneNumber || wc.cleanPhone || wc.phone || wc.id);
+        const existingIdx = allCandidateCustomerChats.findIndex(c => c.id === wc.id || (wcPhoneNorm && normalizePhone(c.phoneNumber || c.phone || c.id) === wcPhoneNorm));
+        
+        const wcUnread = Number(wc.unreadCountStaff) || Number(wc.unread) || 0;
+        if (existingIdx === -1) {
+          allCandidateCustomerChats.push({
+            ...wc,
+            phoneNumber: wc.phoneNumber || wc.cleanPhone,
+            name: wc.name || wc.clientName || 'عميل اتجاه',
+            unread: wcUnread > 0 ? wcUnread : 1,
+            lastMessage: wc.lastMsgText || wc.lastMessage || 'وصلت رسالة موقع جديدة',
+            lastMessageFrom: 'user',
+            source: 'website_whatsapp',
+            addedBy: 'website_whatsapp'
+          });
+        } else {
+          const existing = allCandidateCustomerChats[existingIdx];
+          const exUnread = Number(existing.unread) || 0;
+          const mergedUnread = Math.max(exUnread, wcUnread);
+          if (wcUnread > 0 || wc.lastMsgText) {
+            allCandidateCustomerChats[existingIdx] = {
+              ...existing,
+              ...wc,
+              unread: mergedUnread > 0 ? mergedUnread : existing.unread,
+              lastMessage: wc.lastMsgText || existing.lastMessage || 'رسالة جديدة',
+              lastMessageFrom: 'user',
+              readBy: (wcUnread > 0 && exUnread === 0) ? [] : existing.readBy
+            };
+          }
+        }
+      });
+    }
+
     // A. Filter Customer Chats strictly by Employee Role & Assigned Scope (Admin sees all, Leader sees team, Agent sees assigned)
     const filteredCustomerChats = allCandidateCustomerChats.filter(c => {
-      if (dismissedNotifIds.includes(c.id)) return false;
+      const itemKey = getItemMsgKey(c);
+      const savedDismissedKey = dismissedNotifMap[c.id];
+      if (savedDismissedKey && (savedDismissedKey === itemKey || savedDismissedKey === 'dismissed')) {
+        return false;
+      }
 
       const isRead = c.readBy && (
         c.readBy.includes(currentUser.uid) || 
@@ -1983,9 +2023,11 @@ const Dashboard = () => {
         c.lastSender === 'user' || 
         c.lastMessageSender === 'user' || 
         c.lastMessageSenderType === 'user' ||
+        c.sender === 'client' ||
         c.source === 'website' || 
         c.source === 'website_otp' || 
-        c.addedBy === 'website_otp'
+        c.addedBy === 'website_otp' ||
+        c.source === 'website_whatsapp'
       );
 
       // Must NOT be outgoing system/bot/me broadcast without user reply
@@ -1995,10 +2037,11 @@ const Dashboard = () => {
         c.lastMessageFrom === 'system' || 
         c.lastMessageFrom === 'bot' || 
         c.lastSender === 'me' || 
-        c.lastSender === 'agent'
+        c.lastSender === 'agent' ||
+        c.lastMessageFrom === 'emp'
       );
 
-      const hasUnread = (Number(c.unread) > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
+      const hasUnread = (Number(c.unread) > 0 || Number(c.unreadCountStaff) > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
       if (!hasUnread) return false;
 
       // 1. Admin receives all customer chats
@@ -2024,7 +2067,11 @@ const Dashboard = () => {
 
     // B. Filter Employee Groups strictly for members only
     const filteredGroups = (internalGroups || []).filter(g => {
-      if (dismissedNotifIds.includes(g.id)) return false;
+      const groupKey = getItemMsgKey(g);
+      const savedGroupKey = dismissedNotifMap[g.id];
+      if (savedGroupKey && (savedGroupKey === groupKey || savedGroupKey === 'dismissed')) {
+        return false;
+      }
       if (!g.lastMessage) return false;
       const isLastSenderMe = g.lastMessageSenderUid === currentUser.uid || (isAdmin && (g.lastMessageSenderUid === 'admin' || g.lastMessageSenderUid === currentUser.uid));
       if (isLastSenderMe) return false;
@@ -2053,7 +2100,7 @@ const Dashboard = () => {
       const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.createdAt) || 0;
       return timeB - timeA;
     });
-  }, [customers, visitors, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers, dismissedNotifIds, currentEmpUser]);
+  }, [customers, visitors, websiteChats, internalGroups, currentUser, isAdmin, isCoordinator, isLeader, myTeamMembers, dismissedNotifMap, currentEmpUser]);
 
   const totalUnreadWhatsAppCount = useMemo(() => {
     return unreadWhatsAppChats.reduce((sum, c) => sum + (Number(c.unread) || 1), 0);
@@ -2939,24 +2986,6 @@ const Dashboard = () => {
         try { setBuffetAttachments(JSON.parse(cachedAtts)); } catch(e) {}
       }
     });
-
-    return () => {
-      custUnsub();
-      leadsCrmUnsub();
-      empLeadsUnsub();
-      empUnsub();
-      visUnsub();
-      rbUnsub();
-      templatesUnsub();
-      emailsUnsub();
-      groupsUnsub();
-      saudiUnsub();
-      usUnsub();
-      buffetInvUnsub();
-      buffetPurchasesUnsub();
-      buffetConfigUnsub();
-
-    // Fetch Employee Payroll Data (v2.25)
     const payrollUnsub = onSnapshot(collection(db, 'employee_payroll'), (snapshot) => {
       const payrollMap = {};
       snapshot.docs.forEach(docSnap => {
@@ -2986,6 +3015,38 @@ const Dashboard = () => {
       console.error('Error fetching fingerprint config:', error);
     });
 
+    // Fetch Website Chats (v2.27)
+    const webChatsUnsub = onSnapshot(collection(db, 'website_chats'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      data.sort((a, b) => {
+        const timeA = getTimestampMillis(a.updatedAt) || getTimestampMillis(a.lastMsgTime) || 0;
+        const timeB = getTimestampMillis(b.updatedAt) || getTimestampMillis(b.lastMsgTime) || 0;
+        return timeB - timeA;
+      });
+      setWebsiteChats(data);
+    }, (error) => {
+      console.error('Error fetching website_chats:', error);
+    });
+
+    return () => {
+      custUnsub();
+      leadsCrmUnsub();
+      empLeadsUnsub();
+      empUnsub();
+      visUnsub();
+      rbUnsub();
+      templatesUnsub();
+      emailsUnsub();
+      groupsUnsub();
+      webChatsUnsub();
+      saudiUnsub();
+      usUnsub();
+      externalEmpUnsub();
+      buffetInvUnsub();
+      buffetPurchasesUnsub();
+      buffetConfigUnsub();
+      payrollUnsub();
+      fpUnsub();
     };
   }, []);
 
@@ -3749,6 +3810,15 @@ const Dashboard = () => {
     return () => unsubCalls();
   }, []);
 
+  const unreadMessagesFingerprint = useMemo(() => {
+    const chatKeys = (unreadWhatsAppChats || []).map(c => `${c.id}_${getItemMsgKey(c)}`).join('|');
+    const emailKeys = (unreadEmails || []).map(m => `${m.id}_${m.createdAt?.seconds || ''}`).join('|');
+    const subKeys = (expiringSubscriptions || []).map(s => `${s.id}_${s.subscriptionDetails?.endDate || ''}`).join('|');
+    return `${chatKeys}__${emailKeys}__${subKeys}`;
+  }, [unreadWhatsAppChats, unreadEmails, expiringSubscriptions]);
+
+  const prevFingerprintRef = useRef(unreadMessagesFingerprint);
+
   // تحديث شارة التبويب (Favicon) وإطلاق إشعار نظام حقيقي على شاشة اللابتوب والموبايل بصوت التنبيه
   useEffect(() => {
     setGlobalNotificationAlert(totalAllNotificationsCount, 'CRM WhatsApp Etegah');
@@ -3759,15 +3829,21 @@ const Dashboard = () => {
       prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
       prevUnreadEmailsRef.current = unreadEmails?.length || 0;
       prevExpiringRef.current = expiringSubscriptions?.length || 0;
+      prevFingerprintRef.current = unreadMessagesFingerprint;
       return;
     }
 
-    if (totalAllNotificationsCount > prevTotalNotifsRef.current) {
+    const hasNewOrUpdatedMessages = unreadMessagesFingerprint !== prevFingerprintRef.current;
+
+    if (hasNewOrUpdatedMessages || totalAllNotificationsCount > prevTotalNotifsRef.current) {
       let bodyText = 'وصلك تنبيه جديد في النظام 🔔';
       let notifUrl = '/dashboard';
 
-      if ((unreadWhatsAppChats?.length || 0) > prevUnreadChatsRef.current) {
-        bodyText = 'وصلتك رسائل واتساب جديدة غير مقروءة 💬';
+      if ((unreadWhatsAppChats?.length || 0) > 0) {
+        const latestChat = unreadWhatsAppChats[0];
+        const senderName = getClientNameOrPhone(latestChat);
+        const msgText = latestChat?.lastMessage || latestChat?.lastMsgText || 'رسالة جديدة...';
+        bodyText = `💬 رسالة جديدة من (${senderName}): ${msgText}`;
         notifUrl = '/inbox';
       } else if ((unreadEmails?.length || 0) > prevUnreadEmailsRef.current) {
         bodyText = 'وصلك بريد داخلي جديد في Email-Etegah 📬';
@@ -3777,6 +3853,7 @@ const Dashboard = () => {
         notifUrl = '/dashboard';
       }
 
+      playNotificationChime();
       triggerNativeNotification({
         title: '🔔 تنبيه جديد - منصة اتجاه',
         body: bodyText,
@@ -3789,7 +3866,8 @@ const Dashboard = () => {
     prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
     prevUnreadEmailsRef.current = unreadEmails?.length || 0;
     prevExpiringRef.current = expiringSubscriptions?.length || 0;
-  }, [totalAllNotificationsCount, unreadWhatsAppChats?.length, unreadEmails?.length, expiringSubscriptions?.length]);
+    prevFingerprintRef.current = unreadMessagesFingerprint;
+  }, [totalAllNotificationsCount, unreadWhatsAppChats, unreadEmails, expiringSubscriptions, unreadMessagesFingerprint]);
 
   // Dynamic months extracted from all subscriptions and payment receipts for monthly sales filter
 
