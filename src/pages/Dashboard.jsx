@@ -3854,6 +3854,8 @@ const Dashboard = () => {
 
   const prevFingerprintRef = useRef(unreadMessagesFingerprint);
 
+  const mountTimestampRef = useRef(Date.now());
+
   // تحديث شارة التبويب (Favicon) وإطلاق إشعار نظام حقيقي على شاشة اللابتوب والموبايل بصوت التنبيه
   useEffect(() => {
     setGlobalNotificationAlert(totalAllNotificationsCount, 'CRM WhatsApp Etegah');
@@ -3869,10 +3871,12 @@ const Dashboard = () => {
     }
 
     const hasNewOrUpdatedMessages = unreadMessagesFingerprint !== prevFingerprintRef.current;
+    const isNewCountIncrease = totalAllNotificationsCount > prevTotalNotifsRef.current;
 
-    if (hasNewOrUpdatedMessages || totalAllNotificationsCount > prevTotalNotifsRef.current) {
+    if (hasNewOrUpdatedMessages || isNewCountIncrease) {
       let bodyText = 'وصلك تنبيه جديد في النظام 🔔';
       let notifUrl = '/dashboard';
+      let isRealtimeNewMessage = false;
 
       if ((unreadWhatsAppChats?.length || 0) > 0) {
         const latestChat = unreadWhatsAppChats[0];
@@ -3880,21 +3884,34 @@ const Dashboard = () => {
         const msgText = latestChat?.lastMessage || latestChat?.lastMsgText || 'رسالة جديدة...';
         bodyText = `💬 رسالة جديدة من (${senderName}): ${msgText}`;
         notifUrl = '/inbox';
+
+        const msgTimestamp = latestChat?.lastMessageTimestamp?.toMillis 
+          ? latestChat.lastMessageTimestamp.toMillis()
+          : (latestChat?.updatedAt?.toMillis ? latestChat.updatedAt.toMillis() : (latestChat?.timestamp?.toMillis ? latestChat.timestamp.toMillis() : 0));
+
+        // Ensure push notification is ONLY triggered for fresh messages arriving after page load (not old historical messages loaded on refresh)
+        if (msgTimestamp > (mountTimestampRef.current - 10000)) {
+          isRealtimeNewMessage = true;
+        }
       } else if ((unreadEmails?.length || 0) > prevUnreadEmailsRef.current) {
         bodyText = 'وصلك بريد داخلي جديد في Email-Etegah 📬';
         notifUrl = '/dashboard';
+        isRealtimeNewMessage = true;
       } else if ((expiringSubscriptions?.length || 0) > prevExpiringRef.current) {
         bodyText = 'تنبيه: توجد اشتراكات عملاء قريبة الانتهاء بحاجة للمتابعة ⏰';
         notifUrl = '/dashboard';
+        isRealtimeNewMessage = true;
       }
 
-      playNotificationChime();
-      triggerNativeNotification({
-        title: '🔔 تنبيه جديد - منصة اتجاه',
-        body: bodyText,
-        icon: '/logo.jpg',
-        url: notifUrl
-      });
+      if (isRealtimeNewMessage) {
+        playNotificationChime();
+        triggerNativeNotification({
+          title: '🔔 تنبيه جديد - منصة اتجاه',
+          body: bodyText,
+          icon: '/logo.jpg',
+          url: notifUrl
+        });
+      }
     }
 
     prevTotalNotifsRef.current = totalAllNotificationsCount;
