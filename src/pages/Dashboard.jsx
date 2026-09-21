@@ -3864,8 +3864,9 @@ const Dashboard = () => {
       (unreadWhatsAppChats || []).map(c => `${c.id}_${getItemMsgKey(c)}`)
     );
 
-    // Initial mount: capture existing chats/notifications silently without pushing notifications
-    if (prevKnownChatKeysRef.current === null) {
+    // Initial mount window (3.5s): absorb all initial Firestore state silently without pushing notifications
+    const isInitialWindow = (Date.now() - pageMountTimeRef.current) < 3500;
+    if (prevKnownChatKeysRef.current === null || isInitialWindow) {
       prevKnownChatKeysRef.current = currentChatKeys;
       prevTotalNotifsRef.current = totalAllNotificationsCount;
       prevUnreadChatsRef.current = unreadWhatsAppChats?.length || 0;
@@ -3874,16 +3875,9 @@ const Dashboard = () => {
       return;
     }
 
-    // Detect TRULY NEW chat messages that arrived AFTER page component was mounted
+    // Detect TRULY NEW chat messages that arrived AFTER initial load window
     const newChatKeys = Array.from(currentChatKeys).filter(k => !prevKnownChatKeysRef.current.has(k));
-    
-    // Ensure message timestamp is newer than page mount time (ignoring old messages loaded on mount/refresh)
-    const hasFreshWhatsAppMessage = newChatKeys.length > 0 && unreadWhatsAppChats.some(c => {
-      const msgKey = `${c.id}_${getItemMsgKey(c)}`;
-      if (!newChatKeys.includes(msgKey)) return false;
-      const msgTime = c.updatedAt?.toMillis ? c.updatedAt.toMillis() : (c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : (c.lastMsgTime ? new Date(c.lastMsgTime).getTime() : 0));
-      return msgTime > (pageMountTimeRef.current - 10000); // 10s buffer
-    });
+    const hasFreshWhatsAppMessage = newChatKeys.length > 0;
 
     const hasFreshEmail = (unreadEmails?.length || 0) > prevUnreadEmailsRef.current;
     const hasFreshExpiringSub = (expiringSubscriptions?.length || 0) > prevExpiringRef.current;

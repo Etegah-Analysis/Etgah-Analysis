@@ -195,12 +195,6 @@ function InboxContent() {
   // Excel Bulk Import State
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [excelFile, setExcelFile] = useState(null);
-  const [bulkTemplateName, setBulkTemplateName] = useState('welcome_msg');
-  const [bulkLanguage, setBulkLanguage] = useState('ar_EG');
-  const [bulkProgress, setBulkProgress] = useState(0);
-  const [bulkTotal, setBulkTotal] = useState(0);
-  const [isBulkSending, setIsBulkSending] = useState(false);
-  const [bulkResults, setBulkResults] = useState({ success: 0, failed: 0 });
 
   // Single Template State
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -208,10 +202,6 @@ function InboxContent() {
   const [singleLanguage, setSingleLanguage] = useState('ar_EG');
   const [isSendingTemplate, setIsSendingTemplate] = useState(false);
 
-  // Forward Message State
-  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
-  const [messageToForward, setMessageToForward] = useState(null);
-  const [forwardSearchTerm, setForwardSearchTerm] = useState('');
   const [isForwarding, setIsForwarding] = useState(false);
 
   // Sidebar Search
@@ -226,7 +216,9 @@ function InboxContent() {
   };
 
   const scrollToBottomSmooth = useCallback(() => {
-    if (messagesContainerRef.current) {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
         behavior: 'smooth'
@@ -238,17 +230,32 @@ function InboxContent() {
     if (!replyToObj) return;
     let targetEl = null;
 
-    if (replyToObj.id) {
-      targetEl = document.getElementById(`msg-${replyToObj.id}`);
+    const targetId = typeof replyToObj === 'string' ? replyToObj : replyToObj.id;
+    const metaId = typeof replyToObj === 'object' ? (replyToObj.metaMessageId || replyToObj.stanzaId) : null;
+    const targetText = typeof replyToObj === 'object' ? replyToObj.text : null;
+
+    if (targetId) {
+      targetEl = document.getElementById(`msg-${targetId}`) || 
+                 messagesContainerRef.current?.querySelector(`[data-msg-id="${targetId}"]`);
     }
 
-    if (!targetEl && replyToObj.text) {
-      const allMsgs = messagesContainerRef.current?.querySelectorAll('[data-msg-id]');
-      if (allMsgs) {
-        for (const el of allMsgs) {
-          if (el.getAttribute('data-msg-text')?.includes(replyToObj.text) || el.textContent?.includes(replyToObj.text)) {
-            targetEl = el;
-            break;
+    if (!targetEl && metaId) {
+      targetEl = document.getElementById(`msg-${metaId}`) || 
+                 messagesContainerRef.current?.querySelector(`[data-meta-id="${metaId}"]`);
+    }
+
+    if (!targetEl && targetText) {
+      const cleanText = targetText.trim();
+      if (cleanText) {
+        const allMsgs = messagesContainerRef.current?.querySelectorAll('[data-msg-id], [data-msg-text]');
+        if (allMsgs) {
+          for (const el of allMsgs) {
+            const attrText = el.getAttribute('data-msg-text');
+            if ((attrText && (attrText.includes(cleanText) || cleanText.includes(attrText))) || 
+                (el.textContent && el.textContent.includes(cleanText))) {
+              targetEl = el;
+              break;
+            }
           }
         }
       }
@@ -256,10 +263,10 @@ function InboxContent() {
 
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      targetEl.classList.add('ring-4', 'ring-amber-400', 'bg-amber-100', 'transition-all', 'duration-500');
+      targetEl.classList.add('ring-4', 'ring-amber-400', 'bg-amber-200/80', 'dark:bg-amber-500/30', 'scale-[1.02]', 'shadow-2xl');
       setTimeout(() => {
-        targetEl.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-100');
-      }, 1800);
+        targetEl.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-200/80', 'dark:bg-amber-500/30', 'scale-[1.02]', 'shadow-2xl');
+      }, 2000);
     } else {
       toast.error('لم يتم العثور على الرسالة الأصلية في هذه المحادثة');
     }
@@ -3842,17 +3849,19 @@ function InboxContent() {
                 })
               )}
 
-              {/* Floating Scroll to Bottom Button */}
-              {showScrollBottomBtn && (
-                <button 
-                  onClick={() => scrollToBottomSmooth()}
-                  className="absolute bottom-20 left-6 z-30 bg-slate-900/90 hover:bg-slate-800 text-cyan-400 p-3 rounded-full shadow-2xl border border-purple-500/40 hover:border-cyan-400 transition-all active:scale-95 animate-bounce flex items-center justify-center cursor-pointer group"
-                  title="الانتقال لآخر رسالة في المحادثة"
-                >
-                  <ChevronDown size={22} className="group-hover:translate-y-0.5 transition-transform" />
-                </button>
-              )}
+              <div ref={messagesEndRef} />
             </div>
+
+            {/* Floating Scroll to Bottom Button */}
+            {showScrollBottomBtn && (
+              <button 
+                onClick={() => scrollToBottomSmooth()}
+                className="absolute bottom-20 left-6 z-30 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-full shadow-2xl border border-white/30 transition-all active:scale-95 flex items-center justify-center cursor-pointer group"
+                title="الانتقال لآخر رسالة في المحادثة"
+              >
+                <ChevronDown size={22} className="animate-bounce" />
+              </button>
+            )}
 
             {/* مربع كتابة الرسالة */}
             <div onClick={(e) => e.stopPropagation()} className="bg-black/30 backdrop-blur-xl p-4 border-t border-white/10 relative z-10">

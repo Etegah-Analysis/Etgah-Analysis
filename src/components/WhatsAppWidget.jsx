@@ -39,30 +39,41 @@ export default function WhatsAppWidget() {
     setShowScrollBottomBtn(isFarFromBottom);
   };
 
-  const scrollToBottomWidget = () => {
-    if (chatContainerRef.current) {
+  const scrollToBottomWidget = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else if (chatContainerRef.current) {
       chatContainerRef.current.scrollTo({
         top: chatContainerRef.current.scrollHeight,
         behavior: 'smooth'
       });
     }
-  };
+  }, []);
 
-  const scrollToWidgetMessage = (replyToObj) => {
+  const scrollToWidgetMessage = useCallback((replyToObj) => {
     if (!replyToObj) return;
     let targetEl = null;
 
-    if (replyToObj.id) {
-      targetEl = document.getElementById(`widget-msg-${replyToObj.id}`);
+    const targetId = typeof replyToObj === 'string' ? replyToObj : replyToObj.id;
+    const targetText = typeof replyToObj === 'object' ? replyToObj.text : null;
+
+    if (targetId) {
+      targetEl = document.getElementById(`widget-msg-${targetId}`) || 
+                 chatContainerRef.current?.querySelector(`[data-widget-msg-id="${targetId}"]`);
     }
 
-    if (!targetEl && replyToObj.text) {
-      const allMsgs = chatContainerRef.current?.querySelectorAll('[data-widget-msg-id]');
-      if (allMsgs) {
-        for (const el of allMsgs) {
-          if (el.getAttribute('data-widget-msg-text')?.includes(replyToObj.text) || el.textContent?.includes(replyToObj.text)) {
-            targetEl = el;
-            break;
+    if (!targetEl && targetText) {
+      const cleanText = targetText.trim();
+      if (cleanText) {
+        const allMsgs = chatContainerRef.current?.querySelectorAll('[data-widget-msg-id], [data-widget-msg-text]');
+        if (allMsgs) {
+          for (const el of allMsgs) {
+            const attrText = el.getAttribute('data-widget-msg-text');
+            if ((attrText && (attrText.includes(cleanText) || cleanText.includes(attrText))) || 
+                (el.textContent && el.textContent.includes(cleanText))) {
+              targetEl = el;
+              break;
+            }
           }
         }
       }
@@ -70,12 +81,14 @@ export default function WhatsAppWidget() {
 
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      targetEl.classList.add('ring-4', 'ring-cyan-400', 'bg-cyan-500/30', 'transition-all', 'duration-500');
+      targetEl.classList.add('ring-4', 'ring-cyan-400', 'bg-cyan-500/40', 'scale-[1.02]', 'shadow-2xl');
       setTimeout(() => {
-        targetEl.classList.remove('ring-4', 'ring-cyan-400', 'bg-cyan-500/30');
-      }, 1800);
+        targetEl.classList.remove('ring-4', 'ring-cyan-400', 'bg-cyan-500/40', 'scale-[1.02]', 'shadow-2xl');
+      }, 2000);
+    } else {
+      toast.error('لم يتم العثور على الرسالة الأصلية في هذه المحادثة');
     }
-  };
+  }, []);
 
   const widgetRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -875,7 +888,7 @@ export default function WhatsAppWidget() {
       mediaUrl: mediaToSend?.url || null,
       mediaType: mediaToSend?.type || null,
       mediaName: mediaToSend?.name || null,
-      replyTo: replyToSend ? { sender: replyToSend.sender, text: replyToSend.text || 'مرفق' } : null,
+      replyTo: replyToSend ? { id: replyToSend.id || null, sender: replyToSend.sender, text: replyToSend.text || 'مرفق' } : null,
       timestamp: serverTimestamp()
     };
 
@@ -1277,18 +1290,18 @@ export default function WhatsAppWidget() {
                     })
                   )}
                   <div ref={messagesEndRef} />
-
-                  {/* Floating Scroll to Bottom Button */}
-                  {showScrollBottomBtn && (
-                    <button 
-                      onClick={scrollToBottomWidget}
-                      className="absolute bottom-20 left-4 z-30 bg-slate-900/90 hover:bg-slate-800 text-cyan-400 p-2.5 rounded-full shadow-2xl border border-cyan-500/40 hover:border-cyan-300 transition-all active:scale-95 animate-bounce flex items-center justify-center cursor-pointer group"
-                      title="الانتقال لآخر رسالة في المحادثة"
-                    >
-                      <ChevronDown size={18} className="group-hover:translate-y-0.5 transition-transform" />
-                    </button>
-                  )}
                 </div>
+
+                {/* Floating Scroll to Bottom Button */}
+                {showScrollBottomBtn && (
+                  <button 
+                    onClick={scrollToBottomWidget}
+                    className="absolute bottom-16 left-4 z-30 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-full shadow-2xl border border-white/20 transition-all active:scale-95 flex items-center justify-center cursor-pointer group"
+                    title="الانتقال لآخر رسالة في المحادثة"
+                  >
+                    <ChevronDown size={18} className="animate-bounce" />
+                  </button>
+                )}
 
                 {/* Emoji Picker Popover */}
                 {showEmojiPicker && (
