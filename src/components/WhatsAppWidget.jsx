@@ -1309,17 +1309,17 @@ export default function WhatsAppWidget() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Floating Scroll to Bottom Button (3D Glassmorphism) */}
+                {/* Floating Scroll to Bottom Button (3D Glassmorphism - Image Matched) */}
                 {showScrollBottomBtn && (
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
                       scrollToBottomWidget();
                     }}
-                    className="absolute bottom-16 left-4 z-30 bg-[#080e1e]/90 backdrop-blur-xl border-2 border-cyan-400/60 shadow-[0_4px_20px_rgba(6,182,212,0.5)] text-cyan-300 hover:text-white hover:border-cyan-300 p-2.5 rounded-full transition-all duration-300 active:scale-95 hover:scale-110 flex items-center justify-center cursor-pointer group"
+                    className="absolute bottom-16 left-4 z-30 w-10 h-10 bg-[#080e1e]/95 backdrop-blur-xl border-2 border-cyan-400/80 text-cyan-400 hover:text-cyan-200 hover:border-cyan-300 hover:bg-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.6),0_0_10px_rgba(6,182,212,0.3)] transition-all duration-200 active:scale-95 hover:scale-105 rounded-full flex items-center justify-center cursor-pointer group"
                     title="الانتقال لآخر رسالة في المحادثة"
                   >
-                    <ChevronDown size={18} className="animate-bounce" />
+                    <ChevronDown size={19} className="stroke-[2.5]" />
                   </button>
                 )}
 

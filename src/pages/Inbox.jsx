@@ -216,7 +216,7 @@ function InboxContent() {
 
   const handleMessagesScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 120;
+    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 40;
     setShowScrollBottomBtn(isFarFromBottom);
   };
 
@@ -3840,17 +3840,17 @@ function InboxContent() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Floating Scroll to Bottom Button (3D Glassmorphism) */}
+            {/* Floating Scroll to Bottom Button (3D Glassmorphism - Image Matched) */}
             {showScrollBottomBtn && (
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
                   scrollToBottomSmooth();
                 }}
-                className="absolute bottom-20 left-6 z-30 bg-slate-900/60 backdrop-blur-xl border border-cyan-400/40 text-cyan-300 hover:text-white hover:bg-slate-900/80 hover:border-cyan-300 p-3 rounded-full shadow-[0_8px_25px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.3)] transition-all duration-300 active:scale-95 hover:scale-110 flex items-center justify-center cursor-pointer group"
+                className="absolute bottom-24 left-6 z-30 w-11 h-11 bg-[#131d2a]/95 backdrop-blur-md border-2 border-cyan-400/80 text-cyan-400 hover:text-cyan-200 hover:border-cyan-300 hover:bg-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.6),0_0_12px_rgba(6,182,212,0.3)] transition-all duration-200 active:scale-95 hover:scale-105 rounded-full flex items-center justify-center cursor-pointer group"
                 title="الانتقال لآخر رسالة في المحادثة"
               >
-                <ChevronDown size={22} className="animate-bounce" />
+                <ChevronDown size={20} className="stroke-[2.5]" />
               </button>
             )}
 
