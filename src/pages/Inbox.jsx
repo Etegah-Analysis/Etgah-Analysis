@@ -153,6 +153,7 @@ function InboxContent() {
 
 
   const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const isFirstLoad = useRef(true);
   const previousUnreadCounts = useRef({});
   
