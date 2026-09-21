@@ -35,7 +35,7 @@ export default function WhatsAppWidget() {
 
   const handleWidgetScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 100;
+    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 40;
     setShowScrollBottomBtn(isFarFromBottom);
   };
 
@@ -1299,7 +1299,7 @@ export default function WhatsAppWidget() {
                       e.stopPropagation();
                       scrollToBottomWidget();
                     }}
-                    className="absolute bottom-16 left-4 z-30 bg-slate-900/60 backdrop-blur-xl border border-cyan-400/40 text-cyan-300 hover:text-white hover:bg-slate-900/80 hover:border-cyan-300 p-2.5 rounded-full shadow-[0_8px_25px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.3)] transition-all duration-300 active:scale-95 hover:scale-110 flex items-center justify-center cursor-pointer group"
+                    className="absolute bottom-16 left-4 z-30 bg-[#080e1e]/90 backdrop-blur-xl border-2 border-cyan-400/60 shadow-[0_4px_20px_rgba(6,182,212,0.5)] text-cyan-300 hover:text-white hover:border-cyan-300 p-2.5 rounded-full transition-all duration-300 active:scale-95 hover:scale-110 flex items-center justify-center cursor-pointer group"
                     title="الانتقال لآخر رسالة في المحادثة"
                   >
                     <ChevronDown size={18} className="animate-bounce" />
