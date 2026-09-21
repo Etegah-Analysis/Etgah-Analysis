@@ -2406,6 +2406,24 @@ function InboxContent() {
     }
   };
 
+  const handlePaste = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        const blob = item.getAsFile();
+        if (blob) {
+          const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+          setAttachment(file);
+          toast.success('تم إرفاق الصورة المنسوخة من الحافظة 📋');
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  }, []);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -3494,33 +3512,6 @@ function InboxContent() {
                             <span>Call</span>
                           </button>
                         )}
-                        {/* CRM Status Dropdown Selector */}
-                        {!isWebsiteLead(activeChat) && activeChat.source !== 'website' && activeChat.source !== 'excel_import' && chatTabFilter !== 'direct' && chatTabFilter !== 'website' && (
-                          <select
-                            value={activeChat.crmStatus || 'unassigned'}
-                            onChange={async (e) => {
-                              const newCrmStatus = e.target.value;
-                              try {
-                                await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), { crmStatus: newCrmStatus });
-                                setActiveChat(prev => ({ ...prev, crmStatus: newCrmStatus }));
-                                toast.success('تم تحديث حالة العميل');
-                              } catch (err) { toast.error('خطأ في تحديث حالة العميل'); }
-                            }}
-                            className="bg-slate-900/90 text-amber-300 border border-amber-500/40 rounded-lg px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold focus:outline-none cursor-pointer shrink-0"
-                            title="تغيير حالة العميل CRM"
-                          >
-                            <option value="unassigned" className="bg-slate-900 text-gray-300">⏳ Waiting</option>
-                            <option value="call_back" className="bg-slate-900 text-blue-300">📞 Call Back</option>
-                            <option value="interested" className="bg-slate-900 text-emerald-300">🌟 Interested</option>
-                            <option value="not_interested" className="bg-slate-900 text-rose-300">❌ Not Interested</option>
-                            <option value="no_answer" className="bg-slate-900 text-amber-300">📵 No Answer</option>
-                            <option value="started_trial" className="bg-slate-900 text-cyan-300">🚀 Demo</option>
-                            <option value="subscribed" className="bg-slate-900 text-purple-300">🎉 Paid</option>
-                            <option value="junk_lead" className="bg-slate-900 text-stone-300">🗑️ Junk Lead</option>
-                            <option value="assigned" className="bg-slate-900 text-blue-300">📋 Assigned</option>
-                            <option value="lost" className="bg-slate-900 text-red-300">🥀 Lost</option>
-                          </select>
-                        )}
 
                         {/* شارة مصدر العميل (اسم الكارت / الحملة / الموقع) */}
                         {activeChat.cardName || activeChat.campaignName || activeChat.cardTitle || activeChat.sourceName ? (
@@ -3620,18 +3611,6 @@ function InboxContent() {
                 ) : (
                   /* Customer Action Buttons */
                   <>
-                    {!isWebsiteLead(activeChat) && activeChat.source !== 'excel_import' && chatTabFilter !== 'direct' && (
-                      <button
-                        onClick={() => {
-                          const phoneNum = (activeChat.phoneNumber || '').replace(/[^0-9]/g, '');
-                          if (phoneNum) window.open(`https://wa.me/${phoneNum}`, '_blank');
-                        }}
-                        className="bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                        title="فتح محادثة الواتساب المباشرة"
-                      >
-                        <MessageCircle size={14} />
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => handleSoftDeleteChat(activeChat)}
@@ -3774,15 +3753,19 @@ function InboxContent() {
                           )}
                           {msg.mediaUrl && (
                             <div className="mb-2">
-                              {msg.fileType && msg.fileType.startsWith('image/') ? (
-                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
-                                  <img src={msg.mediaUrl} alt="مرفق" className="max-w-full h-auto rounded-lg border border-black/10 max-h-48 object-contain" />
+                              {((msg.fileType && msg.fileType.startsWith('image/')) || (msg.mediaUrl && /\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl))) ? (
+                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-white/20 hover:opacity-95 transition shadow-sm">
+                                  <img src={msg.mediaUrl} alt={msg.fileName || "مرفق صورة"} className="max-w-full h-auto rounded-xl max-h-60 object-cover" />
                                 </a>
+                              ) : ((msg.fileType && msg.fileType.startsWith('video/')) || (msg.mediaUrl && /\.(mp4|webm|mov|mkv)/i.test(msg.mediaUrl))) ? (
+                                <video src={msg.mediaUrl} controls className="max-w-full rounded-xl max-h-64 border border-white/20 shadow-sm" />
+                              ) : ((msg.fileType && msg.fileType.startsWith('audio/')) || (msg.mediaUrl && /\.(mp3|ogg|wav|m4a)/i.test(msg.mediaUrl))) ? (
+                                <audio src={msg.mediaUrl} controls className="w-full max-w-xs" />
                               ) : (
-                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 space-x-reverse bg-black/5 p-2 rounded-lg hover:bg-black/10 transition">
-                                  <FileText size={24} className="text-blue-600" />
-                                  <span className="text-sm truncate max-w-[150px]" dir="ltr">{msg.fileName || 'ملف مرفق'}</span>
-                                  <Download size={16} className="text-gray-500" />
+                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 space-x-reverse bg-black/20 p-2.5 rounded-xl border border-white/10 hover:bg-black/40 transition">
+                                  <FileText size={22} className="text-cyan-400 shrink-0" />
+                                  <span className="text-xs font-semibold text-gray-200 truncate max-w-[180px]" dir="ltr">{msg.fileName || 'ملف مرفق'}</span>
+                                  <Download size={15} className="text-gray-400 mr-auto shrink-0" />
                                 </a>
                               )}
                             </div>
@@ -3927,9 +3910,10 @@ function InboxContent() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
                     placeholder="اكتب رسالتك هنا... (اضغط Enter للإرسال)"
-                    rows={1}
-                    className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/20 rounded-2xl py-2.5 pr-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/40 transition-all resize-none max-h-32"
+                    rows={2}
+                    className="w-full bg-white/10 text-white placeholder-gray-400 border border-white/20 rounded-2xl py-3 pr-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-black/40 transition-all resize-none min-h-[52px] max-h-36"
                   />
                   <button 
                     type="button" 

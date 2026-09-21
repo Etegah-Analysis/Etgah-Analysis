@@ -90,6 +90,23 @@ export default function WhatsAppWidget() {
     }
   }, []);
 
+  const handlePasteWidget = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        const blob = item.getAsFile();
+        if (blob) {
+          const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+          setPendingMedia(file);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  }, []);
+
   const widgetRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const emojiBtnRef = useRef(null);
@@ -1376,14 +1393,15 @@ export default function WhatsAppWidget() {
                   </button>
 
                   {/* Text Input */}
-                  <input
+                  <textarea
                     ref={inputRef}
-                    type="text"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onPaste={handlePasteWidget}
                     placeholder="اكتب رسالتك هنا... (اضغط Enter للإرسال)"
-                    className="flex-1 bg-slate-900 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                    rows={1}
+                    className="flex-1 bg-slate-900 border border-white/20 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 resize-none min-h-[38px] max-h-28"
                   />
 
                   {/* Send Button */}
