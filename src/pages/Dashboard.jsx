@@ -24058,7 +24058,7 @@ const handleExportBuffetToExcel = () => {
                           <span>📥 البريد الوارد</span>
                         </div>
                         <span className="bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
-                          {internalEmails.filter(m => (m.recipientUid === myUid || (myEmail && m.recipientEmail?.toLowerCase() === myEmail) || (m.recipientRole === 'admin' && isAdmin)) && !m.deletedBy?.includes(myUid)).length}
+                          {internalEmails.filter(m => isEmailForMe(m) && !m.deletedBy?.includes(myUid)).length}
                         </span>
                       </button>
 
@@ -24092,7 +24092,7 @@ const handleExportBuffetToExcel = () => {
                           <span>⭐ المميزة بنجمة</span>
                         </div>
                         <span className="bg-amber-500/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
-                          {internalEmails.filter(m => m.starredBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length}
+                          {internalEmails.filter(m => (m.starredBy?.includes(myUid) || (m.starredBy && m.starredBy.includes('admin') && isAdmin)) && !m.deletedBy?.includes(myUid)).length}
                         </span>
                       </button>
 
