@@ -202,6 +202,10 @@ function InboxContent() {
   const [singleLanguage, setSingleLanguage] = useState('ar_EG');
   const [isSendingTemplate, setIsSendingTemplate] = useState(false);
 
+  // Forward Message State
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [messageToForward, setMessageToForward] = useState(null);
+  const [forwardSearchTerm, setForwardSearchTerm] = useState('');
   const [isForwarding, setIsForwarding] = useState(false);
 
   // Sidebar Search
