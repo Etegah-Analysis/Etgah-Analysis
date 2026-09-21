@@ -9410,12 +9410,13 @@ const handleModalPasteBuffetItem = (e) => {
 
     try {
       const total = list.length;
-      const activeCount = list.filter(s => s.status === 'active').length;
       const t1Count = list.filter(s => s.status === 'target1').length;
       const t2Count = list.filter(s => s.status === 'target2').length;
       const slCount = list.filter(s => s.status === 'stop_loss').length;
       const winCount = t1Count + t2Count;
-      const winRate = total > 0 ? Math.round((winCount / (total - activeCount || total)) * 100) : 0;
+      const closedCount = winCount + slCount;
+      const activeCount = list.filter(s => s.status !== 'target1' && s.status !== 'target2' && s.status !== 'stop_loss').length;
+      const winRate = closedCount > 0 ? Math.round((winCount / closedCount) * 100) : (total > 0 ? 100 : 0);
 
       const now = new Date();
       const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
@@ -10050,12 +10051,13 @@ const handleModalPasteBuffetItem = (e) => {
     const logoUrl = window.location.origin + '/logo.jpg';
 
     const total = list.length;
-    const activeCount = list.filter(s => s.status === 'active').length;
     const t1Count = list.filter(s => s.status === 'target1').length;
     const t2Count = list.filter(s => s.status === 'target2').length;
     const slCount = list.filter(s => s.status === 'stop_loss').length;
     const winCount = t1Count + t2Count;
-    const winRate = total > 0 ? Math.round((winCount / (total - activeCount || total)) * 100) : 0;
+    const closedCount = winCount + slCount;
+    const activeCount = list.filter(s => s.status !== 'target1' && s.status !== 'target2' && s.status !== 'stop_loss').length;
+    const winRate = closedCount > 0 ? Math.round((winCount / closedCount) * 100) : (total > 0 ? 100 : 0);
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
