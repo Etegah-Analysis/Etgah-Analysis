@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video, Printer } from 'lucide-react';
+import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video, Printer, Menu } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
@@ -781,6 +781,7 @@ const Dashboard = () => {
   const [internalEmails, setInternalEmails] = useState([]);
   const [internalGroups, setInternalGroups] = useState([]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [isMailSidebarOpen, setIsMailSidebarOpen] = useState(true);
   const [impersonatedEmp, setImpersonatedEmp] = useState(() => {
     try {
       const saved = sessionStorage.getItem('impersonatedEmp');
@@ -20522,7 +20523,7 @@ const handleExportBuffetToExcel = () => {
                             </div>
                           </div>
                         )}
-                        {item.type === 'email' && (<span>📌 {item.subject || 'بدون موضوع'} <span className="text-xs text-purple-700 font-bold">(من: {item.senderName || item.senderEmail} ➔ إلى: {item.recipientName})</span></span>)}
+                        {item.type === 'email' && (<span>📌 {item.subject || 'بدون موضوع'} <span className="text-xs text-purple-700 font-bold">(من: {item.senderName || item.senderEmail} ← إلى: {item.recipientName})</span></span>)}
                         {item.type === 'message' && (<span className="text-gray-500 italic">"{item.text?.substring(0, 50)}..."</span>)}
                       </td>
                       <td className="p-4 text-xs text-gray-800">
@@ -24004,111 +24005,122 @@ const handleExportBuffetToExcel = () => {
                   </div>
                 </div>
 
-                {/* Close Button */}
-                <button 
-                  onClick={() => setIsMailModalOpen(false)}
-                  className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
-                  title="إغلاق البريد"
-                >
-                  <X size={18} />
-                </button>
+                {/* Sidebar Toggle & Close Buttons */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setIsMailSidebarOpen(!isMailSidebarOpen)}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${isMailSidebarOpen ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40 hover:bg-purple-600/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'}`}
+                    title={isMailSidebarOpen ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
+                  >
+                    <Menu size={16} />
+                    <span className="hidden sm:inline">{isMailSidebarOpen ? 'إخفاء القائمة 📑' : 'إظهار القائمة 📑'}</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setIsMailModalOpen(false)}
+                    className="bg-white/10 hover:bg-rose-600 text-white p-2 rounded-full transition cursor-pointer"
+                    title="إغلاق البريد"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* Mail Main Layout (Sidebar + Content Area) */}
               <div className="flex-1 flex overflow-hidden">
                 
                 {/* Left Sidebar / Folders */}
-                <div className="w-56 sm:w-64 bg-slate-950/70 border-l border-purple-500/20 p-3 sm:p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
-                  <div className="space-y-2">
-                    {/* Compose Button */}
-                    <button 
-                      onClick={() => setIsComposeOpen(true)}
-                      className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-2.5 px-4 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer mb-4 border border-white/20"
-                    >
-                      <Send size={15} />
-                      <span>✏️ إنشاء رسالة جديدة</span>
-                    </button>
+                {isMailSidebarOpen && (
+                  <div className="w-56 sm:w-64 bg-slate-950/70 border-l border-purple-500/20 p-3 sm:p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
+                    <div className="space-y-2">
+                      {/* Compose Button */}
+                      <button 
+                        onClick={() => setIsComposeOpen(true)}
+                        className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-2.5 px-4 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer mb-4 border border-white/20"
+                      >
+                        <Send size={15} />
+                        <span>✏️ إنشاء رسالة جديدة</span>
+                      </button>
 
-                    {/* Folder 1: Inbox */}
-                    <button 
-                      onClick={() => {
-                        setMailActiveFolder('inbox');
-                        setSelectedEmail(null);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'inbox' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Inbox size={16} className="text-purple-400" />
-                        <span>📥 البريد الوارد</span>
-                      </div>
-                      {unreadMailCount > 0 && (
-                        <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
-                          {unreadMailCount}
+                      {/* Folder 1: Inbox */}
+                      <button 
+                        onClick={() => {
+                          setMailActiveFolder('inbox');
+                          setSelectedEmail(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'inbox' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Inbox size={16} className="text-purple-400" />
+                          <span>📥 البريد الوارد</span>
+                        </div>
+                        <span className="bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
+                          {internalEmails.filter(m => (m.recipientUid === myUid || m.recipientEmail === user?.email || (m.recipientRole === 'admin' && isAdmin)) && !m.deletedBy?.includes(myUid)).length}
                         </span>
+                      </button>
+
+                      {/* Folder 2: Sent */}
+                      <button 
+                        onClick={() => {
+                          setMailActiveFolder('sent');
+                          setSelectedEmail(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'sent' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Send size={16} className="text-blue-400" />
+                          <span>📤 البريد المرسل</span>
+                        </div>
+                        <span className="bg-blue-500/20 text-blue-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
+                          {internalEmails.filter(m => (m.senderUid === myUid || m.senderEmail === user?.email) && !m.deletedBy?.includes(myUid)).length}
+                        </span>
+                      </button>
+
+                      {/* Folder 3: Starred */}
+                      <button 
+                        onClick={() => {
+                          setMailActiveFolder('starred');
+                          setSelectedEmail(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'starred' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Star size={16} className="text-amber-400" />
+                          <span>⭐ المميزة بنجمة</span>
+                        </div>
+                        <span className="bg-amber-500/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
+                          {internalEmails.filter(m => m.starredBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length}
+                        </span>
+                      </button>
+
+                      {/* Folder 4: Admin Global Archive (Admin Only) */}
+                      {isAdmin && (
+                        <div className="pt-2 border-t border-purple-500/20 mt-2">
+                          <button 
+                            onClick={() => {
+                              setMailActiveFolder('all_system');
+                              setSelectedEmail(null);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-black transition cursor-pointer ${mailActiveFolder === 'all_system' && !selectedEmail ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-amber-300/80 hover:bg-amber-950/40'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Globe size={16} className="text-amber-400" />
+                              <span>🌐 كافة إيميلات ومراسلات النظام</span>
+                            </div>
+                            <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
+                              {internalEmails.length}
+                            </span>
+                          </button>
+                        </div>
                       )}
-                    </button>
+                    </div>
 
-                    {/* Folder 2: Sent */}
-                    <button 
-                      onClick={() => {
-                        setMailActiveFolder('sent');
-                        setSelectedEmail(null);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'sent' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Send size={16} className="text-indigo-400" />
-                        <span>📤 البريد المرسل</span>
-                      </div>
-                      <span className="text-slate-500 text-[11px] font-mono">
-                        {internalEmails.filter(m => (m.senderUid === myUid || m.senderEmail?.toLowerCase() === myEmail) && !m.deletedBy?.includes(myUid)).length}
-                      </span>
-                    </button>
-
-                    {/* Folder 3: Starred */}
-                    <button 
-                      onClick={() => {
-                        setMailActiveFolder('starred');
-                        setSelectedEmail(null);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${mailActiveFolder === 'starred' && !selectedEmail ? 'bg-purple-600/30 text-cyan-300 border border-purple-500/40 shadow-sm' : 'text-slate-300 hover:bg-slate-800/60'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Star size={16} className="text-amber-400 fill-amber-400/30" />
-                        <span>⭐ الرسائل المميزة</span>
-                      </div>
-                      <span className="text-slate-500 text-[11px] font-mono">
-                        {internalEmails.filter(m => m.starredBy?.includes(myUid) && !m.deletedBy?.includes(myUid)).length}
-                      </span>
-                    </button>
-
-                    {/* Folder 4: Admin Global Archive (Admin Only) */}
-                    {isAdmin && (
-                      <div className="pt-2 border-t border-purple-500/20 mt-2">
-                        <button 
-                          onClick={() => {
-                            setMailActiveFolder('all_system');
-                            setSelectedEmail(null);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-black transition cursor-pointer ${mailActiveFolder === 'all_system' && !selectedEmail ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-amber-300/80 hover:bg-amber-950/40'}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Globe size={16} className="text-amber-400" />
-                            <span>🌐 كافة إيميلات ومراسلات النظام</span>
-                          </div>
-                          <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-md font-mono">
-                            {internalEmails.length}
-                          </span>
-                        </button>
-                      </div>
-                    )}
+                    {/* Sidebar Footer Info */}
+                    <div className="p-2 bg-slate-900/60 rounded-xl border border-purple-500/10 text-[10px] text-purple-300/70 text-center">
+                      <span>Etegah Secure Internal Mail v1.0</span>
+                    </div>
                   </div>
-
-                  {/* Sidebar Footer Info */}
-                  <div className="p-2 bg-slate-900/60 rounded-xl border border-purple-500/10 text-[10px] text-purple-300/70 text-center">
-                    <span>Etegah Secure Internal Mail v1.0</span>
-                  </div>
-                </div>
+                )}
 
                 {/* Right Panel: Email List OR Single Email Viewer */}
                 <div className="flex-1 bg-slate-900 flex flex-col overflow-hidden">
@@ -24315,7 +24327,7 @@ const handleExportBuffetToExcel = () => {
                                       </span>
                                       {isAdmin && mailActiveFolder === 'all_system' && (
                                         <span className="text-[10px] text-amber-400 font-normal block truncate">
-                                          من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ➔ إلى: {mail.recipientName}
+                                          من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ← إلى: {mail.recipientName}
                                         </span>
                                       )}
                                     </div>
