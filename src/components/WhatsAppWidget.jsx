@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageCircle, X, Send, Headphones, ShieldCheck, Sparkles, 
   Paperclip, Image as ImageIcon, Smile, Maximize2, Minimize2, 
-  Reply, User, Phone, PhoneCall, FileText, Download, CheckCheck, ArrowRight, LogOut
+  Reply, User, Phone, PhoneCall, FileText, Download, CheckCheck, ArrowRight, LogOut, ChevronDown
 } from 'lucide-react';
 import { db, collection, query, where, getDocs, getDoc, doc, setDoc, onSnapshot, serverTimestamp, addDoc } from '../firebase';
 
@@ -31,6 +31,51 @@ export default function WhatsAppWidget() {
   const [pendingMedia, setPendingMedia] = useState(null);
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  const handleWidgetScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 100;
+    setShowScrollBottomBtn(isFarFromBottom);
+  };
+
+  const scrollToBottomWidget = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollToWidgetMessage = (replyToObj) => {
+    if (!replyToObj) return;
+    let targetEl = null;
+
+    if (replyToObj.id) {
+      targetEl = document.getElementById(`widget-msg-${replyToObj.id}`);
+    }
+
+    if (!targetEl && replyToObj.text) {
+      const allMsgs = chatContainerRef.current?.querySelectorAll('[data-widget-msg-id]');
+      if (allMsgs) {
+        for (const el of allMsgs) {
+          if (el.getAttribute('data-widget-msg-text')?.includes(replyToObj.text) || el.textContent?.includes(replyToObj.text)) {
+            targetEl = el;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetEl.classList.add('ring-4', 'ring-cyan-400', 'bg-cyan-500/30', 'transition-all', 'duration-500');
+      setTimeout(() => {
+        targetEl.classList.remove('ring-4', 'ring-cyan-400', 'bg-cyan-500/30');
+      }, 1800);
+    }
+  };
 
   const widgetRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -1135,6 +1180,7 @@ export default function WhatsAppWidget() {
                 {/* Message List */}
                 <div 
                   ref={chatContainerRef}
+                  onScroll={handleWidgetScroll}
                   onClick={() => setShowEmojiPicker(false)}
                   className="flex-1 p-3.5 space-y-3 overflow-y-auto custom-scrollbar relative z-10"
                 >
@@ -1149,7 +1195,13 @@ export default function WhatsAppWidget() {
                     messages.map((msg, idx) => {
                       const isClient = msg.sender === 'client';
                       return (
-                        <div key={msg.id || idx} className={`group flex flex-col ${isClient ? 'items-end' : 'items-start'} relative`}>
+                        <div 
+                          key={msg.id || idx} 
+                          id={msg.id ? `widget-msg-${msg.id}` : `widget-msg-idx-${idx}`}
+                          data-widget-msg-id={msg.id || ''}
+                          data-widget-msg-text={msg.text || ''}
+                          className={`group flex flex-col ${isClient ? 'items-end' : 'items-start'} relative transition-all duration-300 rounded-2xl`}
+                        >
                           <div className={`relative ${isExpanded ? 'max-w-md sm:max-w-xl' : 'max-w-[85%]'} p-3 rounded-2xl text-xs leading-relaxed shadow-lg ${
                             isClient 
                               ? 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-br-none border border-cyan-400/30' 
@@ -1158,11 +1210,19 @@ export default function WhatsAppWidget() {
                             
                             {/* Reply Context Bubble */}
                             {msg.replyTo && (
-                              <div className="mb-2 p-1.5 rounded-lg bg-black/30 border-r-2 border-cyan-300 text-[10px] text-cyan-200 truncate">
-                                <span className="font-bold block text-cyan-300">
-                                  ↩️ الرد على ({msg.replyTo.sender === 'client' ? 'رسالتك' : 'الموظف'}):
-                                </span>
-                                <span className="opacity-90">{msg.replyTo.text}</span>
+                              <div 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  scrollToWidgetMessage(msg.replyTo);
+                                }}
+                                className="mb-2 p-1.5 rounded-lg bg-black/40 border-r-4 border-cyan-400 text-[10px] text-cyan-200 truncate cursor-pointer hover:bg-black/60 transition-all hover:scale-[1.01] active:scale-95 shadow-sm group/reply"
+                                title="انقر للانتقال للرسالة الأصلية 📍"
+                              >
+                                <div className="flex items-center justify-between font-bold text-cyan-300 text-[10px] mb-0.5">
+                                  <span>↩️ الرد على ({msg.replyTo.sender === 'client' ? 'رسالتك' : 'الموظف'}):</span>
+                                  <span className="text-[9px] opacity-70 group-hover/reply:opacity-100">انتقال 📍</span>
+                                </div>
+                                <span className="opacity-90 block truncate">{msg.replyTo.text}</span>
                               </div>
                             )}
 
@@ -1217,6 +1277,17 @@ export default function WhatsAppWidget() {
                     })
                   )}
                   <div ref={messagesEndRef} />
+
+                  {/* Floating Scroll to Bottom Button */}
+                  {showScrollBottomBtn && (
+                    <button 
+                      onClick={scrollToBottomWidget}
+                      className="absolute bottom-20 left-4 z-30 bg-slate-900/90 hover:bg-slate-800 text-cyan-400 p-2.5 rounded-full shadow-2xl border border-cyan-500/40 hover:border-cyan-300 transition-all active:scale-95 animate-bounce flex items-center justify-center cursor-pointer group"
+                      title="الانتقال لآخر رسالة في المحادثة"
+                    >
+                      <ChevronDown size={18} className="group-hover:translate-y-0.5 transition-transform" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Emoji Picker Popover */}

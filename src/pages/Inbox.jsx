@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc, writeBatch } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone, Radio } from 'lucide-react';
+import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone, Radio, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hasPermission } from '../config/permissionsConfig';
 import * as XLSX from 'xlsx';
@@ -217,6 +217,53 @@ function InboxContent() {
   // Sidebar Search
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  const handleMessagesScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const isFarFromBottom = scrollHeight - scrollTop - clientHeight > 120;
+    setShowScrollBottomBtn(isFarFromBottom);
+  };
+
+  const scrollToBottomSmooth = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
+
+  const scrollToMessage = useCallback((replyToObj) => {
+    if (!replyToObj) return;
+    let targetEl = null;
+
+    if (replyToObj.id) {
+      targetEl = document.getElementById(`msg-${replyToObj.id}`);
+    }
+
+    if (!targetEl && replyToObj.text) {
+      const allMsgs = messagesContainerRef.current?.querySelectorAll('[data-msg-id]');
+      if (allMsgs) {
+        for (const el of allMsgs) {
+          if (el.getAttribute('data-msg-text')?.includes(replyToObj.text) || el.textContent?.includes(replyToObj.text)) {
+            targetEl = el;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetEl.classList.add('ring-4', 'ring-amber-400', 'bg-amber-100', 'transition-all', 'duration-500');
+      setTimeout(() => {
+        targetEl.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-100');
+      }, 1800);
+    } else {
+      toast.error('لم يتم العثور على الرسالة الأصلية في هذه المحادثة');
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -3599,7 +3646,8 @@ function InboxContent() {
                   closeActiveChat();
                 }
               }}
-              className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40 cursor-pointer"
+              className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40 cursor-pointer relative"
+              onScroll={handleMessagesScroll}
             >
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 text-sm">
@@ -3667,7 +3715,10 @@ function InboxContent() {
                       </div>
                     )}
                     <div 
-                      className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'} group mb-2 cursor-default`}
+                      id={msg.id ? `msg-${msg.id}` : `msg-idx-${index}`}
+                      data-msg-id={msg.id || ''}
+                      data-msg-text={msg.text || ''}
+                      className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'} group mb-2 cursor-default transition-all duration-300 rounded-2xl`}
                       onClick={(e) => e.stopPropagation()}
                     >
                     <div className={`max-w-[75%] sm:max-w-[70%] rounded-2xl p-3 shadow-md relative ${isSentByMe ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
@@ -3725,9 +3776,19 @@ function InboxContent() {
                             </div>
                           )}
                           {msg.replyTo && (
-                            <div className="bg-white/50 p-2 rounded mb-1 border-l-4 border-green-500 text-xs text-gray-500 truncate max-w-[200px]">
-                              <span className="text-green-600 font-bold block">{msg.replyTo.sender === 'user' ? activeChat.name : 'أنت'}</span>
-                              {msg.replyTo.text || '📷 مرفق'}
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                scrollToMessage(msg.replyTo);
+                              }}
+                              className="bg-white/70 hover:bg-emerald-100/90 p-2 rounded mb-1 border-r-4 border-emerald-500 text-xs text-gray-700 truncate max-w-[220px] cursor-pointer transition-all hover:scale-[1.01] active:scale-95 shadow-sm group/reply"
+                              title="انقر للانتقال للرسالة الأصلية 📍"
+                            >
+                              <div className="flex items-center justify-between text-[11px] text-emerald-700 font-bold mb-0.5">
+                                <span>↩️ الرد على ({msg.replyTo.sender === 'user' || msg.replyTo.sender === 'client' ? (activeChat.name || 'العميل') : 'أنت'}):</span>
+                                <span className="text-[9px] text-emerald-600 font-normal opacity-70 group-hover/reply:opacity-100">انتقال 📍</span>
+                              </div>
+                              <span className="opacity-90 block truncate">{msg.replyTo.text || '📷 مرفق'}</span>
                             </div>
                           )}
                           {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
@@ -3779,6 +3840,17 @@ function InboxContent() {
                   </React.Fragment>
                   );
                 })
+              )}
+
+              {/* Floating Scroll to Bottom Button */}
+              {showScrollBottomBtn && (
+                <button 
+                  onClick={() => scrollToBottomSmooth()}
+                  className="absolute bottom-20 left-6 z-30 bg-slate-900/90 hover:bg-slate-800 text-cyan-400 p-3 rounded-full shadow-2xl border border-purple-500/40 hover:border-cyan-400 transition-all active:scale-95 animate-bounce flex items-center justify-center cursor-pointer group"
+                  title="الانتقال لآخر رسالة في المحادثة"
+                >
+                  <ChevronDown size={22} className="group-hover:translate-y-0.5 transition-transform" />
+                </button>
               )}
             </div>
 
