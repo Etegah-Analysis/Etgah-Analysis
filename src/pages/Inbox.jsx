@@ -171,18 +171,43 @@ function InboxContent() {
   const [selectedAssigneeUid, setSelectedAssigneeUid] = useState('');
   const [currentEmpName, setCurrentEmpName] = useState('');
 
-  const handleDownloadFile = (url, fileName = 'file') => {
+  const handleDownloadFile = (url, fileName = 'ملف_مرفق') => {
     if (!url) return;
     try {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      if (url.startsWith('data:')) {
+        // Convert base64 Data URL to Blob for reliable browser download without pop-up blocking
+        const arr = url.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        return;
+      }
+
+      // For standard HTTP/HTTPS URLs (Firebase Storage)
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
       a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.download = fileName || 'download';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     } catch (e) {
+      console.error("Download error:", e);
       window.open(url, '_blank');
     }
   };
@@ -1754,33 +1779,35 @@ function InboxContent() {
 
     if (attachment) {
       setUploadingAttachment(true);
+      const fileToUpload = attachment;
+      setAttachment(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
       try {
         const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-        const fileRef = ref(storage, `chat_media/${activeChat.id}_${uniqueId}_${attachment.name}`);
+        const fileRef = ref(storage, `chat_media/${activeChat.id}_${uniqueId}_${fileToUpload.name}`);
         
         try {
-          await uploadBytes(fileRef, attachment);
+          await uploadBytes(fileRef, fileToUpload);
           mediaUrl = await getDownloadURL(fileRef);
         } catch (storageErr) {
           console.warn("Firebase Storage upload failed, converting attachment to Base64 Data URL:", storageErr);
           mediaUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(attachment);
+            reader.onload = (evt) => resolve(evt.target.result);
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(fileToUpload);
           });
         }
         
-        fileType = attachment.type || (attachment.name.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-        fileName = attachment.name;
+        fileType = fileToUpload.type || (fileToUpload.name?.endsWith('.png') ? 'image/png' : 'application/octet-stream');
+        fileName = fileToUpload.name || 'file.png';
       } catch (err) {
         console.error("خطأ في معالجة المرفق:", err);
         toast.error(`خطأ المرفق: ${err.message || 'غير معروف'}`);
         setUploadingAttachment(false);
         return;
       } finally {
-        setAttachment(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
         setUploadingAttachment(false);
       }
     }

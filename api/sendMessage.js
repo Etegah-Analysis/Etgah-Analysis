@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       to: cleanTo,
       text: text || (fileName ? `📎 ${fileName}` : '')
     };
-    if (mediaUrl) {
+    if (mediaUrl && typeof mediaUrl === 'string' && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://'))) {
       telnyxPayload.media_urls = [mediaUrl];
     }
 

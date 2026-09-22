@@ -29,7 +29,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBKb_V-mc6_T8Ik33Lcwe18hxTdK6M7UXo",
   authDomain: "etegah-dafe5.firebaseapp.com",
   projectId: "etegah-dafe5",
-  storageBucket: "etegah-dafe5.firebasestorage.app",
+  storageBucket: "etegah-dafe5.appspot.com",
   messagingSenderId: "754580123107",
   appId: "1:754580123107:web:20a5454b787fa0965d84d6"
 };
