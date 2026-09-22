@@ -214,11 +214,17 @@ export default function Navbar() {
   const [remoteReadPlatformIds, setRemoteReadPlatformIds] = useState([]);
   const [remoteLastReadTime, setRemoteLastReadTime] = useState(0);
 
+  const getUserNotifKey = () => {
+    if (auth.currentUser?.uid) return `user_${auth.currentUser.uid}`;
+    if (visitorPhone) return visitorPhone.replace(/[^0-9]/g, '');
+    return isEmp ? 'employee' : 'guest';
+  };
+
   // Cross-device real-time listener for Navbar Notification State
   useEffect(() => {
-    const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
+    const userKey = getUserNotifKey();
 
-    const navNotifRef = doc(db, 'users_notif_state', `navbar_${cleanPhone}`);
+    const navNotifRef = doc(db, 'users_notif_state', `navbar_${userKey}`);
     const unsubNav = onSnapshot(navNotifRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -235,10 +241,10 @@ export default function Navbar() {
     }, (err) => console.warn("Navbar Firestore notif sync error:", err));
 
     return () => unsubNav();
-  }, [visitorPhone, isEmp]);
+  }, [visitorPhone, isEmp, currentUser?.uid]);
 
   const syncNavbarToFirestore = (extraMsgIds = [], extraPlatformIds = [], updateTimestamp = false) => {
-    const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
+    const userKey = getUserNotifKey();
     const now = Date.now();
     const payload = {
       updatedAt: serverTimestamp()
@@ -247,14 +253,14 @@ export default function Navbar() {
     if (extraPlatformIds.length > 0) payload.readPlatformIds = arrayUnion(...extraPlatformIds);
     if (updateTimestamp) payload.lastReadTime = now;
 
-    setDoc(doc(db, 'users_notif_state', `navbar_${cleanPhone}`), payload, { merge: true }).catch(() => {});
+    setDoc(doc(db, 'users_notif_state', `navbar_${userKey}`), payload, { merge: true }).catch(() => {});
   };
 
   // Merge chat and platform notifications
   useEffect(() => {
-    const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
-    const savedReadMsgIds = JSON.parse(localStorage.getItem(`etegah_read_ids_${cleanPhone}`) || '[]');
-    const savedReadPlatformIds = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${cleanPhone}`) || '[]');
+    const userKey = getUserNotifKey();
+    const savedReadMsgIds = JSON.parse(localStorage.getItem(`etegah_read_ids_${userKey}`) || '[]');
+    const savedReadPlatformIds = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${userKey}`) || '[]');
 
     const allReadMsgIds = Array.from(new Set([...savedReadMsgIds, ...remoteReadMsgIds]));
     const allReadPlatformIds = Array.from(new Set([...savedReadPlatformIds, ...remoteReadPlatformIds]));

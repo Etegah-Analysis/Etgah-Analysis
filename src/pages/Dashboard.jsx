@@ -2080,28 +2080,15 @@ const Dashboard = () => {
 
     // A. Filter Customer Chats strictly by Employee Role & Assigned Scope (Admin sees all, Leader sees team, Agent sees assigned)
     const filteredCustomerChats = allCandidateCustomerChats.filter(c => {
+      const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || (c.unread === true ? 1 : (Number(c.unread) || 0));
+      const hasActiveUnreadCount = unreadNum > 0;
+      if (!hasActiveUnreadCount) return false;
+
       const itemKey = getItemMsgKey(c);
       const savedDismissedKey = dismissedNotifMap[c.id];
       if (savedDismissedKey && savedDismissedKey === itemKey) {
         return false;
       }
-
-      const cCleanPhone = c.phoneNumber ? String(c.phoneNumber).replace(/[^0-9]/g, '') : '';
-      if (dismissedNotifIds.includes(c.id) || (cCleanPhone && (dismissedNotifIds.includes(cCleanPhone) || dismissedNotifIds.includes(`chat_${cCleanPhone}`)))) {
-        return false;
-      }
-
-      const combinedReadBy = Array.from(new Set([...(c.readBy || []), ...(c.readByStaff || [])]));
-      const isRead = combinedReadBy.length > 0 && (
-        combinedReadBy.includes(currentUser.uid) || 
-        (isAdmin && combinedReadBy.includes('admin')) ||
-        (currentEmpUser?.uid && combinedReadBy.includes(currentEmpUser.uid))
-      );
-      if (isRead) return false;
-
-      const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || (c.unread === true ? 1 : (Number(c.unread) || 0));
-      const hasActiveUnreadCount = unreadNum > 0;
-      if (!hasActiveUnreadCount) return false;
 
       // Unread notification MUST be an actual INCOMING message from the customer or website lead
       const isIncomingMsg = (

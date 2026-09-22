@@ -1189,6 +1189,13 @@ function InboxContent() {
     const myUid = currentUser.uid;
     const chatId = chat.id;
     const cleanPhone = (chat.phoneNumber || chat.cleanPhone || chat.phone || chat.id || '').replace(/[^0-9]/g, '');
+    const normPhone = normalizePhone(cleanPhone);
+    let localPhone = '';
+    if (cleanPhone.startsWith('20') && cleanPhone.length === 12) {
+      localPhone = '0' + cleanPhone.substring(2);
+    } else if (cleanPhone.startsWith('01') && cleanPhone.length === 11) {
+      localPhone = cleanPhone;
+    }
 
     try {
       if (chat.isGroup || chat.isDirect) {
@@ -1206,27 +1213,36 @@ function InboxContent() {
           updatedAt: serverTimestamp()
         };
 
-        const targets = [
-          doc(db, 'بيانات_تسجيل_العملاء', chatId),
-          doc(db, 'website_chats', chatId),
-          doc(db, 'customers', chatId)
-        ];
-        if (cleanPhone) {
-          targets.push(
-            doc(db, 'بيانات_تسجيل_العملاء', cleanPhone),
-            doc(db, 'website_chats', `chat_${cleanPhone}`),
-            doc(db, 'website_chats', cleanPhone),
-            doc(db, 'customers', cleanPhone)
-          );
-        }
+        const targetDocIds = Array.from(new Set([
+          chatId,
+          cleanPhone,
+          normPhone,
+          localPhone,
+          `chat_${cleanPhone}`,
+          `chat_${normPhone}`
+        ].filter(Boolean)));
+
+        const collections = ['بيانات_تسجيل_العملاء', 'website_chats', 'customers', 'leadsCrm', 'visitor_customers'];
+
+        const targets = [];
+        collections.forEach(col => {
+          targetDocIds.forEach(id => {
+            targets.push(doc(db, col, id));
+          });
+        });
 
         await Promise.allSettled(targets.map(tRef => updateDoc(tRef, updates)));
 
         const cleanUserId = String(myUid).replace(/[^a-zA-Z0-9_-]/g, '_');
-        const idsToDismiss = [chatId];
-        if (cleanPhone) {
-          idsToDismiss.push(cleanPhone, `chat_${cleanPhone}`);
-        }
+        const idsToDismiss = Array.from(new Set([
+          chatId,
+          cleanPhone,
+          normPhone,
+          localPhone,
+          `chat_${cleanPhone}`,
+          `chat_${normPhone}`
+        ].filter(Boolean)));
+
         setDoc(doc(db, 'users_notif_state', cleanUserId), {
           dismissedNotifIds: arrayUnion(...idsToDismiss),
           updatedAt: serverTimestamp()
@@ -3221,10 +3237,10 @@ function InboxContent() {
         {/* قائمة الشات والجروبات الجانبية */}
         <div className="flex-1 overflow-y-auto divide-y divide-white/5 relative z-10">
           {filteredChats.map((chat) => {
-            const isUnassignedOrUnread = chat.status === 'unassigned' || chat.unread > 0;
+            const isUnread = (Number(chat.unread) || 0) > 0 || chat.unread === true;
             const itemBg = activeChat?.id === chat.id 
               ? 'bg-white/20 border-r-4 border-cyan-400' 
-              : isUnassignedOrUnread 
+              : isUnread 
                 ? 'bg-red-950/50 border-r-4 border-r-red-500 hover:bg-red-900/60 shadow-inner' 
                 : 'hover:bg-white/5 border-r-4 border-r-transparent';
 
@@ -3368,7 +3384,7 @@ function InboxContent() {
                     />
                   )}
                   <div className="relative shrink-0">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md ${isUnassignedOrUnread ? 'bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-tr from-cyan-600 to-blue-500 text-white'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-md ${isUnread ? 'bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-tr from-cyan-600 to-blue-500 text-white'}`}>
                       {chat.name ? chat.name.charAt(0) : <User size={20} />}
                     </div>
                     {chat.unread > 0 && (
@@ -3429,7 +3445,7 @@ function InboxContent() {
                     )}
 
                     {/* Row 3: Last Message Preview */}
-                    <p className={`text-xs truncate mt-0.5 ${isUnassignedOrUnread ? 'text-red-200 font-bold' : 'text-gray-300'}`}>
+                    <p className={`text-xs truncate mt-0.5 ${isUnread ? 'text-red-200 font-bold' : 'text-gray-300'}`}>
                       {chat.lastMessage || 'بدء المحادثة...'}
                     </p>
                   </div>
