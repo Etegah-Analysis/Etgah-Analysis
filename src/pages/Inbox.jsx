@@ -1184,29 +1184,72 @@ function InboxContent() {
     }
   }, [isCoordinator, activeChat]);
 
+  const markChatAsReadCrossDevice = async (chat) => {
+    if (!chat || !currentUser?.uid) return;
+    const myUid = currentUser.uid;
+    const chatId = chat.id;
+    const cleanPhone = (chat.phoneNumber || chat.cleanPhone || chat.phone || chat.id || '').replace(/[^0-9]/g, '');
+
+    try {
+      if (chat.isGroup || chat.isDirect) {
+        await updateDoc(doc(db, 'internal_groups', chatId), {
+          readBy: arrayUnion(myUid, 'admin'),
+          unread: 0,
+          updatedAt: serverTimestamp()
+        }).catch(() => {});
+      } else {
+        const updates = {
+          unread: 0,
+          unreadCount: 0,
+          unreadCountStaff: 0,
+          readBy: arrayUnion(myUid, 'admin'),
+          updatedAt: serverTimestamp()
+        };
+
+        const targets = [
+          doc(db, 'بيانات_تسجيل_العملاء', chatId),
+          doc(db, 'website_chats', chatId),
+          doc(db, 'customers', chatId)
+        ];
+        if (cleanPhone) {
+          targets.push(
+            doc(db, 'بيانات_تسجيل_العملاء', cleanPhone),
+            doc(db, 'website_chats', `chat_${cleanPhone}`),
+            doc(db, 'website_chats', cleanPhone),
+            doc(db, 'customers', cleanPhone)
+          );
+        }
+
+        await Promise.allSettled(targets.map(tRef => updateDoc(tRef, updates)));
+
+        const cleanUserId = String(myUid).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const idsToDismiss = [chatId];
+        if (cleanPhone) {
+          idsToDismiss.push(cleanPhone, `chat_${cleanPhone}`);
+        }
+        setDoc(doc(db, 'users_notif_state', cleanUserId), {
+          dismissedNotifIds: arrayUnion(...idsToDismiss),
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+
+        if (cleanPhone) {
+          setDoc(doc(db, 'users_notif_state', `widget_${cleanPhone}`), {
+            hasUnread: false,
+            updatedAt: serverTimestamp()
+          }, { merge: true }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error("Error marking chat read cross-device:", e);
+    }
+  };
+
   // جلب الرسائل الخاصة بالمحادثة النشطة
   useEffect(() => {
     if (!activeChat) return;
 
-    // Immediately mark active chat/group as read on open
-    const markAsRead = async () => {
-      try {
-        if (activeChat.isGroup || activeChat.isDirect) {
-          await updateDoc(doc(db, 'internal_groups', activeChat.id), {
-            readBy: arrayUnion(currentUser.uid, 'admin'),
-            unread: 0
-          });
-        } else {
-          await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', activeChat.id), {
-            readBy: arrayUnion(currentUser.uid, 'admin'),
-            unread: 0
-          });
-        }
-      } catch (e) {
-        // silent catch
-      }
-    };
-    markAsRead();
+    // Immediately mark active chat/group as read on open cross-device
+    markChatAsReadCrossDevice(activeChat);
 
     const q = query(
       collection(db, 'رسائل_الموظفين_للعملاء'),
@@ -1434,20 +1477,7 @@ function InboxContent() {
       return;
     }
     setActiveChat(chat);
-    try {
-      if (chat.isGroup || chat.isDirect) {
-        const groupRef = doc(db, 'internal_groups', chat.id);
-        await updateDoc(groupRef, { 
-          readBy: arrayUnion(currentUser.uid, 'admin'),
-          unread: 0 
-        });
-      } else {
-        const chatRef = doc(db, 'بيانات_تسجيل_العملاء', chat.id);
-        await updateDoc(chatRef, { unread: 0 });
-      }
-    } catch (err) {
-      console.error("خطأ في تصفير العداد", err);
-    }
+    markChatAsReadCrossDevice(chat);
   };
 
   // Create New Employee Group
@@ -1829,7 +1859,10 @@ function InboxContent() {
       const updateData = {
         lastMessage: msgText,
         updatedAt: serverTimestamp(),
-        unread: 0
+        unread: 0,
+        unreadCount: 0,
+        unreadCountStaff: 0,
+        readBy: arrayUnion(currentUser.uid, 'admin')
       };
 
       if (isWebsiteLead(activeChat)) {
@@ -1848,6 +1881,18 @@ function InboxContent() {
       }
 
       await updateDoc(chatRef, updateData).catch(() => {});
+
+      const cleanPhone = (activeChat.phoneNumber || activeChat.cleanPhone || activeChat.phone || activeChat.id || '').replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        await updateDoc(doc(db, 'website_chats', `chat_${cleanPhone}`), updateData).catch(() => {});
+        await updateDoc(doc(db, 'website_chats', cleanPhone), updateData).catch(() => {});
+        await updateDoc(doc(db, 'customers', cleanPhone), updateData).catch(() => {});
+      }
+      if (activeChat.id) {
+        await updateDoc(doc(db, 'website_chats', activeChat.id), updateData).catch(() => {});
+        await updateDoc(doc(db, 'customers', activeChat.id), updateData).catch(() => {});
+      }
+      markChatAsReadCrossDevice(activeChat);
 
       // Sync local states immediately (0ms) so waiting list lead automatically leaves the waiting list
       setChats(prev => prev.map(c => c.id === activeChat.id ? { ...c, ...updateData, isResponded: true, hasReplied: true, waitingStatus: 'responded', lastMessageFrom: 'emp' } : c));

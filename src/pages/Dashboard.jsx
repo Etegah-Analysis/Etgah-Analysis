@@ -2062,6 +2062,7 @@ const Dashboard = () => {
           const existing = allCandidateCustomerChats[existingIdx];
           const exUnread = Number(existing.unread) || Number(existing.unreadCount) || Number(existing.unreadCountStaff) || 0;
           const mergedUnread = Math.max(exUnread, wcUnread);
+          const combinedReadBy = Array.from(new Set([...(existing.readBy || []), ...(wc.readBy || [])]));
           if (mergedUnread > 0 || wcUnread > 0) {
             allCandidateCustomerChats[existingIdx] = {
               ...existing,
@@ -2070,7 +2071,7 @@ const Dashboard = () => {
               unreadCount: mergedUnread,
               lastMessage: wc.lastMsgText || wc.lastMessage || existing.lastMessage || 'رسالة جديدة',
               lastMessageFrom: 'user',
-              readBy: wcUnread > 0 ? [] : existing.readBy
+              readBy: combinedReadBy
             };
           }
         }
@@ -2085,17 +2086,22 @@ const Dashboard = () => {
         return false;
       }
 
+      const cCleanPhone = c.phoneNumber ? String(c.phoneNumber).replace(/[^0-9]/g, '') : '';
+      if (dismissedNotifIds.includes(c.id) || (cCleanPhone && (dismissedNotifIds.includes(cCleanPhone) || dismissedNotifIds.includes(`chat_${cCleanPhone}`)))) {
+        return false;
+      }
+
+      const combinedReadBy = Array.from(new Set([...(c.readBy || []), ...(c.readByStaff || [])]));
+      const isRead = combinedReadBy.length > 0 && (
+        combinedReadBy.includes(currentUser.uid) || 
+        (isAdmin && combinedReadBy.includes('admin')) ||
+        (currentEmpUser?.uid && combinedReadBy.includes(currentEmpUser.uid))
+      );
+      if (isRead) return false;
+
       const unreadNum = Number(c.unreadCountStaff) || Number(c.unreadCount) || (c.unread === true ? 1 : (Number(c.unread) || 0));
       const hasActiveUnreadCount = unreadNum > 0;
       if (!hasActiveUnreadCount) return false;
-
-      // isRead applies ONLY if there is NO active positive unread count.
-      const isRead = c.readBy && (
-        c.readBy.includes(currentUser.uid) || 
-        (isAdmin && c.readBy.includes('admin')) ||
-        (currentEmpUser?.uid && c.readBy.includes(currentEmpUser.uid))
-      );
-      if (isRead) return false;
 
       // Unread notification MUST be an actual INCOMING message from the customer or website lead
       const isIncomingMsg = (
@@ -11878,31 +11884,43 @@ const handleExportBuffetToExcel = () => {
                               });
                             }
 
-                            unreadWhatsAppChats.forEach(async (c) => {
-                              try {
-                                if (myUid) {
-                                  if (c.isGroup || c.isDirect) {
-                                    await updateDoc(doc(db, 'internal_groups', c.id), {
-                                      readBy: arrayUnion(myUid)
-                                    });
-                                  } else {
-                                    await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
-                                      readBy: arrayUnion(myUid)
-                                    });
-                                  }
-                                }
-                              } catch(e) {}
-                            });
+                             unreadWhatsAppChats.forEach(async (c) => {
+                               try {
+                                 const cleanPhone = (c.phoneNumber || c.cleanPhone || c.phone || c.id || '').replace(/[^0-9]/g, '');
+                                 const updates = {
+                                   unread: 0,
+                                   unreadCount: 0,
+                                   unreadCountStaff: 0,
+                                   updatedAt: serverTimestamp()
+                                 };
+                                 if (myUid) updates.readBy = arrayUnion(myUid);
+                                 if (isAdmin) updates.readBy = arrayUnion('admin');
 
-                            unreadEmails.forEach(async (m) => {
-                              try {
-                                if (myUid) {
-                                  await updateDoc(doc(db, 'internal_emails', m.id), {
-                                    readBy: arrayUnion(myUid)
-                                  });
-                                }
-                              } catch(e) {}
-                            });
+                                 if (c.isGroup || c.isDirect) {
+                                   await updateDoc(doc(db, 'internal_groups', c.id), updates).catch(() => {});
+                                 } else {
+                                   if (c.id) {
+                                     await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), updates).catch(() => {});
+                                     await updateDoc(doc(db, 'website_chats', c.id), updates).catch(() => {});
+                                     await updateDoc(doc(db, 'customers', c.id), updates).catch(() => {});
+                                   }
+                                   if (cleanPhone) {
+                                     await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', cleanPhone), updates).catch(() => {});
+                                     await updateDoc(doc(db, 'website_chats', `chat_${cleanPhone}`), updates).catch(() => {});
+                                     await updateDoc(doc(db, 'customers', cleanPhone), updates).catch(() => {});
+                                   }
+                                 }
+                               } catch(e) {}
+                             });
+
+                             unreadEmails.forEach(async (m) => {
+                               try {
+                                 const updates = { updatedAt: serverTimestamp() };
+                                 if (myUid) updates.readBy = arrayUnion(myUid);
+                                 if (isAdmin) updates.readBy = arrayUnion('admin');
+                                 await updateDoc(doc(db, 'internal_emails', m.id), updates).catch(() => {});
+                               } catch(e) {}
+                             });
 
                             toast.success('تم قراءة وتصفير جميع الإشعارات الخاصة بك بنجاح ✓✓');
                           }}
@@ -12088,9 +12106,17 @@ const handleExportBuffetToExcel = () => {
                           } else {
                             try {
                               if (myUid) {
-                                await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), {
-                                  readBy: arrayUnion(myUid)
-                                });
+                                const notifUpdates = { unread: 0, unreadCount: 0, unreadCountStaff: 0, readBy: arrayUnion(myUid, 'admin'), updatedAt: serverTimestamp() };
+                                const cleanPhone = (c.phoneNumber || c.cleanPhone || c.phone || c.id || '').replace(/[^0-9]/g, '');
+                                await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', c.id), notifUpdates).catch(() => {});
+                                await updateDoc(doc(db, 'website_chats', c.id), notifUpdates).catch(() => {});
+                                await updateDoc(doc(db, 'customers', c.id), notifUpdates).catch(() => {});
+                                if (cleanPhone) {
+                                  await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', cleanPhone), notifUpdates).catch(() => {});
+                                  await updateDoc(doc(db, 'website_chats', `chat_${cleanPhone}`), notifUpdates).catch(() => {});
+                                  await updateDoc(doc(db, 'website_chats', cleanPhone), notifUpdates).catch(() => {});
+                                  await updateDoc(doc(db, 'customers', cleanPhone), notifUpdates).catch(() => {});
+                                }
                               }
                             } catch(e) {}
                             navigate('/inbox', { state: { selectedCustomerId: c.id } });
