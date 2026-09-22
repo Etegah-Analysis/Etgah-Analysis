@@ -1894,16 +1894,68 @@ const Dashboard = () => {
     }
   });
 
+  // Cross-device real-time listener for notification state
+  useEffect(() => {
+    const userIdentifier = currentUser?.uid || auth.currentUser?.uid || localStorage.getItem('visitorPhone');
+    if (!userIdentifier) return;
+    const cleanUserId = String(userIdentifier).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const notifStateRef = doc(db, 'users_notif_state', cleanUserId);
+    const unsub = onSnapshot(notifStateRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (typeof data.hasViewedNotifications === 'boolean') {
+          setHasViewedNotifications(data.hasViewedNotifications);
+        }
+        if (Array.isArray(data.dismissedNotifIds) && data.dismissedNotifIds.length > 0) {
+          setDismissedNotifIds(prev => Array.from(new Set([...prev, ...data.dismissedNotifIds])));
+        }
+        if (data.dismissedNotifMap && typeof data.dismissedNotifMap === 'object') {
+          setDismissedNotifMap(prev => ({ ...prev, ...data.dismissedNotifMap }));
+        }
+      }
+    }, (err) => console.error("Realtime cross-device notif state error:", err));
+
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const markNotifViewedCrossDevice = async (overrideState = true) => {
+    setHasViewedNotifications(overrideState);
+    const userIdentifier = currentUser?.uid || auth.currentUser?.uid || localStorage.getItem('visitorPhone');
+    if (!userIdentifier) return;
+    const cleanUserId = String(userIdentifier).replace(/[^a-zA-Z0-9_-]/g, '_');
+    try {
+      await setDoc(doc(db, 'users_notif_state', cleanUserId), {
+        hasViewedNotifications: overrideState,
+        lastViewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error syncing viewed notifs to Firestore:", e);
+    }
+  };
+
   const dismissNotifIds = (idsToDismiss) => {
     const list = Array.isArray(idsToDismiss) ? idsToDismiss : [idsToDismiss];
+    const idArray = list.map(i => typeof i === 'string' ? i : i.id);
+
     setDismissedNotifIds(prev => {
-      const idArray = list.map(i => typeof i === 'string' ? i : i.id);
       const next = Array.from(new Set([...prev, ...idArray]));
       try {
         localStorage.setItem('etegah_dashboard_dismissed_notif_ids', JSON.stringify(next));
       } catch (e) {}
       return next;
     });
+
+    // Cross-Device Firestore Sync for Dismissed Notifications
+    const userIdentifier = currentUser?.uid || auth.currentUser?.uid || localStorage.getItem('visitorPhone');
+    if (userIdentifier && idArray.length > 0) {
+      const cleanUserId = String(userIdentifier).replace(/[^a-zA-Z0-9_-]/g, '_');
+      setDoc(doc(db, 'users_notif_state', cleanUserId), {
+        dismissedNotifIds: arrayUnion(...idArray),
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }
 
     setDismissedNotifMap(prevMap => {
       const newMap = { ...prevMap };
@@ -11745,7 +11797,7 @@ const handleExportBuffetToExcel = () => {
                 <button 
                   onClick={() => {
                     setIsNotifDropdownOpen(!isNotifDropdownOpen);
-                    setHasViewedNotifications(true);
+                    markNotifViewedCrossDevice(true);
                   }}
                   className={`group/bell relative flex items-center justify-center px-3 py-1.5 rounded-2xl transition-all duration-300 font-bold gap-2 cursor-pointer active:scale-95 border ${
                     isBellRed 
@@ -11798,7 +11850,7 @@ const handleExportBuffetToExcel = () => {
                               ...unreadEmails
                             ];
                             dismissNotifIds(allItems);
-                            setHasViewedNotifications(true);
+                            markNotifViewedCrossDevice(true);
 
                             const myUid = currentUser?.uid || currentEmpUser?.uid || '';
 

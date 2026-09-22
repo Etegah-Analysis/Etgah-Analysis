@@ -413,7 +413,44 @@ export default function WhatsAppWidget() {
     updateFaviconBadge(false);
     setToastAlert(null);
     window.dispatchEvent(new CustomEvent('etegah_unread_msg', { detail: { hasUnread: false } }));
+
+    if (userPhone) {
+      const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        setDoc(doc(db, 'users_notif_state', `widget_${cleanPhone}`), {
+          hasUnread: false,
+          lastViewedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
+    }
   };
+
+  // Cross-Device Real-time listener for WhatsApp Widget Notifications
+  useEffect(() => {
+    if (!userPhone) return;
+    const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+    if (!cleanPhone) return;
+
+    const widgetNotifRef = doc(db, 'users_notif_state', `widget_${cleanPhone}`);
+    const unsub = onSnapshot(widgetNotifRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.hasUnread === false) {
+          if (titleIntervalRef.current) {
+            clearInterval(titleIntervalRef.current);
+            titleIntervalRef.current = null;
+          }
+          document.title = 'اتجاه للتحليل الذكي';
+          setHasUnread(false);
+          updateFaviconBadge(false);
+          setToastAlert(null);
+        }
+      }
+    }, (err) => console.error("Widget cross-device sync error:", err));
+
+    return () => unsub();
+  }, [userPhone]);
 
   // Trigger all notification alerts (sound, push, title flasher, favicon badge, in-app toast)
   const triggerNotifications = (msgText) => {
@@ -424,6 +461,16 @@ export default function WhatsAppWidget() {
     updateFaviconBadge(true);
     setToastAlert(msgText);
     window.dispatchEvent(new CustomEvent('etegah_unread_msg', { detail: { hasUnread: true } }));
+
+    if (userPhone) {
+      const cleanPhone = userPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        setDoc(doc(db, 'users_notif_state', `widget_${cleanPhone}`), {
+          hasUnread: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
+    }
 
     // Flash browser tab title repeatedly
     if (titleIntervalRef.current) clearInterval(titleIntervalRef.current);
