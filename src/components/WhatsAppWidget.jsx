@@ -33,6 +33,7 @@ export default function WhatsAppWidget() {
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+  const [previewMediaModal, setPreviewMediaModal] = useState(null);
 
   const handleDownloadFile = (url, fileName = 'ملف_مرفق') => {
     if (!url) return;
@@ -1369,44 +1370,94 @@ export default function WhatsAppWidget() {
                               </div>
                             )}
 
-                            {/* Media Preview (Image or Document) */}
-                            {msg.mediaUrl && (
-                              <div className="my-1.5">
-                                {(msg.mediaType === 'image' || (msg.mediaUrl && (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl) || msg.mediaUrl.startsWith('data:image/')))) ? (
-                                  <div 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDownloadFile(msg.mediaUrl, msg.mediaName || "image.png");
-                                    }}
-                                    className="block overflow-hidden rounded-xl border border-white/20 hover:opacity-90 transition cursor-pointer"
-                                    title="انقر لفتح وتحميل الصورة 🖼️"
-                                  >
-                                    <img 
-                                      src={msg.mediaUrl} 
-                                      alt={msg.mediaName || "Attachment"} 
-                                      className="rounded-xl max-h-56 max-w-full object-cover"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDownloadFile(msg.mediaUrl, msg.mediaName);
-                                    }}
-                                    className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/40 text-cyan-200 hover:bg-slate-800 transition text-xs cursor-pointer group/file shadow-sm"
-                                    title="انقر لفتح وتحميل المستند 📄"
-                                  >
-                                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0">
-                                      <FileText size={15} className="text-cyan-300" />
-                                    </div>
-                                    <span className="truncate max-w-[150px] font-semibold text-white" dir="ltr">{msg.mediaName || 'تحميل المستند'}</span>
-                                    <div className="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 text-cyan-300 mr-auto">
-                                      <Download size={13} />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                             {/* Media Preview (Image or Document) */}
+                             {msg.mediaUrl && (
+                               <div className="my-1.5 max-w-xs">
+                                 {(msg.mediaType === 'image' || (msg.mediaUrl && (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl) || msg.mediaUrl.startsWith('data:image/')))) ? (
+                                   <div 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setPreviewMediaModal({
+                                         url: msg.mediaUrl,
+                                         name: msg.mediaName || 'صورة_مرفقة.png',
+                                         type: 'image'
+                                       });
+                                     }}
+                                     className="relative group/img overflow-hidden rounded-2xl border border-white/20 cursor-pointer bg-slate-950/60 shadow-md transition-all hover:border-cyan-400/80"
+                                     title="انقر للمعاينة المكبرة والتكبير والتحميل 🖼️"
+                                   >
+                                     <img 
+                                       src={msg.mediaUrl} 
+                                       alt={msg.mediaName || "Attachment"} 
+                                       className="rounded-2xl max-h-56 max-w-full object-contain mx-auto block group-hover/img:scale-[1.02] transition-transform duration-300"
+                                     />
+                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end justify-between p-2">
+                                       <span className="text-[10px] font-bold text-cyan-300 flex items-center gap-1 bg-slate-900/90 px-2 py-0.5 rounded-lg border border-cyan-500/40 backdrop-blur-sm">
+                                         🔍 معاينة مكبرة
+                                       </span>
+                                       <button 
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           handleDownloadFile(msg.mediaUrl, msg.mediaName || 'image.png');
+                                         }}
+                                         className="text-[10px] font-bold text-white flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 px-2 py-0.5 rounded-lg shadow-md transition"
+                                         title="تحميل المرفق على الجهاز 📥"
+                                       >
+                                         <Download size={11} />
+                                         تنزيل
+                                       </button>
+                                     </div>
+                                   </div>
+                                 ) : (msg.mediaType === 'video' || (msg.mediaUrl && /\.(mp4|webm|mov|mkv)/i.test(msg.mediaUrl))) ? (
+                                   <div className="relative rounded-2xl overflow-hidden border border-white/20 bg-slate-950 shadow-md p-1">
+                                     <video src={msg.mediaUrl} controls className="max-w-full rounded-xl max-h-56 mx-auto block" />
+                                     <div className="flex items-center justify-between mt-1 px-1">
+                                       <span className="text-[9px] text-cyan-300 font-semibold truncate max-w-[120px]">{msg.mediaName || 'فيديو مرفق'}</span>
+                                       <button 
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           handleDownloadFile(msg.mediaUrl, msg.mediaName || 'video.mp4');
+                                         }}
+                                         className="text-[9px] font-bold text-white flex items-center gap-1 bg-cyan-600 hover:bg-cyan-500 px-2 py-0.5 rounded transition"
+                                       >
+                                         <Download size={10} /> تنزيل
+                                       </button>
+                                     </div>
+                                   </div>
+                                 ) : (
+                                   <div 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setPreviewMediaModal({
+                                         url: msg.mediaUrl,
+                                         name: msg.mediaName || 'مستند_مرفق',
+                                         type: (msg.mediaName || msg.mediaUrl || '').toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc'
+                                       });
+                                     }}
+                                     className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-900/90 border border-cyan-500/40 text-cyan-200 hover:bg-slate-800 transition text-xs cursor-pointer group/file shadow-md my-1"
+                                     title="انقر لفتح ومعاينة أو تنزيل المستند 📄"
+                                   >
+                                     <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                                       <FileText size={16} className="text-cyan-300" />
+                                     </div>
+                                     <div className="flex-1 min-w-0 text-right" dir="rtl">
+                                       <span className="text-[11px] font-bold text-white block truncate" dir="ltr">{msg.mediaName || 'تحميل المستند'}</span>
+                                       <span className="text-[9px] text-cyan-300 font-semibold block mt-0.5">معاينة تفاعلية 👁️</span>
+                                     </div>
+                                     <button
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         handleDownloadFile(msg.mediaUrl, msg.mediaName || 'document');
+                                       }}
+                                       className="w-7 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/40 flex items-center justify-center shrink-0 text-white transition shadow-sm"
+                                       title="تنزيل الملف 📥"
+                                     >
+                                       <Download size={13} />
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
 
                             {/* Message Text */}
                             {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
@@ -1563,6 +1614,79 @@ export default function WhatsAppWidget() {
               </span>
             )}
           </button>
+        )}
+
+        {/* Fullscreen Media Lightbox Modal */}
+        {previewMediaModal && (
+          <div 
+            onClick={() => setPreviewMediaModal(null)}
+            className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in dir-rtl"
+          >
+            {/* Modal Header Bar */}
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              className="w-full max-w-4xl bg-slate-900 border border-cyan-500/40 rounded-t-2xl p-3 flex items-center justify-between shadow-2xl text-white mb-0"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <FileText size={18} className="text-cyan-400 shrink-0" />
+                <span className="text-sm font-bold truncate max-w-md" dir="ltr">{previewMediaModal.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadFile(previewMediaModal.url, previewMediaModal.name)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md transition cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>تنزيل على الجهاز</span>
+                </button>
+                <button
+                  onClick={() => window.open(previewMediaModal.url, '_blank')}
+                  className="bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>فتح في تبويب جديد 🔗</span>
+                </button>
+                <button
+                  onClick={() => setPreviewMediaModal(null)}
+                  className="bg-slate-800 hover:bg-rose-600 text-gray-300 hover:text-white p-1.5 rounded-xl transition cursor-pointer mr-1"
+                  title="إغلاق المعاينة"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content Frame */}
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              className="w-full max-w-4xl bg-slate-950 border-x border-b border-cyan-500/40 rounded-b-2xl p-4 flex items-center justify-center overflow-auto max-h-[82vh] shadow-2xl"
+            >
+              {previewMediaModal.type === 'image' ? (
+                <img 
+                  src={previewMediaModal.url} 
+                  alt={previewMediaModal.name} 
+                  className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl border border-white/10"
+                />
+              ) : previewMediaModal.type === 'pdf' ? (
+                <iframe 
+                  src={previewMediaModal.url} 
+                  title={previewMediaModal.name}
+                  className="w-full h-[75vh] rounded-xl border border-white/10 bg-white"
+                />
+              ) : (
+                <div className="text-center py-12 text-gray-300">
+                  <FileText size={48} className="mx-auto text-cyan-400 mb-3 animate-pulse" />
+                  <p className="text-base font-bold text-white mb-2">{previewMediaModal.name}</p>
+                  <p className="text-xs text-gray-400 mb-4">يمكنك تنزيل هذا المستند أو فتحه مباشرة في المتصفح</p>
+                  <button
+                    onClick={() => handleDownloadFile(previewMediaModal.url, previewMediaModal.name)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-xl text-sm shadow-lg transition"
+                  >
+                    📥 تحميل المستند الآن
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </>
