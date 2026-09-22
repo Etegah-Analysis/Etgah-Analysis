@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, Bell, ShieldCheck, Trash2 } from 'lucide-react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, query, where, onSnapshot, doc, getDocs, getDoc, setDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 import logoImg from '../assets/logo.jpg';
