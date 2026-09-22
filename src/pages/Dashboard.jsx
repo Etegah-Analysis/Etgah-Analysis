@@ -2134,7 +2134,7 @@ const Dashboard = () => {
         c.lastMessageFrom === 'emp'
       );
 
-      const hasUnread = (unreadNum > 0 || c.unread === true || isIncomingMsg) && !isOutgoingOnly;
+      const hasUnread = unreadNum > 0 || c.unread === true || (isIncomingMsg && !isOutgoingOnly);
       if (!hasUnread) return false;
 
       // 1. Admin receives all customer chats
