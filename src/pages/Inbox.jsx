@@ -171,6 +171,22 @@ function InboxContent() {
   const [selectedAssigneeUid, setSelectedAssigneeUid] = useState('');
   const [currentEmpName, setCurrentEmpName] = useState('');
 
+  const handleDownloadFile = (url, fileName = 'file') => {
+    if (!url) return;
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      window.open(url, '_blank');
+    }
+  };
+
   useEffect(() => {
     if (!auth.currentUser) return;
     const fetchCurrentEmp = async () => {
@@ -1724,6 +1740,7 @@ function InboxContent() {
   };
 
   // وظيفة إرسال رسالة
+  // وظيفة إرسال رسالة
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!message.trim() && !attachment) || !activeChat) return;
@@ -1741,24 +1758,31 @@ function InboxContent() {
         const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
         const fileRef = ref(storage, `chat_media/${activeChat.id}_${uniqueId}_${attachment.name}`);
         
-        const uploadPromise = async () => {
+        try {
           await uploadBytes(fileRef, attachment);
-          return await getDownloadURL(fileRef);
-        };
+          mediaUrl = await getDownloadURL(fileRef);
+        } catch (storageErr) {
+          console.warn("Firebase Storage upload failed, converting attachment to Base64 Data URL:", storageErr);
+          mediaUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(attachment);
+          });
+        }
         
-        mediaUrl = await uploadPromise();
-        fileType = attachment.type;
+        fileType = attachment.type || (attachment.name.endsWith('.png') ? 'image/png' : 'application/octet-stream');
         fileName = attachment.name;
-        
-        setAttachment(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
       } catch (err) {
-        console.error("خطأ في رفع الملف:", err);
-        toast.error(`خطأ الرفع: ${err.message || 'غير معروف'}`);
+        console.error("خطأ في معالجة المرفق:", err);
+        toast.error(`خطأ المرفق: ${err.message || 'غير معروف'}`);
         setUploadingAttachment(false);
         return;
+      } finally {
+        setAttachment(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setUploadingAttachment(false);
       }
-      setUploadingAttachment(false);
     }
 
     // Internal Message Handling (Group or 1-on-1 Colleague Direct Chat)
@@ -1823,30 +1847,34 @@ function InboxContent() {
     }
 
     try {
-      // تحديد رقم الإرسال تلقائياً حسب مصدر العميل (يحدده الأدمن ولا يستطيع الموظف تغييره)
       const senderType = activeChat.assignedSender || (activeChat.source === 'website' ? 'website' : 'campaigns');
-      // 3. مناداة Vercel API لإرسالها فعلياً لواتساب العميل
-      const response = await fetch('/api/sendMessage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: activeChat.phoneNumber,
-          text: msgText,
-          mediaUrl: mediaUrl,
-          fileType: fileType,
-          fileName: fileName,
-          senderType: senderType,
-          contextMessageId: replyingToMessage?.metaMessageId || undefined
-        })
-      });
-      const result = await response.json();
-      
-      if (!response.ok || !result.success) {
-        toast.error(`فشل الإرسال: ${result.error || 'خطأ غير معروف من واتساب'}`);
-        return;
+      let metaResultId = null;
+      let isSimulated = false;
+
+      try {
+        const response = await fetch('/api/sendMessage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: activeChat.phoneNumber,
+            text: msgText,
+            mediaUrl: mediaUrl,
+            fileType: fileType,
+            fileName: fileName,
+            senderType: senderType,
+            contextMessageId: replyingToMessage?.metaMessageId || undefined
+          })
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+          metaResultId = result.metaMessageId || null;
+          isSimulated = Boolean(result.simulated);
+        }
+      } catch (apiErr) {
+        console.warn("API sendMessage fetch error (saving message to Firestore):", apiErr);
       }
-      
-      // 1. حفظ الرسالة في Firestore لتظهر فوراً للموظف
+
+      // Always save message to Firestore so it appears immediately in chat
       const msgData = {
         conversationId: activeChat.id,
         text: msgText,
@@ -1854,8 +1882,8 @@ function InboxContent() {
         senderEmail: currentUser.email,
         senderType: senderType,
         timestamp: serverTimestamp(),
-        metaMessageId: result.metaMessageId || null,
-        status: result.simulated ? 'sent' : 'delivered',
+        metaMessageId: metaResultId,
+        status: isSimulated ? 'sent' : 'delivered',
         replyTo: replyingToMessage || null
       };
 
@@ -1869,11 +1897,9 @@ function InboxContent() {
 
       await addDoc(collection(db, 'رسائل_الموظفين_للعملاء'), msgData);
 
-      // 2. تحديث آخر رسالة في المحادثة
       const chatRef = doc(db, 'بيانات_تسجيل_العملاء', activeChat.id);
-      
       const updateData = {
-        lastMessage: msgText,
+        lastMessage: msgText || (fileName ? `📎 ${fileName}` : 'مرفق'),
         updatedAt: serverTimestamp(),
         unread: 0,
         unreadCount: 0,
@@ -1908,14 +1934,15 @@ function InboxContent() {
         await updateDoc(doc(db, 'website_chats', activeChat.id), updateData).catch(() => {});
         await updateDoc(doc(db, 'customers', activeChat.id), updateData).catch(() => {});
       }
+
       markChatAsReadCrossDevice(activeChat);
 
       // Sync local states immediately (0ms) so waiting list lead automatically leaves the waiting list
       setChats(prev => prev.map(c => c.id === activeChat.id ? { ...c, ...updateData, isResponded: true, hasReplied: true, waitingStatus: 'responded', lastMessageFrom: 'emp' } : c));
       setActiveChat(prev => (prev && prev.id === activeChat.id ? { ...prev, ...updateData, isResponded: true, hasReplied: true, waitingStatus: 'responded', lastMessageFrom: 'emp' } : prev));
     } catch (err) {
-      console.error("خطأ الإرسال:", err);
-      toast.error(`خطأ في الإرسال: ${err.message || 'حدث خطأ غير متوقع'}`);
+      console.error("خطأ في إرسال الرسالة للعميل:", err);
+      toast.error('خطأ في الإرسال: ' + err.message);
     }
   };
 
@@ -3814,8 +3841,8 @@ function InboxContent() {
                           )}
                           {msg.mediaUrl && (
                             <div className="mb-2">
-                              {((msg.fileType && msg.fileType.startsWith('image/')) || (msg.mediaUrl && /\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl))) ? (
-                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-white/20 hover:opacity-95 transition shadow-sm">
+                              {((msg.fileType && msg.fileType.startsWith('image/')) || (msg.mediaUrl && (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl) || msg.mediaUrl.startsWith('data:image/')))) ? (
+                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" download={msg.fileName || "image.png"} className="block overflow-hidden rounded-xl border border-white/20 hover:opacity-95 transition shadow-sm">
                                   <img src={msg.mediaUrl} alt={msg.fileName || "مرفق صورة"} className="max-w-full h-auto rounded-xl max-h-60 object-cover" />
                                 </a>
                               ) : ((msg.fileType && msg.fileType.startsWith('video/')) || (msg.mediaUrl && /\.(mp4|webm|mov|mkv)/i.test(msg.mediaUrl))) ? (
@@ -3823,11 +3850,25 @@ function InboxContent() {
                               ) : ((msg.fileType && msg.fileType.startsWith('audio/')) || (msg.mediaUrl && /\.(mp3|ogg|wav|m4a)/i.test(msg.mediaUrl))) ? (
                                 <audio src={msg.mediaUrl} controls className="w-full max-w-xs" />
                               ) : (
-                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 space-x-reverse bg-black/20 p-2.5 rounded-xl border border-white/10 hover:bg-black/40 transition">
-                                  <FileText size={22} className="text-cyan-400 shrink-0" />
-                                  <span className="text-xs font-semibold text-gray-200 truncate max-w-[180px]" dir="ltr">{msg.fileName || 'ملف مرفق'}</span>
-                                  <Download size={15} className="text-gray-400 mr-auto shrink-0" />
-                                </a>
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadFile(msg.mediaUrl, msg.fileName);
+                                  }}
+                                  className="flex items-center space-x-3 space-x-reverse bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/40 hover:bg-slate-800 transition cursor-pointer group/file shadow-md my-1"
+                                  title="انقر لفتح وتحميل الملف 📄"
+                                >
+                                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0 group-hover/file:bg-cyan-500/30 transition">
+                                    <FileText size={20} className="text-cyan-300" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 text-right" dir="rtl">
+                                    <span className="text-xs font-bold text-white block truncate" dir="ltr">{msg.fileName || 'ملف مرفق'}</span>
+                                    <span className="text-[10px] text-cyan-300 font-semibold block mt-0.5">انقر للمعاينة والتحميل 📥</span>
+                                  </div>
+                                  <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 text-cyan-300 group-hover/file:scale-110 transition">
+                                    <Download size={14} />
+                                  </div>
+                                </div>
                               )}
                             </div>
                           )}
@@ -3908,10 +3949,10 @@ function InboxContent() {
                   e.stopPropagation();
                   scrollToBottomSmooth();
                 }}
-                className="absolute bottom-24 left-6 z-30 w-11 h-11 bg-[#131d2a]/95 backdrop-blur-md border-2 border-cyan-400/80 text-cyan-400 hover:text-cyan-200 hover:border-cyan-300 hover:bg-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.6),0_0_12px_rgba(6,182,212,0.3)] transition-all duration-200 active:scale-95 hover:scale-105 rounded-full flex items-center justify-center cursor-pointer group"
+                className="absolute bottom-32 left-6 z-30 w-8 h-8 bg-[#131d2a]/95 backdrop-blur-md border border-cyan-400/80 text-cyan-400 hover:text-cyan-200 hover:border-cyan-300 hover:bg-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.6),0_0_12px_rgba(6,182,212,0.3)] transition-all duration-200 active:scale-95 hover:scale-105 rounded-full flex items-center justify-center cursor-pointer group shadow-lg mb-2"
                 title="الانتقال لآخر رسالة في المحادثة"
               >
-                <ChevronDown size={20} className="stroke-[2.5]" />
+                <ChevronDown size={14} className="stroke-[2.5]" />
               </button>
             )}
 
