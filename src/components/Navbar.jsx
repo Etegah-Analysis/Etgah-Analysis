@@ -241,7 +241,7 @@ export default function Navbar() {
     }, (err) => console.warn("Navbar Firestore notif sync error:", err));
 
     return () => unsubNav();
-  }, [visitorPhone, isEmp, currentUser?.uid]);
+  }, [visitorPhone, isEmp]);
 
   const syncNavbarToFirestore = (extraMsgIds = [], extraPlatformIds = [], updateTimestamp = false) => {
     const userKey = getUserNotifKey();
@@ -265,9 +265,6 @@ export default function Navbar() {
     const allReadMsgIds = Array.from(new Set([...savedReadMsgIds, ...remoteReadMsgIds]));
     const allReadPlatformIds = Array.from(new Set([...savedReadPlatformIds, ...remoteReadPlatformIds]));
 
-    // Admin receives ALL notifications (Customer WhatsApp chats, website chats, reports & videos).
-    // Non-admin employees receive ONLY Reports 📄 & Videos 🎥 notifications (customer chats suppressed).
-    // Visitors/Customers receive their chat notifications + platform reports & videos.
     const shouldSuppressCustomerChats = isEmp && !isAdmin;
     const filteredChatMsgs = shouldSuppressCustomerChats ? [] : chatNotifications.filter(m => !allReadMsgIds.includes(m.id));
     const filteredPlatformMsgs = platformNotifications.filter(m => !allReadPlatformIds.includes(m.id));
@@ -280,7 +277,7 @@ export default function Navbar() {
 
     setNotifications(merged);
 
-    const savedLastRead = localStorage.getItem(`etegah_notif_last_read_${cleanPhone}`);
+    const savedLastRead = localStorage.getItem(`etegah_notif_last_read_${userKey}`);
     const localLastReadTime = savedLastRead ? parseInt(savedLastRead, 10) : 0;
     const effectiveLastReadTime = Math.max(localLastReadTime, remoteLastReadTime);
 
@@ -302,8 +299,8 @@ export default function Navbar() {
   useEffect(() => {
     const handleUnreadEvent = (e) => {
       if (e.detail && e.detail.hasUnread === false) {
-        const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
-        localStorage.setItem(`etegah_notif_last_read_${cleanPhone}`, Date.now().toString());
+        const userKey = getUserNotifKey();
+        localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
         setUnreadCount(0);
         syncNavbarToFirestore([], [], true);
       }
@@ -332,8 +329,8 @@ export default function Navbar() {
     const nextState = !isNotifOpen;
     setIsNotifOpen(nextState);
     if (nextState) {
-      const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
-      localStorage.setItem(`etegah_notif_last_read_${cleanPhone}`, Date.now().toString());
+      const userKey = getUserNotifKey();
+      localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
       setUnreadCount(0);
       syncNavbarToFirestore([], [], true);
     }
@@ -341,19 +338,19 @@ export default function Navbar() {
 
   const handleOpenNotificationMessage = (msgId) => {
     const targetMsg = notifications.find(m => m.id === msgId);
-    const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
+    const userKey = getUserNotifKey();
 
     if (targetMsg?.isPlatformNotif) {
-      const savedReadPlatform = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${cleanPhone}`) || '[]');
+      const savedReadPlatform = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${userKey}`) || '[]');
       if (msgId && !savedReadPlatform.includes(msgId)) {
         savedReadPlatform.push(msgId);
-        localStorage.setItem(`etegah_read_platform_ids_${cleanPhone}`, JSON.stringify(savedReadPlatform));
+        localStorage.setItem(`etegah_read_platform_ids_${userKey}`, JSON.stringify(savedReadPlatform));
       }
       syncNavbarToFirestore([], [msgId], true);
       setNotifications(prev => prev.filter(m => m.id !== msgId));
       setIsNotifOpen(false);
       setIsMobileMenuOpen(false);
-      localStorage.setItem(`etegah_notif_last_read_${cleanPhone}`, Date.now().toString());
+      localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
       setUnreadCount(prev => Math.max(0, prev - 1));
       navigate(targetMsg.url || '/platform-videos');
       return;
@@ -363,31 +360,31 @@ export default function Navbar() {
     setIsNotifOpen(false);
     setIsMobileMenuOpen(false);
 
-    const savedReadIds = JSON.parse(localStorage.getItem(`etegah_read_ids_${cleanPhone}`) || '[]');
+    const savedReadIds = JSON.parse(localStorage.getItem(`etegah_read_ids_${userKey}`) || '[]');
     if (msgId && !savedReadIds.includes(msgId)) {
       savedReadIds.push(msgId);
-      localStorage.setItem(`etegah_read_ids_${cleanPhone}`, JSON.stringify(savedReadIds));
+      localStorage.setItem(`etegah_read_ids_${userKey}`, JSON.stringify(savedReadIds));
     }
     syncNavbarToFirestore([msgId], [], true);
     setNotifications(prev => prev.filter(m => m.id !== msgId));
-    localStorage.setItem(`etegah_notif_last_read_${cleanPhone}`, Date.now().toString());
+    localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const handleClearAllNotifications = () => {
-    const cleanPhone = visitorPhone ? visitorPhone.replace(/[^0-9]/g, '') : (isEmp ? 'employee' : 'guest');
+    const userKey = getUserNotifKey();
     const chatIds = notifications.filter(m => !m.isPlatformNotif).map(m => m.id);
     const platformIds = notifications.filter(m => m.isPlatformNotif).map(m => m.id);
 
-    const savedReadChat = JSON.parse(localStorage.getItem(`etegah_read_ids_${cleanPhone}`) || '[]');
-    const savedReadPlatform = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${cleanPhone}`) || '[]');
+    const savedReadChat = JSON.parse(localStorage.getItem(`etegah_read_ids_${userKey}`) || '[]');
+    const savedReadPlatform = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${userKey}`) || '[]');
 
     const newChatIds = Array.from(new Set([...savedReadChat, ...chatIds]));
     const newPlatformIds = Array.from(new Set([...savedReadPlatform, ...platformIds]));
 
-    localStorage.setItem(`etegah_read_ids_${cleanPhone}`, JSON.stringify(newChatIds));
-    localStorage.setItem(`etegah_read_platform_ids_${cleanPhone}`, JSON.stringify(newPlatformIds));
-    localStorage.setItem(`etegah_notif_last_read_${cleanPhone}`, Date.now().toString());
+    localStorage.setItem(`etegah_read_ids_${userKey}`, JSON.stringify(newChatIds));
+    localStorage.setItem(`etegah_read_platform_ids_${userKey}`, JSON.stringify(newPlatformIds));
+    localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
 
     syncNavbarToFirestore(chatIds, platformIds, true);
 
