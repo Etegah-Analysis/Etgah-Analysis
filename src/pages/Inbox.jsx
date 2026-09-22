@@ -1,7 +1,7 @@
 // WhatsApp Inbox - Version 1.5 - Updated Campaign Customers & Website WhatsApp Filters
 import { setGlobalNotificationAlert } from '../utils/notificationBadge';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc, writeBatch } from '../firebase';
+import { auth, db, signOut, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, where, getDocs, getDoc, deleteDoc, storage, setDoc, writeBatch, arrayUnion } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Send, User, Clock, CheckCircle2, CheckSquare, MessageSquare, ChevronRight, UserPlus, X, BarChart3, Trash2, Paperclip, FileText, Download, Check, CheckCheck, Smile, Pin, Forward, Search, Reply, ArrowRight, Globe, AlertCircle, Upload, Users, Plus, Crown, Shield, ShieldCheck, UserMinus, Info, MessageSquarePlus, Sparkles, Hash, MessageCircle, PhoneCall, Phone, Radio, ChevronDown } from 'lucide-react';
