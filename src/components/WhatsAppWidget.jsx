@@ -4,7 +4,8 @@ import {
   Paperclip, Image as ImageIcon, Smile, Maximize2, Minimize2, 
   Reply, User, Phone, PhoneCall, FileText, Download, CheckCheck, ArrowRight, LogOut, ChevronDown
 } from 'lucide-react';
-import { db, collection, query, where, getDocs, getDoc, doc, setDoc, onSnapshot, serverTimestamp, addDoc } from '../firebase';
+import { db, storage, collection, query, where, getDocs, getDoc, doc, setDoc, onSnapshot, serverTimestamp, addDoc } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function WhatsAppWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,6 +33,45 @@ export default function WhatsAppWidget() {
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  const handleDownloadFile = (url, fileName = 'ملف_مرفق') => {
+    if (!url) return;
+    try {
+      if (url.startsWith('data:')) {
+        const arr = url.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        return;
+      }
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.download = fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Download error:", e);
+      window.open(url, '_blank');
+    }
+  };
 
   const handleWidgetScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -99,7 +139,16 @@ export default function WhatsAppWidget() {
         const blob = item.getAsFile();
         if (blob) {
           const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
-          setPendingMedia(file);
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            setPendingMedia({
+              url: evt.target.result,
+              type: 'image',
+              name: file.name,
+              file: file
+            });
+          };
+          reader.readAsDataURL(file);
           e.preventDefault();
           break;
         }
@@ -901,8 +950,8 @@ export default function WhatsAppWidget() {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت.');
+    if (file.size > 15 * 1024 * 1024) {
+      alert('حجم الملف كبير جداً. الحد الأقصى 15 ميجابايت.');
       return;
     }
 
@@ -911,7 +960,8 @@ export default function WhatsAppWidget() {
       setPendingMedia({
         url: event.target.result,
         type: file.type.startsWith('image/') ? 'image' : 'file',
-        name: file.name
+        name: file.name,
+        file: file
       });
     };
     reader.readAsDataURL(file);
@@ -943,15 +993,31 @@ export default function WhatsAppWidget() {
     setPendingMedia(null);
     setReplyToMessage(null);
     setShowEmojiPicker(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    let mediaUrl = mediaToSend?.url || null;
+    let mediaType = mediaToSend?.type || null;
+    let mediaName = mediaToSend?.name || null;
+
+    if (mediaToSend?.file) {
+      try {
+        const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const fileRef = ref(storage, `chat_media/widget_${cleanPhone}_${uniqueId}_${mediaToSend.file.name}`);
+        await uploadBytes(fileRef, mediaToSend.file);
+        mediaUrl = await getDownloadURL(fileRef);
+      } catch (uploadErr) {
+        console.warn("Widget Firebase Storage upload error, falling back to base64 Data URL:", uploadErr);
+      }
+    }
 
     const newMsgDoc = {
       conversationId: cleanPhone,
       phoneNumber: userPhone,
       sender: 'client',
       text: textToSend.trim(),
-      mediaUrl: mediaToSend?.url || null,
-      mediaType: mediaToSend?.type || null,
-      mediaName: mediaToSend?.name || null,
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      mediaName: mediaName,
       replyTo: replyToSend ? { id: replyToSend.id || null, sender: replyToSend.sender, text: replyToSend.text || 'مرفق' } : null,
       timestamp: serverTimestamp()
     };
@@ -967,7 +1033,7 @@ export default function WhatsAppWidget() {
         cleanPhone: cleanPhone,
         name: userName || 'عميل اتجاه',
         source: 'website_whatsapp',
-        lastMsgText: textToSend.trim() || (mediaToSend ? '📎 مرفق' : ''),
+        lastMsgText: textToSend.trim() || (mediaName ? `📎 ${mediaName}` : 'مرفق'),
         lastMsgTime: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         unreadCountStaff: (messages.length || 0) + 1,
@@ -987,7 +1053,7 @@ export default function WhatsAppWidget() {
         unreadCount: 1,
         readBy: [],
         lastMessageFrom: 'user',
-        lastMessage: textToSend.trim() || (mediaToSend ? '📎 مرفق' : ''),
+        lastMessage: textToSend.trim() || (mediaName ? `📎 ${mediaName}` : 'مرفق'),
         timestamp: serverTimestamp()
       }, { merge: true });
 
@@ -1000,7 +1066,7 @@ export default function WhatsAppWidget() {
         unreadCount: 1,
         readBy: [],
         lastMessageFrom: 'user',
-        lastComment: textToSend.trim() || (mediaToSend ? '📎 مرفق' : ''),
+        lastComment: textToSend.trim() || (mediaName ? `📎 ${mediaName}` : 'مرفق'),
         updatedAt: serverTimestamp()
       }, { merge: true });
 
@@ -1306,25 +1372,38 @@ export default function WhatsAppWidget() {
                             {/* Media Preview (Image or Document) */}
                             {msg.mediaUrl && (
                               <div className="my-1.5">
-                                {msg.mediaType === 'image' ? (
-                                  <img 
-                                    src={msg.mediaUrl} 
-                                    alt="Attachment" 
-                                    onClick={() => window.open(msg.mediaUrl, '_blank')}
-                                    className="rounded-xl max-h-56 max-w-full object-cover border border-white/20 hover:opacity-90 transition cursor-pointer"
-                                  />
-                                ) : (
-                                  <a 
-                                    href={msg.mediaUrl} 
-                                    download={msg.mediaName || 'file'}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 p-2 rounded-xl bg-white/10 border border-white/20 text-cyan-200 hover:bg-white/20 transition text-xs"
+                                {(msg.mediaType === 'image' || (msg.mediaUrl && (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(msg.mediaUrl) || msg.mediaUrl.startsWith('data:image/')))) ? (
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadFile(msg.mediaUrl, msg.mediaName || "image.png");
+                                    }}
+                                    className="block overflow-hidden rounded-xl border border-white/20 hover:opacity-90 transition cursor-pointer"
+                                    title="انقر لفتح وتحميل الصورة 🖼️"
                                   >
-                                    <FileText size={16} />
-                                    <span className="truncate max-w-[150px]">{msg.mediaName || 'تحميل المستند'}</span>
-                                    <Download size={14} className="ml-auto shrink-0" />
-                                  </a>
+                                    <img 
+                                      src={msg.mediaUrl} 
+                                      alt={msg.mediaName || "Attachment"} 
+                                      className="rounded-xl max-h-56 max-w-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadFile(msg.mediaUrl, msg.mediaName);
+                                    }}
+                                    className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/40 text-cyan-200 hover:bg-slate-800 transition text-xs cursor-pointer group/file shadow-sm"
+                                    title="انقر لفتح وتحميل المستند 📄"
+                                  >
+                                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                                      <FileText size={15} className="text-cyan-300" />
+                                    </div>
+                                    <span className="truncate max-w-[150px] font-semibold text-white" dir="ltr">{msg.mediaName || 'تحميل المستند'}</span>
+                                    <div className="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 text-cyan-300 mr-auto">
+                                      <Download size={13} />
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             )}
