@@ -183,16 +183,20 @@ export default function Navbar() {
         const data = docSnap.data();
         if (data && data.pdfUrl && data.pdfUrl !== '#') {
           const isSaudi = data.market === 'saudi' || docSnap.id === 'saudi_latest';
+          const marketKey = data.market || (isSaudi ? 'saudi' : 'us');
+          const timestampMs = data.uploadedAt?.toMillis ? data.uploadedAt.toMillis() : (data.createdAt?.toMillis ? data.createdAt.toMillis() : (typeof data.uploadedAt === 'number' ? data.uploadedAt : (data.timestampMillis || 0)));
+          const uniqueId = `weekly_report_live_${marketKey}_${timestampMs || docSnap.id}`;
+
           reportsFromDb.push({
-            id: 'weekly_report_live_' + docSnap.id,
+            id: uniqueId,
             isPlatformNotif: true,
             senderName: isSaudi ? '📄 تم رفع التقرير الأسبوعي للسوق السعودي' : '📄 تم رفع التقرير الأسبوعي للسوق الأمريكي',
             text: `المكان: صفحة فيديوهات المنصة والنتائج السابقة 📄 (${data.uploadedAtFormatted || 'تقرير أسبوعي معتمد'})`,
             url: '/platform-videos',
             timestamp: data.uploadedAt || data.createdAt,
-            timestampMillis: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+            timestampMillis: timestampMs || Date.now(),
             type: 'pdf_report',
-            market: data.market || (isSaudi ? 'saudi' : 'us')
+            market: marketKey
           });
         }
       });
@@ -203,9 +207,8 @@ export default function Navbar() {
       const combined = [...platformFromDb, ...reportsFromDb];
       const uniqueMap = new Map();
       combined.forEach(item => {
-        // Deduplicate using clean market & report title key so single clean entry is rendered
         const dedupKey = item.type === 'pdf_report' 
-          ? `report_${item.market}_${(item.senderName || '').replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '')}`
+          ? `report_${item.market}_${Math.floor((item.timestampMillis || 0) / 120000)}`
           : item.id;
         if (!uniqueMap.has(dedupKey)) {
           uniqueMap.set(dedupKey, item);
@@ -275,9 +278,17 @@ export default function Navbar() {
     const allReadMsgIds = Array.from(new Set([...savedReadMsgIds, ...remoteReadMsgIds]));
     const allReadPlatformIds = Array.from(new Set([...savedReadPlatformIds, ...remoteReadPlatformIds]));
 
+    const LEGACY_STATIC_KEYS = ['weekly_report_live_saudi_latest', 'weekly_report_live_us_latest', 'saudi_latest', 'us_latest'];
+    const cleanReadPlatformIds = allReadPlatformIds.filter(id => {
+      if (LEGACY_STATIC_KEYS.some(k => id === k || (id.startsWith('weekly_report_live_') && !/_\d{10,}/.test(id)))) {
+        return false;
+      }
+      return true;
+    });
+
     const shouldSuppressCustomerChats = isEmp && !isAdmin;
     const filteredChatMsgs = shouldSuppressCustomerChats ? [] : chatNotifications.filter(m => !allReadMsgIds.includes(m.id));
-    const filteredPlatformMsgs = platformNotifications.filter(m => !allReadPlatformIds.includes(m.id));
+    const filteredPlatformMsgs = platformNotifications.filter(m => !cleanReadPlatformIds.includes(m.id));
 
     const merged = [...filteredChatMsgs, ...filteredPlatformMsgs].sort((a, b) => {
       const tA = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp ? new Date(a.timestamp).getTime() : (a.timestampMillis || 0));
