@@ -152,6 +152,8 @@ export default function Navbar() {
     return () => unsubVis();
   }, [visitorPhone]);
 
+  const [reportToastAlert, setReportToastAlert] = useState(null);
+
   // 3. Real-time broadcast listener for platform PDF reports, videos & notifications
   useEffect(() => {
     let platformFromDb = [];
@@ -200,7 +202,15 @@ export default function Navbar() {
     function updateCombinedPlatformNotifs() {
       const combined = [...platformFromDb, ...reportsFromDb];
       const uniqueMap = new Map();
-      combined.forEach(item => uniqueMap.set(item.id, item));
+      combined.forEach(item => {
+        // Deduplicate using clean market & report title key so single clean entry is rendered
+        const dedupKey = item.type === 'pdf_report' 
+          ? `report_${item.market}_${(item.senderName || '').replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '')}`
+          : item.id;
+        if (!uniqueMap.has(dedupKey)) {
+          uniqueMap.set(dedupKey, item);
+        }
+      });
       setPlatformNotifications(Array.from(uniqueMap.values()));
     }
 
@@ -277,22 +287,27 @@ export default function Navbar() {
 
     setNotifications(merged);
 
-    const savedLastRead = localStorage.getItem(`etegah_notif_last_read_${userKey}`);
-    const localLastReadTime = savedLastRead ? parseInt(savedLastRead, 10) : 0;
-    const effectiveLastReadTime = Math.max(localLastReadTime, remoteLastReadTime);
-
-    const unreadList = merged.filter(m => {
-      const msgTime = m.timestamp?.toMillis ? m.timestamp.toMillis() : (m.timestamp ? new Date(m.timestamp).getTime() : (m.timestampMillis || 0));
-      return msgTime > effectiveLastReadTime;
-    });
-
-    if (!isInitialNotifMount.current && unreadList.length > prevUnreadNotifCountRef.current) {
+    if (!isInitialNotifMount.current && merged.length > prevUnreadNotifCountRef.current) {
       playNotificationChime();
+      const latestNotif = merged[0];
+      if (latestNotif && latestNotif.isPlatformNotif) {
+        setReportToastAlert(latestNotif);
+        setTimeout(() => setReportToastAlert(null), 8000);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(latestNotif.senderName || 'منصة اتجاه للتحليل الذكي 📊', {
+              body: latestNotif.text || 'تم رفع وتحديث التقرير الأسبوعي الجديد بالمنصة',
+              icon: '/logo.jpg',
+              tag: 'report_notif'
+            });
+          }
+        } catch (e) {}
+      }
     }
     isInitialNotifMount.current = false;
-    prevUnreadNotifCountRef.current = unreadList.length;
+    prevUnreadNotifCountRef.current = merged.length;
 
-    setUnreadCount(unreadList.length);
+    setUnreadCount(merged.length);
   }, [chatNotifications, platformNotifications, visitorPhone, isEmp, isAdmin, remoteReadMsgIds, remoteReadPlatformIds, remoteLastReadTime]);
 
   // Listen to custom window events for clearing notifications
@@ -326,14 +341,7 @@ export default function Navbar() {
   }, [isNotifOpen]);
 
   const toggleNotifications = () => {
-    const nextState = !isNotifOpen;
-    setIsNotifOpen(nextState);
-    if (nextState) {
-      const userKey = getUserNotifKey();
-      localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
-      setUnreadCount(0);
-      syncNavbarToFirestore([], [], true);
-    }
+    setIsNotifOpen(prev => !prev);
   };
 
   const handleOpenNotificationMessage = (msgId) => {
@@ -570,6 +578,42 @@ export default function Navbar() {
           </button>
         </div>
       </div>
+
+      {/* In-App Floating Toast Alert Banner for Reports & Videos */}
+      {reportToastAlert && (
+        <div 
+          onClick={() => {
+            const userKey = getUserNotifKey();
+            const msgId = reportToastAlert.id;
+            const savedReadPlatform = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${userKey}`) || '[]');
+            if (msgId && !savedReadPlatform.includes(msgId)) {
+              savedReadPlatform.push(msgId);
+              localStorage.setItem(`etegah_read_platform_ids_${userKey}`, JSON.stringify(savedReadPlatform));
+            }
+            syncNavbarToFirestore([], [msgId], true);
+            setNotifications(prev => prev.filter(m => m.id !== msgId));
+            setReportToastAlert(null);
+            navigate(reportToastAlert.url || '/platform-videos');
+          }}
+          className="fixed top-20 right-4 sm:right-6 z-[99999] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-cyan-400 text-white px-4 py-3 rounded-2xl shadow-[0_10px_35px_rgba(6,182,212,0.5)] flex items-center gap-3 cursor-pointer animate-bounce max-w-md dir-rtl"
+        >
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center shrink-0">
+            <span className="text-xl">📄</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h5 className="font-bold text-xs text-cyan-300 flex items-center gap-1">
+              {reportToastAlert.senderName || 'تحديث تقرير أسبوعي جديد بالمنصة 🚀'}
+            </h5>
+            <p className="text-[11px] text-gray-200 truncate mt-0.5">{reportToastAlert.text}</p>
+          </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setReportToastAlert(null); }} 
+            className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </nav>
   );
 }
