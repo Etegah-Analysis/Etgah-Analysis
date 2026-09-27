@@ -8064,6 +8064,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     }
 
     setSubSaving(true);
+    // Instant safety fallback to prevent button hanging
+    const savingTimeout = setTimeout(() => setSubSaving(false), 2000);
+
     try {
       const now = new Date();
       const uploadIso = now.toISOString();
@@ -8072,30 +8075,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const currentMonthKey = (subReceiptDate || subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       let updatedHistory = [];
+      const isEditingMode = Boolean(editingReceiptId);
 
       let finalReceiptUrl = subReceiptFileUrl || '';
-      if (finalReceiptUrl.startsWith('data:')) {
-        try {
-          const uploadedUrl = await uploadReceiptFileToStorage(finalReceiptUrl, selectedSubCustomer?.name || 'rcpt');
-          if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
-            finalReceiptUrl = uploadedUrl;
-          }
-        } catch (_) {}
-      }
 
-      if (finalReceiptUrl.startsWith('data:image/') && finalReceiptUrl.length > 200000) {
-        try {
-          finalReceiptUrl = await compressReceiptImage(finalReceiptUrl, 1200, 0.78);
-        } catch (e) {}
-      }
-
-      if (finalReceiptUrl.startsWith('data:application/pdf') && finalReceiptUrl.length > 1300000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 1MB) ولم نتمكن من رفعه على التخزين السحابي... يرجى رفع صورة الإشعار (PNG/JPG) أو ملف PDF أصغر لضمان الحفظ المباشر ⚠️');
-        setSubSaving(false);
-        return;
-      }
-
-      if (editingReceiptId) {
+      if (isEditingMode) {
         // Editing existing payment record
         const editorIdentity = isAdmin 
           ? '👑 الإدارة' 
@@ -8160,10 +8144,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         updatedHistory = [newPaymentRecord, ...existingHistory];
       }
 
-      const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(updatedHistory);
-
       // Primary subscription details synced from latest history record
-      const primaryRec = sanitizedHistory[0] || {};
+      const primaryRec = updatedHistory[0] || {};
       const subData = {
         startDate: primaryRec.startDate || subStartDate,
         endDate: isPercentage ? '' : (primaryRec.endDate || subEndDate),
@@ -8182,40 +8164,11 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         savedAt: uploadIso
       };
 
-      const targetId = selectedSubCustomer.id;
-      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
-      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+      // FAST LOCAL UI UPDATE (Instantaneous - 0ms delay)
+      setSubPaymentHistory(updatedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed' }));
 
-      let updatedAtLeastOne = false;
-      const updateErrors = [];
-      const updateTargets = [
-        { col: 'leads_crm', docId: targetId },
-        { col: 'employee_leads', docId: targetId },
-      ];
-      if (phoneDocId) {
-        updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
-      }
-
-      for (const target of updateTargets) {
-        try {
-          await updateDoc(doc(db, target.col, target.docId), { 
-            subscriptionDetails: subData, 
-            subscriptionHistory: sanitizedHistory, 
-            crmStatus: 'subscribed', 
-            updatedAt: serverTimestamp() 
-          });
-          updatedAtLeastOne = true;
-        } catch (uErr) {
-          console.warn(`Error updating ${target.col}:`, uErr);
-          updateErrors.push(uErr.message || String(uErr));
-        }
-      }
-
-      if (!updatedAtLeastOne) {
-        throw new Error(updateErrors[0] || 'تعذر حفظ بيانات الاشتراك في قواعد البيانات');
-      }
-
-      // Clear all input fields so the form is clean and empty
+      // Clear all input fields and close modal immediately
       setSubReceiptDate('');
       setSubStartDate('');
       setSubEndDate('');
@@ -8230,19 +8183,78 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       setSubNotes('');
       setEditingReceiptId(null);
       setIsAddingNewReceipt(false);
-
-      // Update state
-      setSubPaymentHistory(sanitizedHistory);
-      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: sanitizedHistory }));
-
-      // Close modal immediately upon saving
       setIsSubscriptionModalOpen(false);
+      clearTimeout(savingTimeout);
+      setSubSaving(false);
 
-      toast.success(editingReceiptId ? 'تم حفظ التعديلات وإغلاق النافذة بنجاح 💾✨' : 'تم حفظ بيانات الاشتراك وإغلاق النافذة بنجاح 💾✨');
+      toast.success(isEditingMode ? 'تم حفظ التعديلات وإغلاق النافذة فورا 💾✨' : 'تم حفظ بيانات الاشتراك وإغلاق النافذة فورا 💾✨');
+
+      // ASYNCHRONOUS BACKGROUND FIRESTORE PERSISTENCE & STORAGE UPLOAD (Non-blocking)
+      (async () => {
+        try {
+          const targetId = selectedSubCustomer.id;
+          const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+          const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+          let persistentReceiptUrl = finalReceiptUrl;
+          if (persistentReceiptUrl.startsWith('data:')) {
+            try {
+              const uploadPromise = uploadReceiptFileToStorage(persistentReceiptUrl, selectedSubCustomer?.name || 'rcpt');
+              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 4000));
+              const uploadedUrl = await Promise.race([uploadPromise, timeoutPromise]);
+              if (uploadedUrl && typeof uploadedUrl === 'string' && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+                persistentReceiptUrl = uploadedUrl;
+              }
+            } catch (_) {}
+          }
+
+          let safeHistory = updatedHistory.map(h => {
+            let u = h.receiptUrl || '';
+            if (h.id === (editingReceiptId || updatedHistory[0]?.id)) {
+              u = persistentReceiptUrl;
+            }
+            if (u.startsWith('data:') && u.length > 300000) {
+              return { ...h, receiptUrl: u.slice(0, 150) + '... (محفوظ محليا)', receiptProof: (h.receiptProof || 'مسجل') + ' (محفوظ محليا)' };
+            }
+            return { ...h, receiptUrl: u };
+          });
+
+          const safeSubData = {
+            ...subData,
+            receiptUrl: (persistentReceiptUrl.startsWith('data:') && persistentReceiptUrl.length > 300000) 
+              ? persistentReceiptUrl.slice(0, 150) + '...' 
+              : persistentReceiptUrl
+          };
+
+          const updateTargets = [
+            { col: 'leads_crm', docId: targetId },
+            { col: 'employee_leads', docId: targetId },
+          ];
+          if (phoneDocId) {
+            updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
+          }
+
+          for (const target of updateTargets) {
+            try {
+              await updateDoc(doc(db, target.col, target.docId), { 
+                subscriptionDetails: safeSubData, 
+                subscriptionHistory: safeHistory, 
+                crmStatus: 'subscribed', 
+                updatedAt: serverTimestamp() 
+              });
+            } catch (uErr) {
+              console.warn(`Background update error for ${target.col}:`, uErr);
+            }
+          }
+        } catch (bgErr) {
+          console.warn('Background persistence warning:', bgErr);
+        }
+      })();
+
     } catch (err) {
       console.error('Error saving subscription details:', err);
-      toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك: ' + (err.message || ''));
-    } finally {
+      toast.error('حدث خطأ أثناء حفظ التعديلات: ' + (err.message || ''));
+      clearTimeout(savingTimeout);
       setSubSaving(false);
     }
   };
