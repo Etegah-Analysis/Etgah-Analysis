@@ -9861,6 +9861,46 @@ const handleModalPasteBuffetItem = (e) => {
   const [dailyCurrentLevel, setDailyCurrentLevel] = useState('');
   const [dailySupportLevel, setDailySupportLevel] = useState('');
 
+  const compressImageIfNeeded = (imageSource, maxWidth = 1200, maxHeight = 1200, quality = 0.85) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0a1329';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve({ blob, dataUrl: compressedDataUrl });
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => resolve({ blob: null, dataUrl: imageSource });
+      img.src = imageSource;
+    });
+  };
+
   const handleClipboardPaste = (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -9872,7 +9912,7 @@ const handleModalPasteBuffetItem = (e) => {
           const reader = new FileReader();
           reader.onload = (evt) => {
             setPastedImagePreview(evt.target.result);
-            toast.success('تم لصق الصورة من الحافظة (Clipboard) بنجاح! 📋✨');
+            toast.success('تم إدراج الصورة من الحافظة بنجاح! اضغط (نشر الصورة) الآن 🚀', { duration: 4000 });
           };
           reader.readAsDataURL(blob);
           break;
@@ -10052,19 +10092,27 @@ const handleModalPasteBuffetItem = (e) => {
     const { marketType, marketTitle, reportTitle, docId, docIdAlt } = meta;
     const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
 
+    if (dailyReportPublishMode === 'text') {
+      if (!dailyReportText || dailyReportText.trim().length < 3) {
+        toast.error('يرجى كتابة نص التقرير أولاً لتوليد الصورة ⚠️');
+        return;
+      }
+    } else {
+      if (!pastedImagePreview) {
+        toast.error('يرجى لصق صورة من الحافظة (Ctrl+V) أو اختيار صورة أولاً ⚠️');
+        return;
+      }
+    }
+
     const toastId = toast.loading(`جاري رفع ونشر ${reportTitle} على موقع المنصة... ⏳`);
     const now = new Date();
     const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
     try {
-      let finalImageUrl = '';
+      let rawImageUrl = '';
 
       if (dailyReportPublishMode === 'text') {
-        if (!dailyReportText || dailyReportText.trim().length < 3) {
-          toast.error('يرجى كتابة نص التقرير أولاً لتوليد الصورة ⚠️', { id: toastId });
-          return;
-        }
-        finalImageUrl = await generateBrandedReportImage({
+        rawImageUrl = await generateBrandedReportImage({
           reportTitle,
           textContent: dailyReportText,
           targetLevel: dailyTargetLevel,
@@ -10072,29 +10120,27 @@ const handleModalPasteBuffetItem = (e) => {
           supportLevel: dailySupportLevel
         });
       } else {
-        if (!pastedImagePreview) {
-          toast.error('يرجى لصق صورة من الحافظة (Ctrl+V) أو اختيار صورة أولاً ⚠️', { id: toastId });
-          return;
-        }
-        finalImageUrl = pastedImagePreview;
+        rawImageUrl = pastedImagePreview;
       }
 
-      if (storage && (pastedImageFile || finalImageUrl.startsWith('data:'))) {
+      // Always compress image before uploading/saving (prevents >1MB Firestore error)
+      const { blob: compressedBlob, dataUrl: compressedDataUrl } = await compressImageIfNeeded(rawImageUrl, 1200, 1200, 0.85);
+
+      let finalImageUrl = compressedDataUrl || rawImageUrl;
+
+      if (storage) {
         try {
-          const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.png`;
+          const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.jpg`;
           const fileRef = ref(storage, storagePath);
-          let blobToUpload = pastedImageFile;
-          if (!blobToUpload) {
-            const res = await fetch(finalImageUrl);
-            blobToUpload = await res.blob();
-          }
+          const blobToUpload = compressedBlob || (pastedImageFile || await (await fetch(finalImageUrl)).blob());
+
           const uploadedUrl = await Promise.race([
             uploadBytes(fileRef, blobToUpload).then(() => getDownloadURL(fileRef)),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage timeout')), 4000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 10000))
           ]);
           if (uploadedUrl) finalImageUrl = uploadedUrl;
         } catch (stErr) {
-          console.warn('Storage upload timeout or error fallback to base64 data URL:', stErr);
+          console.warn('Storage upload timeout or error fallback to compressed base64 data URL:', stErr);
         }
       }
 
@@ -10105,7 +10151,7 @@ const handleModalPasteBuffetItem = (e) => {
         uploadedAt: serverTimestamp(),
         uploadedAtFormatted: formattedNow,
         uploadedBy: userRole,
-        fileName: `صورة_${reportTitle}_${Date.now()}.png`
+        fileName: `صورة_${reportTitle}_${Date.now()}.jpg`
       };
 
       await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
@@ -10122,7 +10168,7 @@ const handleModalPasteBuffetItem = (e) => {
         timestampMillis: Date.now()
       }).catch(() => {});
 
-      toast.success(`تم نشر ${reportTitle} كـ صورة مصممة بنجاح على موقع المنصة! 🚀✨`, { id: toastId, duration: 6000 });
+      toast.success(`تم نشر ${reportTitle} كـ صورة بنجاح على موقع المنصة! 🚀✨`, { id: toastId, duration: 6000 });
       setPdfReportModalMarket(null);
       setPastedImagePreview(null);
       setPastedImageFile(null);
