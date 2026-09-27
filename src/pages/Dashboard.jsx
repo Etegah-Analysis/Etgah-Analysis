@@ -7239,6 +7239,29 @@ const Dashboard = () => {
   const openSubscriptionModal = (customer) => {
     setSelectedSubCustomer(customer);
     const history = customer.subscriptionHistory || [];
+    
+    // Auto-clean & compress oversized legacy images on the fly if needed
+    if ((customer.subscriptionDetails?.receiptUrl?.length > 200000) || history.some(h => h.receiptUrl?.length > 200000)) {
+      sanitizeSubscriptionHistoryPayload(history).then(sanitizedHistory => {
+        setSubPaymentHistory(sanitizedHistory);
+        let cleanTopReceipt = customer.subscriptionDetails?.receiptUrl || '';
+        if (cleanTopReceipt.startsWith('data:image/') && cleanTopReceipt.length > 200000) {
+          compressReceiptImage(cleanTopReceipt, 1200, 0.78).then(comp => {
+            const newSubData = { ...customer.subscriptionDetails, receiptUrl: comp };
+            const targetId = customer.id;
+            const cleanPhone = (customer.phoneNumber || '').replace(/[^0-9+]/g, '');
+            const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+            updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: newSubData, subscriptionHistory: sanitizedHistory }).catch(() => {});
+            updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: newSubData, subscriptionHistory: sanitizedHistory }).catch(() => {});
+            if (phoneDocId) updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: newSubData, subscriptionHistory: sanitizedHistory }).catch(() => {});
+            setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: newSubData, subscriptionHistory: sanitizedHistory }));
+          });
+        }
+      });
+    } else {
+      setSubPaymentHistory(history);
+    }
+
     // Reset all subscription fields to empty by default (only filled on edit or when user adds new data)
     setSubReceiptDate('');
     setSubStartDate('');
@@ -7252,7 +7275,6 @@ const Dashboard = () => {
     setSubReceiptProof('');
     setSubReceiptFileUrl('');
     setSubNotes('');
-    setSubPaymentHistory(history);
     setIsAddingNewReceipt(false);
     setEditingReceiptId(null);
     setIsSubscriptionModalOpen(true);
@@ -7340,41 +7362,34 @@ const Dashboard = () => {
   };
 
   const handleEditReceiptFileUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.type === 'application/pdf') {
+      if (file.size > 800000) {
+        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 800KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setEditReceiptFileUrl(ev.target.result);
+        toast.success('تم إرفاق ملف PDF إشعار التحويل الجديد للتعديل 📄');
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const resultData = event.target.result;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 1920;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-        const ultraResJpeg = canvas.toDataURL('image/jpeg', 0.95);
-        setEditReceiptFileUrl(ultraResJpeg);
+    reader.onload = async (event) => {
+      const rawData = event.target.result;
+      try {
+        const compressed = await compressReceiptImage(rawData, 1400, 0.80);
+        setEditReceiptFileUrl(compressed);
+        toast.success('تم معالجة وتجهيز صورة الإشعار الجديدة للتعديل بدقة عالية 📄✨');
+      } catch (err) {
+        setEditReceiptFileUrl(rawData);
         toast.success('تم تجهيز صورة الإشعار الجديدة للتعديل 📄');
-      };
-      img.onerror = () => {
-        setEditReceiptFileUrl(resultData);
-        toast.success('تم تجهيز صورة الإشعار الجديدة للتعديل 📄');
-      };
-      img.src = resultData;
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -7455,7 +7470,6 @@ const Dashboard = () => {
       const uploadIso = now.toISOString();
       const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
       const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-      const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted} (معدل)`;
 
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       const editorIdentity = isAdmin 
@@ -7464,13 +7478,20 @@ const Dashboard = () => {
           ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
           : `${currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'} (${currentEmpUser?.jobTitle || currentEmpUser?.role || 'موظف'})`;
 
-      const updatedHistory = existingHistory.map(h => {
+      let updatedReceiptUrl = editReceiptFileUrl || '';
+      if (updatedReceiptUrl.startsWith('data:image/') && updatedReceiptUrl.length > 200000) {
+        try {
+          updatedReceiptUrl = await compressReceiptImage(updatedReceiptUrl, 1200, 0.78);
+        } catch (e) {}
+      }
+
+      const rawUpdatedHistory = existingHistory.map(h => {
         if (h.id === recordId) {
           return {
             ...h,
             paidAmount: editReceiptPaidAmount ? String(editReceiptPaidAmount).replace(/[^0-9.]/g, '') : h.paidAmount,
             receiptProof: editReceiptProof.trim() || h.receiptProof || 'مسجل',
-            receiptUrl: editReceiptFileUrl || h.receiptUrl || '',
+            receiptUrl: updatedReceiptUrl || h.receiptUrl || '',
             savedAt: h.savedAt || uploadIso,
             month: h.month,
             lastEditedBy: editorIdentity,
@@ -7483,18 +7504,38 @@ const Dashboard = () => {
         return h;
       });
 
+      const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(rawUpdatedHistory);
+      const primaryRec = sanitizedHistory[0] || {};
+      const subData = {
+        startDate: primaryRec.startDate || subStartDate,
+        endDate: primaryRec.endDate || subEndDate,
+        serviceType: primaryRec.serviceType || subServiceType || 'باقة سنوية',
+        serviceCategory: primaryRec.serviceCategory || subServiceCategory || 'توصيات سعودي',
+        paymentType: primaryRec.paymentType || subPaymentType,
+        agreedPercentage: primaryRec.agreedPercentage || subAgreedPercentage || '',
+        paidAmount: primaryRec.paidAmount || '',
+        remainingAmount: primaryRec.remainingAmount || '',
+        receiptProof: primaryRec.receiptProof || 'مسجل',
+        receiptUrl: primaryRec.receiptUrl || '',
+        notes: primaryRec.notes || '',
+        month: primaryRec.month || '',
+        savedBy: primaryRec.savedBy || '',
+        savedByUid: primaryRec.savedByUid || '',
+        savedAt: primaryRec.savedAt || uploadIso
+      };
+
       const targetId = selectedSubCustomer.id;
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
-      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
       if (phoneDocId) {
-        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
       }
 
-      setSubPaymentHistory(updatedHistory);
-      setSelectedSubCustomer(prev => ({ ...prev, subscriptionHistory: updatedHistory }));
+      setSubPaymentHistory(sanitizedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: sanitizedHistory }));
       setEditingReceiptId(null);
       toast.success('تم حفظ وتحديث الإشعار والمبلغ وتحديث تاريخ ووقت التعديل بنجاح ✏️✨');
     } catch (err) {
@@ -7524,6 +7565,12 @@ const Dashboard = () => {
     try {
       const deleter = getCurrentDeleterInfo();
       const archiveId = 'arch_rcpt_' + Date.now();
+      let archiveReceiptUrl = subReceiptFileUrl;
+      if (archiveReceiptUrl.startsWith('data:image/') && archiveReceiptUrl.length > 200000) {
+        try {
+          archiveReceiptUrl = await compressReceiptImage(archiveReceiptUrl, 1200, 0.75);
+        } catch (e) {}
+      }
       await setDoc(doc(db, 'recycle_bin', archiveId), {
         id: archiveId,
         type: 'receipt',
@@ -7534,7 +7581,7 @@ const Dashboard = () => {
         phoneNumber: selectedSubCustomer?.phoneNumber || '',
         customerPhone: selectedSubCustomer?.phoneNumber || '',
         customerId: selectedSubCustomer?.id || '',
-        receiptUrl: subReceiptFileUrl,
+        receiptUrl: archiveReceiptUrl,
         paidAmount: subPaidAmount || '0',
         receiptDate: subReceiptDate || new Date().toISOString().slice(0, 10),
         serviceType: subServiceType || 'باقة',
@@ -7624,47 +7671,97 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
     try {
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       const itemToDelete = existingHistory.find(h => h.id === recordId);
-      const updatedHistory = existingHistory.filter(h => h.id !== recordId);
+      const rawUpdatedHistory = existingHistory.filter(h => h.id !== recordId);
+      const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(rawUpdatedHistory);
 
-      // Archive to recycle_bin
+      // Archive to recycle_bin (Safely in isolated try/catch with compressed receiptUrl)
       if (itemToDelete) {
-        const deleter = getCurrentDeleterInfo();
-        const delBinId = 'del_rcpt_' + Date.now();
-        await setDoc(doc(db, 'recycle_bin', delBinId), {
-          ...itemToDelete,
-          id: delBinId,
-          type: 'receipt',
-          originalCollection: 'subscription_receipts',
-          itemTitle: `إشعار تحويل محذوف - ${selectedSubCustomer.name || 'عميل'}`,
-          name: selectedSubCustomer.name || 'عميل',
-          customerName: selectedSubCustomer.name || 'عميل',
-          phoneNumber: selectedSubCustomer.phoneNumber || '',
-          customerPhone: selectedSubCustomer.phoneNumber || '',
-          customerId: selectedSubCustomer.id,
-          receiptUrl: itemToDelete.receiptUrl || '',
-          paidAmount: itemToDelete.paidAmount || '0',
-          receiptDate: itemToDelete.receiptDate || itemToDelete.date || '',
-          deletedAt: serverTimestamp(),
-          deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
-          deletedBy: deleter.label,
-          deletedByUid: deleter.uid,
-          deletedByEmail: deleter.email,
-          deletedByRole: deleter.role
-        });
+        try {
+          const deleter = getCurrentDeleterInfo();
+          const delBinId = 'del_rcpt_' + Date.now();
+          let archiveReceiptUrl = itemToDelete.receiptUrl || '';
+          if (archiveReceiptUrl.startsWith('data:image/') && archiveReceiptUrl.length > 200000) {
+            try {
+              archiveReceiptUrl = await compressReceiptImage(archiveReceiptUrl, 1200, 0.75);
+            } catch (e) {}
+          }
+          await setDoc(doc(db, 'recycle_bin', delBinId), {
+            ...itemToDelete,
+            id: delBinId,
+            type: 'receipt',
+            originalCollection: 'subscription_receipts',
+            itemTitle: `إشعار تحويل محذوف - ${selectedSubCustomer.name || 'عميل'}`,
+            name: selectedSubCustomer.name || 'عميل',
+            customerName: selectedSubCustomer.name || 'عميل',
+            phoneNumber: selectedSubCustomer.phoneNumber || '',
+            customerPhone: selectedSubCustomer.phoneNumber || '',
+            customerId: selectedSubCustomer.id,
+            receiptUrl: archiveReceiptUrl,
+            paidAmount: itemToDelete.paidAmount || '0',
+            receiptDate: itemToDelete.receiptDate || itemToDelete.date || '',
+            deletedAt: serverTimestamp(),
+            deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+            deletedBy: deleter.label,
+            deletedByUid: deleter.uid,
+            deletedByEmail: deleter.email,
+            deletedByRole: deleter.role
+          });
+        } catch (archiveErr) {
+          console.warn('Error archiving deleted receipt to recycle_bin:', archiveErr);
+        }
       }
+
+      // Sync top-level subscriptionDetails from remaining history items or reset if empty
+      const primaryRec = sanitizedHistory[0] || {};
+      const updatedSubData = sanitizedHistory.length > 0 ? {
+        startDate: primaryRec.startDate || selectedSubCustomer?.subscriptionDetails?.startDate || '',
+        endDate: primaryRec.endDate || selectedSubCustomer?.subscriptionDetails?.endDate || '',
+        serviceType: primaryRec.serviceType || selectedSubCustomer?.subscriptionDetails?.serviceType || '',
+        serviceCategory: primaryRec.serviceCategory || selectedSubCustomer?.subscriptionDetails?.serviceCategory || '',
+        paymentType: primaryRec.paymentType || selectedSubCustomer?.subscriptionDetails?.paymentType || '',
+        agreedPercentage: primaryRec.agreedPercentage || '',
+        paidAmount: primaryRec.paidAmount || '',
+        remainingAmount: primaryRec.remainingAmount || '',
+        receiptProof: primaryRec.receiptProof || 'مسجل',
+        receiptUrl: primaryRec.receiptUrl || '',
+        notes: primaryRec.notes || '',
+        month: primaryRec.month || '',
+        savedBy: primaryRec.savedBy || '',
+        savedByUid: primaryRec.savedByUid || '',
+        savedAt: primaryRec.savedAt || ''
+      } : {
+        startDate: '',
+        endDate: '',
+        serviceType: '',
+        serviceCategory: '',
+        paymentType: '',
+        agreedPercentage: '',
+        paidAmount: '',
+        remainingAmount: '',
+        receiptProof: '',
+        receiptUrl: '',
+        notes: '',
+        month: '',
+        savedBy: '',
+        savedByUid: '',
+        savedAt: ''
+      };
 
       const targetId = selectedSubCustomer.id;
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
-      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      const promises = [
+        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('leads_crm del update err:', e)),
+        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('employee_leads del update err:', e)),
+      ];
       if (phoneDocId) {
-        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionHistory: updatedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+        promises.push(updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('customer_data del update err:', e)));
       }
+      await Promise.all(promises);
 
-      setSubPaymentHistory(updatedHistory);
-      setSelectedSubCustomer(prev => ({ ...prev, subscriptionHistory: updatedHistory }));
+      setSubPaymentHistory(sanitizedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory }));
       toast.success('تم حذف الإشعار من السجل بنجاح 🗑️');
     } catch (err) {
       console.error('Error deleting receipt:', err);
