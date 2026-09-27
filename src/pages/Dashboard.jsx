@@ -9850,32 +9850,37 @@ const handleModalPasteBuffetItem = (e) => {
   };
 
   const [pdfReportModalMarket, setPdfReportModalMarket] = useState(null);
-  const [publishedWeeklyReports, setPublishedWeeklyReports] = useState({ saudi: null, us: null });
+  const [activePdfSubMarket, setActivePdfSubMarket] = useState('saudi');
+  const [publishedWeeklyReports, setPublishedWeeklyReports] = useState({ saudi: null, us: null, saudi_open: null, saudi_close: null, us_open: null, us_close: null });
 
   useEffect(() => {
     const unsubR = onSnapshot(collection(db, 'weekly_reports'), (snapshot) => {
-      const repMap = { saudi: null, us: null };
+      const repMap = { saudi: null, us: null, saudi_open: null, saudi_close: null, us_open: null, us_close: null };
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         if (!data) return;
 
-        const isSaudi = data.market === 'saudi' || docSnap.id === 'saudi_latest' || docSnap.id === 'saudi';
-        const isUs = data.market === 'us' || docSnap.id === 'us_latest' || docSnap.id === 'us';
+        const id = docSnap.id;
+        const m = data.market || id;
 
-        if (isSaudi) {
-          if (data.pdfUrl && data.pdfUrl.trim().length > 5) {
-            repMap.saudi = data;
-          } else if (!repMap.saudi) {
-            repMap.saudi = data;
-          }
-        }
-
-        if (isUs) {
-          if (data.pdfUrl && data.pdfUrl.trim().length > 5) {
-            repMap.us = data;
-          } else if (!repMap.us) {
-            repMap.us = data;
-          }
+        if (id === 'saudi_open' || id === 'saudi_open_latest' || m === 'saudi_open') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.saudi_open = data;
+          else if (!repMap.saudi_open) repMap.saudi_open = data;
+        } else if (id === 'saudi_close' || id === 'saudi_close_latest' || m === 'saudi_close') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.saudi_close = data;
+          else if (!repMap.saudi_close) repMap.saudi_close = data;
+        } else if (id === 'us_open' || id === 'us_open_latest' || m === 'us_open') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.us_open = data;
+          else if (!repMap.us_open) repMap.us_open = data;
+        } else if (id === 'us_close' || id === 'us_close_latest' || m === 'us_close') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.us_close = data;
+          else if (!repMap.us_close) repMap.us_close = data;
+        } else if (id === 'saudi_latest' || id === 'saudi' || m === 'saudi') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.saudi = data;
+          else if (!repMap.saudi) repMap.saudi = data;
+        } else if (id === 'us_latest' || id === 'us' || m === 'us') {
+          if (data.pdfUrl && data.pdfUrl.trim().length > 5) repMap.us = data;
+          else if (!repMap.us) repMap.us = data;
         }
       });
       setPublishedWeeklyReports(repMap);
@@ -9883,22 +9888,82 @@ const handleModalPasteBuffetItem = (e) => {
     return () => unsubR();
   }, []);
 
+  const getReportMeta = (targetMarket) => {
+    switch (targetMarket) {
+      case 'saudi_open':
+        return {
+          marketType: 'saudi_open',
+          isSaudi: true,
+          marketTitle: 'تقرير افتتاح السوق السعودي 🇸🇦',
+          reportTitle: 'تقرير الافتتاح للسوق السعودي',
+          docId: 'saudi_open_latest',
+          docIdAlt: 'saudi_open'
+        };
+      case 'saudi_close':
+        return {
+          marketType: 'saudi_close',
+          isSaudi: true,
+          marketTitle: 'تقرير إغلاق السوق السعودي 🇸🇦',
+          reportTitle: 'تقرير الإغلاق للسوق السعودي',
+          docId: 'saudi_close_latest',
+          docIdAlt: 'saudi_close'
+        };
+      case 'us_open':
+        return {
+          marketType: 'us_open',
+          isSaudi: false,
+          marketTitle: 'تقرير افتتاح السوق الأمريكي 🇺🇸',
+          reportTitle: 'تقرير الافتتاح للسوق الأمريكي',
+          docId: 'us_open_latest',
+          docIdAlt: 'us_open'
+        };
+      case 'us_close':
+        return {
+          marketType: 'us_close',
+          isSaudi: false,
+          marketTitle: 'تقرير إغلاق السوق الأمريكي 🇺🇸',
+          reportTitle: 'تقرير الإغلاق للسوق الأمريكي',
+          docId: 'us_close_latest',
+          docIdAlt: 'us_close'
+        };
+      case 'us':
+      case 'us_latest':
+        return {
+          marketType: 'us',
+          isSaudi: false,
+          marketTitle: 'التقرير الأسبوعي للسوق الأمريكي 🇺🇸',
+          reportTitle: 'التقرير الأسبوعي للسوق الأمريكي',
+          docId: 'us_latest',
+          docIdAlt: 'us'
+        };
+      case 'saudi':
+      case 'saudi_latest':
+      default:
+        return {
+          marketType: 'saudi',
+          isSaudi: true,
+          marketTitle: 'التقرير الأسبوعي للسوق السعودي 🇸🇦',
+          reportTitle: 'التقرير الأسبوعي للسوق السعودي',
+          docId: 'saudi_latest',
+          docIdAlt: 'saudi'
+        };
+    }
+  };
+
   const handleExportOrPublishPdf = (market) => {
     setPdfReportModalMarket(market);
+    setActivePdfSubMarket(market);
   };
 
   const handleAutoPublishRecommendationsPdf = async (targetMarket) => {
-    const marketType = (targetMarket === 'us' || targetMarket === 'us_latest') ? 'us' : 'saudi';
-    const isSaudi = marketType === 'saudi';
-    const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
-    const docId = isSaudi ? 'saudi_latest' : 'us_latest';
-    const docIdAlt = isSaudi ? 'saudi' : 'us';
+    const meta = getReportMeta(targetMarket);
+    const { marketType, isSaudi, marketTitle, reportTitle, docId, docIdAlt } = meta;
     const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
     const list = isSaudi ? saudiRecommendations : usRecommendations;
-    const title = isSaudi ? 'تقرير توصيات السوق السعودي' : 'تقرير توصيات السوق الأمريكي';
+    const title = reportTitle;
     const logoUrl = window.location.origin + '/logo.jpg';
 
-    const toastId = toast.loading(`جاري توليد ونشر تقرير توصيات ${marketTitle} لموقع المنصة تلقائياً... ⏳`);
+    const toastId = toast.loading(`جاري توليد ونشر ${reportTitle} لموقع المنصة تلقائياً... ⏳`);
 
     try {
       const total = list.length;
@@ -9963,7 +10028,7 @@ const handleModalPasteBuffetItem = (e) => {
   <div class="stats-grid">
     <div class="stat-card"><div class="val">${total}</div><div class="lbl">إجمالي التوصيات</div></div>
     <div class="stat-card"><div class="val" style="color:#d97706;">${activeCount}</div><div class="lbl">سارية ⏳</div></div>
-    <div class="stat-card"><div class="val" style="color:#059669;">${t1Count + t2Count}</div><div class="lbl">محققة للأهداف 🎯</div></div>
+    <div class="stat-card"><div class="val" style="color:#059669;">${winCount}</div><div class="lbl">محققة للأهداف 🎯</div></div>
     <div class="stat-card"><div class="val" style="color:#e11d48;">${slCount}</div><div class="lbl">وقف خسارة 🛑</div></div>
     <div class="stat-card"><div class="val" style="color:#10b981;">${winRate}%</div><div class="lbl">نسبة النجاح العامة 📈</div></div>
   </div>
@@ -10018,7 +10083,7 @@ const handleModalPasteBuffetItem = (e) => {
       let downloadUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
       if (storage) {
         try {
-          const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.html`;
+          const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.html`;
           const fileRef = ref(storage, storagePath);
           const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
           const uploadedUrl = await Promise.race([
@@ -10033,12 +10098,12 @@ const handleModalPasteBuffetItem = (e) => {
 
       const reportPayload = {
         market: marketType,
-        title: isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي',
+        title: reportTitle,
         pdfUrl: downloadUrl,
         uploadedAt: serverTimestamp(),
         uploadedAtFormatted: formattedNow,
         uploadedBy: userRole,
-        fileName: `تقرير_توصيات_${isSaudi ? 'السعودي' : 'الأمريكي'}_${Date.now()}.pdf`
+        fileName: `${reportTitle}_${Date.now()}.pdf`
       };
 
       await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
@@ -10046,8 +10111,8 @@ const handleModalPasteBuffetItem = (e) => {
       await addDoc(collection(db, 'weekly_reports_history'), reportPayload).catch(() => {});
 
       await addDoc(collection(db, 'platform_notifications'), {
-        title: isSaudi ? '📄 تقرير أسبوعي جديد للسوق السعودي' : '📄 تقرير أسبوعي جديد للسوق الأمريكي',
-        body: `تم رفع وتحديث التقرير الأسبوعي الشامل لـ ${marketTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
+        title: `📄 ${reportTitle}`,
+        body: `تم رفع وتحديث ${reportTitle} لـ ${marketTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
         type: 'pdf_report',
         market: marketType,
         url: '/platform-videos',
@@ -10055,7 +10120,7 @@ const handleModalPasteBuffetItem = (e) => {
         timestampMillis: Date.now()
       }).catch(() => {});
 
-      toast.success(`تم إنشاء ونشر تقرير توصيات ${marketTitle} فوراً على موقع المنصة بنجاح! 🚀✨`, { id: toastId, duration: 6000 });
+      toast.success(`تم إنشاء ونشر ${reportTitle} فوراً على موقع المنصة بنجاح! 🚀✨`, { id: toastId, duration: 6000 });
       setPdfReportModalMarket(null);
     } catch (err) {
       console.error('Error auto publishing recommendations report:', err);
@@ -10064,11 +10129,8 @@ const handleModalPasteBuffetItem = (e) => {
   };
 
   const handleUploadWebsitePdfDirect = (targetMarket) => {
-    const marketType = (targetMarket === 'us' || targetMarket === 'us_latest') ? 'us' : 'saudi';
-    const isSaudi = marketType === 'saudi';
-    const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
-    const docId = isSaudi ? 'saudi_latest' : 'us_latest';
-    const docIdAlt = isSaudi ? 'saudi' : 'us';
+    const meta = getReportMeta(targetMarket);
+    const { marketType, isSaudi, marketTitle, reportTitle, docId, docIdAlt } = meta;
     const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
 
     const input = document.createElement('input');
@@ -10078,7 +10140,7 @@ const handleModalPasteBuffetItem = (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const toastId = toast.loading(`جاري رفع وتحويل تقرير ${marketTitle} لموقع المنصة... ⏳`);
+      const toastId = toast.loading(`جاري رفع وتحويل ${reportTitle} لموقع المنصة... ⏳`);
       const now = new Date();
       const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
@@ -10086,7 +10148,7 @@ const handleModalPasteBuffetItem = (e) => {
         let downloadUrl = '';
         if (storage) {
           try {
-            const storagePath = `weekly_pdf_reports/weekly_report_${marketType}_${Date.now()}.pdf`;
+            const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.pdf`;
             const fileRef = ref(storage, storagePath);
             downloadUrl = await Promise.race([
               uploadBytes(fileRef, file).then(() => getDownloadURL(fileRef)),
@@ -10108,7 +10170,7 @@ const handleModalPasteBuffetItem = (e) => {
 
         const reportPayload = {
           market: marketType,
-          title: isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي',
+          title: reportTitle,
           pdfUrl: downloadUrl,
           uploadedAt: serverTimestamp(),
           uploadedAtFormatted: formattedNow,
@@ -10121,8 +10183,8 @@ const handleModalPasteBuffetItem = (e) => {
         await addDoc(collection(db, 'weekly_reports_history'), reportPayload).catch(() => {});
 
         await addDoc(collection(db, 'platform_notifications'), {
-          title: isSaudi ? '📄 تقرير أسبوعي جديد للسوق السعودي' : '📄 تقرير أسبوعي جديد للسوق الأمريكي',
-          body: `تم رفع وتحديث التقرير الأسبوعي الشامل لـ ${marketTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
+          title: `📄 ${reportTitle}`,
+          body: `تم رفع وتحديث ${reportTitle} على موقع المنصة، انقر للمعاينة والتحميل`,
           type: 'pdf_report',
           market: marketType,
           url: '/platform-videos',
@@ -10130,7 +10192,7 @@ const handleModalPasteBuffetItem = (e) => {
           timestampMillis: Date.now()
         }).catch(() => {});
 
-        toast.success(`تم نشر وتحويل تقرير ${marketTitle} على موقع المنصة وإرسال التنبيه للعملاء بنجاح 🚀✨`, { id: toastId, duration: 6000 });
+        toast.success(`تم نشر وتحويل ${reportTitle} على موقع المنصة وإرسال التنبيه للعملاء بنجاح 🚀✨`, { id: toastId, duration: 6000 });
         setPdfReportModalMarket(null);
       } catch (err) {
         console.error('Error publishing weekly PDF report:', err);
@@ -10142,24 +10204,21 @@ const handleModalPasteBuffetItem = (e) => {
   };
 
   const handleDeletePublishedPdfReport = async (targetMarket) => {
-    const marketType = (targetMarket === 'us' || targetMarket === 'us_latest') ? 'us' : 'saudi';
-    const isSaudi = marketType === 'saudi';
-    const marketTitle = isSaudi ? 'التقرير الأسبوعي للسوق السعودي' : 'التقرير الأسبوعي للسوق الأمريكي';
-    const docId = isSaudi ? 'saudi_latest' : 'us_latest';
-    const docIdAlt = isSaudi ? 'saudi' : 'us';
+    const meta = getReportMeta(targetMarket);
+    const { marketType, reportTitle, docId, docIdAlt } = meta;
 
-    if (!window.confirm(`هل أنت تأكد من رغبتك في حذف وإلغاء نشر ${marketTitle} من موقع المنصة فوراً؟`)) {
+    if (!window.confirm(`هل أنت تأكد من رغبتك في حذف وإلغاء نشر ${reportTitle} من موقع المنصة فوراً؟`)) {
       return;
     }
 
-    const toastId = toast.loading(`جاري حذف وإلغاء نشر التقرير لـ ${marketTitle} من الموقع... ⏳`);
+    const toastId = toast.loading(`جاري حذف وإلغاء نشر ${reportTitle} من الموقع... ⏳`);
     try {
       await deleteDoc(doc(db, 'weekly_reports', docId)).catch(() => {});
       await deleteDoc(doc(db, 'weekly_reports', docIdAlt)).catch(() => {});
       await setDoc(doc(db, 'weekly_reports', docId), {
         pdfUrl: '',
         market: marketType,
-        title: marketTitle,
+        title: reportTitle,
         uploadedAtFormatted: '',
         uploadedBy: '',
         fileName: ''
@@ -10167,16 +10226,17 @@ const handleModalPasteBuffetItem = (e) => {
       await setDoc(doc(db, 'weekly_reports', docIdAlt), {
         pdfUrl: '',
         market: marketType,
-        title: marketTitle,
+        title: reportTitle,
         uploadedAtFormatted: '',
         uploadedBy: '',
         fileName: ''
       });
-      toast.success(`تم حذف وإلغاء نشر ${marketTitle} من موقع المنصة بنجاح 🗑️`, { id: toastId });
+
+      toast.success(`تم حذف وإلغاء نشر ${reportTitle} من موقع المنصة بنجاح 🗑️`, { id: toastId });
       setPdfReportModalMarket(null);
-    } catch (e) {
-      console.error(e);
-      toast.error('حدث خطأ أثناء إلغاء التقرير', { id: toastId });
+    } catch (err) {
+      console.error('Error deleting published report:', err);
+      toast.error('حدث خطأ أثناء حذف التقرير من الموقع: ' + (err.message || ''), { id: toastId });
     }
   };
 
@@ -26437,9 +26497,10 @@ const handleExportBuffetToExcel = () => {
         )}
         {/* PDF & Report Management Modal (v2.30) */}
         {pdfReportModalMarket && (() => {
-          const isSaudi = pdfReportModalMarket === 'saudi';
-          const marketTitle = isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸';
-          const publishedReport = publishedWeeklyReports[pdfReportModalMarket];
+          const isSaudi = pdfReportModalMarket === 'saudi' || pdfReportModalMarket?.startsWith('saudi');
+          const currentTarget = activePdfSubMarket || pdfReportModalMarket;
+          const meta = getReportMeta(currentTarget);
+          const publishedReport = publishedWeeklyReports[currentTarget];
           const hasPublishedReport = !!(publishedReport && publishedReport.pdfUrl && publishedReport.pdfUrl !== '#');
 
           return (
@@ -26460,10 +26521,10 @@ const handleExportBuffetToExcel = () => {
                     </div>
                     <div>
                       <h3 className="font-extrabold text-sm sm:text-base text-white">
-                        خيارات وإدارة تقرير PDF - {marketTitle}
+                        خيارات وإدارة التقارير - {isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸'}
                       </h3>
                       <p className="text-[11px] text-purple-200/80 mt-0.5">
-                        طباعة، تحميل محلي، رفع ملف للموقع، أو حذف التقرير المرفوع حالياً
+                        اختر نوع التقرير المطلوب ثم انقر للرفع المباشر، التوليد التلقائي، أو الحذف
                       </p>
                     </div>
                   </div>
@@ -26476,6 +26537,46 @@ const handleExportBuffetToExcel = () => {
                   </button>
                 </div>
 
+                {/* Sub-Market Selector Tabs */}
+                <div className="p-3 bg-slate-950/90 border-b border-white/5">
+                  <p className="text-[11px] font-bold text-slate-400 mb-1.5">حدد التقرير المراد إدارته:</p>
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-900 rounded-2xl border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setActivePdfSubMarket(isSaudi ? 'saudi' : 'us')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
+                        (currentTarget === 'saudi' || currentTarget === 'us')
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>📄 التقرير الأسبوعي</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePdfSubMarket(isSaudi ? 'saudi_open' : 'us_open')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
+                        (currentTarget === 'saudi_open' || currentTarget === 'us_open')
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>🌅 تقرير الافتتاح</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePdfSubMarket(isSaudi ? 'saudi_close' : 'us_close')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
+                        (currentTarget === 'saudi_close' || currentTarget === 'us_close')
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>🌇 تقرير الإغلاق</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Current Live Status */}
                 <div className="p-4 bg-slate-950/70 border-b border-white/5">
                   <div className={`p-3 rounded-2xl border text-xs flex flex-col gap-1 ${
@@ -26485,7 +26586,7 @@ const handleExportBuffetToExcel = () => {
                   }`}>
                     <div className="flex items-center justify-between">
                       <span className="font-black flex items-center gap-1.5">
-                        <span>{hasPublishedReport ? '🟢 التقرير منشور ومتاح حالياً على موقع المنصة' : '🔴 لم يتم رفع تقرير على موقع المنصة حالياً'}</span>
+                        <span>{meta.reportTitle}: {hasPublishedReport ? '🟢 منشور ومتاح حالياً على الموقع' : '🔴 لم يتم رفع تقرير على الموقع حالياً'}</span>
                       </span>
                       {hasPublishedReport && (
                         <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
@@ -26504,14 +26605,14 @@ const handleExportBuffetToExcel = () => {
 
                 {/* Options Grid */}
                 <div className="p-4 sm:p-5 space-y-3">
-                  <p className="text-xs font-bold text-slate-300 mb-2">اختر الإجراء المطلوب لتقرير PDF:</p>
+                  <p className="text-xs font-bold text-slate-300 mb-2">اختر الإجراء المطلوب لـ ({meta.reportTitle}):</p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {/* 1. Print */}
                     <button
                       type="button"
                       onClick={() => {
-                        const targetM = pdfReportModalMarket;
+                        const targetM = currentTarget;
                         setPdfReportModalMarket(null);
                         handleExportSignalsPdf(targetM);
                       }}
@@ -26530,7 +26631,7 @@ const handleExportBuffetToExcel = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const targetM = pdfReportModalMarket;
+                        const targetM = currentTarget;
                         setPdfReportModalMarket(null);
                         handleExportSignalsPdf(targetM);
                       }}
@@ -26549,7 +26650,7 @@ const handleExportBuffetToExcel = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const targetM = pdfReportModalMarket;
+                        const targetM = currentTarget;
                         setPdfReportModalMarket(null);
                         handleAutoPublishRecommendationsPdf(targetM);
                       }}
@@ -26559,16 +26660,35 @@ const handleExportBuffetToExcel = () => {
                         <Upload size={18} />
                       </div>
                       <div>
-                        <span className="font-bold text-xs text-emerald-300 block">🚀 رفع ونشر تقرير التوصيات الحالي فوراً لموقع المنصة (بضغطة واحدة)</span>
-                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">توليد ونشر تقرير التوصيات الحالي تلقائياً على المنصة بدون اختيار ملف</span>
+                        <span className="font-bold text-xs text-emerald-300 block">🚀 إنشاء ونشر التقرير الحالي تلقائياً لموقع المنصة</span>
+                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">توليد ونشر {meta.reportTitle} تلقائياً على الموقع</span>
                       </div>
                     </button>
 
-                    {/* 4. Delete from website */}
+                    {/* 4. Upload Custom PDF Direct */}
                     <button
                       type="button"
                       onClick={() => {
-                        const targetM = pdfReportModalMarket;
+                        const targetM = currentTarget;
+                        setPdfReportModalMarket(null);
+                        handleUploadWebsitePdfDirect(targetM);
+                      }}
+                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-blue-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-white block">📁 رفع ملف PDF خاص بك</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">اختيار ملف PDF جاهز من جهازك ونشره</span>
+                      </div>
+                    </button>
+
+                    {/* 5. Delete from website */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetM = currentTarget;
                         setPdfReportModalMarket(null);
                         handleDeletePublishedPdfReport(targetM);
                       }}
@@ -26579,7 +26699,7 @@ const handleExportBuffetToExcel = () => {
                       </div>
                       <div>
                         <span className="font-bold text-xs text-rose-300 block">🗑️ حذف وإلغاء نشر التقرير</span>
-                        <span className="text-[10px] text-rose-200/70 block mt-0.5">حذف التقرير المرفوع حالياً من الموقع فوراً</span>
+                        <span className="text-[10px] text-rose-200/70 block mt-0.5">حذف {meta.reportTitle} المرفوع حالياً من الموقع</span>
                       </div>
                     </button>
                   </div>
