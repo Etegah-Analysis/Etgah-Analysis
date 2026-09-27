@@ -7312,17 +7312,72 @@ const Dashboard = () => {
     });
   };
 
+  const handleProcessAndSetReceiptImage = async (fileOrDataUrl) => {
+    if (!fileOrDataUrl) return;
+    if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:application/pdf')) {
+      if (fileOrDataUrl.length > 1000000) {
+        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 800KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
+        return;
+      }
+      setSubReceiptFileUrl(fileOrDataUrl);
+      toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄');
+      return;
+    }
+    try {
+      const compressed = await compressReceiptImage(fileOrDataUrl, 1400, 0.80);
+      setSubReceiptFileUrl(compressed);
+      toast.success('تم معالجة ورفع صورة الإشعار بدقة فائقة وحجم خفيف 📄✨');
+    } catch (err) {
+      setSubReceiptFileUrl(fileOrDataUrl);
+      toast.success('تم إرفاق صورة الإشعار بنجاح 📄');
+    }
+  };
+
+  const handleSubscriptionModalPaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              handleProcessAndSetReceiptImage(ev.target.result);
+            };
+            reader.readAsDataURL(file);
+            toast.success('تم لصق صورة الإشعار (Ctrl + V) بنجاح 📋✨');
+            break;
+          }
+        }
+      }
+    }
+  };
+
   const sanitizeSubscriptionHistoryPayload = async (historyList) => {
     if (!Array.isArray(historyList)) return [];
     const sanitized = await Promise.all(historyList.map(async (item) => {
-      if (item.receiptUrl && item.receiptUrl.startsWith('data:image/') && item.receiptUrl.length > 200000) {
+      if (!item.receiptUrl) return item;
+      
+      // If image base64 > 150KB, compress it via Canvas
+      if (item.receiptUrl.startsWith('data:image/') && item.receiptUrl.length > 150000) {
         try {
           const compressed = await compressReceiptImage(item.receiptUrl, 1200, 0.75);
-          return { ...item, receiptUrl: compressed };
-        } catch (e) {
-          return item;
-        }
+          if (compressed && compressed.length < item.receiptUrl.length) {
+            return { ...item, receiptUrl: compressed };
+          }
+        } catch (e) {}
       }
+
+      // If PDF or uncompressible base64 payload is > 200KB in history list:
+      // Replace raw file payload of historical items so total document payload never exceeds 100KB
+      if (item.receiptUrl.startsWith('data:') && item.receiptUrl.length > 200000) {
+        return { 
+          ...item, 
+          receiptUrl: '', 
+          receiptProof: (item.receiptProof || 'مسجل') + ' (تم أرشفة الإشعار القديم)' 
+        };
+      }
+
       return item;
     }));
     return sanitized;
@@ -7339,24 +7394,15 @@ const Dashboard = () => {
       }
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setSubReceiptFileUrl(ev.target.result);
-        toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄');
+        handleProcessAndSetReceiptImage(ev.target.result);
       };
       reader.readAsDataURL(file);
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = async (uploadEvent) => {
-      const rawData = uploadEvent.target.result;
-      try {
-        const compressed = await compressReceiptImage(rawData, 1400, 0.80);
-        setSubReceiptFileUrl(compressed);
-        toast.success('تم معالجة ورفع صورة الإشعار بدقة فائقة وحجم خفيف 📄✨');
-      } catch (err) {
-        setSubReceiptFileUrl(rawData);
-        toast.success('تم رفع صورة الإشعار بنجاح 📄');
-      }
+    reader.onload = (uploadEvent) => {
+      handleProcessAndSetReceiptImage(uploadEvent.target.result);
     };
     reader.readAsDataURL(file);
   };
@@ -23634,7 +23680,7 @@ const handleExportBuffetToExcel = () => {
               onClick={() => setIsSubscriptionModalOpen(false)} 
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
             />
-            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-slate-900 text-white rounded-3xl shadow-2xl w-full max-w-xl p-6 relative z-10 max-h-[84vh] my-auto flex flex-col border border-emerald-500/40 overflow-hidden cursor-default" onPaste={handleSubscriptionModalPaste} onClick={(e) => e.stopPropagation()}>
               
               {/* Modal Header */}
               <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20 mb-4">
@@ -23951,12 +23997,28 @@ const handleExportBuffetToExcel = () => {
                         </button>
                       </div>
                     ) : (
-                      <input 
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleReceiptFileUpload}
-                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer border border-slate-700 rounded-xl bg-slate-900 p-1"
-                      />
+                      <div className="space-y-2">
+                        <div 
+                          tabIndex="0"
+                          onPaste={handleSubscriptionModalPaste}
+                          className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 bg-slate-900/80 rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400 group"
+                          onClick={() => {
+                            document.getElementById('sub-receipt-file-input')?.click();
+                          }}
+                        >
+                          <span className="text-2xl group-hover:scale-110 transition-transform">📋 / 📁</span>
+                          <span className="text-xs font-bold text-emerald-300 block">انقر هنا لاختيار ملف الإشعار أو اضغط (Ctrl + V) للصق صورة الإشعار مباشرةً</span>
+                          <span className="text-[10px] text-gray-400 block">يدعم الصور (JPG, PNG) وملفات PDF (حتى 800KB)</span>
+                        </div>
+                        <input 
+                          id="sub-receipt-file-input"
+                          type="file"
+                          accept="image/*,.pdf"
+                          onClick={(e) => { e.target.value = null; }}
+                          onChange={handleReceiptFileUpload}
+                          className="hidden"
+                        />
+                      </div>
                     )}
                   </div>
 
