@@ -6935,11 +6935,101 @@ const Dashboard = () => {
   };
 
   const handleRestore = async (item) => {
-    if (!isAdmin) {
-      toast.error('صلاحية استرجاع البيانات محصورة بالإدارة العليا فقط 🔒');
+    if (!isAdmin && !hasPermission(currentEmpUser, 'canRestoreFromRecycleBin')) {
+      toast.error('صلاحية استرجاع البيانات محصورة بالإدارة والمصرح لهم فقط 🔒');
       return;
     }
     try {
+      if (item.type === 'receipt' || item.originalCollection === 'subscription_receipts') {
+        const targetId = item.customerId || item.id;
+        const cleanPhone = (item.phoneNumber || item.customerPhone || '').replace(/[^0-9+]/g, '');
+        const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : '';
+
+        let custDocRef = doc(db, 'leads_crm', targetId);
+        let custSnap = await getDoc(custDocRef);
+        if (!custSnap.exists()) {
+          custDocRef = doc(db, 'employee_leads', targetId);
+          custSnap = await getDoc(custDocRef);
+        }
+        if (!custSnap.exists() && phoneDocId) {
+          custDocRef = doc(db, 'بيانات_تسجيل_العملاء', phoneDocId);
+          custSnap = await getDoc(custDocRef);
+        }
+
+        const existingCustData = custSnap.exists() ? custSnap.data() : {};
+        const existingHistory = existingCustData.subscriptionHistory || selectedSubCustomer?.subscriptionHistory || [];
+
+        const restoredRecord = {
+          id: 'rec_' + Date.now(),
+          receiptDate: item.receiptDate || item.date || new Date().toISOString().slice(0, 10),
+          date: item.receiptDate || item.date || new Date().toISOString().slice(0, 10),
+          month: (item.receiptDate || item.date || new Date().toISOString().slice(0, 10)).slice(0, 7),
+          uploadedAt: new Date().toISOString(),
+          uploadedDateTime: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+          startDate: item.startDate || new Date().toISOString().slice(0, 10),
+          endDate: item.endDate || '',
+          serviceType: item.serviceType || 'باقة سنوية',
+          serviceCategory: item.serviceCategory || 'توصيات سعودي',
+          packageType: item.serviceType || item.packageType || 'باقة سنوية',
+          paymentType: item.paymentType || 'full',
+          agreedPercentage: item.agreedPercentage || '',
+          paidAmount: item.paidAmount || '0',
+          remainingAmount: item.remainingAmount || '',
+          receiptProof: item.receiptProof || 'مسجل',
+          receiptUrl: item.receiptUrl || '',
+          notes: item.notes || '',
+          savedBy: item.savedBy || currentEmpUser?.name || 'مسترجع من سلة المهملات',
+          savedByUid: item.savedByUid || currentUser?.uid || 'admin',
+          savedAt: new Date().toISOString()
+        };
+
+        const updatedHistory = [restoredRecord, ...existingHistory.filter(h => h.id !== item.id)];
+        const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(updatedHistory);
+        const primaryRec = sanitizedHistory[0] || {};
+        const subData = {
+          startDate: primaryRec.startDate || '',
+          endDate: primaryRec.endDate || '',
+          serviceType: primaryRec.serviceType || 'باقة سنوية',
+          serviceCategory: primaryRec.serviceCategory || 'توصيات سعودي',
+          paymentType: primaryRec.paymentType || 'full',
+          agreedPercentage: primaryRec.agreedPercentage || '',
+          paidAmount: primaryRec.paidAmount || '0',
+          remainingAmount: primaryRec.remainingAmount || '',
+          receiptProof: primaryRec.receiptProof || 'مسجل',
+          receiptUrl: primaryRec.receiptUrl || '',
+          notes: primaryRec.notes || '',
+          month: primaryRec.month || '',
+          savedBy: primaryRec.savedBy || '',
+          savedByUid: primaryRec.savedByUid || '',
+          savedAt: primaryRec.savedAt || ''
+        };
+
+        const targetIds = [targetId];
+        for (const tId of targetIds) {
+          try {
+            await updateDoc(doc(db, 'leads_crm', tId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() });
+          } catch (_) {}
+          try {
+            await updateDoc(doc(db, 'employee_leads', tId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() });
+          } catch (_) {}
+        }
+        if (phoneDocId) {
+          try {
+            await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() });
+          } catch (_) {}
+        }
+
+        await deleteDoc(doc(db, 'recycle_bin', item.id));
+
+        if (selectedSubCustomer && (selectedSubCustomer.id === targetId || selectedSubCustomer.id === phoneDocId)) {
+          setSubPaymentHistory(sanitizedHistory);
+          setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: sanitizedHistory }));
+        }
+
+        toast.success(`تم استرجاع الإشعار المالي (${item.paidAmount || '0'} ريال) بنجاح وإعادته لسجل الدفعات 🔄✨`);
+        return;
+      }
+
       const { originalCollection, type, source, itemType, deletedAt, deletedBy, deletedAtFormatted, data, name, title, id, status, ...restData } = item;
       const targetCol = originalCollection || item.source || (type === 'saudi_recommendations' ? 'saudi_recommendations' : type === 'us_recommendations' ? 'us_recommendations' : type === 'employee' ? 'users' : type === 'visitor' ? 'visitor_customers' : type === 'email' ? 'internal_emails' : 'بيانات_تسجيل_العملاء');
       const restoreObj = data || restData;
@@ -6948,7 +7038,7 @@ const Dashboard = () => {
       toast.success(`تم استرجاع (${item.title || item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح 🔄`);
     } catch (e) {
       console.error(e);
-      toast.error('حدث خطأ أثناء استرجاع العنصر');
+      toast.error('حدث خطأ أثناء استرجاع العنصر: ' + (e.message || ''));
     }
   };
 
@@ -7280,6 +7370,43 @@ const Dashboard = () => {
     setIsSubscriptionModalOpen(true);
   };
 
+  const uploadReceiptFileToStorage = async (fileOrBase64, filenamePrefix = 'receipt') => {
+    if (!fileOrBase64) return '';
+    if (typeof fileOrBase64 === 'string' && (fileOrBase64.startsWith('http://') || fileOrBase64.startsWith('https://'))) {
+      return fileOrBase64;
+    }
+    try {
+      let blob = null;
+      let contentType = 'image/jpeg';
+      if (typeof fileOrBase64 === 'string' && fileOrBase64.startsWith('data:')) {
+        const parts = fileOrBase64.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        if (mimeMatch) contentType = mimeMatch[1];
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        blob = new Blob([u8arr], { type: contentType });
+      } else if (fileOrBase64 instanceof File || fileOrBase64 instanceof Blob) {
+        blob = fileOrBase64;
+        contentType = fileOrBase64.type || 'image/jpeg';
+      }
+
+      if (blob && storage) {
+        const ext = contentType.includes('pdf') ? 'pdf' : contentType.includes('png') ? 'png' : 'jpg';
+        const storageRef = ref(storage, `subscription_receipts/${filenamePrefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`);
+        const snapshot = await uploadBytes(storageRef, blob);
+        const downloadUrl = await getDownloadURL(snapshot.ref);
+        if (downloadUrl) return downloadUrl;
+      }
+    } catch (err) {
+      console.warn('Firebase storage upload fallback:', err);
+    }
+    return fileOrBase64;
+  };
+
   const compressReceiptImage = (fileOrDataUrl, maxDimension = 1400, quality = 0.80) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -7292,7 +7419,7 @@ const Dashboard = () => {
             width = maxDimension;
           } else {
             width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
+            width = maxDimension;
           }
         }
         const canvas = document.createElement('canvas');
@@ -7314,9 +7441,18 @@ const Dashboard = () => {
 
   const handleProcessAndSetReceiptImage = async (fileOrDataUrl) => {
     if (!fileOrDataUrl) return;
+    try {
+      const uploadedUrl = await uploadReceiptFileToStorage(fileOrDataUrl, selectedSubCustomer?.name || 'rcpt');
+      if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+        setSubReceiptFileUrl(uploadedUrl);
+        toast.success('تم رفع الإشعار على السحابة بنجاح ☁️📄');
+        return;
+      }
+    } catch (_) {}
+
     if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:application/pdf')) {
-      if (fileOrDataUrl.length > 1000000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 800KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
+      if (fileOrDataUrl.length > 800000) {
+        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 500KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
         return;
       }
       setSubReceiptFileUrl(fileOrDataUrl);
@@ -7357,8 +7493,11 @@ const Dashboard = () => {
     if (!Array.isArray(historyList)) return [];
     const sanitized = await Promise.all(historyList.map(async (item) => {
       if (!item.receiptUrl) return item;
-      
-      // If image base64 > 150KB, compress it via Canvas
+
+      if (item.receiptUrl.startsWith('http://') || item.receiptUrl.startsWith('https://')) {
+        return item;
+      }
+
       if (item.receiptUrl.startsWith('data:image/') && item.receiptUrl.length > 150000) {
         try {
           const compressed = await compressReceiptImage(item.receiptUrl, 1200, 0.75);
@@ -7368,9 +7507,14 @@ const Dashboard = () => {
         } catch (e) {}
       }
 
-      // If PDF or uncompressible base64 payload is > 200KB in history list:
-      // Replace raw file payload of historical items so total document payload never exceeds 100KB
-      if (item.receiptUrl.startsWith('data:') && item.receiptUrl.length > 200000) {
+      if (item.receiptUrl.startsWith('data:') && item.receiptUrl.length > 250000) {
+        try {
+          const uploaded = await uploadReceiptFileToStorage(item.receiptUrl, item.customerName || item.name || 'hist_rcpt');
+          if (uploaded && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
+            return { ...item, receiptUrl: uploaded };
+          }
+        } catch (_) {}
+
         return { 
           ...item, 
           receiptUrl: '', 
@@ -7797,21 +7941,40 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-      const promises = [
-        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('leads_crm del update err:', e)),
-        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('employee_leads del update err:', e)),
+      let updatedAtLeastOne = false;
+      const updateErrors = [];
+      const updateTargets = [
+        { col: 'leads_crm', docId: targetId },
+        { col: 'employee_leads', docId: targetId },
       ];
       if (phoneDocId) {
-        promises.push(updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch((e) => console.warn('customer_data del update err:', e)));
+        updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
       }
-      await Promise.all(promises);
+
+      for (const target of updateTargets) {
+        try {
+          await updateDoc(doc(db, target.col, target.docId), { 
+            subscriptionDetails: updatedSubData, 
+            subscriptionHistory: sanitizedHistory, 
+            updatedAt: serverTimestamp() 
+          });
+          updatedAtLeastOne = true;
+        } catch (uErr) {
+          console.warn(`Error deleting from ${target.col}:`, uErr);
+          updateErrors.push(uErr.message || String(uErr));
+        }
+      }
+
+      if (!updatedAtLeastOne) {
+        throw new Error(updateErrors[0] || 'تعذر حذف الإشعار من السجل في قواعد البيانات');
+      }
 
       setSubPaymentHistory(sanitizedHistory);
       setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory }));
       toast.success('تم حذف الإشعار من السجل بنجاح 🗑️');
     } catch (err) {
       console.error('Error deleting receipt:', err);
-      toast.error('حدث خطأ أثناء حذف الإشعار');
+      toast.error('حدث خطأ أثناء حذف الإشعار: ' + (err.message || ''));
     }
   };
 
@@ -7876,6 +8039,28 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       let updatedHistory = [];
 
+      let finalReceiptUrl = subReceiptFileUrl || '';
+      if (finalReceiptUrl.startsWith('data:')) {
+        try {
+          const uploadedUrl = await uploadReceiptFileToStorage(finalReceiptUrl, selectedSubCustomer?.name || 'rcpt');
+          if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+            finalReceiptUrl = uploadedUrl;
+          }
+        } catch (_) {}
+      }
+
+      if (finalReceiptUrl.startsWith('data:image/') && finalReceiptUrl.length > 200000) {
+        try {
+          finalReceiptUrl = await compressReceiptImage(finalReceiptUrl, 1200, 0.78);
+        } catch (e) {}
+      }
+
+      if (finalReceiptUrl.startsWith('data:application/pdf') && finalReceiptUrl.length > 300000) {
+        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 300KB) ولم نتمكن من رفعه على التخزين السحابي... يرجى رفع صورة الإشعار (PNG/JPG) لضمان الحفظ المباشر ⚠️');
+        setSubSaving(false);
+        return;
+      }
+
       if (editingReceiptId) {
         // Editing existing payment record
         const editorIdentity = isAdmin 
@@ -7901,7 +8086,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
               paidAmount: cleanPaid,
               remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
               receiptProof: subReceiptProof?.trim() || h.receiptProof || 'مسجل',
-              receiptUrl: subReceiptFileUrl || '',
+              receiptUrl: finalReceiptUrl || h.receiptUrl || '',
               notes: subNotes?.trim() || '',
               lastEditedBy: editorIdentity,
               lastEditedByUid: currentUser?.uid || (isAdmin ? 'admin' : ''),
@@ -7932,21 +8117,13 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           paidAmount: cleanPaid,
           remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
           receiptProof: subReceiptProof?.trim() || 'مسجل',
-          receiptUrl: subReceiptFileUrl || '',
+          receiptUrl: finalReceiptUrl || '',
           notes: subNotes?.trim() || '',
           savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
           savedByUid: currentUser?.uid || 'admin',
           savedAt: uploadIso
         };
         updatedHistory = [newPaymentRecord, ...existingHistory];
-      }
-
-      // Sanitize and compress all history items so total document size is ultra-lightweight (< 200KB) and never hits Firestore 1MB limit
-      let finalReceiptUrl = subReceiptFileUrl || '';
-      if (finalReceiptUrl.startsWith('data:image/') && finalReceiptUrl.length > 200000) {
-        try {
-          finalReceiptUrl = await compressReceiptImage(finalReceiptUrl, 1200, 0.78);
-        } catch (e) {}
       }
 
       const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(updatedHistory);
@@ -7975,14 +8152,34 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-      const promises = [
-        updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch((err) => { console.warn('leads_crm update:', err); }),
-        updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch((err) => { console.warn('employee_leads update:', err); }),
+      let updatedAtLeastOne = false;
+      const updateErrors = [];
+      const updateTargets = [
+        { col: 'leads_crm', docId: targetId },
+        { col: 'employee_leads', docId: targetId },
       ];
       if (phoneDocId) {
-        promises.push(updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed', updatedAt: serverTimestamp() }).catch((err) => { console.warn('بيانات_تسجيل_العملاء update:', err); }));
+        updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
       }
-      await Promise.all(promises);
+
+      for (const target of updateTargets) {
+        try {
+          await updateDoc(doc(db, target.col, target.docId), { 
+            subscriptionDetails: subData, 
+            subscriptionHistory: sanitizedHistory, 
+            crmStatus: 'subscribed', 
+            updatedAt: serverTimestamp() 
+          });
+          updatedAtLeastOne = true;
+        } catch (uErr) {
+          console.warn(`Error updating ${target.col}:`, uErr);
+          updateErrors.push(uErr.message || String(uErr));
+        }
+      }
+
+      if (!updatedAtLeastOne) {
+        throw new Error(updateErrors[0] || 'تعذر حفظ بيانات الاشتراك في قواعد البيانات');
+      }
 
       // Clear all input fields so the form is clean and empty
       setSubReceiptDate('');
@@ -8010,7 +8207,7 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       toast.success(editingReceiptId ? 'تم حفظ التعديلات وإغلاق النافذة بنجاح 💾✨' : 'تم حفظ بيانات الاشتراك وإغلاق النافذة بنجاح 💾✨');
     } catch (err) {
       console.error('Error saving subscription details:', err);
-      toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك');
+      toast.error('حدث خطأ أثناء حفظ بيانات الاشتراك: ' + (err.message || ''));
     } finally {
       setSubSaving(false);
     }
