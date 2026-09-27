@@ -7396,7 +7396,9 @@ const Dashboard = () => {
 
       if (blob && storage) {
         const ext = contentType.includes('pdf') ? 'pdf' : contentType.includes('png') ? 'png' : 'jpg';
-        const storageRef = ref(storage, `subscription_receipts/${filenamePrefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`);
+        const cleanName = String(filenamePrefix || 'rcpt').replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20) || 'rcpt';
+        const safePath = `subscription_receipts/${cleanName}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+        const storageRef = ref(storage, safePath);
         const snapshot = await uploadBytes(storageRef, blob);
         const downloadUrl = await getDownloadURL(snapshot.ref);
         if (downloadUrl) return downloadUrl;
@@ -8059,8 +8061,8 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         } catch (e) {}
       }
 
-      if (finalReceiptUrl.startsWith('data:application/pdf') && finalReceiptUrl.length > 300000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 300KB) ولم نتمكن من رفعه على التخزين السحابي... يرجى رفع صورة الإشعار (PNG/JPG) لضمان الحفظ المباشر ⚠️');
+      if (finalReceiptUrl.startsWith('data:application/pdf') && finalReceiptUrl.length > 1300000) {
+        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 1MB) ولم نتمكن من رفعه على التخزين السحابي... يرجى رفع صورة الإشعار (PNG/JPG) أو ملف PDF أصغر لضمان الحفظ المباشر ⚠️');
         setSubSaving(false);
         return;
       }
