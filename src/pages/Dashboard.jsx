@@ -7467,58 +7467,61 @@ const Dashboard = () => {
 
   const handleProcessAndSetReceiptImage = async (fileOrDataUrl) => {
     if (!fileOrDataUrl) return;
-    const toastId = toast.loading('جاري معالجة وتجهيز ملف الإشعار...');
-    try {
-      const uploadedUrl = await uploadReceiptFileToStorage(fileOrDataUrl, selectedSubCustomer?.name || 'rcpt');
-      if (typeof uploadedUrl === 'string' && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
-        setSubReceiptFileUrl(uploadedUrl);
-        toast.success('تم رفع الإشعار وتخزينه سحابياً بنجاح ☁️📄', { id: toastId });
-        return;
+
+    if (typeof fileOrDataUrl === 'string') {
+      let fixedUrl = fileOrDataUrl;
+      if (isPdfUrl(fixedUrl) && fixedUrl.startsWith('data:') && !fixedUrl.startsWith('data:application/pdf')) {
+        fixedUrl = fixedUrl.replace(/^data:[^;]+;/, 'data:application/pdf;');
+      }
+      setSubReceiptFileUrl(fixedUrl);
+      if (isPdfUrl(fixedUrl)) {
+        toast.success('تم إرفاق ملف PDF الإشعار بنجاح 📄');
+      } else {
+        toast.success('تم إرفاق صورة الإشعار بنجاح 📄✨');
       }
 
-      if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
-        const isPdfFile = (fileOrDataUrl.type && fileOrDataUrl.type.toLowerCase().includes('pdf')) || 
-                          (fileOrDataUrl.name && fileOrDataUrl.name.toLowerCase().endsWith('.pdf'));
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          let rawResult = ev.target.result;
-          if (isPdfFile || (typeof rawResult === 'string' && isPdfUrl(rawResult))) {
-            if (typeof rawResult === 'string' && !rawResult.startsWith('data:application/pdf')) {
-              rawResult = rawResult.replace(/^data:[^;]+;/, 'data:application/pdf;');
-            }
-            setSubReceiptFileUrl(rawResult);
-            toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄', { id: toastId });
-          } else {
-            const compressed = await compressReceiptImage(rawResult, 1400, 0.80);
-            setSubReceiptFileUrl(compressed || rawResult);
-            toast.success('تم معالجة وتجهيز صورة الإشعار بنجاح 📄✨', { id: toastId });
+      if (fixedUrl.startsWith('data:')) {
+        uploadReceiptFileToStorage(fixedUrl, selectedSubCustomer?.name || 'rcpt').then(uploaded => {
+          if (uploaded && typeof uploaded === 'string' && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
+            setSubReceiptFileUrl(uploaded);
           }
-        };
-        reader.onerror = () => {
-          toast.error('حدث خطأ أثناء قراءة الملف من الجهاز', { id: toastId });
-        };
-        reader.readAsDataURL(fileOrDataUrl);
-        return;
+        }).catch(() => {});
       }
+      return;
+    }
 
-      if (typeof fileOrDataUrl === 'string') {
-        if (isPdfUrl(fileOrDataUrl)) {
-          let fixedUrl = fileOrDataUrl;
-          if (fixedUrl.startsWith('data:') && !fixedUrl.startsWith('data:application/pdf')) {
-            fixedUrl = fixedUrl.replace(/^data:[^;]+;/, 'data:application/pdf;');
+    if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+      const isPdfFile = (fileOrDataUrl.type && fileOrDataUrl.type.toLowerCase().includes('pdf')) || 
+                        (fileOrDataUrl.name && fileOrDataUrl.name.toLowerCase().endsWith('.pdf'));
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        let rawResult = ev.target.result;
+        if (isPdfFile || (typeof rawResult === 'string' && isPdfUrl(rawResult))) {
+          if (typeof rawResult === 'string' && !rawResult.startsWith('data:application/pdf')) {
+            rawResult = rawResult.replace(/^data:[^;]+;/, 'data:application/pdf;');
           }
-          setSubReceiptFileUrl(fixedUrl);
-          toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄', { id: toastId });
-          return;
+          setSubReceiptFileUrl(rawResult);
+          toast.success('تم إرفاق ملف PDF الإشعار بنجاح 📄');
+        } else {
+          const compressed = await compressReceiptImage(rawResult, 1400, 0.80);
+          setSubReceiptFileUrl(compressed || rawResult);
+          toast.success('تم إرفاق ومعالجة صورة الإشعار بنجاح 📄✨');
         }
-        const compressed = await compressReceiptImage(fileOrDataUrl, 1400, 0.80);
-        setSubReceiptFileUrl(compressed || fileOrDataUrl);
-        toast.success('تم معالجة صورة الإشعار بنجاح 📄✨', { id: toastId });
-        return;
-      }
-    } catch (err) {
-      console.error('Error processing receipt image:', err);
-      toast.error('تعذر معالجة الملف', { id: toastId });
+
+        uploadReceiptFileToStorage(fileOrDataUrl, selectedSubCustomer?.name || 'rcpt').then(uploaded => {
+          if (uploaded && typeof uploaded === 'string' && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
+            setSubReceiptFileUrl(uploaded);
+          }
+        }).catch(() => {});
+      };
+
+      reader.onerror = () => {
+        toast.error('حدث خطأ أثناء قراءة الملف من الجهاز ⚠️');
+      };
+
+      reader.readAsDataURL(fileOrDataUrl);
+      return;
     }
   };
 
@@ -7580,12 +7583,6 @@ const Dashboard = () => {
   const handleReceiptFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.type === 'application/pdf' && file.size > 1500000) {
-      toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 1.5MB). يرجى إرفاق صورة الإشعار (JPG/PNG) لضمان الحفظ السريع ⚠️');
-      return;
-    }
-
     await handleProcessAndSetReceiptImage(file);
   };
 
