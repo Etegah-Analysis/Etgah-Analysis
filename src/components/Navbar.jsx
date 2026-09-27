@@ -224,6 +224,7 @@ export default function Navbar() {
   const [remoteReadMsgIds, setRemoteReadMsgIds] = useState([]);
   const [remoteReadPlatformIds, setRemoteReadPlatformIds] = useState([]);
   const [remoteLastReadTime, setRemoteLastReadTime] = useState(0);
+  const [isRemoteNotifLoaded, setIsRemoteNotifLoaded] = useState(false);
 
   const getUserNotifKey = () => {
     if (auth.currentUser?.uid) return `user_${auth.currentUser.uid}`;
@@ -240,16 +241,34 @@ export default function Navbar() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (Array.isArray(data.readMsgIds) && data.readMsgIds.length > 0) {
-          setRemoteReadMsgIds(prev => Array.from(new Set([...prev, ...data.readMsgIds])));
+          setRemoteReadMsgIds(prev => {
+            const merged = Array.from(new Set([...prev, ...data.readMsgIds]));
+            try {
+              const saved = JSON.parse(localStorage.getItem(`etegah_read_ids_${userKey}`) || '[]');
+              localStorage.setItem(`etegah_read_ids_${userKey}`, JSON.stringify(Array.from(new Set([...saved, ...merged]))));
+            } catch (e) {}
+            return merged;
+          });
         }
         if (Array.isArray(data.readPlatformIds) && data.readPlatformIds.length > 0) {
-          setRemoteReadPlatformIds(prev => Array.from(new Set([...prev, ...data.readPlatformIds])));
+          setRemoteReadPlatformIds(prev => {
+            const merged = Array.from(new Set([...prev, ...data.readPlatformIds]));
+            try {
+              const saved = JSON.parse(localStorage.getItem(`etegah_read_platform_ids_${userKey}`) || '[]');
+              localStorage.setItem(`etegah_read_platform_ids_${userKey}`, JSON.stringify(Array.from(new Set([...saved, ...merged]))));
+            } catch (e) {}
+            return merged;
+          });
         }
         if (typeof data.lastReadTime === 'number') {
           setRemoteLastReadTime(prev => Math.max(prev, data.lastReadTime));
         }
       }
-    }, (err) => console.warn("Navbar Firestore notif sync error:", err));
+      setIsRemoteNotifLoaded(true);
+    }, (err) => {
+      console.warn("Navbar Firestore notif sync error:", err);
+      setIsRemoteNotifLoaded(true);
+    });
 
     return () => unsubNav();
   }, [visitorPhone, isEmp]);
@@ -296,7 +315,7 @@ export default function Navbar() {
 
     setNotifications(merged);
 
-    if (!isInitialNotifMount.current && merged.length > prevUnreadNotifCountRef.current) {
+    if (!isInitialNotifMount.current && isRemoteNotifLoaded && merged.length > prevUnreadNotifCountRef.current) {
       playNotificationChime();
       const latestNotif = merged[0];
       if (latestNotif && latestNotif.isPlatformNotif) {
@@ -311,11 +330,14 @@ export default function Navbar() {
         } catch (e) {}
       }
     }
-    isInitialNotifMount.current = false;
+
+    if (isRemoteNotifLoaded) {
+      isInitialNotifMount.current = false;
+    }
     prevUnreadNotifCountRef.current = merged.length;
 
     setUnreadCount(merged.length);
-  }, [chatNotifications, platformNotifications, visitorPhone, isEmp, isAdmin, remoteReadMsgIds, remoteReadPlatformIds, remoteLastReadTime]);
+  }, [chatNotifications, platformNotifications, visitorPhone, isEmp, isAdmin, remoteReadMsgIds, remoteReadPlatformIds, remoteLastReadTime, isRemoteNotifLoaded]);
 
   // Listen to custom window events for clearing notifications
   useEffect(() => {
