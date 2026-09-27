@@ -7383,8 +7383,33 @@ const Dashboard = () => {
     toast.success('تم تحميل بيانات الإشعار في النموذج بالأعلى للتعديل ✏️');
   };
 
+  const handleStartAddNewReceipt = () => {
+    setEditingReceiptId(null);
+    setIsAddingNewReceipt(true);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setSubReceiptDate(todayStr);
+    setSubStartDate(todayStr);
+    setSubEndDate('');
+    setSubPaidAmount('');
+    setSubRemainingAmount('');
+    setSubReceiptProof('');
+    setSubReceiptFileUrl('');
+    setSubNotes('');
+
+    setTimeout(() => {
+      if (modalTopRef && modalTopRef.current) {
+        modalTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (modalFormRef && modalFormRef.current) {
+        modalFormRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
+
+    toast.success('جاهز لتسجيل دفعة ورفع إشعار تحويل جديد 📝 - قم بتعبئة البيانات بالأعلى');
+  };
+
   const handleCancelEditPaymentRecord = () => {
     setEditingReceiptId(null);
+    setIsAddingNewReceipt(false);
     setSubReceiptDate('');
     setSubStartDate('');
     setSubEndDate('');
@@ -23539,6 +23564,26 @@ const handleExportBuffetToExcel = () => {
                   </div>
                 )}
 
+                {/* New Receipt Mode Alert Banner */}
+                {isAddingNewReceipt && !editingReceiptId && (
+                  <div className="bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/90 border-2 border-emerald-500/80 rounded-2xl p-3.5 text-xs text-emerald-200 shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl animate-bounce">➕</span>
+                      <div>
+                        <span className="font-black text-emerald-300 text-sm block">أنت الآن في وضع إضافة إشعار / دفعة جديدة</span>
+                        <span className="text-[11px] text-gray-300">قم بتعبئة المبلغ وإرفاق صورة أو ملف الإشعار بالأعلى، ثم اضغط حفظ بيانات الاشتراك والإغلاق.</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewReceipt(false)}
+                      className="bg-slate-800 hover:bg-slate-700 text-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-600 transition shrink-0 cursor-pointer"
+                    >
+                      إلغاء ✕
+                    </button>
+                  </div>
+                )}
+
                 {/* Required Alert Banner */}
                 <div className="bg-emerald-950/60 border border-emerald-500/30 rounded-2xl p-3 text-xs text-emerald-200 shadow-inner flex items-center gap-2">
                   <span className="text-base">📌</span>
@@ -23814,18 +23859,8 @@ const handleExportBuffetToExcel = () => {
                       <div className="flex justify-end">
                         <button
                           type="button"
-                          onClick={() => {
-                            setIsAddingNewReceipt(true);
-                            setSubReceiptProof('');
-                            setSubReceiptFileUrl('');
-                            setSubPaidAmount('');
-                            setSubRemainingAmount('');
-                            setSubStartDate(new Date().toISOString().slice(0, 10));
-                            setSubEndDate('');
-                            setSubNotes('');
-                            toast.success('جاهز لتسجيل دفعة ورفع إشعار تحويل جديد 📝');
-                          }}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-md cursor-pointer active:scale-95"
+                          onClick={handleStartAddNewReceipt}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95 border border-emerald-400/50"
                         >
                           <span>➕ إضافة إشعار / دفعة جديدة</span>
                         </button>
