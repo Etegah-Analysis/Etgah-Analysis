@@ -7409,28 +7409,37 @@ const Dashboard = () => {
 
   const compressReceiptImage = (fileOrDataUrl, maxDimension = 1400, quality = 0.80) => {
     return new Promise((resolve) => {
+      if (!fileOrDataUrl) return resolve('');
+      if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://') || fileOrDataUrl.startsWith('data:application/pdf'))) {
+        return resolve(fileOrDataUrl);
+      }
       const img = new Image();
       img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            width = maxDimension;
+        try {
+          let width = img.width || 800;
+          let height = img.height || 600;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
           }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl || fileOrDataUrl);
+        } catch (e) {
+          console.warn('Canvas compression error:', e);
+          resolve(fileOrDataUrl);
         }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(compressedDataUrl);
       };
       img.onerror = () => {
         resolve(fileOrDataUrl);
@@ -7441,31 +7450,44 @@ const Dashboard = () => {
 
   const handleProcessAndSetReceiptImage = async (fileOrDataUrl) => {
     if (!fileOrDataUrl) return;
+    const toastId = toast.loading('جاري معالجة وتجهيز ملف الإشعار...');
     try {
       const uploadedUrl = await uploadReceiptFileToStorage(fileOrDataUrl, selectedSubCustomer?.name || 'rcpt');
       if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
         setSubReceiptFileUrl(uploadedUrl);
-        toast.success('تم رفع الإشعار على السحابة بنجاح ☁️📄');
+        toast.success('تم رفع الإشعار وتخزينه سحابياً بنجاح ☁️📄', { id: toastId });
         return;
       }
-    } catch (_) {}
 
-    if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:application/pdf')) {
-      if (fileOrDataUrl.length > 800000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 500KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
+      if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const rawResult = ev.target.result;
+          if (typeof rawResult === 'string' && rawResult.startsWith('data:application/pdf')) {
+            setSubReceiptFileUrl(rawResult);
+            toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄', { id: toastId });
+          } else {
+            const compressed = await compressReceiptImage(rawResult, 1400, 0.80);
+            setSubReceiptFileUrl(compressed || rawResult);
+            toast.success('تم معالجة وتجهيز صورة الإشعار بنجاح 📄✨', { id: toastId });
+          }
+        };
+        reader.readAsDataURL(fileOrDataUrl);
         return;
       }
-      setSubReceiptFileUrl(fileOrDataUrl);
-      toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄');
-      return;
-    }
-    try {
+
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:application/pdf')) {
+        setSubReceiptFileUrl(fileOrDataUrl);
+        toast.success('تم إرفاق ملف PDF إشعار التحويل بنجاح 📄', { id: toastId });
+        return;
+      }
+
       const compressed = await compressReceiptImage(fileOrDataUrl, 1400, 0.80);
-      setSubReceiptFileUrl(compressed);
-      toast.success('تم معالجة ورفع صورة الإشعار بدقة فائقة وحجم خفيف 📄✨');
+      setSubReceiptFileUrl(compressed || fileOrDataUrl);
+      toast.success('تم معالجة صورة الإشعار بنجاح 📄✨', { id: toastId });
     } catch (err) {
-      setSubReceiptFileUrl(fileOrDataUrl);
-      toast.success('تم إرفاق صورة الإشعار بنجاح 📄');
+      console.error('Error processing receipt image:', err);
+      toast.error('تعذر معالجة الملف', { id: toastId });
     }
   };
 
@@ -7476,12 +7498,7 @@ const Dashboard = () => {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
           if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              handleProcessAndSetReceiptImage(ev.target.result);
-            };
-            reader.readAsDataURL(file);
-            toast.success('تم لصق صورة الإشعار (Ctrl + V) بنجاح 📋✨');
+            handleProcessAndSetReceiptImage(file);
             break;
           }
         }
@@ -7527,61 +7544,48 @@ const Dashboard = () => {
     return sanitized;
   };
 
-  const handleReceiptFileUpload = (e) => {
+  const handleReceiptFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === 'application/pdf') {
-      if (file.size > 800000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 800KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        handleProcessAndSetReceiptImage(ev.target.result);
-      };
-      reader.readAsDataURL(file);
+    if (file.type === 'application/pdf' && file.size > 1500000) {
+      toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 1.5MB). يرجى إرفاق صورة الإشعار (JPG/PNG) لضمان الحفظ السريع ⚠️');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      handleProcessAndSetReceiptImage(uploadEvent.target.result);
-    };
-    reader.readAsDataURL(file);
+    await handleProcessAndSetReceiptImage(file);
   };
 
-  const handleEditReceiptFileUpload = (e) => {
+  const handleEditReceiptFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === 'application/pdf') {
-      if (file.size > 800000) {
-        toast.error('حجم ملف الـ PDF كبير جداً (أكثر من 800KB). يرجى إرفاق صورة الإشعار بدلاً من PDF لضمان الحفظ السريع ⚠️');
+    const toastId = toast.loading('جاري رفع وتجهيز الإشعار الجديد للتعديل...');
+    try {
+      const uploadedUrl = await uploadReceiptFileToStorage(file, selectedSubCustomer?.name || 'rcpt_edit');
+      if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+        setEditReceiptFileUrl(uploadedUrl);
+        toast.success('تم رفع وحفظ الإشعار الجديد سحابياً ☁️📄', { id: toastId });
         return;
       }
+
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditReceiptFileUrl(ev.target.result);
-        toast.success('تم إرفاق ملف PDF إشعار التحويل الجديد للتعديل 📄');
+      reader.onload = async (event) => {
+        const rawData = event.target.result;
+        if (file.type === 'application/pdf') {
+          setEditReceiptFileUrl(rawData);
+          toast.success('تم إرفاق ملف PDF الإشعار الجديد 📄', { id: toastId });
+        } else {
+          const compressed = await compressReceiptImage(rawData, 1400, 0.80);
+          setEditReceiptFileUrl(compressed || rawData);
+          toast.success('تم معالجة وتجهيز الإشعار الجديد للتعديل 📄✨', { id: toastId });
+        }
       };
       reader.readAsDataURL(file);
-      return;
+    } catch (err) {
+      console.error('Error handling edit receipt upload:', err);
+      toast.error('حدث خطأ أثناء رفع ملف الإشعار', { id: toastId });
     }
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const rawData = event.target.result;
-      try {
-        const compressed = await compressReceiptImage(rawData, 1400, 0.80);
-        setEditReceiptFileUrl(compressed);
-        toast.success('تم معالجة وتجهيز صورة الإشعار الجديدة للتعديل بدقة عالية 📄✨');
-      } catch (err) {
-        setEditReceiptFileUrl(rawData);
-        toast.success('تم تجهيز صورة الإشعار الجديدة للتعديل 📄');
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleStartEditPaymentRecord = (item) => {
@@ -24195,26 +24199,24 @@ const handleExportBuffetToExcel = () => {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <div 
+                        <label 
+                          htmlFor="sub-receipt-file-input"
                           tabIndex="0"
                           onPaste={handleSubscriptionModalPaste}
-                          className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 bg-slate-900/80 rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400 group"
-                          onClick={() => {
-                            document.getElementById('sub-receipt-file-input')?.click();
-                          }}
+                          className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 bg-slate-900/80 rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400 group block"
                         >
                           <span className="text-2xl group-hover:scale-110 transition-transform">📋 / 📁</span>
                           <span className="text-xs font-bold text-emerald-300 block">انقر هنا لاختيار ملف الإشعار أو اضغط (Ctrl + V) للصق صورة الإشعار مباشرةً</span>
                           <span className="text-[10px] text-gray-400 block">يدعم الصور (JPG, PNG) وملفات PDF (حتى 800KB)</span>
-                        </div>
-                        <input 
-                          id="sub-receipt-file-input"
-                          type="file"
-                          accept="image/*,.pdf"
-                          onClick={(e) => { e.target.value = null; }}
-                          onChange={handleReceiptFileUpload}
-                          className="hidden"
-                        />
+                          <input 
+                            id="sub-receipt-file-input"
+                            type="file"
+                            accept="image/*,.pdf"
+                            onClick={(e) => { e.stopPropagation(); e.target.value = null; }}
+                            onChange={handleReceiptFileUpload}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
                     )}
                   </div>
