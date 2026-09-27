@@ -164,7 +164,7 @@ export default function Navbar() {
           id: d.id,
           isPlatformNotif: true,
           senderName: data.title || (data.type === 'pdf_report' ? '📄 تقرير أسبوعي جديد' : '🎥 فيديو جديد بالمنصة'),
-          text: data.body || (data.type === 'pdf_report' ? 'المكان: صفحة فيديوهات المنصة والنتائج السابقة (انقر للمعاينة والتحميل 📄)' : 'المكان: صفحة فيديوهات المنصة والنتائج السابقة (انقر للمشاهدة 🎥)'),
+          text: data.body || (data.type === 'pdf_report' ? 'المكان: صفحة تقارير رؤية الافتتاح والإغلاق وتقرير نتائج المنصة السابقة (انقر للمعاينة والتحميل 📄)' : 'المكان: صفحة تقارير رؤية الافتتاح والإغلاق وتقرير نتائج المنصة السابقة (انقر للمشاهدة 🎥)'),
           url: data.url || '/platform-videos',
           timestamp: data.createdAt || data.timestamp,
           timestampMillis: data.timestampMillis || (data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now()),
@@ -189,7 +189,7 @@ export default function Navbar() {
             id: uniqueId,
             isPlatformNotif: true,
             senderName: isSaudi ? '📄 تم رفع التقرير الأسبوعي للسوق السعودي' : '📄 تم رفع التقرير الأسبوعي للسوق الأمريكي',
-            text: `المكان: صفحة فيديوهات المنصة والنتائج السابقة 📄 (${data.uploadedAtFormatted || 'تقرير أسبوعي معتمد'})`,
+            text: `المكان: صفحة تقارير رؤية الافتتاح والإغلاق وتقرير نتائج المنصة السابقة 📄 (${data.uploadedAtFormatted || 'تقرير أسبوعي معتمد'})`,
             url: '/platform-videos',
             timestamp: data.uploadedAt || data.createdAt,
             timestampMillis: timestampMs || Date.now(),
@@ -463,7 +463,7 @@ export default function Navbar() {
             الرئيسية
           </Link>
           <Link to="/platform-videos" className="nav-link" onClick={() => setIsMobileMenuOpen(false)}>
-            فيديوهات المنصة والنتائج السابقة
+            تقارير رؤية الافتتاح والإغلاق وتقرير نتائج المنصة السابقة
           </Link>
           <Link to="/news" className="nav-link" onClick={() => setIsMobileMenuOpen(false)}>
             أخبار السوق السعودي
