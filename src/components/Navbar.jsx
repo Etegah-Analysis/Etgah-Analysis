@@ -389,7 +389,29 @@ export default function Navbar() {
       setIsMobileMenuOpen(false);
       localStorage.setItem(`etegah_notif_last_read_${userKey}`, Date.now().toString());
       setUnreadCount(prev => Math.max(0, prev - 1));
-      navigate(targetMsg.url || '/platform-videos');
+
+      // Extract market key for automatic navigation and opening
+      let reportMarket = targetMsg.market || targetMsg.reportMarket;
+      if (!reportMarket) {
+        const titleAndBody = `${targetMsg.title || ''} ${targetMsg.text || ''} ${targetMsg.body || ''}`;
+        if (titleAndBody.includes('افتتاح')) {
+          reportMarket = titleAndBody.includes('الأمريكي') ? 'us_open' : 'saudi_open';
+        } else if (titleAndBody.includes('إغلاق')) {
+          reportMarket = titleAndBody.includes('الأمريكي') ? 'us_close' : 'saudi_close';
+        } else if (titleAndBody.includes('الأمريكي')) {
+          reportMarket = 'us';
+        } else {
+          reportMarket = 'saudi';
+        }
+      }
+
+      const baseUrl = targetMsg.url || '/platform-videos';
+      navigate(`${baseUrl}?market=${reportMarket}`, {
+        state: {
+          autoOpenMarket: reportMarket,
+          targetMsg
+        }
+      });
       return;
     }
 
