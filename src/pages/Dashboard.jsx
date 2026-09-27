@@ -9853,6 +9853,289 @@ const handleModalPasteBuffetItem = (e) => {
   const [activePdfSubMarket, setActivePdfSubMarket] = useState('saudi');
   const [publishedWeeklyReports, setPublishedWeeklyReports] = useState({ saudi: null, us: null, saudi_open: null, saudi_close: null, us_open: null, us_close: null });
 
+  const [dailyReportPublishMode, setDailyReportPublishMode] = useState('paste');
+  const [pastedImagePreview, setPastedImagePreview] = useState(null);
+  const [pastedImageFile, setPastedImageFile] = useState(null);
+  const [dailyReportText, setDailyReportText] = useState('');
+  const [dailyTargetLevel, setDailyTargetLevel] = useState('');
+  const [dailyCurrentLevel, setDailyCurrentLevel] = useState('');
+  const [dailySupportLevel, setDailySupportLevel] = useState('');
+
+  const handleClipboardPaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          setPastedImageFile(blob);
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            setPastedImagePreview(evt.target.result);
+            toast.success('تم لصق الصورة من الحافظة (Clipboard) بنجاح! 📋✨');
+          };
+          reader.readAsDataURL(blob);
+          break;
+        }
+      }
+    }
+  };
+
+  const generateBrandedReportImage = async ({ reportTitle, textContent, targetLevel, currentLevel, supportLevel }) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
+    bgGrad.addColorStop(0, '#040914');
+    bgGrad.addColorStop(0.5, '#0a1329');
+    bgGrad.addColorStop(1, '#020611');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    const g1 = ctx.createRadialGradient(200, 200, 10, 200, 200, 400);
+    g1.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
+    g1.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    const g2 = ctx.createRadialGradient(900, 900, 10, 900, 900, 400);
+    g2.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+    g2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, 1040, 1040);
+
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.src = window.location.origin + '/logo.jpg';
+      await new Promise((res) => {
+        logoImg.onload = res;
+        logoImg.onerror = res;
+        setTimeout(res, 800);
+      });
+      if (logoImg.complete && logoImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(140, 110, 50, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(logoImg, 90, 60, 100, 100);
+        ctx.restore();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(140, 110, 50, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } catch (e) {}
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'extrabold 44px "Segoe UI", Tahoma, sans-serif';
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'right';
+    ctx.fillText('اتجاه التحليل الذكي', 980, 100);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+    ctx.fillText('نحو قرارات أدق... برؤية أعمق', 980, 138);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+
+    const roundRectLocal = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+
+    roundRectLocal(60, 180, 960, 60, 16);
+
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = 'bold 28px "Segoe UI", Tahoma, sans-serif';
+    ctx.textAlign = 'center';
+    const formattedDate = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    ctx.fillText(`${reportTitle} • ${formattedDate}`, 540, 222);
+
+    const hasMetrics = targetLevel || currentLevel || supportLevel;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    roundRectLocal(60, 265, 960, hasMetrics ? 480 : 660, 24);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 28px "Segoe UI", Tahoma, sans-serif';
+    ctx.textAlign = 'right';
+
+    const wrapTextRTL = (text, maxWidth) => {
+      const words = (text || '').split(' ');
+      const lines = [];
+      let currentLine = words[0] || '';
+      for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const width = ctx.measureText(currentLine + ' ' + word).width;
+        if (width < maxWidth) currentLine += ' ' + word;
+        else { lines.push(currentLine); currentLine = word; }
+      }
+      lines.push(currentLine);
+      return lines;
+    };
+
+    const textLines = wrapTextRTL(textContent || 'لا يوجد نص تقرير مدخل', 900);
+    let yPos = 325;
+    const maxLineY = hasMetrics ? 710 : 890;
+    textLines.forEach(line => {
+      if (yPos < maxLineY) {
+        ctx.fillText(line, 980, yPos);
+        yPos += 46;
+      }
+    });
+
+    if (hasMetrics) {
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.9)';
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      roundRectLocal(60, 770, 960, 170, 20);
+
+      const colW = 960 / 3;
+      if (targetLevel) {
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('هدف 🎯', 60 + colW * 2.5, 815);
+        ctx.font = 'extrabold 36px monospace';
+        ctx.fillText(targetLevel, 60 + colW * 2.5, 875);
+      }
+      if (currentLevel) {
+        ctx.fillStyle = '#60a5fa';
+        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('مستوى الإغلاق / الافتتاح 📊', 60 + colW * 1.5, 815);
+        ctx.font = 'extrabold 36px monospace';
+        ctx.fillText(currentLevel, 60 + colW * 1.5, 875);
+      }
+      if (supportLevel) {
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('مستوى الدعم 🛑', 60 + colW * 0.5, 815);
+        ctx.font = 'extrabold 36px monospace';
+        ctx.fillText(supportLevel, 60 + colW * 0.5, 875);
+      }
+    }
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 18px "Segoe UI", Tahoma, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('جميع البيانات تم إنشاؤها عبر منصة اتجاه التحليل الذكي © ' + new Date().getFullYear(), 540, 1010);
+
+    return canvas.toDataURL('image/png');
+  };
+
+  const handlePublishImageReport = async (targetMarket) => {
+    const meta = getReportMeta(targetMarket);
+    const { marketType, marketTitle, reportTitle, docId, docIdAlt } = meta;
+    const userRole = isAdmin ? '👑 الإدارة' : (currentEmpUser?.name || 'محلل المنصة');
+
+    const toastId = toast.loading(`جاري رفع ونشر ${reportTitle} على موقع المنصة... ⏳`);
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+    try {
+      let finalImageUrl = '';
+
+      if (dailyReportPublishMode === 'text') {
+        if (!dailyReportText || dailyReportText.trim().length < 3) {
+          toast.error('يرجى كتابة نص التقرير أولاً لتوليد الصورة ⚠️', { id: toastId });
+          return;
+        }
+        finalImageUrl = await generateBrandedReportImage({
+          reportTitle,
+          textContent: dailyReportText,
+          targetLevel: dailyTargetLevel,
+          currentLevel: dailyCurrentLevel,
+          supportLevel: dailySupportLevel
+        });
+      } else {
+        if (!pastedImagePreview) {
+          toast.error('يرجى لصق صورة من الحافظة (Ctrl+V) أو اختيار صورة أولاً ⚠️', { id: toastId });
+          return;
+        }
+        finalImageUrl = pastedImagePreview;
+      }
+
+      if (storage && (pastedImageFile || finalImageUrl.startsWith('data:'))) {
+        try {
+          const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.png`;
+          const fileRef = ref(storage, storagePath);
+          let blobToUpload = pastedImageFile;
+          if (!blobToUpload) {
+            const res = await fetch(finalImageUrl);
+            blobToUpload = await res.blob();
+          }
+          const uploadedUrl = await Promise.race([
+            uploadBytes(fileRef, blobToUpload).then(() => getDownloadURL(fileRef)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage timeout')), 4000))
+          ]);
+          if (uploadedUrl) finalImageUrl = uploadedUrl;
+        } catch (stErr) {
+          console.warn('Storage upload timeout or error fallback to base64 data URL:', stErr);
+        }
+      }
+
+      const reportPayload = {
+        market: marketType,
+        title: reportTitle,
+        pdfUrl: finalImageUrl,
+        uploadedAt: serverTimestamp(),
+        uploadedAtFormatted: formattedNow,
+        uploadedBy: userRole,
+        fileName: `صورة_${reportTitle}_${Date.now()}.png`
+      };
+
+      await setDoc(doc(db, 'weekly_reports', docId), reportPayload, { merge: true });
+      await setDoc(doc(db, 'weekly_reports', docIdAlt), reportPayload, { merge: true });
+      await addDoc(collection(db, 'weekly_reports_history'), reportPayload).catch(() => {});
+
+      await addDoc(collection(db, 'platform_notifications'), {
+        title: `📊 ${reportTitle}`,
+        body: `تم نشر ${reportTitle} الجديد لـ ${marketTitle} على موقع المنصة، انقر للمعاينة`,
+        type: 'pdf_report',
+        market: marketType,
+        url: '/platform-videos',
+        createdAt: serverTimestamp(),
+        timestampMillis: Date.now()
+      }).catch(() => {});
+
+      toast.success(`تم نشر ${reportTitle} كـ صورة مصممة بنجاح على موقع المنصة! 🚀✨`, { id: toastId, duration: 6000 });
+      setPdfReportModalMarket(null);
+      setPastedImagePreview(null);
+      setPastedImageFile(null);
+      setDailyReportText('');
+      setDailyTargetLevel('');
+      setDailyCurrentLevel('');
+      setDailySupportLevel('');
+    } catch (err) {
+      console.error('Error publishing image report:', err);
+      toast.error('حدث خطأ أثناء نشر التقرير: ' + (err.message || ''), { id: toastId });
+    }
+  };
+
   useEffect(() => {
     const unsubR = onSnapshot(collection(db, 'weekly_reports'), (snapshot) => {
       const repMap = { saudi: null, us: null, saudi_open: null, saudi_close: null, us_open: null, us_close: null };
@@ -26499,6 +26782,7 @@ const handleExportBuffetToExcel = () => {
         {pdfReportModalMarket && (() => {
           const isSaudi = pdfReportModalMarket === 'saudi' || pdfReportModalMarket?.startsWith('saudi');
           const currentTarget = activePdfSubMarket || pdfReportModalMarket;
+          const isDailyReport = currentTarget === 'saudi_open' || currentTarget === 'saudi_close' || currentTarget === 'us_open' || currentTarget === 'us_close';
           const meta = getReportMeta(currentTarget);
           const publishedReport = publishedWeeklyReports[currentTarget];
           const hasPublishedReport = !!(publishedReport && publishedReport.pdfUrl && publishedReport.pdfUrl !== '#');
@@ -26506,25 +26790,26 @@ const handleExportBuffetToExcel = () => {
           return (
             <div 
               onClick={() => setPdfReportModalMarket(null)}
-              className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-200"
+              className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto"
             >
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="bg-slate-900 border-2 border-purple-500/50 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col"
+                onPaste={handleClipboardPaste}
+                className="bg-slate-900 border-2 border-purple-500/50 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col my-auto"
                 dir="rtl"
               >
                 {/* Header */}
                 <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 p-4 border-b border-purple-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 text-lg shadow">
-                      📄
+                      {isDailyReport ? '🖼️' : '📄'}
                     </div>
                     <div>
                       <h3 className="font-extrabold text-sm sm:text-base text-white">
                         خيارات وإدارة التقارير - {isSaudi ? 'السوق السعودي 🇸🇦' : 'السوق الأمريكي 🇺🇸'}
                       </h3>
                       <p className="text-[11px] text-purple-200/80 mt-0.5">
-                        اختر نوع التقرير المطلوب ثم انقر للرفع المباشر، التوليد التلقائي، أو الحذف
+                        {isDailyReport ? 'نشر التقرير اليومي كـ صورة باللصق (Ctrl+V) أو توليدها بالنص تلقائياً' : 'اختر نوع التقرير المطلوب ثم انقر للرفع المباشر، التوليد التلقائي، أو الحذف'}
                       </p>
                     </div>
                   </div>
@@ -26604,105 +26889,308 @@ const handleExportBuffetToExcel = () => {
                 </div>
 
                 {/* Options Grid */}
-                <div className="p-4 sm:p-5 space-y-3">
-                  <p className="text-xs font-bold text-slate-300 mb-2">اختر الإجراء المطلوب لـ ({meta.reportTitle}):</p>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* 1. Print */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = currentTarget;
-                        setPdfReportModalMarket(null);
-                        handleExportSignalsPdf(targetM);
-                      }}
-                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-amber-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <Printer size={18} />
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-white block">🖨️ طباعة التقرير مباشرة</span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">طباعة ملخص التوصيات بـ لوجو المنصة</span>
-                      </div>
-                    </button>
+                <div className="p-4 sm:p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+                  <p className="text-xs font-bold text-slate-300">اختر طريقة النشر والإجراء المطلوب لـ ({meta.reportTitle}):</p>
 
-                    {/* 2. Download */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = currentTarget;
-                        setPdfReportModalMarket(null);
-                        handleExportSignalsPdf(targetM);
-                      }}
-                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-cyan-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <Download size={18} />
+                  {isDailyReport ? (
+                    /* Daily Opening / Closing Report Image Publishing Interface */
+                    <div className="space-y-4">
+                      {/* Sub Mode Selector */}
+                      <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => setDailyReportPublishMode('paste')}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                            dailyReportPublishMode === 'paste'
+                              ? 'bg-amber-600 text-white shadow'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span>📋 لصق / رفع صورة (Ctrl+V)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDailyReportPublishMode('text')}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                            dailyReportPublishMode === 'text'
+                              ? 'bg-amber-600 text-white shadow'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span>✍️ كتابة النص وتوليد الصورة</span>
+                        </button>
                       </div>
-                      <div>
-                        <span className="font-bold text-xs text-white block">📥 تحميل ملف PDF محلياً</span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">حفظ التقرير كملف PDF على جهازك</span>
-                      </div>
-                    </button>
 
-                    {/* 3. Auto Upload to website (1-click) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = currentTarget;
-                        setPdfReportModalMarket(null);
-                        handleAutoPublishRecommendationsPdf(targetM);
-                      }}
-                      className="p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 hover:from-emerald-900 hover:to-teal-900 text-white rounded-2xl border border-emerald-500/40 hover:border-emerald-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md col-span-1 sm:col-span-2"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <Upload size={18} />
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-emerald-300 block">🚀 إنشاء ونشر التقرير الحالي تلقائياً لموقع المنصة</span>
-                        <span className="text-[10px] text-emerald-200/70 block mt-0.5">توليد ونشر {meta.reportTitle} تلقائياً على الموقع</span>
-                      </div>
-                    </button>
+                      {dailyReportPublishMode === 'paste' ? (
+                        /* Mode 1: Paste Image (Ctrl+V) or Drop */
+                        <div className="space-y-3">
+                          <div 
+                            className="border-2 border-dashed border-amber-500/40 rounded-2xl p-4 bg-slate-950/80 text-center hover:border-amber-400 transition cursor-pointer relative"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/*';
+                              input.onchange = (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setPastedImageFile(file);
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  setPastedImagePreview(evt.target.result);
+                                  toast.success('تم اختيار الصورة بنجاح 🖼️');
+                                };
+                                reader.readAsDataURL(file);
+                              };
+                              input.click();
+                            }}
+                          >
+                            {pastedImagePreview ? (
+                              <div className="relative group">
+                                <img 
+                                  src={pastedImagePreview} 
+                                  alt="معاينة الصورة" 
+                                  className="max-h-60 mx-auto rounded-xl object-contain border border-amber-400/30 shadow-lg"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPastedImagePreview(null);
+                                    setPastedImageFile(null);
+                                  }}
+                                  className="absolute top-2 right-2 bg-rose-600 text-white p-1 rounded-lg text-xs font-bold shadow hover:bg-rose-500"
+                                >
+                                  حذف الصورة ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="py-4 space-y-2">
+                                <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center text-2xl shadow">
+                                  📋
+                                </div>
+                                <h4 className="text-xs font-extrabold text-white">
+                                  اضغط هنا ثم اضغط <span className="text-amber-300 underline font-mono">Ctrl + V</span> للصق الصورة من الحافظة
+                                </h4>
+                                <p className="text-[10px] text-slate-400">
+                                  أو اضغط لاختيار صورة التقرير من جهازك مباشرة
+                                </p>
+                              </div>
+                            )}
+                          </div>
 
-                    {/* 4. Upload Custom PDF Direct */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = currentTarget;
-                        setPdfReportModalMarket(null);
-                        handleUploadWebsitePdfDirect(targetM);
-                      }}
-                      className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-blue-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <FileText size={18} />
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-white block">📁 رفع ملف PDF خاص بك</span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">اختيار ملف PDF جاهز من جهازك ونشره</span>
-                      </div>
-                    </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePublishImageReport(currentTarget)}
+                            disabled={!pastedImagePreview}
+                            className={`w-full p-3.5 rounded-2xl font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-lg ${
+                              pastedImagePreview
+                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white cursor-pointer'
+                                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
+                            }`}
+                          >
+                            <Upload size={18} />
+                            <span>🚀 نشر الصورة المحددة فوراً لموقع المنصة</span>
+                          </button>
+                        </div>
+                      ) : (
+                        /* Mode 2: Write Text -> Auto Generate Image with Logo */
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1">
+                              نص التقرير (أغلق مؤشر عند مستوى... الخ): <span className="text-amber-400">*</span>
+                            </label>
+                            <textarea
+                              rows="4"
+                              value={dailyReportText}
+                              onChange={(e) => setDailyReportText(e.target.value)}
+                              placeholder="أدخل نص التحليل ورؤية الافتتاح أو الإغلاق هنا..."
+                              className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed"
+                            ></textarea>
+                          </div>
 
-                    {/* 5. Delete from website */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetM = currentTarget;
-                        setPdfReportModalMarket(null);
-                        handleDeletePublishedPdfReport(targetM);
-                      }}
-                      className="p-3 bg-gradient-to-r from-rose-950/80 to-red-950/80 hover:from-rose-900 hover:to-red-900 text-white rounded-2xl border border-rose-500/40 hover:border-rose-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                        <Trash2 size={18} />
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 mb-1">🎯 الهدف (اختياري)</label>
+                              <input 
+                                type="text"
+                                value={dailyTargetLevel}
+                                onChange={(e) => setDailyTargetLevel(e.target.value)}
+                                placeholder="مثال: 10800"
+                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-emerald-300 text-center font-mono placeholder-slate-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 mb-1">📊 الحالي / الإغلاق</label>
+                              <input 
+                                type="text"
+                                value={dailyCurrentLevel}
+                                onChange={(e) => setDailyCurrentLevel(e.target.value)}
+                                placeholder="مثال: 10681"
+                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-blue-300 text-center font-mono placeholder-slate-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 mb-1">🛑 الدعم (اختياري)</label>
+                              <input 
+                                type="text"
+                                value={dailySupportLevel}
+                                onChange={(e) => setDailySupportLevel(e.target.value)}
+                                placeholder="مثال: 10500"
+                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-rose-300 text-center font-mono placeholder-slate-600"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handlePublishImageReport(currentTarget)}
+                            disabled={!dailyReportText.trim()}
+                            className={`w-full p-3.5 rounded-2xl font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-lg ${
+                              dailyReportText.trim()
+                                ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-purple-600 hover:from-amber-500 hover:to-purple-500 text-white cursor-pointer'
+                                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
+                            }`}
+                          >
+                            <Sparkles size={18} />
+                            <span>🎨 إنشاء وتوليد الصورة بـ اللوجو ونشرها للموقع (بضغطة واحدة)</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Fallback Custom PDF / Image Upload & Delete */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetM = currentTarget;
+                            setPdfReportModalMarket(null);
+                            handleUploadWebsitePdfDirect(targetM);
+                          }}
+                          className="p-2.5 bg-slate-950/80 hover:bg-slate-800 text-white rounded-xl border border-white/10 text-right flex items-center gap-2 group cursor-pointer"
+                        >
+                          <FileText size={16} className="text-blue-400 shrink-0" />
+                          <div>
+                            <span className="font-bold text-[11px] text-slate-200 block">📁 رفع ملف خاص</span>
+                            <span className="text-[9px] text-slate-400 block">اختيار ملف PDF جاهز من جهازك</span>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetM = currentTarget;
+                            setPdfReportModalMarket(null);
+                            handleDeletePublishedPdfReport(targetM);
+                          }}
+                          className="p-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-white rounded-xl border border-rose-500/30 text-right flex items-center gap-2 group cursor-pointer"
+                        >
+                          <Trash2 size={16} className="text-rose-400 shrink-0" />
+                          <div>
+                            <span className="font-bold text-[11px] text-rose-300 block">🗑️ حذف وإلغاء نشر التقرير</span>
+                            <span className="text-[9px] text-rose-200/70 block">حذف التقرير الحالي من الموقع</span>
+                          </div>
+                        </button>
                       </div>
-                      <div>
-                        <span className="font-bold text-xs text-rose-300 block">🗑️ حذف وإلغاء نشر التقرير</span>
-                        <span className="text-[10px] text-rose-200/70 block mt-0.5">حذف {meta.reportTitle} المرفوع حالياً من الموقع</span>
-                      </div>
-                    </button>
-                  </div>
+                    </div>
+                  ) : (
+                    /* Weekly Recommendation PDF Options */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* 1. Print */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetM = currentTarget;
+                          setPdfReportModalMarket(null);
+                          handleExportSignalsPdf(targetM);
+                        }}
+                        className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-amber-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <Printer size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-white block">🖨️ طباعة التقرير مباشرة</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">طباعة ملخص التوصيات بـ لوجو المنصة</span>
+                        </div>
+                      </button>
+
+                      {/* 2. Download */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetM = currentTarget;
+                          setPdfReportModalMarket(null);
+                          handleExportSignalsPdf(targetM);
+                        }}
+                        className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-cyan-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <Download size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-white block">📥 تحميل ملف PDF محلياً</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">حفظ التقرير كملف PDF على جهازك</span>
+                        </div>
+                      </button>
+
+                      {/* 3. Auto Upload to website (1-click) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetM = currentTarget;
+                          setPdfReportModalMarket(null);
+                          handleAutoPublishRecommendationsPdf(targetM);
+                        }}
+                        className="p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 hover:from-emerald-900 hover:to-teal-900 text-white rounded-2xl border border-emerald-500/40 hover:border-emerald-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md col-span-1 sm:col-span-2"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <Upload size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-emerald-300 block">🚀 إنشاء ونشر التقرير الحالي تلقائياً لموقع المنصة</span>
+                          <span className="text-[10px] text-emerald-200/70 block mt-0.5">توليد ونشر {meta.reportTitle} تلقائياً على الموقع</span>
+                        </div>
+                      </button>
+
+                      {/* 4. Upload Custom PDF Direct */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetM = currentTarget;
+                          setPdfReportModalMarket(null);
+                          handleUploadWebsitePdfDirect(targetM);
+                        }}
+                        className="p-3 bg-slate-950/80 hover:bg-slate-800 text-white rounded-2xl border border-white/10 hover:border-blue-400/50 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <FileText size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-white block">📁 رفع ملف PDF خاص بك</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">اختيار ملف PDF جاهز من جهازك ونشره</span>
+                        </div>
+                      </button>
+
+                      {/* 5. Delete from website */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetM = currentTarget;
+                          setPdfReportModalMarket(null);
+                          handleDeletePublishedPdfReport(targetM);
+                        }}
+                        className="p-3 bg-gradient-to-r from-rose-950/80 to-red-950/80 hover:from-rose-900 hover:to-red-900 text-white rounded-2xl border border-rose-500/40 hover:border-rose-400 transition flex items-center gap-3 text-right group cursor-pointer shadow-md"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <Trash2 size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-rose-300 block">🗑️ حذف وإلغاء نشر التقرير</span>
+                          <span className="text-[10px] text-rose-200/70 block mt-0.5">حذف {meta.reportTitle} المرفوع حالياً من الموقع</span>
+                        </div>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer */}
