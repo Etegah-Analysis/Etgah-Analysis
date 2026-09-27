@@ -11537,8 +11537,14 @@ const handleExportBuffetToExcel = () => {
 
       let empCount = 0;
       for (let i = 0; i < employeeLeads.length; i++) {
-        const c = employeeLeads[i];
-        if (teamUids.has(c.assignedToUid) || teamUids.has(c.addedByUid) || (c.assignedTo && teamEmails.has(c.assignedTo?.toLowerCase()))) {
+        const assignedUid = c.assignedToUid;
+        const assignedMail = c.assignedTo?.toLowerCase();
+        const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
+        if (isAssigned) {
+          if ((assignedUid && teamUids.has(assignedUid)) || (assignedMail && teamEmails.has(assignedMail))) {
+            empCount++;
+          }
+        } else if (c.addedByUid && teamUids.has(c.addedByUid)) {
           empCount++;
         }
       }
@@ -16110,11 +16116,15 @@ const handleExportBuffetToExcel = () => {
                     ...teamMembers.map(m => m.email?.toLowerCase()).filter(Boolean)
                   ]);
 
-                  pool = pool.filter(c => 
-                    teamUids.has(c.assignedToUid) || 
-                    teamUids.has(c.addedByUid) ||
-                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
-                  );
+                  pool = pool.filter(c => {
+                    const assignedUid = c.assignedToUid;
+                    const assignedMail = c.assignedTo?.toLowerCase();
+                    const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
+                    if (isAssigned) {
+                      return (assignedUid && teamUids.has(assignedUid)) || (assignedMail && teamMails.has(assignedMail));
+                    }
+                    return c.addedByUid && teamUids.has(c.addedByUid);
+                  });
                 } else {
                   const targetEmp = employees.find(e => e.uid === subscribedEmpFilter);
                   const targetEmpMail = targetEmp?.email?.toLowerCase();
@@ -16238,11 +16248,15 @@ const handleExportBuffetToExcel = () => {
                   ]);
 
                   const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
-                  return list.filter(c => 
-                    teamUids.has(c.assignedToUid) || 
-                    teamUids.has(c.addedByUid) ||
-                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
-                  );
+                  return list.filter(c => {
+                    const assignedUid = c.assignedToUid;
+                    const assignedMail = c.assignedTo?.toLowerCase();
+                    const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
+                    if (isAssigned) {
+                      return (assignedUid && teamUids.has(assignedUid)) || (assignedMail && teamMails.has(assignedMail));
+                    }
+                    return c.addedByUid && teamUids.has(c.addedByUid);
+                  });
                 }
 
                 const targetEmp = employees.find(e => e.uid === filterVal);
@@ -16291,13 +16305,21 @@ const handleExportBuffetToExcel = () => {
                           })}
                           {!isLeader && employees.filter(e => e.jobTitle === 'Leader' || e.role === 'leader').map(leader => {
                             const teamMembers = employees.filter(m => m.leaderUid === leader.uid || m.leaderId === leader.uid || (leader.email && m.leaderEmail?.toLowerCase() === leader.email.toLowerCase()));
+                            const teamUids = new Set([leader.uid, ...teamMembers.map(m => m.uid)]);
+                            const teamMails = new Set([
+                              leader.email?.toLowerCase(),
+                              ...teamMembers.map(m => m.email?.toLowerCase()).filter(Boolean)
+                            ]);
                             const leaderOwnCount = allSubscribedClients.filter(c => c.assignedToUid === leader.uid || c.assignedTo?.toLowerCase() === leader.email?.toLowerCase()).length;
-                            const teamTotalCount = allSubscribedClients.filter(c => 
-                              c.assignedToUid === leader.uid || 
-                              c.addedByUid === leader.uid || 
-                              c.assignedTo?.toLowerCase() === leader.email?.toLowerCase() ||
-                              teamMembers.some(m => m.uid === c.assignedToUid || m.uid === c.addedByUid || m.email?.toLowerCase() === c.assignedTo?.toLowerCase())
-                            ).length;
+                            const teamTotalCount = allSubscribedClients.filter(c => {
+                              const assignedUid = c.assignedToUid;
+                              const assignedMail = c.assignedTo?.toLowerCase();
+                              const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
+                              if (isAssigned) {
+                                return (assignedUid && teamUids.has(assignedUid)) || (assignedMail && teamMails.has(assignedMail));
+                              }
+                              return c.addedByUid && teamUids.has(c.addedByUid);
+                            }).length;
 
                             return (
                               <optgroup 
@@ -16463,11 +16485,15 @@ const handleExportBuffetToExcel = () => {
                   ]);
 
                   const list = (!isAdmin && !isCoordinator && !isCustomerService && isLeader) ? leaderSubscribedClients : allSubscribedClients;
-                  return list.filter(c => 
-                    teamUids.has(c.assignedToUid) || 
-                    teamUids.has(c.addedByUid) ||
-                    (c.assignedTo && teamMails.has(c.assignedTo.toLowerCase()))
-                  );
+                  return list.filter(c => {
+                    const assignedUid = c.assignedToUid;
+                    const assignedMail = c.assignedTo?.toLowerCase();
+                    const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
+                    if (isAssigned) {
+                      return (assignedUid && teamUids.has(assignedUid)) || (assignedMail && teamMails.has(assignedMail));
+                    }
+                    return c.addedByUid && teamUids.has(c.addedByUid);
+                  });
                 }
 
                 const targetEmp = employees.find(e => e.uid === filterVal);
