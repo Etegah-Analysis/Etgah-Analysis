@@ -1496,6 +1496,10 @@ const Dashboard = () => {
   const [errorEdit, setErrorEdit] = useState('');
 
   const openAddEmployeeModal = () => {
+    if (isCustomerService) {
+      toast.error('غير مسموح لخدمة العملاء بإضافة موظفين ⚠️');
+      return;
+    }
     setNewEmpName('');
     setNewEmpCode('');
     setNewEmpUsername('');
@@ -13116,8 +13120,8 @@ const handleExportBuffetToExcel = () => {
             <span className="whitespace-nowrap font-bold">الموقع الإلكتروني 🌐</span>
           </a>
 
-          {/* إضافة موظف (للأدمن فقط) */}
-          {(isAdmin || hasPermission(currentEmpUser, 'canAddUsStocks')) && (
+          {/* إضافة موظف (للأدمن فقط وممنوع لخدمة العملاء) */}
+          {(isAdmin && !isCustomerService) && (
             <button 
               onClick={openAddEmployeeModal}
               className="flex items-center bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm font-black text-xs gap-1 cursor-pointer active:scale-95 shrink-0 border border-amber-300/40"
