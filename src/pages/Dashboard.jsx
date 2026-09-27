@@ -9861,10 +9861,16 @@ const handleModalPasteBuffetItem = (e) => {
   const [dailyCurrentLevel, setDailyCurrentLevel] = useState('');
   const [dailySupportLevel, setDailySupportLevel] = useState('');
 
-  const compressImageIfNeeded = (imageSource, maxWidth = 1200, maxHeight = 1200, quality = 0.85) => {
+  const compressImageIfNeeded = (imageSource, maxWidth = 900, maxHeight = 900, quality = 0.75) => {
     return new Promise((resolve) => {
+      if (!imageSource) {
+        resolve({ blob: null, dataUrl: imageSource });
+        return;
+      }
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      if (typeof imageSource === 'string' && (imageSource.startsWith('http://') || imageSource.startsWith('https://'))) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => {
         let width = img.width;
         let height = img.height;
@@ -9887,16 +9893,19 @@ const handleModalPasteBuffetItem = (e) => {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
         canvas.toBlob(
           (blob) => {
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
             resolve({ blob, dataUrl: compressedDataUrl });
           },
           'image/jpeg',
           quality
         );
       };
-      img.onerror = () => resolve({ blob: null, dataUrl: imageSource });
+      img.onerror = (e) => {
+        console.warn('compressImageIfNeeded error loading image:', e);
+        resolve({ blob: null, dataUrl: imageSource });
+      };
       img.src = imageSource;
     });
   };
@@ -10104,6 +10113,24 @@ const handleModalPasteBuffetItem = (e) => {
       }
     }
 
+    // Capture state variables BEFORE resetting UI
+    const rawPastedImage = pastedImagePreview;
+    const rawPastedFile = pastedImageFile;
+    const currentPublishMode = dailyReportPublishMode;
+    const currentReportText = dailyReportText;
+    const currentTargetLevel = dailyTargetLevel;
+    const currentCurrentLevel = dailyCurrentLevel;
+    const currentSupportLevel = dailySupportLevel;
+
+    // Immediately clear image preview, inputs and close modal so user sees immediate deletion!
+    setPdfReportModalMarket(null);
+    setPastedImagePreview(null);
+    setPastedImageFile(null);
+    setDailyReportText('');
+    setDailyTargetLevel('');
+    setDailyCurrentLevel('');
+    setDailySupportLevel('');
+
     const toastId = toast.loading(`جاري رفع ونشر ${reportTitle} على موقع المنصة... ⏳`);
     const now = new Date();
     const formattedNow = now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
@@ -10111,20 +10138,20 @@ const handleModalPasteBuffetItem = (e) => {
     try {
       let rawImageUrl = '';
 
-      if (dailyReportPublishMode === 'text') {
+      if (currentPublishMode === 'text') {
         rawImageUrl = await generateBrandedReportImage({
           reportTitle,
-          textContent: dailyReportText,
-          targetLevel: dailyTargetLevel,
-          currentLevel: dailyCurrentLevel,
-          supportLevel: dailySupportLevel
+          textContent: currentReportText,
+          targetLevel: currentTargetLevel,
+          currentLevel: currentCurrentLevel,
+          supportLevel: currentSupportLevel
         });
       } else {
-        rawImageUrl = pastedImagePreview;
+        rawImageUrl = rawPastedImage;
       }
 
-      // Always compress image before uploading/saving (prevents >1MB Firestore error)
-      const { blob: compressedBlob, dataUrl: compressedDataUrl } = await compressImageIfNeeded(rawImageUrl, 1200, 1200, 0.85);
+      // Always compress image before uploading/saving (max 900x900 @ 0.75 guarantees <200KB JPEG base64)
+      const { blob: compressedBlob, dataUrl: compressedDataUrl } = await compressImageIfNeeded(rawImageUrl, 900, 900, 0.75);
 
       let finalImageUrl = compressedDataUrl || rawImageUrl;
 
@@ -10132,11 +10159,11 @@ const handleModalPasteBuffetItem = (e) => {
         try {
           const storagePath = `weekly_pdf_reports/report_${marketType}_${Date.now()}.jpg`;
           const fileRef = ref(storage, storagePath);
-          const blobToUpload = compressedBlob || (pastedImageFile || await (await fetch(finalImageUrl)).blob());
+          const blobToUpload = compressedBlob || (rawPastedFile || await (await fetch(finalImageUrl)).blob());
 
           const uploadedUrl = await Promise.race([
             uploadBytes(fileRef, blobToUpload).then(() => getDownloadURL(fileRef)),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 10000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 8000))
           ]);
           if (uploadedUrl) finalImageUrl = uploadedUrl;
         } catch (stErr) {
@@ -10169,13 +10196,6 @@ const handleModalPasteBuffetItem = (e) => {
       }).catch(() => {});
 
       toast.success(`تم نشر ${reportTitle} كـ صورة بنجاح على موقع المنصة! 🚀✨`, { id: toastId, duration: 6000 });
-      setPdfReportModalMarket(null);
-      setPastedImagePreview(null);
-      setPastedImageFile(null);
-      setDailyReportText('');
-      setDailyTargetLevel('');
-      setDailyCurrentLevel('');
-      setDailySupportLevel('');
     } catch (err) {
       console.error('Error publishing image report:', err);
       toast.error('حدث خطأ أثناء نشر التقرير: ' + (err.message || ''), { id: toastId });
