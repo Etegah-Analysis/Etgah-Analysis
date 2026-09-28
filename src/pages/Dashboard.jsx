@@ -7408,13 +7408,16 @@ const Dashboard = () => {
         } catch (_) {}
       }
 
-      if (fileOrDataUrl.length > 150000) {
+      if (fileOrDataUrl.length > 100000) {
         try {
           const recId = 'rec_doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-          await setDoc(doc(db, 'receipt_files', recId), {
-            dataUrl: fileOrDataUrl,
-            createdAt: serverTimestamp()
-          });
+          await Promise.race([
+            setDoc(doc(db, 'receipt_files', recId), {
+              dataUrl: fileOrDataUrl,
+              createdAt: serverTimestamp()
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore receipt_files timeout')), 3000))
+          ]);
           return `receipt_files/${recId}`;
         } catch (rErr) {
           console.error('Error saving PDF to receipt_files collection:', rErr);
@@ -7427,7 +7430,7 @@ const Dashboard = () => {
 
   const uploadReceiptFileToStorage = async (fileOrBase64, filenamePrefix = 'receipt') => {
     if (!fileOrBase64) return '';
-    if (typeof fileOrBase64 === 'string' && (fileOrBase64.startsWith('http://') || fileOrBase64.startsWith('https://'))) {
+    if (typeof fileOrBase64 === 'string' && (fileOrBase64.startsWith('http://') || fileOrBase64.startsWith('https://') || fileOrBase64.startsWith('receipt_files/'))) {
       return fileOrBase64;
     }
     try {
@@ -7460,8 +7463,17 @@ const Dashboard = () => {
         const cleanName = String(filenamePrefix || 'rcpt').replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20) || 'rcpt';
         const safePath = `subscription_receipts/${cleanName}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
         const storageRef = ref(storage, safePath);
-        const snapshot = await uploadBytes(storageRef, blob, { contentType: isPdf ? 'application/pdf' : (contentType || 'image/jpeg') });
-        const downloadUrl = await getDownloadURL(snapshot.ref);
+        
+        const snapshot = await Promise.race([
+          uploadBytes(storageRef, blob, { contentType: isPdf ? 'application/pdf' : (contentType || 'image/jpeg') }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 3000))
+        ]);
+
+        const downloadUrl = await Promise.race([
+          getDownloadURL(snapshot.ref),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage getDownloadURL timeout')), 2000))
+        ]);
+
         if (downloadUrl) return downloadUrl;
       }
     } catch (err) {
@@ -7525,14 +7537,6 @@ const Dashboard = () => {
       } else {
         toast.success('تم إرفاق صورة الإشعار بنجاح 📄✨');
       }
-
-      if (fixedUrl.startsWith('data:')) {
-        uploadReceiptFileToStorage(fixedUrl, selectedSubCustomer?.name || 'rcpt').then(uploaded => {
-          if (uploaded && typeof uploaded === 'string' && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
-            setSubReceiptFileUrl(uploaded);
-          }
-        }).catch(() => {});
-      }
       return;
     }
 
@@ -7554,12 +7558,6 @@ const Dashboard = () => {
           setSubReceiptFileUrl(compressed || rawResult);
           toast.success('تم إرفاق ومعالجة صورة الإشعار بنجاح 📄✨');
         }
-
-        uploadReceiptFileToStorage(fileOrDataUrl, selectedSubCustomer?.name || 'rcpt').then(uploaded => {
-          if (uploaded && typeof uploaded === 'string' && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
-            setSubReceiptFileUrl(uploaded);
-          }
-        }).catch(() => {});
       };
 
       reader.onerror = () => {
@@ -8220,12 +8218,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
 
       for (const target of updateTargets) {
         try {
-          await updateDoc(doc(db, target.col, target.docId), { 
-            subscriptionDetails: subData, 
-            subscriptionHistory: updatedHistory, 
-            crmStatus: 'subscribed', 
-            updatedAt: serverTimestamp() 
-          });
+          await Promise.race([
+            updateDoc(doc(db, target.col, target.docId), { 
+              subscriptionDetails: subData, 
+              subscriptionHistory: updatedHistory, 
+              crmStatus: 'subscribed', 
+              updatedAt: serverTimestamp() 
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Update timeout for ${target.col}`)), 4000))
+          ]);
         } catch (uErr) {
           console.warn(`Update error for ${target.col}:`, uErr);
         }
