@@ -8,6 +8,25 @@ import { db, storage, collection, query, where, getDocs, getDoc, doc, setDoc, on
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function WhatsAppWidget() {
+  const isEmpLoggedIn = localStorage.getItem('isEmpLoggedIn') === 'true';
+  const empCode = (localStorage.getItem('empCode') || '').toUpperCase();
+  const empRole = (localStorage.getItem('empRole') || localStorage.getItem('userRole') || '').toLowerCase();
+  const empTitle = localStorage.getItem('empTitle') || '';
+  const visitorName = localStorage.getItem('visitorName') || '';
+
+  const isAdmin = 
+    empCode === 'ADMIN' ||
+    empRole === 'admin' ||
+    visitorName.includes('Admin') ||
+    visitorName.includes('إدارة') ||
+    empTitle.includes('إدارة') ||
+    empTitle.includes('Admin');
+
+  // Completely hide WhatsApp live widget for non-admin employees (جميع الموظفين)
+  if (isEmpLoggedIn && !isAdmin) {
+    return null;
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [userPhone, setUserPhone] = useState('');
