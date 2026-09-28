@@ -6920,6 +6920,87 @@ const Dashboard = () => {
     }
   };
 
+  const handleToggleSelectSubscribedClient = (id) => {
+    setSelectedSubscribedClients(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllSubscribedClients = (paginatedSubList) => {
+    const pageIds = (paginatedSubList || []).map(c => c.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedSubscribedClients.includes(id));
+    if (allSelected) {
+      setSelectedSubscribedClients(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      setSelectedSubscribedClients(prev => [...new Set([...prev, ...pageIds])]);
+    }
+  };
+
+  const handleDeleteSelectedSubscribedClients = async () => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
+    if (selectedSubscribedClients.length === 0) return;
+    if (!window.confirm(`هل أنت متأكد من نقل ${selectedSubscribedClients.length} عميل محدد إلى سلة المهملات؟`)) return;
+
+    try {
+      const idsToDelete = [...selectedSubscribedClients];
+      const count = idsToDelete.length;
+      const toDeleteSet = new Set(idsToDelete);
+      const deleterInfo = getCurrentDeleterInfo();
+
+      const targetCustomers = [...leadsCrm, ...employeeLeads, ...customers].filter(c => toDeleteSet.has(c.id));
+
+      // 1. Instant 0ms Optimistic UI update
+      setCustomers(prev => prev.filter(c => !toDeleteSet.has(c.id)));
+      setLeadsCrm(prev => prev.filter(c => !toDeleteSet.has(c.id)));
+      setEmployeeLeads(prev => prev.filter(c => !toDeleteSet.has(c.id)));
+      setSelectedSubscribedClients([]);
+
+      toast.success(`تم مسح ونقل ${count} عميل محدد إلى سلة المهملات فوراً 🗑️✨`);
+
+      // 2. Parallel WriteBatch in Background
+      (async () => {
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < targetCustomers.length; i += BATCH_SIZE) {
+          const chunk = targetCustomers.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const cust of chunk) {
+            batch.set(doc(db, 'recycle_bin', cust.id), {
+              ...cust,
+              originalCollection: cust._sourceCollection || 'subscribed_customers',
+              type: 'customer',
+              deletedAt: serverTimestamp(),
+              deletedBy: deleterInfo.label,
+              deletedByUid: deleterInfo.uid,
+              deletedByEmail: deleterInfo.email,
+              deletedByRole: deleterInfo.role
+            });
+
+            const cleanPhone = (cust.phoneNumber || '').replace(/[^0-9+]/g, '');
+            const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : cust.id;
+
+            batch.delete(doc(db, 'leads_crm', cust.id));
+            batch.delete(doc(db, 'employee_leads', cust.id));
+            batch.delete(doc(db, 'customers', cust.id));
+            if (phoneDocId) {
+              batch.delete(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId));
+            }
+          }
+          await batch.commit().catch(err => console.error('Bulk delete batch error:', err));
+        }
+      })();
+    } catch (err) {
+      console.error('Error bulk deleting subscribed customers:', err);
+      toast.error('حدث خطأ أثناء المسح الجماعي');
+    }
+  };
+
   const handleDeleteSingleEmployee = async (emp) => {
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
@@ -17408,6 +17489,15 @@ const handleExportBuffetToExcel = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {isAdmin && selectedSubscribedClients.length > 0 && (
+                  <button 
+                    onClick={handleDeleteSelectedSubscribedClients}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-fadeIn"
+                    title="مسح العملاء المحددين ونقلهم إلى سلة المهملات (للإدارة فقط 👑)"
+                  >
+                    <Trash2 size={14} /> <span>مسح المحدد ({selectedSubscribedClients.length})</span>
+                  </button>
+                )}
                 {isAdmin && (
                   <button 
                     onClick={exportSubscribedClientsToExcel}
@@ -17866,9 +17956,21 @@ const handleExportBuffetToExcel = () => {
                     <table className="w-full text-right border-collapse">
                       <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
                         <tr className="bg-slate-900 text-amber-300 text-xs border-b border-purple-500/30 font-extrabold">
+                          {isAdmin && (
+                            <th className="p-3.5 text-center font-extrabold text-amber-300 w-10">
+                              <input
+                                type="checkbox"
+                                checked={paginatedSub.length > 0 && paginatedSub.every(c => selectedSubscribedClients.includes(c.id))}
+                                onChange={() => handleToggleSelectAllSubscribedClients(paginatedSub)}
+                                className="w-4 h-4 rounded text-purple-600 cursor-pointer"
+                                title="تحديد الكل"
+                              />
+                            </th>
+                          )}
                           <th className="p-3.5 font-extrabold text-amber-300">اسم العميل</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">رقم الهاتف</th>
                           <th className="p-3.5 text-center min-w-[230px] font-extrabold text-amber-300">الموظف المسؤول</th>
+                          <th className="p-3.5 text-center min-w-[150px] font-extrabold text-amber-300">حالة العميل</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">نوع الخدمة / الباقة</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">فترة الاشتراك</th>
                           <th className="p-3.5 text-center font-extrabold text-amber-300">حالة الدفع والمبلغ</th>
@@ -17878,7 +17980,7 @@ const handleExportBuffetToExcel = () => {
                       <tbody className="divide-y divide-gray-100 text-xs">
                         {paginatedSub.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={isAdmin ? 9 : 8} className="p-10 text-center text-gray-500 font-bold">
                               لا يوجد عملاء مشتركين يطابقون شروط البحث الحالية 🎉
                             </td>
                           </tr>
@@ -17891,6 +17993,16 @@ const handleExportBuffetToExcel = () => {
 
                             return (
                               <tr key={customer.id || idx} className="hover:bg-emerald-50/40 transition">
+                                {isAdmin && (
+                                  <td className="p-3.5 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedSubscribedClients.includes(customer.id)}
+                                      onChange={() => handleToggleSelectSubscribedClient(customer.id)}
+                                      className="w-4 h-4 rounded text-purple-600 cursor-pointer"
+                                    />
+                                  </td>
+                                )}
                                 <td className="p-3.5 font-bold text-gray-800">
                                   <div className="flex items-center gap-2">
                                     <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-black shrink-0 font-mono shadow-xs">
@@ -17974,6 +18086,31 @@ const handleExportBuffetToExcel = () => {
                                     );
                                   })()}
                                 </td>
+
+                                {/* Customer Status Column */}
+                                <td className="p-3.5 text-center min-w-[150px]">
+                                  {(() => {
+                                    const currentSt = customer.crmStatus || 'subscribed';
+                                    const statusObj = CRM_STATUS_MAP[currentSt] || { label: '🎉 مشترك', bg: 'bg-emerald-100 text-emerald-900 border-emerald-300' };
+                                    return (
+                                      <select 
+                                        value={currentSt}
+                                        onChange={(e) => handleRequestStatusChangeWithComment(customer, e.target.value, customer._sourceCollection || 'leads_crm')}
+                                        dir="rtl"
+                                        className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusObj.bg}`}
+                                      >
+                                        <option value="subscribed">🎉 مشترك (Paid)</option>
+                                        <option value="unassigned">⏳ الانتظار (Waiting)</option>
+                                        <option value="call_back">📞 Call Back</option>
+                                        <option value="interested">🌟 Interested</option>
+                                        <option value="not_interested">❌ Not Interested</option>
+                                        <option value="no_answer">📵 No Answer</option>
+                                        <option value="started_trial">🚀 Demo</option>
+                                      </select>
+                                    );
+                                  })()}
+                                </td>
+
                                 <td className="p-3.5 text-center">
                                   <div className="flex flex-col items-center justify-center gap-1">
                                     <span className="inline-flex items-center justify-center whitespace-nowrap bg-emerald-100 text-emerald-950 border border-emerald-300 font-black px-3 py-1 rounded-full text-xs shadow-xs">
@@ -18109,18 +18246,6 @@ const handleExportBuffetToExcel = () => {
                                       >
                                         <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
                                         <span className="text-[11px] font-black">WhatsApp</span>
-                                      </button>
-                                    )}
-
-                                    {/* Delete Button (Admin Only 👑) */}
-                                    {isAdmin && (
-                                      <button 
-                                        onClick={() => handleDeleteSingleSubscribedCustomer(customer)}
-                                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-2.5 py-1.5 rounded-xl text-xs transition flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                                        title="مسح العميل المشترك ونقله إلى سلة المهملات (صلاحية الإدارة فقط 👑)"
-                                      >
-                                        <Trash2 size={13} className="text-rose-600" />
-                                        <span>مسح</span>
                                       </button>
                                     )}
                                   </div>
