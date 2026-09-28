@@ -26869,11 +26869,28 @@ const handleExportBuffetToExcel = () => {
                     <span className="text-sm font-bold">جاري تحميل إشعار التحويل من السحابة... ⏳</span>
                   </div>
                 ) : isPdfUrl(lightboxImage.url || lightboxImage) ? (
-                  <iframe 
-                    src={lightboxImage.url || lightboxImage} 
-                    title="PDF Receipt" 
-                    className="w-full h-[70vh] rounded-xl border border-emerald-500/40 bg-white"
-                  />
+                  <object 
+                    data={lightboxImage.url || lightboxImage} 
+                    type="application/pdf" 
+                    className="w-full h-[70vh] rounded-xl border border-emerald-500/40 bg-slate-900 shadow-2xl"
+                  >
+                    <embed 
+                      src={lightboxImage.url || lightboxImage} 
+                      type="application/pdf" 
+                      className="w-full h-[70vh] rounded-xl"
+                    />
+                    <div className="flex flex-col items-center justify-center p-8 text-center text-emerald-300 gap-3">
+                      <p className="text-sm font-bold text-slate-200">عذراً، يتعذر عرض ملف PDF داخل المعاينة السريعة للمتصفح.</p>
+                      <a 
+                        href={lightboxImage.url || lightboxImage} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs transition shadow-lg flex items-center gap-2 cursor-pointer"
+                      >
+                        📄 فتح ملف الـ PDF في نافذة جديدة مباشرة ↗️
+                      </a>
+                    </div>
+                  </object>
                 ) : (
                   <img 
                     src={lightboxImage.url || lightboxImage} 
