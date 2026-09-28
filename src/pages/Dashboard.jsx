@@ -7377,9 +7377,10 @@ const Dashboard = () => {
   const getPdfBlobUrl = (url) => {
     if (!url || typeof url !== 'string') return url;
     if (url.startsWith('blob:')) return url;
+    if (!isPdfUrl(url)) return url;
     
     let base64 = '';
-    if (url.startsWith('data:application/pdf') || url.startsWith('data:application/x-pdf') || (url.startsWith('data:') && (url.includes('JVBERi') || url.toLowerCase().includes('pdf')))) {
+    if (url.startsWith('data:application/pdf') || url.startsWith('data:application/x-pdf') || (url.startsWith('data:') && url.includes('JVBERi'))) {
       base64 = url.includes(',') ? url.split(',')[1] : url;
     } else if (url.startsWith('JVBERi')) {
       base64 = url;
@@ -7406,12 +7407,18 @@ const Dashboard = () => {
   const isPdfUrl = (url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase();
-    if (lower.startsWith('blob:')) return true;
-    if (lower.startsWith('data:application/pdf') || lower.startsWith('data:application/x-pdf')) return true;
+    
+    // Explicit Image Checks -> NEVER treat images as PDF
     if (lower.startsWith('data:image/')) return false;
+    if (/\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)/i.test(lower)) return false;
+    if (url.startsWith('data:') && (url.includes('iVBORw') || url.includes('/9j/') || url.includes('UklGR'))) return false;
+    if (url.startsWith('iVBORw') || url.startsWith('/9j/') || url.startsWith('UklGR')) return false;
+
+    // Explicit PDF Checks
+    if (lower.startsWith('data:application/pdf') || lower.startsWith('data:application/x-pdf')) return true;
     if (/\.pdf(\?|$)/i.test(lower)) return true;
-    if (url.startsWith('data:') && (url.includes('JVBERi') || lower.includes('pdf'))) return true;
-    if (url.startsWith('JVBERi')) return true;
+    if (url.startsWith('JVBERi') || (url.startsWith('data:') && url.includes('JVBERi'))) return true;
+
     return false;
   };
 
@@ -7440,7 +7447,7 @@ const Dashboard = () => {
               }
             }
 
-            if (typeof fullData === 'string' && fullData.length > 50) {
+            if (typeof fullData === 'string' && fullData.length > 20) {
               if (fullData.startsWith('JVBERi')) {
                 fullData = 'data:application/pdf;base64,' + fullData;
               } else if (fullData.startsWith('data:') && !fullData.startsWith('data:application/pdf') && (fullData.includes('JVBERi') || fullData.toLowerCase().includes('pdf'))) {
@@ -7455,7 +7462,7 @@ const Dashboard = () => {
         } catch (err) {
           console.error('Error fetching receipt_files document:', err);
         }
-        return ''; // Return empty string so it doesn't failback to SPA index.html!
+        return '';
       }
     }
     if (isPdfUrl(trimmed)) {
@@ -7474,7 +7481,7 @@ const Dashboard = () => {
         const resolved = await resolveReceiptUrl(itemUrl);
         toast.dismiss(toastId);
         if (resolved) {
-          setLightboxImage({ url: getPdfBlobUrl(resolved), title: itemTitle });
+          setLightboxImage({ url: isPdfUrl(resolved) ? getPdfBlobUrl(resolved) : resolved, title: itemTitle });
         } else {
           toast.error('عذراً، لم يتم العثور على الإشعار المرفق في السحابة ⚠️');
           setLightboxImage({ url: '', title: itemTitle });
@@ -7484,7 +7491,7 @@ const Dashboard = () => {
         toast.error('حدث خطأ أثناء فتح الإشعار ⚠️');
       }
     } else {
-      setLightboxImage({ url: getPdfBlobUrl(itemUrl), title: itemTitle });
+      setLightboxImage({ url: isPdfUrl(itemUrl) ? getPdfBlobUrl(itemUrl) : itemUrl, title: itemTitle });
     }
   };
 
@@ -7496,7 +7503,7 @@ const Dashboard = () => {
           if (resolved && resolved !== rawUrl) {
             setLightboxImage(prev => {
               if (!prev) return null;
-              const formattedUrl = getPdfBlobUrl(resolved);
+              const formattedUrl = isPdfUrl(resolved) ? getPdfBlobUrl(resolved) : resolved;
               return typeof prev === 'string' ? formattedUrl : { ...prev, url: formattedUrl };
             });
           }
