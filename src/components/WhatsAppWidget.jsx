@@ -552,12 +552,22 @@ export default function WhatsAppWidget() {
 
   // Check login authentication state from localStorage & Firestore
   useEffect(() => {
-    const phone = localStorage.getItem('visitorPhone') || '';
-    const name = localStorage.getItem('visitorName') || 'عميل اتجاه';
+    let phone = localStorage.getItem('visitorPhone') || '';
+    let name = localStorage.getItem('visitorName') || 'عميل اتجاه';
+
+    if (isAdmin) {
+      // Admin uses 0000000000 for testing room
+      phone = '0000000000';
+      name = name || '👑 الإدارة (تجربة)';
+    } else if (isEmpLoggedIn) {
+      // Employee uses isolated phone session
+      phone = (phone && phone !== '0000000000') ? phone : `emp_${empCode || name.replace(/\s+/g, '')}`;
+    }
+
     setUserPhone(phone);
     setUserName(name);
 
-    if (phone) {
+    if (phone && !isEmpLoggedIn) {
       getDocs(query(collection(db, 'بيانات_تسجيل_العملاء'), where('phoneNumber', '==', phone)))
         .then((snap) => {
           if (!snap.empty) {
@@ -567,7 +577,7 @@ export default function WhatsAppWidget() {
         })
         .catch(console.error);
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin, isEmpLoggedIn, empCode]);
 
   // Click outside listener to close emoji picker or widget modal
   useEffect(() => {
@@ -1178,7 +1188,12 @@ export default function WhatsAppWidget() {
                     منصة اتجاه التحليل الذكي
                   </h4>
                   <p className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1.5 truncate">
-                    {widgetStep === 'chat_room' && assignedEmp ? (
+                    {isEmpLoggedIn && !isAdmin ? (
+                      <span className="flex items-center gap-1 text-amber-300 font-extrabold">
+                        <Headphones size={11} className="text-amber-400 shrink-0" />
+                        <span>👨‍💼 حساب موظف ({userName || visitorName || 'دعم داخلي'})</span>
+                      </span>
+                    ) : widgetStep === 'chat_room' && assignedEmp ? (
                       assignedEmp.empCode === 'CS' || assignedEmp.empCode === 'cs' ? (
                         <span className="flex items-center gap-1 text-cyan-200">
                           <Headphones size={11} className="text-cyan-400 shrink-0" />

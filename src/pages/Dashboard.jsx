@@ -2834,7 +2834,7 @@ const Dashboard = () => {
   // Fetch Data
   useEffect(() => {
     const custUnsub = onSnapshot(collection(db, 'بيانات_تسجيل_العملاء'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, _sourceCollection: 'بيانات_تسجيل_العملاء' }));
       data.sort((a, b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0));
       setCustomers(data);
       try { 
@@ -2847,6 +2847,7 @@ const Dashboard = () => {
       const data = snapshot.docs.map(doc => {
         const d = doc.data();
         d.id = doc.id;
+        d._sourceCollection = 'leads_crm';
         d._ts = (d.createdAt?.toMillis?.() || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : 0)) ||
                 (d.assignedAt?.toMillis?.() || (d.assignedAt?.seconds ? d.assignedAt.seconds * 1000 : 0)) ||
                 (d.timestampMillis ? Number(d.timestampMillis) : 0) ||
@@ -2878,7 +2879,7 @@ const Dashboard = () => {
           // Permanently delete from employee_leads collection so it never appears in employee card
           deleteDoc(doc(db, 'employee_leads', docSnap.id)).catch(() => {});
         } else {
-          data.push({ ...d, id: docSnap.id });
+          data.push({ ...d, id: docSnap.id, _sourceCollection: 'employee_leads' });
         }
       });
       data.sort((a, b) => {
@@ -3791,12 +3792,21 @@ const Dashboard = () => {
     const incomingHist = incoming.subscriptionHistory || [];
     const bestHistory = incomingHist.length > existingHist.length ? incomingHist : existingHist;
 
+    const assignedToUid = incoming.assignedToUid || existing.assignedToUid || '';
+    const assignedTo = incoming.assignedTo || existing.assignedTo || '';
+    const assignedToName = incoming.assignedToName || existing.assignedToName || '';
+    const _sourceCollection = incoming._sourceCollection || existing._sourceCollection || (assignedToUid ? 'employee_leads' : 'بيانات_تسجيل_العملاء');
+
     return {
       ...existing,
       ...incoming,
       id: existing.id || incoming.id,
       name: bestName,
       phoneNumber: bestPhone,
+      assignedToUid,
+      assignedTo,
+      assignedToName,
+      _sourceCollection,
       subscriptionHistory: bestHistory,
       subscriptionDetails: incoming.subscriptionDetails || existing.subscriptionDetails
     };
@@ -6893,7 +6903,10 @@ const Dashboard = () => {
       // 2. Background Firestore move to recycle_bin & multi-collection deletion
       await setDoc(doc(db, 'recycle_bin', targetId), {
         ...customer,
-        originalCollection: customer._sourceCollection || 'subscribed_customers',
+        originalCollection: customer._sourceCollection || (customer.assignedToUid ? 'employee_leads' : 'بيانات_تسجيل_العملاء'),
+        originalAssignedTo: customer.assignedTo || '',
+        originalAssignedToUid: customer.assignedToUid || '',
+        originalAssignedToName: customer.assignedToName || '',
         type: 'customer',
         deletedAt: serverTimestamp(),
         deletedBy: deleterInfo.label,
@@ -6973,7 +6986,10 @@ const Dashboard = () => {
           for (const cust of chunk) {
             batch.set(doc(db, 'recycle_bin', cust.id), {
               ...cust,
-              originalCollection: cust._sourceCollection || 'subscribed_customers',
+              originalCollection: cust._sourceCollection || (cust.assignedToUid ? 'employee_leads' : 'بيانات_تسجيل_العملاء'),
+              originalAssignedTo: cust.assignedTo || '',
+              originalAssignedToUid: cust.assignedToUid || '',
+              originalAssignedToName: cust.assignedToName || '',
               type: 'customer',
               deletedAt: serverTimestamp(),
               deletedBy: deleterInfo.label,
@@ -7228,11 +7244,27 @@ const Dashboard = () => {
       }
 
       const { originalCollection, type, source, itemType, deletedAt, deletedBy, deletedAtFormatted, data, name, title, id, status, ...restData } = item;
-      const targetCol = originalCollection || item.source || (type === 'saudi_recommendations' ? 'saudi_recommendations' : type === 'us_recommendations' ? 'us_recommendations' : type === 'employee' ? 'users' : type === 'visitor' ? 'visitor_customers' : type === 'email' ? 'internal_emails' : 'بيانات_تسجيل_العملاء');
-      const restoreObj = data || restData;
+      let targetCol = originalCollection;
+      if (!targetCol || targetCol === 'subscribed_customers') {
+        targetCol = (item.assignedToUid || item.originalAssignedToUid) ? 'employee_leads' : 'بيانات_تسجيل_العملاء';
+      }
+      if (type === 'saudi_recommendations') targetCol = 'saudi_recommendations';
+      else if (type === 'us_recommendations') targetCol = 'us_recommendations';
+      else if (type === 'employee') targetCol = 'users';
+      else if (type === 'visitor') targetCol = 'visitor_customers';
+      else if (type === 'email') targetCol = 'internal_emails';
+
+      const restoreObj = {
+        ...(data || restData),
+        assignedTo: item.assignedTo || item.originalAssignedTo || restData.assignedTo || '',
+        assignedToUid: item.assignedToUid || item.originalAssignedToUid || restData.assignedToUid || '',
+        assignedToName: item.assignedToName || item.originalAssignedToName || restData.assignedToName || '',
+        name: item.name || item.customerName || restData.name || '',
+        phoneNumber: item.phoneNumber || item.customerPhone || restData.phoneNumber || ''
+      };
       await setDoc(doc(db, targetCol, item.id), restoreObj);
       await deleteDoc(doc(db, 'recycle_bin', item.id));
-      toast.success(`تم استرجاع (${item.title || item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح 🔄`);
+      toast.success(`تم استرجاع (${item.title || item.name || item.subject || item.phoneNumber || 'العنصر'}) بنجاح وإعادته لمكانه 🔄`);
     } catch (e) {
       console.error(e);
       toast.error('حدث خطأ أثناء استرجاع العنصر: ' + (e.message || ''));
@@ -8369,24 +8401,20 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
           const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-          const updateTargets = [
-            { col: 'leads_crm', docId: targetId },
-            { col: 'employee_leads', docId: targetId },
-            { col: 'customers', docId: targetId }
-          ];
-          if (phoneDocId) {
-            updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
-          }
+          const receiptUpdatePayload = { 
+            subscriptionDetails: updatedSubData, 
+            subscriptionHistory: sanitizedHistory, 
+            updatedAt: serverTimestamp() 
+          };
+          const sourceCol = selectedSubCustomer?._sourceCollection || (selectedSubCustomer?.assignedToUid ? 'employee_leads' : 'بيانات_تسجيل_العملاء');
 
-          await Promise.allSettled(
-            updateTargets.map(target =>
-              setDoc(doc(db, target.col, target.docId), { 
-                subscriptionDetails: updatedSubData, 
-                subscriptionHistory: sanitizedHistory, 
-                updatedAt: serverTimestamp() 
-              }, { merge: true })
-            )
-          );
+          await Promise.allSettled([
+            updateDoc(doc(db, sourceCol, targetId), receiptUpdatePayload),
+            updateDoc(doc(db, 'leads_crm', targetId), receiptUpdatePayload),
+            updateDoc(doc(db, 'employee_leads', targetId), receiptUpdatePayload),
+            updateDoc(doc(db, 'customers', targetId), receiptUpdatePayload),
+            ...(phoneDocId ? [updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), receiptUpdatePayload)] : [])
+          ]);
         } catch (bErr) {
           console.error('Background receipt deletion error:', bErr);
         }
@@ -8607,11 +8635,15 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           updatedAt: serverTimestamp()
         };
 
-        await Promise.allSettled(
-          updateTargets.map(target =>
-            setDoc(doc(db, target.col, target.docId), savePayload, { merge: true })
-          )
-        );
+        const sourceCol = selectedSubCustomer?._sourceCollection || (selectedSubCustomer?.assignedToUid ? 'employee_leads' : 'بيانات_تسجيل_العملاء');
+
+        await Promise.allSettled([
+          updateDoc(doc(db, sourceCol, targetId), savePayload),
+          updateDoc(doc(db, 'leads_crm', targetId), savePayload),
+          updateDoc(doc(db, 'employee_leads', targetId), savePayload),
+          updateDoc(doc(db, 'customers', targetId), savePayload),
+          ...(phoneDocId ? [updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), savePayload)] : [])
+        ]);
 
         setSelectedSubCustomer(prev => {
           if (!prev || prev.id !== targetId) return prev;
