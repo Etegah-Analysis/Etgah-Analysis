@@ -7450,8 +7450,12 @@ const Dashboard = () => {
             if (typeof fullData === 'string' && fullData.length > 20) {
               if (fullData.startsWith('JVBERi')) {
                 fullData = 'data:application/pdf;base64,' + fullData;
-              } else if (fullData.startsWith('data:') && !fullData.startsWith('data:application/pdf') && (fullData.includes('JVBERi') || fullData.toLowerCase().includes('pdf'))) {
-                fullData = fullData.replace(/^data:[^;]+;/, 'data:application/pdf;');
+              } else if (fullData.startsWith('iVBORw')) {
+                fullData = 'data:image/png;base64,' + fullData;
+              } else if (fullData.startsWith('/9j/')) {
+                fullData = 'data:image/jpeg;base64,' + fullData;
+              } else if (fullData.startsWith('UklGR')) {
+                fullData = 'data:image/webp;base64,' + fullData;
               }
               if (isPdfUrl(fullData)) {
                 return getPdfBlobUrl(fullData);
@@ -7542,21 +7546,22 @@ const Dashboard = () => {
     }
 
     if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+      let dataToSave = fileOrDataUrl;
       if (fileOrDataUrl.startsWith('data:image/')) {
         try {
           const compressed = await compressReceiptImage(fileOrDataUrl, 900, 0.65);
-          if (compressed && compressed.length < 500000) return compressed;
+          if (compressed) dataToSave = compressed;
         } catch (_) {}
       }
 
-      if (fileOrDataUrl.length > 100000) {
+      if (dataToSave.length > 30000) {
         try {
           const recId = 'rec_doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-          const chunkSize = 700000;
-          const numChunks = Math.ceil(fileOrDataUrl.length / chunkSize);
+          const chunkSize = 500000;
+          const numChunks = Math.ceil(dataToSave.length / chunkSize);
           const writePromises = [];
           for (let i = 0; i < numChunks; i++) {
-            const chunkData = fileOrDataUrl.substring(i * chunkSize, (i + 1) * chunkSize);
+            const chunkData = dataToSave.substring(i * chunkSize, (i + 1) * chunkSize);
             const chunkDocId = i === 0 ? recId : `${recId}_p${i}`;
             writePromises.push(
               setDoc(doc(db, 'receipt_files', chunkDocId), {
@@ -7570,13 +7575,14 @@ const Dashboard = () => {
           }
           await Promise.race([
             Promise.all(writePromises),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore receipt_files timeout')), 10000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore receipt_files timeout')), 6000))
           ]);
           return `receipt_files/${recId}`;
         } catch (rErr) {
-          console.error('Error saving PDF to receipt_files collection:', rErr);
+          console.error('Error saving file to receipt_files collection:', rErr);
         }
       }
+      return dataToSave;
     }
 
     return fileOrDataUrl;
@@ -7745,28 +7751,17 @@ const Dashboard = () => {
     const sanitized = await Promise.all(historyList.map(async (item) => {
       if (!item.receiptUrl) return item;
 
-      if (item.receiptUrl.startsWith('http://') || item.receiptUrl.startsWith('https://')) {
+      if (item.receiptUrl.startsWith('http://') || item.receiptUrl.startsWith('https://') || item.receiptUrl.startsWith('receipt_files/')) {
         return item;
       }
 
-      if (item.receiptUrl.startsWith('data:image/') && item.receiptUrl.length > 150000) {
+      if (typeof item.receiptUrl === 'string' && item.receiptUrl.startsWith('data:') && item.receiptUrl.length > 30000) {
         try {
-          const compressed = await compressReceiptImage(item.receiptUrl, 1200, 0.75);
-          if (compressed && compressed.length < item.receiptUrl.length) {
-            return { ...item, receiptUrl: compressed };
-          }
-        } catch (e) {}
-      }
-
-      if (item.receiptUrl.startsWith('data:') && item.receiptUrl.length > 250000) {
-        try {
-          const uploaded = await uploadReceiptFileToStorage(item.receiptUrl, item.customerName || item.name || 'hist_rcpt');
-          if (uploaded && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
-            return { ...item, receiptUrl: uploaded };
+          const savedRef = await saveReceiptFile(item.receiptUrl, item.customerName || item.name || 'hist_rcpt');
+          if (savedRef) {
+            return { ...item, receiptUrl: savedRef };
           }
         } catch (_) {}
-
-        return item;
       }
 
       return item;
