@@ -7374,12 +7374,44 @@ const Dashboard = () => {
     setIsSubscriptionModalOpen(true);
   };
 
+  const getPdfBlobUrl = (url) => {
+    if (!url || typeof url !== 'string') return url;
+    if (url.startsWith('blob:')) return url;
+    
+    let base64 = '';
+    if (url.startsWith('data:application/pdf') || url.startsWith('data:application/x-pdf') || (url.startsWith('data:') && (url.includes('JVBERi') || url.toLowerCase().includes('pdf')))) {
+      base64 = url.includes(',') ? url.split(',')[1] : url;
+    } else if (url.startsWith('JVBERi')) {
+      base64 = url;
+    }
+    
+    if (base64) {
+      try {
+        const cleanBase64 = base64.trim().replace(/\s/g, '');
+        const binString = atob(cleanBase64);
+        const len = binString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+      } catch (err) {
+        console.error('Error converting base64 PDF to blob URL:', err);
+      }
+    }
+    return url;
+  };
+
   const isPdfUrl = (url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase();
+    if (lower.startsWith('blob:')) return true;
     if (lower.startsWith('data:application/pdf') || lower.startsWith('data:application/x-pdf')) return true;
     if (lower.startsWith('data:image/')) return false;
     if (/\.pdf(\?|$)/i.test(lower)) return true;
+    if (url.startsWith('data:') && (url.includes('JVBERi') || lower.includes('pdf'))) return true;
+    if (url.startsWith('JVBERi')) return true;
     return false;
   };
 
@@ -7391,13 +7423,27 @@ const Dashboard = () => {
       if (recId) {
         try {
           const docSnap = await getDoc(doc(db, 'receipt_files', recId));
-          if (docSnap.exists() && docSnap.data()?.dataUrl) {
-            return docSnap.data().dataUrl;
+          if (docSnap.exists() && docSnap.data()) {
+            let data = docSnap.data().dataUrl || docSnap.data().url || docSnap.data().fileUrl || docSnap.data().base64;
+            if (typeof data === 'string') {
+              if (data.startsWith('JVBERi')) {
+                data = 'data:application/pdf;base64,' + data;
+              } else if (data.startsWith('data:') && !data.startsWith('data:application/pdf') && (data.includes('JVBERi') || data.toLowerCase().includes('pdf'))) {
+                data = data.replace(/^data:[^;]+;/, 'data:application/pdf;');
+              }
+              if (isPdfUrl(data)) {
+                return getPdfBlobUrl(data);
+              }
+            }
+            return data || trimmed;
           }
         } catch (err) {
           console.error('Error fetching receipt_files document:', err);
         }
       }
+    }
+    if (isPdfUrl(trimmed)) {
+      return getPdfBlobUrl(trimmed);
     }
     return trimmed;
   };
@@ -7412,7 +7458,7 @@ const Dashboard = () => {
         const resolved = await resolveReceiptUrl(itemUrl);
         toast.dismiss(toastId);
         if (resolved) {
-          setLightboxImage({ url: resolved, title: itemTitle });
+          setLightboxImage({ url: getPdfBlobUrl(resolved), title: itemTitle });
         } else {
           toast.error('عذراً، لم يتم العثور على الإشعار المرفق ⚠️');
         }
@@ -7421,7 +7467,7 @@ const Dashboard = () => {
         toast.error('حدث خطأ أثناء فتح الإشعار ⚠️');
       }
     } else {
-      setLightboxImage({ url: itemUrl, title: itemTitle });
+      setLightboxImage({ url: getPdfBlobUrl(itemUrl), title: itemTitle });
     }
   };
 
@@ -7433,10 +7479,19 @@ const Dashboard = () => {
           if (resolved && resolved !== rawUrl) {
             setLightboxImage(prev => {
               if (!prev) return null;
-              return typeof prev === 'string' ? resolved : { ...prev, url: resolved };
+              const formattedUrl = getPdfBlobUrl(resolved);
+              return typeof prev === 'string' ? formattedUrl : { ...prev, url: formattedUrl };
             });
           }
         }).catch(() => {});
+      } else if (rawUrl && isPdfUrl(rawUrl) && !rawUrl.startsWith('blob:')) {
+        const blobUrl = getPdfBlobUrl(rawUrl);
+        if (blobUrl !== rawUrl) {
+          setLightboxImage(prev => {
+            if (!prev) return null;
+            return typeof prev === 'string' ? blobUrl : { ...prev, url: blobUrl };
+          });
+        }
       }
     }
   }, [lightboxImage]);
@@ -21524,7 +21579,16 @@ const handleExportBuffetToExcel = () => {
                         {item.type === 'receipt' && (
                           <div className="flex items-center gap-3">
                             {item.receiptUrl ? (
-                              isPdfUrl(item.receiptUrl) ? (
+                              String(item.receiptUrl).startsWith('receipt_files/') ? (
+                                <div 
+                                  className="w-11 h-11 rounded-xl bg-cyan-950/90 border-2 border-cyan-500/60 flex flex-col items-center justify-center text-cyan-300 cursor-pointer hover:scale-105 transition shadow-sm"
+                                  onClick={() => handleOpenReceiptPreview(item.receiptUrl, `إشعار: ${item.customerName || item.name || 'عميل'}`)}
+                                  title="انقر لمعاينة إشعار التحويل من السحابة"
+                                >
+                                  <span className="text-[9px] font-bold">سحابي ☁️</span>
+                                  <span className="text-xs">🧾</span>
+                                </div>
+                              ) : isPdfUrl(item.receiptUrl) ? (
                                 <div 
                                   className="w-11 h-11 rounded-xl bg-rose-950/90 border-2 border-rose-500/60 flex flex-col items-center justify-center text-rose-300 cursor-pointer hover:scale-105 transition shadow-sm"
                                   onClick={() => handleOpenReceiptPreview(item.receiptUrl, `إشعار محذوف: ${item.customerName || item.name || 'عميل'}`)}
@@ -24709,7 +24773,16 @@ const handleExportBuffetToExcel = () => {
                     {subReceiptFileUrl ? (
                       <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-emerald-500/40 gap-3">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          {isPdfUrl(subReceiptFileUrl) ? (
+                          {String(subReceiptFileUrl).startsWith('receipt_files/') ? (
+                            <div 
+                              className="w-12 h-12 rounded-lg bg-cyan-950/80 border border-cyan-500/50 flex flex-col items-center justify-center text-cyan-300 font-mono text-xs font-bold shrink-0 cursor-pointer hover:bg-cyan-900 transition shadow-sm"
+                              onClick={() => handleOpenReceiptPreview(subReceiptFileUrl, 'معاينة إشعار التحويل')}
+                              title="انقر لمعاينة إشعار التحويل"
+                            >
+                              <span className="text-[10px]">سحابي</span>
+                              <span className="text-[12px]">🧾</span>
+                            </div>
+                          ) : isPdfUrl(subReceiptFileUrl) ? (
                             <div 
                               className="w-12 h-12 rounded-lg bg-rose-950/80 border border-rose-500/50 flex flex-col items-center justify-center text-rose-300 font-mono text-xs font-bold shrink-0 cursor-pointer hover:bg-rose-900 transition shadow-sm"
                               onClick={() => handleOpenReceiptPreview(subReceiptFileUrl, 'معاينة ملف PDF الإشعار')}
@@ -24728,7 +24801,7 @@ const handleExportBuffetToExcel = () => {
                           )}
                           <div className="min-w-0">
                             <span className="text-xs text-emerald-300 font-bold block truncate">
-                              {isPdfUrl(subReceiptFileUrl) ? '✓ ملف PDF الإشعار محمل وجاهز' : '✓ الإشعار محمل وجاهز'}
+                              {String(subReceiptFileUrl).startsWith('receipt_files/') ? '✓ إشعار التحويل السحابي محمل وجاهز' : (isPdfUrl(subReceiptFileUrl) ? '✓ ملف PDF الإشعار محمل وجاهز' : '✓ الإشعار محمل وجاهز')}
                             </span>
                             <span className="text-[10px] text-gray-400">انقر على الزر الأحمر لمسحه واختيار إشعار بديل</span>
                           </div>
@@ -24869,7 +24942,16 @@ const handleExportBuffetToExcel = () => {
                               {/* Receipt Image / Icon */}
                               {item.receiptUrl ? (
                                 <div className="shrink-0 group relative">
-                                  {isPdfUrl(item.receiptUrl) ? (
+                                  {String(item.receiptUrl).startsWith('receipt_files/') ? (
+                                    <div 
+                                      onClick={() => handleOpenReceiptPreview(item.receiptUrl, `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}`)}
+                                      className="w-16 h-16 rounded-xl bg-cyan-950/90 border-2 border-cyan-500/60 flex flex-col items-center justify-center text-cyan-300 cursor-pointer group-hover:scale-105 transition shrink-0 shadow-md hover:bg-cyan-900"
+                                      title="انقر لمعاينة إشعار التحويل من السحابة"
+                                    >
+                                      <span className="text-[10px] font-bold">إشعار ☁️</span>
+                                      <span className="text-lg">🧾</span>
+                                    </div>
+                                  ) : isPdfUrl(item.receiptUrl) ? (
                                     <div 
                                       onClick={() => handleOpenReceiptPreview(item.receiptUrl, `${selectedSubCustomer?.name || 'العميل'} • ${item.uploadedDateTime || item.date || ''}`)}
                                       className="w-16 h-16 rounded-xl bg-rose-950/90 border-2 border-rose-500/60 flex flex-col items-center justify-center text-rose-300 cursor-pointer group-hover:scale-105 transition shrink-0 shadow-md hover:bg-rose-900"
@@ -26781,7 +26863,12 @@ const handleExportBuffetToExcel = () => {
 
               {/* High-Resolution Scrollable & Zoomable Image Box */}
               <div className="overflow-auto max-h-[75vh] w-full rounded-2xl flex items-center justify-center bg-black/80 p-3 border border-emerald-500/20 shadow-inner relative min-h-[300px]">
-                {isPdfUrl(lightboxImage.url || lightboxImage) ? (
+                {String(lightboxImage?.url || lightboxImage || '').startsWith('receipt_files/') ? (
+                  <div className="flex flex-col items-center justify-center p-12 text-center text-emerald-300 gap-3">
+                    <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-bold">جاري تحميل إشعار التحويل من السحابة... ⏳</span>
+                  </div>
+                ) : isPdfUrl(lightboxImage.url || lightboxImage) ? (
                   <iframe 
                     src={lightboxImage.url || lightboxImage} 
                     title="PDF Receipt" 
