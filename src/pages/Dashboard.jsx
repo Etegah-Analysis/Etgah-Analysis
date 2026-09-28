@@ -3812,72 +3812,71 @@ const Dashboard = () => {
     };
   };
 
-  // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers (Memoized)
-  const allSubscribedClients = useMemo(() => {
-    const map = new Map();
-    const pool = [...leadsCrm, ...employeeLeads, ...customers];
+  const buildSubscribedClientsMap = (pool) => {
+    const sigToKeyMap = new Map();
     for (let i = 0; i < pool.length; i++) {
       const c = pool[i];
-      if (getIsSubscribed(c)) {
-        const key = getNormalizedCustomerKey(c);
-        if (!map.has(key)) {
-          map.set(key, c);
-        } else {
-          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
+      if (!getIsSubscribed(c)) continue;
+      const rawPhone = String(c.phoneNumber || c.phone || c.customerPhone || '').replace(/[^0-9]/g, '');
+      if (rawPhone.length >= 7) {
+        const primaryKey = 'phone_' + rawPhone.slice(-9);
+        const sub = c.subscriptionDetails;
+        const history = c.subscriptionHistory || [];
+        const firstHist = history[0];
+        if (firstHist && firstHist.id) sigToKeyMap.set('subhist_' + firstHist.id, primaryKey);
+        if (sub && (sub.paidAmount || sub.startDate)) {
+          sigToKeyMap.set('subsig_' + (sub.paidAmount || '') + '_' + (sub.startDate || '') + '_' + (sub.serviceType || ''), primaryKey);
         }
       }
     }
+
+    const map = new Map();
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i];
+      if (!getIsSubscribed(c)) continue;
+      let key = getNormalizedCustomerKey(c);
+      if ((key.startsWith('subhist_') || key.startsWith('subsig_')) && sigToKeyMap.has(key)) {
+        key = sigToKeyMap.get(key);
+      }
+      if (!map.has(key)) {
+        map.set(key, c);
+      } else {
+        map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
+      }
+    }
     return Array.from(map.values());
+  };
+
+  // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers (Memoized)
+  const allSubscribedClients = useMemo(() => {
+    const pool = [...leadsCrm, ...employeeLeads, ...customers];
+    return buildSubscribedClientsMap(pool);
   }, [leadsCrm, employeeLeads, customers]);
 
   const leaderSubscribedClients = useMemo(() => {
     if (!isLeader) return [];
-    const map = new Map();
     const teamUidSet = new Set(myTeamMembers.map(m => m.uid));
     const teamEmailSet = new Set(myTeamMembers.map(m => m.email?.toLowerCase()).filter(Boolean));
     const userUid = currentUser?.uid;
     const userEmail = currentUser?.email?.toLowerCase();
 
-    const pool = [...leadsCrm, ...employeeLeads, ...customers];
-    for (let i = 0; i < pool.length; i++) {
-      const c = pool[i];
-      if (!getIsSubscribed(c)) continue;
+    const pool = [...leadsCrm, ...employeeLeads, ...customers].filter(c => {
       const cUid = c.assignedToUid;
       const cEmail = c.assignedTo?.toLowerCase();
-      const isMineOrTeam = cUid === userUid || cEmail === userEmail || (cUid && teamUidSet.has(cUid)) || (cEmail && teamEmailSet.has(cEmail));
-      if (isMineOrTeam) {
-        const key = getNormalizedCustomerKey(c);
-        if (!map.has(key)) {
-          map.set(key, c);
-        } else {
-          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
-        }
-      }
-    }
-    return Array.from(map.values());
+      return cUid === userUid || cEmail === userEmail || (cUid && teamUidSet.has(cUid)) || (cEmail && teamEmailSet.has(cEmail));
+    });
+    return buildSubscribedClientsMap(pool);
   }, [isLeader, leadsCrm, employeeLeads, customers, currentUser?.uid, currentUser?.email, myTeamMembers]);
 
   const agentSubscribedClients = useMemo(() => {
     if (!isAgent) return [];
-    const map = new Map();
     const userUid = currentUser?.uid;
     const userEmail = currentUser?.email?.toLowerCase();
 
-    const pool = [...leadsCrm, ...employeeLeads, ...customers];
-    for (let i = 0; i < pool.length; i++) {
-      const c = pool[i];
-      if (!getIsSubscribed(c)) continue;
-      const isMine = c.assignedToUid === userUid || c.assignedTo?.toLowerCase() === userEmail;
-      if (isMine) {
-        const key = getNormalizedCustomerKey(c);
-        if (!map.has(key)) {
-          map.set(key, c);
-        } else {
-          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
-        }
-      }
-    }
-    return Array.from(map.values());
+    const pool = [...leadsCrm, ...employeeLeads, ...customers].filter(c => {
+      return c.assignedToUid === userUid || c.assignedTo?.toLowerCase() === userEmail;
+    });
+    return buildSubscribedClientsMap(pool);
   }, [isAgent, leadsCrm, employeeLeads, customers, currentUser?.uid, currentUser?.email]);
 
   const hasSubscribedCardAccess = useMemo(() => {
