@@ -7424,22 +7424,38 @@ const Dashboard = () => {
         try {
           const docSnap = await getDoc(doc(db, 'receipt_files', recId));
           if (docSnap.exists() && docSnap.data()) {
-            let data = docSnap.data().dataUrl || docSnap.data().url || docSnap.data().fileUrl || docSnap.data().base64;
-            if (typeof data === 'string') {
-              if (data.startsWith('JVBERi')) {
-                data = 'data:application/pdf;base64,' + data;
-              } else if (data.startsWith('data:') && !data.startsWith('data:application/pdf') && (data.includes('JVBERi') || data.toLowerCase().includes('pdf'))) {
-                data = data.replace(/^data:[^;]+;/, 'data:application/pdf;');
+            const snapData = docSnap.data();
+            let fullData = snapData.dataUrl || snapData.url || snapData.fileUrl || snapData.base64 || '';
+            const totalChunks = snapData.totalChunks || 1;
+            if (totalChunks > 1) {
+              const fetchPromises = [];
+              for (let i = 1; i < totalChunks; i++) {
+                fetchPromises.push(getDoc(doc(db, 'receipt_files', `${recId}_p${i}`)));
               }
-              if (isPdfUrl(data)) {
-                return getPdfBlobUrl(data);
+              const chunkSnaps = await Promise.all(fetchPromises);
+              for (const cSnap of chunkSnaps) {
+                if (cSnap.exists() && cSnap.data()?.dataUrl) {
+                  fullData += cSnap.data().dataUrl;
+                }
               }
             }
-            return data || trimmed;
+
+            if (typeof fullData === 'string' && fullData.length > 50) {
+              if (fullData.startsWith('JVBERi')) {
+                fullData = 'data:application/pdf;base64,' + fullData;
+              } else if (fullData.startsWith('data:') && !fullData.startsWith('data:application/pdf') && (fullData.includes('JVBERi') || fullData.toLowerCase().includes('pdf'))) {
+                fullData = fullData.replace(/^data:[^;]+;/, 'data:application/pdf;');
+              }
+              if (isPdfUrl(fullData)) {
+                return getPdfBlobUrl(fullData);
+              }
+              return fullData;
+            }
           }
         } catch (err) {
           console.error('Error fetching receipt_files document:', err);
         }
+        return ''; // Return empty string so it doesn't failback to SPA index.html!
       }
     }
     if (isPdfUrl(trimmed)) {
@@ -7460,7 +7476,8 @@ const Dashboard = () => {
         if (resolved) {
           setLightboxImage({ url: getPdfBlobUrl(resolved), title: itemTitle });
         } else {
-          toast.error('عذراً، لم يتم العثور على الإشعار المرفق ⚠️');
+          toast.error('عذراً، لم يتم العثور على الإشعار المرفق في السحابة ⚠️');
+          setLightboxImage({ url: '', title: itemTitle });
         }
       } catch (err) {
         toast.dismiss(toastId);
@@ -7523,12 +7540,25 @@ const Dashboard = () => {
       if (fileOrDataUrl.length > 100000) {
         try {
           const recId = 'rec_doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+          const chunkSize = 700000;
+          const numChunks = Math.ceil(fileOrDataUrl.length / chunkSize);
+          const writePromises = [];
+          for (let i = 0; i < numChunks; i++) {
+            const chunkData = fileOrDataUrl.substring(i * chunkSize, (i + 1) * chunkSize);
+            const chunkDocId = i === 0 ? recId : `${recId}_p${i}`;
+            writePromises.push(
+              setDoc(doc(db, 'receipt_files', chunkDocId), {
+                dataUrl: chunkData,
+                chunkIndex: i,
+                totalChunks: numChunks,
+                parentRecId: recId,
+                createdAt: serverTimestamp()
+              })
+            );
+          }
           await Promise.race([
-            setDoc(doc(db, 'receipt_files', recId), {
-              dataUrl: fileOrDataUrl,
-              createdAt: serverTimestamp()
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore receipt_files timeout')), 3000))
+            Promise.all(writePromises),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore receipt_files timeout')), 10000))
           ]);
           return `receipt_files/${recId}`;
         } catch (rErr) {
@@ -26869,28 +26899,17 @@ const handleExportBuffetToExcel = () => {
                     <span className="text-sm font-bold">جاري تحميل إشعار التحويل من السحابة... ⏳</span>
                   </div>
                 ) : isPdfUrl(lightboxImage.url || lightboxImage) ? (
-                  <object 
-                    data={lightboxImage.url || lightboxImage} 
-                    type="application/pdf" 
-                    className="w-full h-[70vh] rounded-xl border border-emerald-500/40 bg-slate-900 shadow-2xl"
-                  >
-                    <embed 
-                      src={lightboxImage.url || lightboxImage} 
-                      type="application/pdf" 
-                      className="w-full h-[70vh] rounded-xl"
-                    />
-                    <div className="flex flex-col items-center justify-center p-8 text-center text-emerald-300 gap-3">
-                      <p className="text-sm font-bold text-slate-200">عذراً، يتعذر عرض ملف PDF داخل المعاينة السريعة للمتصفح.</p>
-                      <a 
-                        href={lightboxImage.url || lightboxImage} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs transition shadow-lg flex items-center gap-2 cursor-pointer"
-                      >
-                        📄 فتح ملف الـ PDF في نافذة جديدة مباشرة ↗️
-                      </a>
-                    </div>
-                  </object>
+                  <iframe 
+                    src={lightboxImage.url || lightboxImage} 
+                    title="PDF Receipt" 
+                    className="w-full h-[70vh] rounded-xl border border-emerald-500/40 bg-white shadow-2xl"
+                  />
+                ) : !(lightboxImage?.url || lightboxImage) ? (
+                  <div className="flex flex-col items-center justify-center p-12 text-center text-rose-300 gap-3">
+                    <span className="text-3xl">⚠️</span>
+                    <span className="text-sm font-bold text-rose-200">عذراً، لم يتم العثور على ملف الإشعار المرفق في السحابة</span>
+                    <span className="text-xs text-gray-400">قد يكون ملف الإشعار قديم جداً أو يتعذر الوصول إليه حالياً</span>
+                  </div>
                 ) : (
                   <img 
                     src={lightboxImage.url || lightboxImage} 
