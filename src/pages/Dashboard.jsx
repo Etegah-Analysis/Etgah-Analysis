@@ -7481,17 +7481,21 @@ const Dashboard = () => {
         const resolved = await resolveReceiptUrl(itemUrl);
         toast.dismiss(toastId);
         if (resolved) {
-          setLightboxImage({ url: isPdfUrl(resolved) ? getPdfBlobUrl(resolved) : resolved, title: itemTitle });
+          const isPdf = isPdfUrl(itemUrl) || isPdfUrl(resolved) || String(resolved).startsWith('blob:') || String(resolved).startsWith('data:application/pdf') || String(resolved).includes('JVBERi');
+          const finalUrl = isPdf ? getPdfBlobUrl(resolved) : resolved;
+          setLightboxImage({ url: finalUrl, title: itemTitle, isPdf });
         } else {
           toast.error('عذراً، لم يتم العثور على الإشعار المرفق في السحابة ⚠️');
-          setLightboxImage({ url: '', title: itemTitle });
+          setLightboxImage({ url: '', title: itemTitle, isPdf: false });
         }
       } catch (err) {
         toast.dismiss(toastId);
         toast.error('حدث خطأ أثناء فتح الإشعار ⚠️');
       }
     } else {
-      setLightboxImage({ url: isPdfUrl(itemUrl) ? getPdfBlobUrl(itemUrl) : itemUrl, title: itemTitle });
+      const isPdf = isPdfUrl(itemUrl);
+      const finalUrl = isPdf ? getPdfBlobUrl(itemUrl) : itemUrl;
+      setLightboxImage({ url: finalUrl, title: itemTitle, isPdf });
     }
   };
 
@@ -7503,8 +7507,9 @@ const Dashboard = () => {
           if (resolved && resolved !== rawUrl) {
             setLightboxImage(prev => {
               if (!prev) return null;
-              const formattedUrl = isPdfUrl(resolved) ? getPdfBlobUrl(resolved) : resolved;
-              return typeof prev === 'string' ? formattedUrl : { ...prev, url: formattedUrl };
+              const isPdf = isPdfUrl(rawUrl) || isPdfUrl(resolved) || String(resolved).startsWith('blob:') || String(resolved).startsWith('data:application/pdf') || String(resolved).includes('JVBERi');
+              const formattedUrl = isPdf ? getPdfBlobUrl(resolved) : resolved;
+              return typeof prev === 'string' ? { url: formattedUrl, title: '', isPdf } : { ...prev, url: formattedUrl, isPdf };
             });
           }
         }).catch(() => {});
@@ -7513,7 +7518,7 @@ const Dashboard = () => {
         if (blobUrl !== rawUrl) {
           setLightboxImage(prev => {
             if (!prev) return null;
-            return typeof prev === 'string' ? blobUrl : { ...prev, url: blobUrl };
+            return typeof prev === 'string' ? { url: blobUrl, title: '', isPdf: true } : { ...prev, url: blobUrl, isPdf: true };
           });
         }
       }
@@ -7615,12 +7620,12 @@ const Dashboard = () => {
         
         const snapshot = await Promise.race([
           uploadBytes(storageRef, blob, { contentType: isPdf ? 'application/pdf' : (contentType || 'image/jpeg') }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 3000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 1500))
         ]);
 
         const downloadUrl = await Promise.race([
           getDownloadURL(snapshot.ref),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage getDownloadURL timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Storage getDownloadURL timeout')), 1500))
         ]);
 
         if (downloadUrl) return downloadUrl;
@@ -7946,11 +7951,24 @@ const Dashboard = () => {
       const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
       const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
 
-      await updateDoc(doc(db, 'leads_crm', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
-      await updateDoc(doc(db, 'employee_leads', targetId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+      const editTargets = [
+        { col: 'leads_crm', docId: targetId },
+        { col: 'employee_leads', docId: targetId },
+        { col: 'customers', docId: targetId }
+      ];
       if (phoneDocId) {
-        await updateDoc(doc(db, 'بيانات_تسجيل_العملاء', phoneDocId), { subscriptionDetails: subData, subscriptionHistory: sanitizedHistory, updatedAt: serverTimestamp() }).catch(() => {});
+        editTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
       }
+
+      await Promise.allSettled(
+        editTargets.map(target =>
+          setDoc(doc(db, target.col, target.docId), { 
+            subscriptionDetails: subData, 
+            subscriptionHistory: sanitizedHistory, 
+            updatedAt: serverTimestamp() 
+          }, { merge: true })
+        )
+      );
 
       setSubPaymentHistory(sanitizedHistory);
       setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: sanitizedHistory }));
@@ -8174,28 +8192,21 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const updateTargets = [
         { col: 'leads_crm', docId: targetId },
         { col: 'employee_leads', docId: targetId },
+        { col: 'customers', docId: targetId }
       ];
       if (phoneDocId) {
         updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
       }
 
-      for (const target of updateTargets) {
-        try {
-          await updateDoc(doc(db, target.col, target.docId), { 
+      await Promise.allSettled(
+        updateTargets.map(target =>
+          setDoc(doc(db, target.col, target.docId), { 
             subscriptionDetails: updatedSubData, 
             subscriptionHistory: sanitizedHistory, 
             updatedAt: serverTimestamp() 
-          });
-          updatedAtLeastOne = true;
-        } catch (uErr) {
-          console.warn(`Error deleting from ${target.col}:`, uErr);
-          updateErrors.push(uErr.message || String(uErr));
-        }
-      }
-
-      if (!updatedAtLeastOne) {
-        throw new Error(updateErrors[0] || 'تعذر حذف الإشعار من السجل في قواعد البيانات');
-      }
+          }, { merge: true })
+        )
+      );
 
       setSubPaymentHistory(sanitizedHistory);
       setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory }));
@@ -8370,21 +8381,18 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
       }
 
-      for (const target of updateTargets) {
-        try {
-          await Promise.race([
-            updateDoc(doc(db, target.col, target.docId), { 
-              subscriptionDetails: subData, 
-              subscriptionHistory: updatedHistory, 
-              crmStatus: 'subscribed', 
-              updatedAt: serverTimestamp() 
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`Update timeout for ${target.col}`)), 4000))
-          ]);
-        } catch (uErr) {
-          console.warn(`Update error for ${target.col}:`, uErr);
-        }
-      }
+      const savePayload = {
+        subscriptionDetails: subData,
+        subscriptionHistory: updatedHistory,
+        crmStatus: 'subscribed',
+        updatedAt: serverTimestamp()
+      };
+
+      await Promise.allSettled(
+        updateTargets.map(target =>
+          setDoc(doc(db, target.col, target.docId), savePayload, { merge: true })
+        )
+      );
 
       // FAST LOCAL UI UPDATE
       setSubPaymentHistory(updatedHistory);
@@ -26905,7 +26913,7 @@ const handleExportBuffetToExcel = () => {
                     <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-sm font-bold">جاري تحميل إشعار التحويل من السحابة... ⏳</span>
                   </div>
-                ) : isPdfUrl(lightboxImage.url || lightboxImage) ? (
+                ) : (lightboxImage?.isPdf || isPdfUrl(lightboxImage?.url || lightboxImage)) ? (
                   <iframe 
                     src={lightboxImage.url || lightboxImage} 
                     title="PDF Receipt" 
