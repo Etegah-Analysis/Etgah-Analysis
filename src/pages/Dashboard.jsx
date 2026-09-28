@@ -3756,6 +3756,52 @@ const Dashboard = () => {
     return st === 'subscribed';
   };
 
+  const getNormalizedCustomerKey = (c) => {
+    if (!c) return '';
+    const rawPhone = String(c.phoneNumber || c.phone || c.customerPhone || '').replace(/[^0-9]/g, '');
+    if (rawPhone.length >= 7) {
+      return 'phone_' + rawPhone.slice(-9);
+    }
+    const rawName = String(c.name || c.customerName || c.clientName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (rawName && rawName !== 'عميل' && rawName !== 'عميل مشترك' && rawName !== 'بدون اسم' && rawName !== '-') {
+      return 'name_' + rawName;
+    }
+    const sub = c.subscriptionDetails;
+    const history = c.subscriptionHistory || [];
+    const firstHist = history[0];
+    if (firstHist && firstHist.id) {
+      return 'subhist_' + firstHist.id;
+    }
+    if (sub && (sub.paidAmount || sub.startDate)) {
+      return 'subsig_' + (sub.paidAmount || '') + '_' + (sub.startDate || '') + '_' + (sub.serviceType || '');
+    }
+    return 'id_' + (c.id || Math.random().toString());
+  };
+
+  const mergeSubscribedCustomerRecords = (existing, incoming) => {
+    const isExistingNameGeneric = !existing.name || existing.name === 'عميل' || existing.name === 'عميل مشترك' || existing.name === 'بدون اسم';
+    const isIncomingNameValid = incoming.name && incoming.name !== 'عميل' && incoming.name !== 'عميل مشترك' && incoming.name !== 'بدون اسم';
+    const bestName = (isExistingNameGeneric && isIncomingNameValid) ? incoming.name : existing.name || incoming.name;
+
+    const isExistingPhoneGeneric = !existing.phoneNumber || existing.phoneNumber === '-' || existing.phoneNumber.trim().length < 5;
+    const isIncomingPhoneValid = incoming.phoneNumber && incoming.phoneNumber !== '-' && incoming.phoneNumber.trim().length >= 5;
+    const bestPhone = (isExistingPhoneGeneric && isIncomingPhoneValid) ? incoming.phoneNumber : existing.phoneNumber || incoming.phoneNumber;
+
+    const existingHist = existing.subscriptionHistory || [];
+    const incomingHist = incoming.subscriptionHistory || [];
+    const bestHistory = incomingHist.length > existingHist.length ? incomingHist : existingHist;
+
+    return {
+      ...existing,
+      ...incoming,
+      id: existing.id || incoming.id,
+      name: bestName,
+      phoneNumber: bestPhone,
+      subscriptionHistory: bestHistory,
+      subscriptionDetails: incoming.subscriptionDetails || existing.subscriptionDetails
+    };
+  };
+
   // Subscribed clients mapped uniquely across leads_crm, employee_leads, and customers (Memoized)
   const allSubscribedClients = useMemo(() => {
     const map = new Map();
@@ -3763,8 +3809,12 @@ const Dashboard = () => {
     for (let i = 0; i < pool.length; i++) {
       const c = pool[i];
       if (getIsSubscribed(c)) {
-        const key = c.phoneNumber || c.id;
-        if (!map.has(key)) map.set(key, c);
+        const key = getNormalizedCustomerKey(c);
+        if (!map.has(key)) {
+          map.set(key, c);
+        } else {
+          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
+        }
       }
     }
     return Array.from(map.values());
@@ -3786,8 +3836,12 @@ const Dashboard = () => {
       const cEmail = c.assignedTo?.toLowerCase();
       const isMineOrTeam = cUid === userUid || cEmail === userEmail || (cUid && teamUidSet.has(cUid)) || (cEmail && teamEmailSet.has(cEmail));
       if (isMineOrTeam) {
-        const key = c.phoneNumber || c.id;
-        if (!map.has(key)) map.set(key, c);
+        const key = getNormalizedCustomerKey(c);
+        if (!map.has(key)) {
+          map.set(key, c);
+        } else {
+          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
+        }
       }
     }
     return Array.from(map.values());
@@ -3805,8 +3859,12 @@ const Dashboard = () => {
       if (!getIsSubscribed(c)) continue;
       const isMine = c.assignedToUid === userUid || c.assignedTo?.toLowerCase() === userEmail;
       if (isMine) {
-        const key = c.phoneNumber || c.id;
-        if (!map.has(key)) map.set(key, c);
+        const key = getNormalizedCustomerKey(c);
+        if (!map.has(key)) {
+          map.set(key, c);
+        } else {
+          map.set(key, mergeSubscribedCustomerRecords(map.get(key), c));
+        }
       }
     }
     return Array.from(map.values());
@@ -8254,160 +8312,180 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       return;
     }
 
-    setSubSaving(true);
-    const toastId = toast.loading('جاري حفظ وتأكيد إشعار الاشتراك... ⏳');
+    const rawReceiptFileUrl = subReceiptFileUrl;
+    const now = new Date();
+    const uploadIso = now.toISOString();
+    const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const currentMonthKey = (subReceiptDate || subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
+    const existingHistory = selectedSubCustomer.subscriptionHistory || [];
+    let updatedHistory = [];
+    const isEditingMode = Boolean(editingReceiptId);
+    const currentRecId = isEditingMode ? editingReceiptId : ('rec_' + Date.now());
 
-    try {
-      const finalReceiptUrl = await saveReceiptFile(subReceiptFileUrl, selectedSubCustomer?.name || 'rcpt');
+    if (isEditingMode) {
+      // Editing existing payment record
+      const editorIdentity = isAdmin 
+        ? '👑 الإدارة' 
+        : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
+          ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
+          : `${currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'} (${currentEmpUser?.jobTitle || currentEmpUser?.role || 'موظف'})`;
 
-      const now = new Date();
-      const uploadIso = now.toISOString();
-      const dateFormatted = now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
-      const timeFormatted = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-      const currentMonthKey = (subReceiptDate || subStartDate || uploadIso.slice(0, 10)).slice(0, 7);
-      const existingHistory = selectedSubCustomer.subscriptionHistory || [];
-      let updatedHistory = [];
-      const isEditingMode = Boolean(editingReceiptId);
-
-      if (isEditingMode) {
-        // Editing existing payment record
-        const editorIdentity = isAdmin 
-          ? '👑 الإدارة' 
-          : (currentEmpUser?.jobTitle === 'Customer Service' || currentEmpUser?.role === 'customer_service')
-            ? `${currentEmpUser?.name || 'موظف'} (خدمة عملاء)`
-            : `${currentEmpUser?.name || currentUser?.email?.split('@')[0] || 'موظف'} (${currentEmpUser?.jobTitle || currentEmpUser?.role || 'موظف'})`;
-
-        updatedHistory = existingHistory.map(h => {
-          if (h.id === editingReceiptId) {
-            return {
-              ...h,
-              serviceType: subServiceType || h.serviceType,
-              packageType: subServiceType || h.packageType,
-              serviceCategory: subServiceCategory || h.serviceCategory,
-              paymentType: subPaymentType,
-              agreedPercentage: isPercentage ? subAgreedPercentage : '',
-              receiptDate: subReceiptDate || h.receiptDate || h.date,
-              date: subReceiptDate || subStartDate,
-              month: currentMonthKey,
-              startDate: subStartDate,
-              endDate: isPercentage ? '' : subEndDate,
-              paidAmount: cleanPaid,
-              remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
-              receiptProof: subReceiptProof?.trim() || h.receiptProof || 'مسجل',
-              receiptUrl: finalReceiptUrl || h.receiptUrl || '',
-              notes: subNotes?.trim() || '',
-              lastEditedBy: editorIdentity,
-              lastEditedByUid: currentUser?.uid || (isAdmin ? 'admin' : ''),
-              lastEditedAt: uploadIso,
-              lastEditedDateTime: `${dateFormatted} • ${timeFormatted}`,
-              isEdited: true
-            };
-          }
-          return h;
-        });
-      } else {
-        // Adding new payment record
-        const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
-        const newPaymentRecord = {
-          id: 'rec_' + Date.now(),
-          receiptDate: subReceiptDate,
-          date: subReceiptDate || subStartDate || uploadIso.slice(0, 10),
-          month: currentMonthKey,
-          uploadedAt: uploadIso,
-          uploadedDateTime: uploadedDateTimeLabel,
-          startDate: subStartDate,
-          endDate: isPercentage ? '' : subEndDate,
-          serviceType: subServiceType || 'باقة سنوية',
-          serviceCategory: subServiceCategory || 'توصيات سعودي',
-          packageType: subServiceType || 'باقة سنوية',
-          paymentType: subPaymentType,
-          agreedPercentage: isPercentage ? subAgreedPercentage : '',
-          paidAmount: cleanPaid,
-          remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
-          receiptProof: subReceiptProof?.trim() || 'مسجل',
-          receiptUrl: finalReceiptUrl || '',
-          notes: subNotes?.trim() || '',
-          savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
-          savedByUid: currentUser?.uid || 'admin',
-          savedAt: uploadIso
-        };
-        updatedHistory = [newPaymentRecord, ...existingHistory];
-      }
-
-      // Primary subscription details synced from latest history record
-      const primaryRec = updatedHistory[0] || {};
-      const subData = {
-        startDate: primaryRec.startDate || subStartDate,
-        endDate: isPercentage ? '' : (primaryRec.endDate || subEndDate),
-        serviceType: primaryRec.serviceType || subServiceType || 'باقة سنوية',
-        serviceCategory: primaryRec.serviceCategory || subServiceCategory || 'توصيات سعودي',
-        paymentType: primaryRec.paymentType || subPaymentType,
+      updatedHistory = existingHistory.map(h => {
+        if (h.id === editingReceiptId) {
+          return {
+            ...h,
+            serviceType: subServiceType || h.serviceType,
+            packageType: subServiceType || h.packageType,
+            serviceCategory: subServiceCategory || h.serviceCategory,
+            paymentType: subPaymentType,
+            agreedPercentage: isPercentage ? subAgreedPercentage : '',
+            receiptDate: subReceiptDate || h.receiptDate || h.date,
+            date: subReceiptDate || subStartDate,
+            month: currentMonthKey,
+            startDate: subStartDate,
+            endDate: isPercentage ? '' : subEndDate,
+            paidAmount: cleanPaid,
+            remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+            receiptProof: subReceiptProof?.trim() || h.receiptProof || 'مسجل',
+            receiptUrl: rawReceiptFileUrl || h.receiptUrl || '',
+            notes: subNotes?.trim() || '',
+            lastEditedBy: editorIdentity,
+            lastEditedByUid: currentUser?.uid || (isAdmin ? 'admin' : ''),
+            lastEditedAt: uploadIso,
+            lastEditedDateTime: `${dateFormatted} • ${timeFormatted}`,
+            isEdited: true
+          };
+        }
+        return h;
+      });
+    } else {
+      // Adding new payment record
+      const uploadedDateTimeLabel = `${dateFormatted} • ${timeFormatted}`;
+      const newPaymentRecord = {
+        id: currentRecId,
+        receiptDate: subReceiptDate,
+        date: subReceiptDate || subStartDate || uploadIso.slice(0, 10),
+        month: currentMonthKey,
+        uploadedAt: uploadIso,
+        uploadedDateTime: uploadedDateTimeLabel,
+        startDate: subStartDate,
+        endDate: isPercentage ? '' : subEndDate,
+        serviceType: subServiceType || 'باقة سنوية',
+        serviceCategory: subServiceCategory || 'توصيات سعودي',
+        packageType: subServiceType || 'باقة سنوية',
+        paymentType: subPaymentType,
         agreedPercentage: isPercentage ? subAgreedPercentage : '',
-        paidAmount: primaryRec.paidAmount || cleanPaid,
-        remainingAmount: primaryRec.paymentType === 'partial' ? primaryRec.remainingAmount : '',
-        receiptProof: primaryRec.receiptProof || (subReceiptProof?.trim() || 'مسجل'),
-        receiptUrl: primaryRec.receiptUrl || finalReceiptUrl || '',
-        notes: primaryRec.notes || subNotes?.trim() || '',
-        month: primaryRec.month || currentMonthKey,
+        paidAmount: cleanPaid,
+        remainingAmount: subPaymentType === 'partial' ? (subRemainingAmount || '').replace(/[^0-9.]/g, '') : '',
+        receiptProof: subReceiptProof?.trim() || 'مسجل',
+        receiptUrl: rawReceiptFileUrl || '',
+        notes: subNotes?.trim() || '',
         savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
         savedByUid: currentUser?.uid || 'admin',
         savedAt: uploadIso
       };
-
-      const targetId = selectedSubCustomer.id;
-      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
-      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
-
-      const updateTargets = [
-        { col: 'leads_crm', docId: targetId },
-        { col: 'employee_leads', docId: targetId },
-        { col: 'customers', docId: targetId }
-      ];
-      if (phoneDocId) {
-        updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
-      }
-
-      const savePayload = {
-        subscriptionDetails: subData,
-        subscriptionHistory: updatedHistory,
-        crmStatus: 'subscribed',
-        updatedAt: serverTimestamp()
-      };
-
-      await Promise.allSettled(
-        updateTargets.map(target =>
-          setDoc(doc(db, target.col, target.docId), savePayload, { merge: true })
-        )
-      );
-
-      // FAST LOCAL UI UPDATE
-      setSubPaymentHistory(updatedHistory);
-      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed' }));
-
-      // Clear all input fields and close modal immediately
-      setSubReceiptDate('');
-      setSubStartDate('');
-      setSubEndDate('');
-      setSubServiceType('');
-      setSubServiceCategory('');
-      setSubPaymentType('');
-      setSubAgreedPercentage('');
-      setSubPaidAmount('');
-      setSubRemainingAmount('');
-      setSubReceiptProof('');
-      setSubReceiptFileUrl('');
-      setSubNotes('');
-      setEditingReceiptId(null);
-      setIsAddingNewReceipt(false);
-      setIsSubscriptionModalOpen(false);
-
-      toast.success(isEditingMode ? 'تم حفظ التعديلات وإغلاق النافذة بنجاح 💾✨' : 'تم حفظ بيانات الاشتراك وإغلاق النافذة بنجاح 💾✨', { id: toastId });
-    } catch (err) {
-      console.error('Error saving subscription details:', err);
-      toast.error('حدث خطأ أثناء حفظ التعديلات: ' + (err.message || ''));
-    } finally {
-      setSubSaving(false);
+      updatedHistory = [newPaymentRecord, ...existingHistory];
     }
+
+    // Primary subscription details synced from latest history record
+    const primaryRec = updatedHistory[0] || {};
+    const subData = {
+      startDate: primaryRec.startDate || subStartDate,
+      endDate: isPercentage ? '' : (primaryRec.endDate || subEndDate),
+      serviceType: primaryRec.serviceType || subServiceType || 'باقة سنوية',
+      serviceCategory: primaryRec.serviceCategory || subServiceCategory || 'توصيات سعودي',
+      paymentType: primaryRec.paymentType || subPaymentType,
+      agreedPercentage: isPercentage ? subAgreedPercentage : '',
+      paidAmount: primaryRec.paidAmount || cleanPaid,
+      remainingAmount: primaryRec.paymentType === 'partial' ? primaryRec.remainingAmount : '',
+      receiptProof: primaryRec.receiptProof || (subReceiptProof?.trim() || 'مسجل'),
+      receiptUrl: primaryRec.receiptUrl || rawReceiptFileUrl || '',
+      notes: primaryRec.notes || subNotes?.trim() || '',
+      month: primaryRec.month || currentMonthKey,
+      savedBy: currentEmpUser?.name || currentUser?.email || 'الإدارة',
+      savedByUid: currentUser?.uid || 'admin',
+      savedAt: uploadIso
+    };
+
+    const targetId = selectedSubCustomer.id;
+    const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+    const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+    const updateTargets = [
+      { col: 'leads_crm', docId: targetId },
+      { col: 'employee_leads', docId: targetId },
+      { col: 'customers', docId: targetId }
+    ];
+    if (phoneDocId) {
+      updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
+    }
+
+    // ⚡ INSTANT OPTIMISTIC UI UPDATE & 0MS MODAL CLOSE
+    setSubPaymentHistory(updatedHistory);
+    setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: subData, subscriptionHistory: updatedHistory, crmStatus: 'subscribed' }));
+
+    // Clear all input fields and close modal immediately!
+    setSubReceiptDate('');
+    setSubStartDate('');
+    setSubEndDate('');
+    setSubServiceType('');
+    setSubServiceCategory('');
+    setSubPaymentType('');
+    setSubAgreedPercentage('');
+    setSubPaidAmount('');
+    setSubRemainingAmount('');
+    setSubReceiptProof('');
+    setSubReceiptFileUrl('');
+    setSubNotes('');
+    setEditingReceiptId(null);
+    setIsAddingNewReceipt(false);
+    setIsSubscriptionModalOpen(false);
+    setSubSaving(false);
+
+    toast.success(isEditingMode ? 'تم حفظ التعديلات فوراً 💾✨' : 'تم حفظ بيانات الاشتراك فوراً 💾✨');
+
+    // 🔄 BACKGROUND ASYNC SAVING TO FIRESTORE & REPOSITORY STORAGE
+    (async () => {
+      try {
+        const finalReceiptUrl = await saveReceiptFile(rawReceiptFileUrl, selectedSubCustomer?.name || 'rcpt');
+
+        const historyWithFinalUrl = updatedHistory.map(h => {
+          if (h.id === currentRecId) {
+            return { ...h, receiptUrl: finalReceiptUrl };
+          }
+          return h;
+        });
+
+        const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(historyWithFinalUrl);
+        const finalPrimaryRec = sanitizedHistory[0] || {};
+        const finalSubData = {
+          ...subData,
+          receiptUrl: finalPrimaryRec.receiptUrl || finalReceiptUrl || ''
+        };
+
+        const savePayload = {
+          subscriptionDetails: finalSubData,
+          subscriptionHistory: sanitizedHistory,
+          crmStatus: 'subscribed',
+          updatedAt: serverTimestamp()
+        };
+
+        await Promise.allSettled(
+          updateTargets.map(target =>
+            setDoc(doc(db, target.col, target.docId), savePayload, { merge: true })
+          )
+        );
+
+        setSelectedSubCustomer(prev => {
+          if (!prev || prev.id !== targetId) return prev;
+          return { ...prev, subscriptionDetails: finalSubData, subscriptionHistory: sanitizedHistory, crmStatus: 'subscribed' };
+        });
+        setSubPaymentHistory(sanitizedHistory);
+      } catch (err) {
+        console.error('Background subscription save error:', err);
+      }
+    })();
   };
 
   // --- SAUDI & US MARKET RECOMMENDATIONS HELPERS & HANDLERS (v2.23) ---
