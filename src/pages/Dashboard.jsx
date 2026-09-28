@@ -7580,21 +7580,20 @@ const Dashboard = () => {
       setSubPaymentHistory(history);
     }
 
-    // Populate subscription fields from latest history record or customer subscriptionDetails
-    const latestRec = history[0] || customer.subscriptionDetails || {};
-    setSubReceiptDate(latestRec.receiptDate || latestRec.date || '');
-    setSubStartDate(latestRec.startDate || customer.subscriptionDetails?.startDate || '');
-    setSubEndDate(latestRec.endDate || customer.subscriptionDetails?.endDate || '');
-    setSubServiceType(latestRec.serviceType || latestRec.packageType || customer.subscriptionDetails?.serviceType || '');
-    setSubServiceCategory(latestRec.serviceCategory || customer.subscriptionDetails?.serviceCategory || '');
-    setSubPaymentType(latestRec.paymentType || customer.subscriptionDetails?.paymentType || '');
-    setSubAgreedPercentage(latestRec.agreedPercentage || customer.subscriptionDetails?.agreedPercentage || '');
-    setSubPaidAmount(latestRec.paidAmount || customer.subscriptionDetails?.paidAmount || '');
-    setSubRemainingAmount(latestRec.remainingAmount || customer.subscriptionDetails?.remainingAmount || '');
-    setSubReceiptProof(latestRec.receiptProof || customer.subscriptionDetails?.receiptProof || '');
-    setSubReceiptFileUrl(latestRec.receiptUrl || customer.subscriptionDetails?.receiptUrl || '');
-    setSubNotes(latestRec.notes || customer.subscriptionDetails?.notes || '');
-    setIsAddingNewReceipt(false);
+    // Always start with empty subscription input fields and empty receipt image when opening modal
+    setSubReceiptDate('');
+    setSubStartDate('');
+    setSubEndDate('');
+    setSubServiceType('');
+    setSubServiceCategory('');
+    setSubPaymentType('');
+    setSubAgreedPercentage('');
+    setSubPaidAmount('');
+    setSubRemainingAmount('');
+    setSubReceiptProof('');
+    setSubReceiptFileUrl('');
+    setSubNotes('');
+    setIsAddingNewReceipt(true);
     setEditingReceiptId(null);
     setIsSubscriptionModalOpen(true);
   };

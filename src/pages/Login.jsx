@@ -153,6 +153,10 @@ export default function Login() {
       try {
         sessionStorage.removeItem('impersonatedEmp');
         localStorage.removeItem('impersonatedEmp');
+        localStorage.setItem('isEmpLoggedIn', 'true');
+        if (userCred.user?.email) {
+          localStorage.setItem('empEmail', userCred.user.email);
+        }
       } catch (_) {}
 
       // Navigate to destination
