@@ -1634,6 +1634,7 @@ export default function WhatsAppWidget() {
         {/* Floating Trigger Button */}
         {!isExpanded && (
           <button
+            id="whatsapp-floating-trigger-btn"
             onClick={handleTriggerClick}
             className="relative flex items-center gap-2 bg-gradient-to-r from-green-500 via-emerald-600 to-teal-600 hover:from-green-400 hover:to-teal-500 text-white font-black px-4 py-3 rounded-full shadow-[0_8px_30px_rgba(16,185,129,0.5)] border-2 border-emerald-300 transition-all transform hover:scale-105 active:scale-95 cursor-pointer z-50"
           >
