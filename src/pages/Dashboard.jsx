@@ -8103,48 +8103,9 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
       const existingHistory = selectedSubCustomer.subscriptionHistory || [];
       const itemToDelete = existingHistory.find(h => h.id === recordId);
       const rawUpdatedHistory = existingHistory.filter(h => h.id !== recordId);
-      const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(rawUpdatedHistory);
 
-      // Archive to recycle_bin (Safely in isolated try/catch with compressed receiptUrl)
-      if (itemToDelete) {
-        try {
-          const deleter = getCurrentDeleterInfo();
-          const delBinId = 'del_rcpt_' + Date.now();
-          let archiveReceiptUrl = itemToDelete.receiptUrl || '';
-          if (archiveReceiptUrl.startsWith('data:image/') && archiveReceiptUrl.length > 200000) {
-            try {
-              archiveReceiptUrl = await compressReceiptImage(archiveReceiptUrl, 1200, 0.75);
-            } catch (e) {}
-          }
-          await setDoc(doc(db, 'recycle_bin', delBinId), {
-            ...itemToDelete,
-            id: delBinId,
-            type: 'receipt',
-            originalCollection: 'subscription_receipts',
-            itemTitle: `إشعار تحويل محذوف - ${selectedSubCustomer.name || 'عميل'}`,
-            name: selectedSubCustomer.name || 'عميل',
-            customerName: selectedSubCustomer.name || 'عميل',
-            phoneNumber: selectedSubCustomer.phoneNumber || '',
-            customerPhone: selectedSubCustomer.phoneNumber || '',
-            customerId: selectedSubCustomer.id,
-            receiptUrl: archiveReceiptUrl,
-            paidAmount: itemToDelete.paidAmount || '0',
-            receiptDate: itemToDelete.receiptDate || itemToDelete.date || '',
-            deletedAt: serverTimestamp(),
-            deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
-            deletedBy: deleter.label,
-            deletedByUid: deleter.uid,
-            deletedByEmail: deleter.email,
-            deletedByRole: deleter.role
-          });
-        } catch (archiveErr) {
-          console.warn('Error archiving deleted receipt to recycle_bin:', archiveErr);
-        }
-      }
-
-      // Sync top-level subscriptionDetails from remaining history items or reset if empty
-      const primaryRec = sanitizedHistory[0] || {};
-      const updatedSubData = sanitizedHistory.length > 0 ? {
+      const primaryRec = rawUpdatedHistory[0] || {};
+      const updatedSubData = rawUpdatedHistory.length > 0 ? {
         startDate: primaryRec.startDate || selectedSubCustomer?.subscriptionDetails?.startDate || '',
         endDate: primaryRec.endDate || selectedSubCustomer?.subscriptionDetails?.endDate || '',
         serviceType: primaryRec.serviceType || selectedSubCustomer?.subscriptionDetails?.serviceType || '',
@@ -8161,51 +8122,81 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
         savedByUid: primaryRec.savedByUid || '',
         savedAt: primaryRec.savedAt || ''
       } : {
-        startDate: '',
-        endDate: '',
-        serviceType: '',
-        serviceCategory: '',
-        paymentType: '',
-        agreedPercentage: '',
-        paidAmount: '',
-        remainingAmount: '',
-        receiptProof: '',
-        receiptUrl: '',
-        notes: '',
-        month: '',
-        savedBy: '',
-        savedByUid: '',
-        savedAt: ''
+        startDate: '', endDate: '', serviceType: '', serviceCategory: '', paymentType: '', agreedPercentage: '', paidAmount: '', remainingAmount: '', receiptProof: '', receiptUrl: '', notes: '', month: '', savedBy: '', savedByUid: '', savedAt: ''
       };
 
-      const targetId = selectedSubCustomer.id;
-      const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
-      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+      // ⚡ INSTANT OPTIMISTIC UI DELETION
+      setSubPaymentHistory(rawUpdatedHistory);
+      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: updatedSubData, subscriptionHistory: rawUpdatedHistory }));
+      toast.success('تم حذف الإشعار من السجل فوراً 🗑️');
 
-      let updatedAtLeastOne = false;
-      const updateErrors = [];
-      const updateTargets = [
-        { col: 'leads_crm', docId: targetId },
-        { col: 'employee_leads', docId: targetId },
-        { col: 'customers', docId: targetId }
-      ];
-      if (phoneDocId) {
-        updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
-      }
+      // 🔄 Background async sync (Non-blocking)
+      (async () => {
+        try {
+          const sanitizedHistory = await sanitizeSubscriptionHistoryPayload(rawUpdatedHistory);
 
-      await Promise.allSettled(
-        updateTargets.map(target =>
-          setDoc(doc(db, target.col, target.docId), { 
-            subscriptionDetails: updatedSubData, 
-            subscriptionHistory: sanitizedHistory, 
-            updatedAt: serverTimestamp() 
-          }, { merge: true })
-        )
-      );
+          if (itemToDelete) {
+            try {
+              const deleter = getCurrentDeleterInfo();
+              const delBinId = 'del_rcpt_' + Date.now();
+              let archiveReceiptUrl = itemToDelete.receiptUrl || '';
+              if (archiveReceiptUrl.startsWith('data:image/') && archiveReceiptUrl.length > 200000) {
+                try {
+                  archiveReceiptUrl = await compressReceiptImage(archiveReceiptUrl, 1200, 0.75);
+                } catch (e) {}
+              }
+              await setDoc(doc(db, 'recycle_bin', delBinId), {
+                ...itemToDelete,
+                id: delBinId,
+                type: 'receipt',
+                originalCollection: 'subscription_receipts',
+                itemTitle: `إشعار تحويل محذوف - ${selectedSubCustomer.name || 'عميل'}`,
+                name: selectedSubCustomer.name || 'عميل',
+                customerName: selectedSubCustomer.name || 'عميل',
+                phoneNumber: selectedSubCustomer.phoneNumber || '',
+                customerPhone: selectedSubCustomer.phoneNumber || '',
+                customerId: selectedSubCustomer.id,
+                receiptUrl: archiveReceiptUrl,
+                paidAmount: itemToDelete.paidAmount || '0',
+                receiptDate: itemToDelete.receiptDate || itemToDelete.date || '',
+                deletedAt: serverTimestamp(),
+                deletedAtFormatted: new Date().toLocaleDateString('ar-EG') + ' • ' + new Date().toLocaleTimeString('ar-EG'),
+                deletedBy: deleter.label,
+                deletedByUid: deleter.uid,
+                deletedByEmail: deleter.email,
+                deletedByRole: deleter.role
+              });
+            } catch (archiveErr) {
+              console.warn('Error archiving deleted receipt to recycle_bin:', archiveErr);
+            }
+          }
 
-      setSubPaymentHistory(sanitizedHistory);
-      setSelectedSubCustomer(prev => ({ ...prev, subscriptionDetails: updatedSubData, subscriptionHistory: sanitizedHistory }));
-      toast.success('تم حذف الإشعار من السجل بنجاح 🗑️');
+          const targetId = selectedSubCustomer.id;
+          const cleanPhone = (selectedSubCustomer.phoneNumber || '').replace(/[^0-9+]/g, '');
+          const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+
+          const updateTargets = [
+            { col: 'leads_crm', docId: targetId },
+            { col: 'employee_leads', docId: targetId },
+            { col: 'customers', docId: targetId }
+          ];
+          if (phoneDocId) {
+            updateTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
+          }
+
+          await Promise.allSettled(
+            updateTargets.map(target =>
+              setDoc(doc(db, target.col, target.docId), { 
+                subscriptionDetails: updatedSubData, 
+                subscriptionHistory: sanitizedHistory, 
+                updatedAt: serverTimestamp() 
+              }, { merge: true })
+            )
+          );
+        } catch (bErr) {
+          console.error('Background receipt deletion error:', bErr);
+        }
+      })();
     } catch (err) {
       console.error('Error deleting receipt:', err);
       toast.error('حدث خطأ أثناء حذف الإشعار: ' + (err.message || ''));
@@ -10092,33 +10083,88 @@ const handleModalPasteBuffetItem = (e) => {
 
   const generateBrandedReportImage = async ({ reportTitle, textContent, targetLevel, currentLevel, supportLevel }) => {
     const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1080;
+    canvas.width = 1200;
+    canvas.height = 1200;
     const ctx = canvas.getContext('2d');
 
-    const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
-    bgGrad.addColorStop(0, '#040914');
-    bgGrad.addColorStop(0.5, '#0a1329');
-    bgGrad.addColorStop(1, '#020611');
+    // 1. Tech Deep Blue Background Gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 1200, 1200);
+    bgGrad.addColorStop(0, '#040d21');
+    bgGrad.addColorStop(0.3, '#081a3e');
+    bgGrad.addColorStop(0.7, '#05112b');
+    bgGrad.addColorStop(1, '#020714');
     ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, 1080, 1080);
+    ctx.fillRect(0, 0, 1200, 1200);
 
-    const g1 = ctx.createRadialGradient(200, 200, 10, 200, 200, 400);
-    g1.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
-    g1.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g1;
-    ctx.fillRect(0, 0, 1080, 1080);
+    // Subtle Tech Grid lines
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 1200; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1200); ctx.stroke();
+    }
+    for (let y = 0; y < 1200; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1200, y); ctx.stroke();
+    }
 
-    const g2 = ctx.createRadialGradient(900, 900, 10, 900, 900, 400);
-    g2.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
-    g2.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(0, 0, 1080, 1080);
+    // Glowing Radial background auras
+    const gTop = ctx.createRadialGradient(250, 180, 10, 250, 180, 450);
+    gTop.addColorStop(0, 'rgba(14, 165, 233, 0.35)');
+    gTop.addColorStop(0.6, 'rgba(30, 58, 138, 0.15)');
+    gTop.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gTop;
+    ctx.fillRect(0, 0, 1200, 1200);
 
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(20, 20, 1040, 1040);
+    const gBottom = ctx.createRadialGradient(950, 950, 10, 950, 950, 500);
+    gBottom.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
+    gBottom.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gBottom;
+    ctx.fillRect(0, 0, 1200, 1200);
 
+    // Stock Market Candlestick & Wave Artwork at bottom background (Matching image 2)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 1100);
+    ctx.lineTo(150, 1040);
+    ctx.lineTo(300, 1070);
+    ctx.lineTo(450, 960);
+    ctx.lineTo(600, 1010);
+    ctx.lineTo(750, 910);
+    ctx.lineTo(900, 950);
+    ctx.lineTo(1050, 860);
+    ctx.lineTo(1200, 900);
+    ctx.stroke();
+
+    const candles = [
+      { x: 80, y: 1050, h: 40, color: '#22c55e' },
+      { x: 130, y: 1030, h: -30, color: '#ef4444' },
+      { x: 180, y: 1060, h: 50, color: '#22c55e' },
+      { x: 230, y: 1020, h: 45, color: '#22c55e' },
+      { x: 280, y: 1075, h: -25, color: '#ef4444' },
+      { x: 340, y: 980, h: 60, color: '#22c55e' },
+      { x: 400, y: 1000, h: -35, color: '#ef4444' },
+      { x: 460, y: 950, h: 55, color: '#22c55e' },
+      { x: 520, y: 1000, h: -40, color: '#ef4444' }
+    ];
+    candles.forEach(c => {
+      ctx.fillStyle = c.color + '40';
+      ctx.fillRect(c.x - 6, c.y, 12, c.h);
+      ctx.strokeStyle = c.color + '60';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(c.x, c.y - 15); ctx.lineTo(c.x, c.y + c.h + 15); ctx.stroke();
+    });
+    ctx.restore();
+
+    // Outer double neon frame
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(16, 16, 1168, 1168);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(22, 22, 1156, 1156);
+
+    // 2. Header Section
     try {
       const logoImg = new Image();
       logoImg.crossOrigin = 'anonymous';
@@ -10126,38 +10172,75 @@ const handleModalPasteBuffetItem = (e) => {
       await new Promise((res) => {
         logoImg.onload = res;
         logoImg.onerror = res;
-        setTimeout(res, 800);
+        setTimeout(res, 600);
       });
       if (logoImg.complete && logoImg.naturalWidth > 0) {
         ctx.save();
+        ctx.shadowColor = '#0284c7';
+        ctx.shadowBlur = 20;
         ctx.beginPath();
-        ctx.arc(140, 110, 50, 0, Math.PI * 2);
+        ctx.arc(1060, 100, 52, 0, Math.PI * 2);
+        ctx.fillStyle = '#0b192e';
+        ctx.fill();
         ctx.clip();
-        ctx.drawImage(logoImg, 90, 60, 100, 100);
+        ctx.drawImage(logoImg, 1008, 48, 104, 104);
         ctx.restore();
-        ctx.strokeStyle = '#f59e0b';
+
+        ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(140, 110, 50, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(1060, 100, 52, 0, Math.PI * 2); ctx.stroke();
       }
     } catch (e) {}
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'extrabold 44px "Segoe UI", Tahoma, sans-serif';
+    // Title Text: "اتجاه التحليل الذكي"
     ctx.direction = 'rtl';
     ctx.textAlign = 'right';
-    ctx.fillText('اتجاه التحليل الذكي', 980, 100);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 46px "Segoe UI", Tahoma, Arial, sans-serif';
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
+    ctx.shadowBlur = 15;
+    ctx.fillText('اتجاه التحليل الذكي', 980, 92);
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
-    ctx.fillText('نحو قرارات أدق... برؤية أعمق', 980, 138);
+    // Subtitle Text: "نحو قرارات أدق... برؤية أعمق"
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 24px "Segoe UI", Tahoma, Arial, sans-serif';
+    ctx.fillText('نحو قرارات أدق... برؤية أعمق', 980, 132);
 
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
+    // Top Left Futuristic Tech Badge (Decorative slanted bar matching image 2)
+    const drawTopLeftBadge = () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(50, 50);
+      ctx.lineTo(380, 50);
+      ctx.lineTo(340, 110);
+      ctx.lineTo(50, 110);
+      ctx.closePath();
 
-    const roundRectLocal = (x, y, w, h, r) => {
+      const bGrad = ctx.createLinearGradient(50, 50, 380, 110);
+      bGrad.addColorStop(0, 'rgba(14, 165, 233, 0.85)');
+      bGrad.addColorStop(1, 'rgba(30, 58, 138, 0.9)');
+      ctx.fillStyle = bGrad;
+      ctx.shadowColor = '#0ea5e9';
+      ctx.shadowBlur = 18;
+      ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 3;
+      for (let lx = 300; lx < 360; lx += 15) {
+        ctx.beginPath(); ctx.moveTo(lx, 60); ctx.lineTo(lx - 20, 100); ctx.stroke();
+      }
+      ctx.restore();
+    };
+    drawTopLeftBadge();
+
+    // Helper for rounded rectangle
+    const drawRoundRect = (x, y, w, h, r, fillColor, strokeColor, lineWidth = 2) => {
+      ctx.save();
       ctx.beginPath();
       ctx.moveTo(x + r, y);
       ctx.lineTo(x + w - r, y);
@@ -10169,89 +10252,171 @@ const handleModalPasteBuffetItem = (e) => {
       ctx.lineTo(x, y + r);
       ctx.quadraticCurveTo(x, y, x + r, y);
       ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      if (fillColor) {
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+      }
+      if (strokeColor) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
     };
 
-    roundRectLocal(60, 180, 960, 60, 16);
-
-    ctx.fillStyle = '#60a5fa';
-    ctx.font = 'bold 28px "Segoe UI", Tahoma, sans-serif';
+    // 3. Report Title Bar Container
+    drawRoundRect(50, 165, 1100, 68, 18, 'rgba(15, 41, 74, 0.9)', '#0284c7', 2);
     ctx.textAlign = 'center';
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = 'bold 30px "Segoe UI", Tahoma, Arial, sans-serif';
     const formattedDate = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    ctx.fillText(`${reportTitle} • ${formattedDate}`, 540, 222);
+    ctx.fillText(`${reportTitle} • ${formattedDate}`, 600, 210);
 
+    // 4. Main Analysis Text Card Container
     const hasMetrics = targetLevel || currentLevel || supportLevel;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
-    roundRectLocal(60, 265, 960, hasMetrics ? 480 : 660, 24);
+    const textCardHeight = hasMetrics ? 540 : 750;
+    drawRoundRect(50, 255, 1100, textCardHeight, 26, 'rgba(8, 24, 52, 0.85)', 'rgba(56, 189, 248, 0.4)', 2);
 
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 28px "Segoe UI", Tahoma, sans-serif';
+    ctx.direction = 'rtl';
     ctx.textAlign = 'right';
 
-    const wrapTextRTL = (text, maxWidth) => {
-      const words = (text || '').split(' ');
-      const lines = [];
-      let currentLine = words[0] || '';
-      for (let i = 1; i < words.length; i++) {
-        const word = words[i];
-        const width = ctx.measureText(currentLine + ' ' + word).width;
-        if (width < maxWidth) currentLine += ' ' + word;
-        else { lines.push(currentLine); currentLine = word; }
-      }
-      lines.push(currentLine);
-      return lines;
+    const wrapAndRenderText = (text, startX, startY, maxWidth, maxLines) => {
+      const paragraphs = (text || 'لا يوجد نص تقرير مدخل').split('\n');
+      let currentY = startY;
+      let lineCount = 0;
+
+      paragraphs.forEach(para => {
+        if (!para.trim()) {
+          currentY += 20;
+          return;
+        }
+
+        const words = para.trim().split(' ');
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+          const testLine = currentLine ? currentLine + ' ' + words[i] : words[i];
+          const width = ctx.measureText(testLine).width;
+
+          if (width > maxWidth && currentLine) {
+            if (lineCount < maxLines) {
+              renderLineWithHighlights(currentLine, startX, currentY);
+              currentY += 48;
+              lineCount++;
+            }
+            currentLine = words[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+
+        if (currentLine && lineCount < maxLines) {
+          renderLineWithHighlights(currentLine, startX, currentY);
+          currentY += 48;
+          lineCount++;
+        }
+      });
     };
 
-    const textLines = wrapTextRTL(textContent || 'لا يوجد نص تقرير مدخل', 900);
-    let yPos = 325;
-    const maxLineY = hasMetrics ? 710 : 890;
-    textLines.forEach(line => {
-      if (yPos < maxLineY) {
-        ctx.fillText(line, 980, yPos);
-        yPos += 46;
-      }
-    });
+    const renderLineWithHighlights = (line, startX, y) => {
+      const tokens = line.split(/(\s+|[0-9,.]+)/);
+      let posX = startX;
 
+      tokens.forEach(token => {
+        if (!token) return;
+        const isNumber = /^[0-9,.]+$/.test(token) && token.length >= 2;
+        
+        ctx.save();
+        ctx.direction = 'rtl';
+        ctx.textAlign = 'right';
+
+        if (isNumber) {
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'extrabold 32px "Segoe UI", monospace';
+          ctx.shadowColor = '#0ea5e9';
+          ctx.shadowBlur = 8;
+        } else {
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 30px "Segoe UI", Tahoma, Arial, sans-serif';
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.fillText(token, posX, y);
+        const wordWidth = ctx.measureText(token).width;
+        posX -= wordWidth;
+        ctx.restore();
+      });
+    };
+
+    wrapAndRenderText(textContent, 1110, 318, 1020, hasMetrics ? 9 : 14);
+
+    // 5. Scenario Negation / Warning Pill Banner
+    if (supportLevel || targetLevel) {
+      const bannerY = hasMetrics ? 710 : 920;
+      drawRoundRect(100, bannerY, 1000, 64, 32, 'rgba(15, 23, 42, 0.95)', '#0284c7', 2);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 26px "Segoe UI", Tahoma, Arial, sans-serif';
+      ctx.fillStyle = '#f8fafc';
+
+      const negationText = supportLevel
+        ? `📉 ويتم نفي السيناريو باختراق / كسر مستوى ${supportLevel}`
+        : `🎯 المستهدف القادم للمؤشر عند مستوى ${targetLevel}`;
+      
+      ctx.fillText(negationText, 600, bannerY + 42);
+    }
+
+    // 6. Metrics Grid Container at Bottom
     if (hasMetrics) {
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.9)';
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2;
-      roundRectLocal(60, 770, 960, 170, 20);
+      const metricsY = 820;
+      drawRoundRect(50, metricsY, 1100, 180, 24, 'rgba(4, 15, 38, 0.92)', '#0284c7', 2);
 
-      const colW = 960 / 3;
+      const colW = 1100 / 3;
+
       if (targetLevel) {
+        drawRoundRect(50 + colW * 2 + 15, metricsY + 20, colW - 30, 140, 16, 'rgba(16, 185, 129, 0.12)', '#10b981', 1.5);
+        ctx.textAlign = 'center';
         ctx.fillStyle = '#34d399';
-        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('هدف 🎯', 60 + colW * 2.5, 815);
-        ctx.font = 'extrabold 36px monospace';
-        ctx.fillText(targetLevel, 60 + colW * 2.5, 875);
+        ctx.font = 'bold 24px "Segoe UI", Tahoma, Arial, sans-serif';
+        ctx.fillText('🎯 المستهدفات', 50 + colW * 2.5, metricsY + 62);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'extrabold 38px monospace';
+        ctx.shadowColor = '#10b981'; ctx.shadowBlur = 10;
+        ctx.fillText(targetLevel, 50 + colW * 2.5, metricsY + 122);
+        ctx.shadowBlur = 0;
       }
+
       if (currentLevel) {
-        ctx.fillStyle = '#60a5fa';
-        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+        drawRoundRect(50 + colW * 1 + 15, metricsY + 20, colW - 30, 140, 16, 'rgba(56, 189, 248, 0.12)', '#38bdf8', 1.5);
         ctx.textAlign = 'center';
-        ctx.fillText('مستوى الإغلاق / الافتتاح 📊', 60 + colW * 1.5, 815);
-        ctx.font = 'extrabold 36px monospace';
-        ctx.fillText(currentLevel, 60 + colW * 1.5, 875);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 24px "Segoe UI", Tahoma, Arial, sans-serif';
+        ctx.fillText('📊 مستوى الإغلاق / الحالي', 50 + colW * 1.5, metricsY + 62);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'extrabold 38px monospace';
+        ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 10;
+        ctx.fillText(currentLevel, 50 + colW * 1.5, metricsY + 122);
+        ctx.shadowBlur = 0;
       }
+
       if (supportLevel) {
-        ctx.fillStyle = '#f43f5e';
-        ctx.font = 'bold 22px "Segoe UI", Tahoma, sans-serif';
+        drawRoundRect(50 + 15, metricsY + 20, colW - 30, 140, 16, 'rgba(244, 63, 94, 0.12)', '#f43f5e', 1.5);
         ctx.textAlign = 'center';
-        ctx.fillText('مستوى الدعم 🛑', 60 + colW * 0.5, 815);
-        ctx.font = 'extrabold 36px monospace';
-        ctx.fillText(supportLevel, 60 + colW * 0.5, 875);
+        ctx.fillStyle = '#fb7185';
+        ctx.font = 'bold 24px "Segoe UI", Tahoma, Arial, sans-serif';
+        ctx.fillText('🛑 مستوى الدعم / وقف الخسارة', 50 + colW * 0.5, metricsY + 62);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'extrabold 38px monospace';
+        ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 10;
+        ctx.fillText(supportLevel, 50 + colW * 0.5, metricsY + 122);
+        ctx.shadowBlur = 0;
       }
     }
 
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 18px "Segoe UI", Tahoma, sans-serif';
+    // 7. Footer Copyright
     ctx.textAlign = 'center';
-    ctx.fillText('جميع البيانات تم إنشاؤها عبر منصة اتجاه التحليل الذكي © ' + new Date().getFullYear(), 540, 1010);
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 20px "Segoe UI", Tahoma, Arial, sans-serif';
+    ctx.fillText(`جميع البيانات تم إنشاؤها عبر منصة اتجاه التحليل الذكي © ${new Date().getFullYear()}`, 600, 1160);
 
     return canvas.toDataURL('image/png');
   };
