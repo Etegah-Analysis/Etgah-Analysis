@@ -15511,11 +15511,17 @@ const handleExportBuffetToExcel = () => {
                             <>
                               {(() => {
                                 const leaderOwnCount = employeeLeadCounts[currentUser?.uid] || 0;
+                                const teamTotalCount = leaderOwnCount + myTeamMembers.reduce((acc, m) => acc + (employeeLeadCounts[m.uid] || 0), 0);
                                 const leaderDisplayName = getEnglishDisplayName(currentEmpUser, 'Leader');
                                 return (
-                                  <option value={currentUser?.uid} className="bg-purple-950 text-white font-bold">
-                                    👑 Leader Personal: {leaderDisplayName} ({leaderOwnCount.toLocaleString()} Leads)
-                                  </option>
+                                  <>
+                                    <option value="all" className="bg-purple-950 text-white font-bold">
+                                      👥 All Team Data / داتا الفريق بالكامل ({teamTotalCount.toLocaleString()} Leads)
+                                    </option>
+                                    <option value={currentUser?.uid} className="bg-purple-950 text-white font-bold">
+                                      👑 Leader Personal: {leaderDisplayName} ({leaderOwnCount.toLocaleString()} Leads)
+                                    </option>
+                                  </>
                                 );
                               })()}
                               {myTeamMembers.map(member => {
