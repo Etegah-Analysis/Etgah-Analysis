@@ -6866,6 +6866,60 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteSingleSubscribedCustomer = async (customer) => {
+    if (isLeader) {
+      toast.error('غير مصرح لليدر بحذف العملاء نهائياً ⛔');
+      return;
+    }
+    if (!isAdmin) {
+      toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
+      return;
+    }
+    const custDisplayName = customer.name || customer.phoneNumber || 'عميل مشترك';
+    if (!window.confirm(`هل أنت متأكد من مسح العميل المشترك (${custDisplayName}) ونقله إلى سلة المهملات؟`)) return;
+
+    try {
+      const targetId = customer.id;
+      const cleanPhone = (customer.phoneNumber || '').replace(/[^0-9+]/g, '');
+      const phoneDocId = cleanPhone ? cleanPhone.replace(/[^0-9]/g, '') : targetId;
+      const deleterInfo = getCurrentDeleterInfo();
+
+      // 1. Instant 0ms Optimistic UI Update
+      setCustomers(prev => prev.filter(c => c.id !== targetId));
+      setLeadsCrm(prev => prev.filter(c => c.id !== targetId));
+      setEmployeeLeads(prev => prev.filter(c => c.id !== targetId));
+      toast.success('تم مسح العميل المشترك ونقله إلى سلة المهملات بنجاح 🗑️');
+
+      // 2. Background Firestore move to recycle_bin & multi-collection deletion
+      await setDoc(doc(db, 'recycle_bin', targetId), {
+        ...customer,
+        originalCollection: customer._sourceCollection || 'subscribed_customers',
+        type: 'customer',
+        deletedAt: serverTimestamp(),
+        deletedBy: deleterInfo.label,
+        deletedByUid: deleterInfo.uid,
+        deletedByEmail: deleterInfo.email,
+        deletedByRole: deleterInfo.role
+      });
+
+      const deleteTargets = [
+        { col: 'leads_crm', docId: targetId },
+        { col: 'employee_leads', docId: targetId },
+        { col: 'customers', docId: targetId }
+      ];
+      if (phoneDocId) {
+        deleteTargets.push({ col: 'بيانات_تسجيل_العملاء', docId: phoneDocId });
+      }
+
+      await Promise.allSettled(
+        deleteTargets.map(t => deleteDoc(doc(db, t.col, t.docId)))
+      );
+    } catch (err) {
+      console.error('Error deleting subscribed customer:', err);
+      toast.error('حدث خطأ أثناء مسح العميل المشترك');
+    }
+  };
+
   const handleDeleteSingleEmployee = async (emp) => {
     if (!isAdmin) {
       toast.error('صلاحية المسح والحذف محصورة بالإدارة العليا فقط 🔒');
@@ -18055,6 +18109,18 @@ const handleExportBuffetToExcel = () => {
                                       >
                                         <MessageCircle size={15} className="drop-shadow-sm fill-white/20" />
                                         <span className="text-[11px] font-black">WhatsApp</span>
+                                      </button>
+                                    )}
+
+                                    {/* Delete Button (Admin Only 👑) */}
+                                    {isAdmin && (
+                                      <button 
+                                        onClick={() => handleDeleteSingleSubscribedCustomer(customer)}
+                                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-2.5 py-1.5 rounded-xl text-xs transition flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                        title="مسح العميل المشترك ونقله إلى سلة المهملات (صلاحية الإدارة فقط 👑)"
+                                      >
+                                        <Trash2 size={13} className="text-rose-600" />
+                                        <span>مسح</span>
                                       </button>
                                     )}
                                   </div>
