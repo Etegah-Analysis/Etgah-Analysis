@@ -7572,11 +7572,7 @@ const Dashboard = () => {
           }
         } catch (_) {}
 
-        return { 
-          ...item, 
-          receiptUrl: '', 
-          receiptProof: (item.receiptProof || 'مسجل') + ' (تم أرشفة الإشعار القديم)' 
-        };
+        return item;
       }
 
       return item;
@@ -8204,10 +8200,19 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
           if (persistentReceiptUrl.startsWith('data:')) {
             try {
               const uploadPromise = uploadReceiptFileToStorage(persistentReceiptUrl, selectedSubCustomer?.name || 'rcpt');
-              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 4000));
+              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 25000));
               const uploadedUrl = await Promise.race([uploadPromise, timeoutPromise]);
               if (uploadedUrl && typeof uploadedUrl === 'string' && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
                 persistentReceiptUrl = uploadedUrl;
+                // Update local state if upload succeeded
+                setSelectedSubCustomer(prev => {
+                  if (!prev) return prev;
+                  const newDetails = { ...prev.subscriptionDetails, receiptUrl: persistentReceiptUrl };
+                  const newHist = (prev.subscriptionHistory || []).map(h => 
+                    h.id === (editingReceiptId || updatedHistory[0]?.id) ? { ...h, receiptUrl: persistentReceiptUrl } : h
+                  );
+                  return { ...prev, subscriptionDetails: newDetails, subscriptionHistory: newHist };
+                });
               }
             } catch (_) {}
           }
@@ -8217,17 +8222,12 @@ ${(item.lastEditedBy || item.isEdited || String(item.uploadedDateTime || '').inc
             if (h.id === (editingReceiptId || updatedHistory[0]?.id)) {
               u = persistentReceiptUrl;
             }
-            if (u.startsWith('data:') && u.length > 300000) {
-              return { ...h, receiptUrl: u.slice(0, 150) + '... (محفوظ محليا)', receiptProof: (h.receiptProof || 'مسجل') + ' (محفوظ محليا)' };
-            }
             return { ...h, receiptUrl: u };
           });
 
           const safeSubData = {
             ...subData,
-            receiptUrl: (persistentReceiptUrl.startsWith('data:') && persistentReceiptUrl.length > 300000) 
-              ? persistentReceiptUrl.slice(0, 150) + '...' 
-              : persistentReceiptUrl
+            receiptUrl: persistentReceiptUrl
           };
 
           const updateTargets = [
