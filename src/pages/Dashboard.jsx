@@ -76,21 +76,37 @@ class DashboardErrorBoundary extends React.Component {
 }
 
 // Reusable Dropdown Component for Email Recipients List
-const RecipientsDropdown = ({ mail }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const RecipientsDropdown = ({ mail, activeOpenId, onToggle }) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  const isControlled = activeOpenId !== undefined && onToggle !== undefined;
+  const isOpen = isControlled ? (activeOpenId === mail?.id) : internalOpen;
+
+  const handleToggle = (e) => {
+    if (e) e.stopPropagation();
+    if (isControlled) {
+      onToggle(isOpen ? null : mail.id);
+    } else {
+      setInternalOpen(!internalOpen);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
+        if (isControlled) {
+          if (isOpen && onToggle) onToggle(null);
+        } else {
+          setInternalOpen(false);
+        }
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, isControlled, onToggle]);
 
   if (!mail) return null;
 
@@ -115,13 +131,10 @@ const RecipientsDropdown = ({ mail }) => {
   }
 
   return (
-    <div className={`relative inline-block ${isOpen ? 'z-[100]' : 'z-10'}`} ref={dropdownRef}>
+    <div className={`relative inline-block ${isOpen ? 'z-[999]' : 'z-10'}`} ref={dropdownRef}>
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
+        onClick={handleToggle}
         className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 hover:from-purple-900 hover:to-indigo-900 text-cyan-300 hover:text-white border border-purple-500/50 px-2.5 py-1 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer active:scale-95"
         title="انقر لعرض قائمة المستلمين بالكامل"
       >
@@ -133,18 +146,18 @@ const RecipientsDropdown = ({ mail }) => {
       {isOpen && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-1.5 w-64 max-h-60 overflow-y-auto bg-slate-900 border border-purple-500/50 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.9)] z-[100] text-right space-y-1.5 text-xs animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 top-full mt-1.5 w-64 max-h-60 overflow-y-auto bg-slate-900 border border-purple-500/60 rounded-2xl p-3.5 shadow-[0_15px_40px_rgba(0,0,0,0.95)] z-[999] text-right space-y-1.5 text-xs animate-in fade-in zoom-in-95 duration-150 ring-1 ring-purple-500/30"
         >
           <div className="flex items-center justify-between pb-2 border-b border-purple-500/30 text-purple-300 font-black text-[11px]">
             <span className="flex items-center gap-1">
               <span>👥</span>
               <span>قائمة المستلمين ({names.length}):</span>
             </span>
-            <span className="text-[10px] text-gray-400 bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-500/30">مباشر</span>
+            <span className="text-[10px] text-cyan-300 bg-purple-950/90 px-2 py-0.5 rounded-full border border-purple-400/40">مباشر</span>
           </div>
           <div className="space-y-1 pt-1">
             {names.map((name, idx) => (
-              <div key={idx} className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-950/80 border border-white/10 text-slate-100 font-bold hover:border-purple-500/40 transition">
+              <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-white/10 text-slate-100 font-bold hover:border-purple-500/50 transition shadow-sm">
                 <span className="text-purple-400 text-xs">👤</span>
                 <span className="truncate">{name}</span>
               </div>
@@ -520,6 +533,7 @@ const Dashboard = () => {
     }
   };
 
+  const [activeOpenRecipientsMailId, setActiveOpenRecipientsMailId] = useState(null);
   const [customers, setCustomers] = useState(() => getInitialCache('cache_customers', []));
   const [leadsCrm, setLeadsCrm] = useState(() => getInitialCache('cache_leadsCrm', []));
   const [employeeLeads, setEmployeeLeads] = useState(() => getInitialCache('cache_employeeLeads', []));
@@ -26075,7 +26089,7 @@ const handleExportBuffetToExcel = () => {
                                 <div 
                                   key={mail.id}
                                   onClick={() => handleOpenEmailDetails(mail)}
-                                  className={`p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-purple-950/30 transition cursor-pointer ${isUnread ? 'bg-purple-950/40 font-bold border-r-4 border-cyan-400' : 'text-slate-300'}`}
+                                  className={`p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-purple-950/30 transition cursor-pointer relative ${activeOpenRecipientsMailId === mail.id ? 'z-50 shadow-2xl' : 'z-0'} ${isUnread ? 'bg-purple-950/40 font-bold border-r-4 border-cyan-400' : 'text-slate-300'}`}
                                 >
                                   {/* Star & Sender */}
                                   <div className="flex items-center gap-3 min-w-[150px] sm:min-w-[200px] shrink-0">
@@ -26091,7 +26105,7 @@ const handleExportBuffetToExcel = () => {
                                       {mailActiveFolder === 'sent' ? (
                                         <div className="flex items-center gap-1 text-xs">
                                           <span className="text-slate-400 font-normal">إلى:</span>
-                                          <RecipientsDropdown mail={mail} />
+                                          <RecipientsDropdown mail={mail} activeOpenId={activeOpenRecipientsMailId} onToggle={setActiveOpenRecipientsMailId} />
                                         </div>
                                       ) : (
                                         <span className={`text-xs block truncate ${isUnread ? 'text-white font-black' : 'text-slate-300'}`}>
@@ -26101,7 +26115,7 @@ const handleExportBuffetToExcel = () => {
                                       {isAdmin && mailActiveFolder === 'all_system' && (
                                         <div className="text-[10px] text-amber-400 font-normal flex items-center gap-1 mt-0.5 relative z-20">
                                           <span>من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ← إلى:</span>
-                                          <RecipientsDropdown mail={mail} />
+                                          <RecipientsDropdown mail={mail} activeOpenId={activeOpenRecipientsMailId} onToggle={setActiveOpenRecipientsMailId} />
                                         </div>
                                       )}
                                     </div>
