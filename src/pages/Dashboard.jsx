@@ -3727,7 +3727,7 @@ const Dashboard = () => {
     return employeeLeads.filter(c => ((c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned') === 'unassigned').length;
   }, [employeeLeads]);
 
-  const totalPendingAll = useMemo(() => unassignedWhatsappCount + unassignedLeadsCrmCount + unassignedEmployeeLeadsCount, [unassignedWhatsappCount, unassignedLeadsCrmCount, unassignedEmployeeLeadsCount]);
+  const totalPendingAll = useMemo(() => unassignedLeadsCrmCount + unassignedEmployeeLeadsCount, [unassignedLeadsCrmCount, unassignedEmployeeLeadsCount]);
   const unassignedCount = unassignedWhatsappCount;
 
   const isWebsiteVisitorLead = useCallback((c) => {
@@ -24932,16 +24932,13 @@ const handleExportBuffetToExcel = () => {
                     <span className="bg-indigo-900/60 border border-indigo-400/40 text-indigo-200 text-xs px-3 py-1.5 rounded-xl font-bold">
                       📁 انتظار داتا الموظف: {unassignedEmployeeLeadsCount.toLocaleString()}
                     </span>
-                    <span className="bg-emerald-900/60 border border-emerald-400/40 text-emerald-200 text-xs px-3 py-1.5 rounded-xl font-bold">
-                      💬 انتظار الواتساب: {unassignedWhatsappCount.toLocaleString()}
-                    </span>
                   </div>
                 </div>
 
                 {/* Section Breakdown Grid */}
                 <div className="space-y-3">
                   <h3 className="text-sm font-black text-purple-200">🔍 اختر القسم المطلوب للانتقال الفوري إلى عملاء الانتظار:</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     
                     {/* Card 1: Leads CRM Pending */}
                     <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
@@ -25000,34 +24997,6 @@ const handleExportBuffetToExcel = () => {
                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
                         الانتقال لانتظار داتا الموظف ➔
-                      </button>
-                    </div>
-
-                    {/* Card 3: WhatsApp Pending */}
-                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 hover:border-emerald-400 transition flex flex-col justify-between">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 bg-emerald-900/60 rounded-xl text-emerald-300">
-                            <Clock size={20} />
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-sm text-white">💬 انتظار الواتساب</h4>
-                            <p className="text-[11px] text-emerald-300">عملاء واتساب في انتظار المتابعة</p>
-                          </div>
-                        </div>
-                        <span className="text-xl font-black text-cyan-300">{unassignedWhatsappCount.toLocaleString()}</span>
-                      </div>
-                      <p className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3">
-                        عملاء ومحادثات واتساب في الانتظار للمتابعة والتحديث.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setIsPendingClientsModalOpen(false);
-                          handleCardClick(null, 'customers', 'unassigned');
-                        }}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        الانتقال لانتظار الواتساب ➔
                       </button>
                     </div>
 
