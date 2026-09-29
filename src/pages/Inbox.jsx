@@ -3063,13 +3063,6 @@ function InboxContent() {
                 >
                   <UserPlus size={13} />
                 </button>
-                <button 
-                  onClick={() => setIsExcelModalOpen(true)} 
-                  className="flex items-center justify-center p-1.5 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.4)] border border-blue-300/50 hover:from-blue-500 hover:to-purple-400 transition-all transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer" 
-                  title="استيراد من إكسيل (الحملات)"
-                >
-                  <FileText size={13} />
-                </button>
               </>
             )}
             <button 
