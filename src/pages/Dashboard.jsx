@@ -24790,44 +24790,7 @@ const handleExportBuffetToExcel = () => {
                       </button>
                     </div>
 
-                    {/* Card 3: Manual WhatsApp Leads */}
-                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-purple-500/30 hover:border-purple-400 transition flex flex-col justify-between">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 bg-purple-900/60 rounded-xl text-purple-300">
-                            <UserCheck size={20} />
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-sm text-white">✍️ عملاء مضافين يدوياً للشات</h4>
-                            <p className="text-[11px] text-purple-300">أرقام تم بدء محادثات معها يدوياً</p>
-                          </div>
-                        </div>
-                        <span className="text-xl font-black text-cyan-300">
-                          {((systemTotalClientsModalData?.manualPending || 0) + (systemTotalClientsModalData?.manualAssigned || 0)).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="text-xs text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/20 mb-3" dir="rtl">
-                        <div className="flex justify-between py-0.5">
-                          <span>⏳ عملاء في الانتظار:</span>
-                          <span className="font-bold text-amber-400">{(systemTotalClientsModalData?.manualPending || 0).toLocaleString()} عميل</span>
-                        </div>
-                        <div className="flex justify-between py-0.5">
-                          <span>👤 مخصصين لمتابعة الموظفين:</span>
-                          <span className="font-bold text-emerald-400">{(systemTotalClientsModalData?.manualAssigned || 0).toLocaleString()} عميل</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setIsSystemTotalClientsModalOpen(false);
-                          handleCardClick(null, 'customers', 'manual');
-                        }}
-                        className="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        الانتقال إلى المضافين يدوياً ➔
-                      </button>
-                    </div>
-
-                    {/* Card 4: WhatsApp Direct & Bot */}
+                    {/* Card 3: WhatsApp Direct & Bot */}
                     <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30 hover:border-emerald-400 transition flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5">
@@ -24844,10 +24807,6 @@ const handleExportBuffetToExcel = () => {
                         </span>
                       </div>
                       <div className="text-xs text-emerald-300/80 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20 mb-3" dir="rtl">
-                        <div className="flex justify-between py-0.5">
-                          <span>💬 إجمالي محادثات الواتساب:</span>
-                          <span className="font-bold text-emerald-200">{customers.length.toLocaleString()} محادثة</span>
-                        </div>
                         <div className="flex justify-between py-0.5">
                           <span>🌐 زوار الموقع النشطين:</span>
                           <span className="font-bold text-cyan-400">{whatsappVisitorsCount.toLocaleString()} زائر</span>
