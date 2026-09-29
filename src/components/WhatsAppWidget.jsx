@@ -1295,8 +1295,42 @@ export default function WhatsAppWidget() {
               </div>
             )}
 
-            {/* Step 1: Code Input / Selection */}
-            {widgetStep === 'code_input' && (
+            {/* Regular Employee Notice View (No client communication for non-admin employees inside website widget) */}
+            {isEmpLoggedIn && !isAdmin ? (
+              <div className="p-6 text-center flex flex-col items-center justify-center flex-1 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 border border-amber-400/40 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(245,158,11,0.3)] animate-pulse">
+                  👨‍💼
+                </div>
+                
+                <div className="space-y-2 max-w-xs mx-auto">
+                  <h3 className="text-base font-black text-white">حساب موظف معتمد بالمنصة 🔐</h3>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    عذراً، الواتساب المباشر بالموقع مخصص لتواصل واستفسارات العملاء والزوار فقط.
+                  </p>
+                  <p className="text-xs text-amber-300 font-semibold leading-relaxed">
+                    بصفتك موظف/مستشار معتمد، يمكنك متابعة وتصفح محادثات ورسائل العملاء من خلال لوحة التحكم.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2.5 w-full max-w-xs pt-3">
+                  <button
+                    onClick={() => { setIsOpen(false); window.location.href = '/dashboard'; }}
+                    className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg transition cursor-pointer"
+                  >
+                    لوحة التحكم 📊
+                  </button>
+                  <button
+                    onClick={() => { setIsOpen(false); window.location.href = '/inbox'; }}
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg transition cursor-pointer"
+                  >
+                    الرسائل 💬
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Step 1: Code Input / Selection */}
+                {widgetStep === 'code_input' && (
               <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
                 <div className="bg-white/5 p-3 rounded-2xl border border-white/10 text-xs text-gray-300 leading-relaxed">
                   أهلاً بك <strong className="text-white">{userName}</strong>! يرجى إدخال كود الموظف المباشر للتواصل معه، أو الاختيار المباشر لخدمة العملاء:
@@ -1627,6 +1661,8 @@ export default function WhatsAppWidget() {
                 </form>
               </div>
             )}
+          </>
+        )}
 
           </div>
         )}
