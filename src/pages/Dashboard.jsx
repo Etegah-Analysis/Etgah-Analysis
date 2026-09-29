@@ -20468,28 +20468,29 @@ const handleExportBuffetToExcel = () => {
           const search = (tableSearch.trim() || dashboardSearch.trim()).toLowerCase();
 
           const websiteWaPool = scopedCustomerPool.filter(c => 
-            c.addedBy === 'WhatsApp Webhook' || 
-            c.source === 'website' || 
-            c.source === 'website_whatsapp' || 
-            c.addedBy?.includes?.('WhatsApp Webhook') || 
-            c.addedBy?.includes?.('website') || 
-            c.isWebsiteWhatsapp === true || 
-            !c.addedBy
+            (c.addedBy === 'WhatsApp Webhook' || 
+             c.source === 'website' || 
+             c.source === 'website_whatsapp' || 
+             c.addedBy?.includes?.('WhatsApp Webhook') || 
+             c.addedBy?.includes?.('website') || 
+             c.isWebsiteWhatsapp === true || 
+             !c.addedBy) && !(c.addedBy && c.addedBy !== 'WhatsApp Webhook')
           );
 
           let filteredPool = scopedCustomerPool.filter(c => {
-            const isWebWa = c.addedBy === 'WhatsApp Webhook' || 
+            const isWebWa = (c.addedBy === 'WhatsApp Webhook' || 
                             c.source === 'website' || 
                             c.source === 'website_whatsapp' || 
                             c.addedBy?.includes?.('WhatsApp Webhook') || 
                             c.addedBy?.includes?.('website') || 
                             c.isWebsiteWhatsapp === true || 
-                            !c.addedBy;
+                            !c.addedBy) && !(c.addedBy && c.addedBy !== 'WhatsApp Webhook');
 
-            const matchesFilter = customerFilter === 'all' || 
-              (customerFilter === 'website' && isWebWa) || 
-              (customerFilter === 'unassigned' && c.status === 'unassigned') || 
-              (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook');
+            const matchesFilter = (customerFilter === 'all' || customerFilter === 'website')
+              ? isWebWa
+              : (customerFilter === 'unassigned'
+                  ? c.status === 'unassigned'
+                  : (customerFilter === 'manual' && c.addedBy && c.addedBy !== 'WhatsApp Webhook'));
 
             if (!matchesFilter) return false;
 
@@ -20517,7 +20518,7 @@ const handleExportBuffetToExcel = () => {
                        customerFilter === 'unassigned' ? 'قائمة عملاء في الانتظار' :
                        '🌐 عملاء ورسائل الواتساب (الموقع)'}</span>
                       <span className="bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs px-2.5 py-0.5 rounded-full font-bold" dir="ltr">
-                        {(customerFilter === 'website' ? websiteWaPool.length : (customerFilter !== 'all' || (selectedEmpFilter && selectedEmpFilter !== 'all') || search ? filteredPool.length : scopedCustomerPool.length)).toLocaleString()} Leads
+                        {(customerFilter === 'website' || customerFilter === 'all' ? websiteWaPool.length : filteredPool.length).toLocaleString()} Leads
                       </span>
                     </h2>
                     <p className="text-xs text-purple-200 mt-0.5 font-medium">
@@ -24815,7 +24816,7 @@ const handleExportBuffetToExcel = () => {
                       <button
                         onClick={() => {
                           setIsSystemTotalClientsModalOpen(false);
-                          handleCardClick(null, 'customers', 'all');
+                          handleCardClick(null, 'customers', 'website');
                         }}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
