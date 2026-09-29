@@ -159,8 +159,8 @@ export default function Login() {
         }
       } catch (_) {}
 
-      // Navigate to destination
-      navigate('/dashboard');
+      // Navigate to destination (Etegah Platform Main Website)
+      navigate('/');
     } catch (err) {
       console.error('Login error:', err);
       const code = err.code || '';

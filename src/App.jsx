@@ -113,7 +113,7 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
+            element={isEmployee ? <Navigate to="/" replace /> : <Login />} 
           />
           <Route 
             path="/inbox" 
@@ -125,7 +125,7 @@ function App() {
           />
           <Route 
             path="/" 
-            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
+            element={<PublicLayout><Home /></PublicLayout>} 
           />
           <Route 
             path="*" 
