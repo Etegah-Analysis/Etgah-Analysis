@@ -113,7 +113,7 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={isEmployee ? <Navigate to="/" replace /> : <Login />} 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
           />
           <Route 
             path="/inbox" 
@@ -125,11 +125,11 @@ function App() {
           />
           <Route 
             path="/" 
-            element={<PublicLayout><Home /></PublicLayout>} 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <PublicLayout><Home /></PublicLayout>} 
           />
           <Route 
             path="*" 
-            element={<Navigate to="/" replace />} 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} 
           />
         </Routes>
       </BrowserRouter>
