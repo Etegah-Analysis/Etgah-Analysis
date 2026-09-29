@@ -12969,6 +12969,7 @@ const handleExportBuffetToExcel = () => {
 
       let empCount = 0;
       for (let i = 0; i < employeeLeads.length; i++) {
+        const c = employeeLeads[i];
         const assignedUid = c.assignedToUid;
         const assignedMail = c.assignedTo?.toLowerCase();
         const isAssigned = (assignedUid && assignedUid !== 'admin') || (assignedMail && assignedMail !== 'admin');
