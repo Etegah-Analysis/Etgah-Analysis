@@ -75,6 +75,87 @@ class DashboardErrorBoundary extends React.Component {
   }
 }
 
+// Reusable Dropdown Component for Email Recipients List
+const RecipientsDropdown = ({ mail }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  if (!mail) return null;
+
+  if (mail.recipientType === 'all' || mail.recipientName?.includes('جميع الموظفين')) {
+    return (
+      <span className="inline-flex items-center gap-1 bg-purple-900/60 text-purple-200 border border-purple-400/40 px-2 py-0.5 rounded-lg text-xs font-bold">
+        📢 جميع الموظفين بالمنصة
+      </span>
+    );
+  }
+
+  const names = Array.isArray(mail.recipientNames) && mail.recipientNames.length > 0
+    ? mail.recipientNames
+    : (mail.recipientName ? mail.recipientName.split(/،|,/).map(n => n.trim()).filter(Boolean) : []);
+
+  if (names.length <= 1) {
+    return (
+      <span className="font-bold text-white">
+        {names[0] || mail.recipientName || 'غير محدد'}
+      </span>
+    );
+  }
+
+  return (
+    <div className="relative inline-block" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 hover:from-purple-900 hover:to-indigo-900 text-cyan-300 hover:text-white border border-purple-500/50 px-2.5 py-1 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer active:scale-95"
+        title="انقر لعرض قائمة المستلمين بالكامل"
+      >
+        <span>👥</span>
+        <span>{names.length} مستلمين</span>
+        <span className={`text-[9px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {isOpen && (
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 mt-2 w-64 max-h-60 overflow-y-auto bg-slate-900 border border-purple-500/50 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-50 text-right space-y-1.5 text-xs animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-purple-500/30 text-purple-300 font-black text-[11px]">
+            <span className="flex items-center gap-1">
+              <span>👥</span>
+              <span>قائمة المستلمين ({names.length}):</span>
+            </span>
+            <span className="text-[10px] text-gray-400 bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-500/30">مباشر</span>
+          </div>
+          <div className="space-y-1 pt-1">
+            {names.map((name, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-950/80 border border-white/10 text-slate-100 font-bold hover:border-purple-500/40 transition">
+                <span className="text-purple-400 text-xs">👤</span>
+                <span className="truncate">{name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CRM_STATUS_MAP = {
   unassigned: { label: '⏳ Waiting', arLabel: 'Waiting', fullLabel: '⏳ Waiting', bg: 'bg-gray-100 text-gray-700 border-gray-300' },
   call_back: { label: '📞 Call Back', arLabel: 'Call Back', fullLabel: '📞 Call Back', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
@@ -25888,9 +25969,9 @@ const handleExportBuffetToExcel = () => {
                           </span>
                         </div>
 
-                        <div className="mt-2 text-xs text-purple-300/80">
+                        <div className="mt-2 text-xs text-purple-300/80 flex items-center gap-1.5 flex-wrap">
                           <span>إلى: </span>
-                          <span className="font-bold text-white">{selectedEmail.recipientName}</span>
+                          <RecipientsDropdown mail={selectedEmail} />
                         </div>
                       </div>
 
@@ -26007,16 +26088,21 @@ const handleExportBuffetToExcel = () => {
                                     </button>
 
                                     <div>
-                                      <span className={`text-xs block truncate ${isUnread ? 'text-white font-black' : 'text-slate-300'}`}>
-                                        {mailActiveFolder === 'sent' 
-                                          ? `إلى: ${mail.recipientName}` 
-                                          : (isAdminIdentifier(mail.senderEmail) || isAdminIdentifier(mail.senderName) || mail.senderRole === 'admin' || mail.senderUid === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف'))
-                                        }
-                                      </span>
-                                      {isAdmin && mailActiveFolder === 'all_system' && (
-                                        <span className="text-[10px] text-amber-400 font-normal block truncate">
-                                          من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ← إلى: {mail.recipientName}
+                                      {mailActiveFolder === 'sent' ? (
+                                        <div className="flex items-center gap-1 text-xs">
+                                          <span className="text-slate-400 font-normal">إلى:</span>
+                                          <RecipientsDropdown mail={mail} />
+                                        </div>
+                                      ) : (
+                                        <span className={`text-xs block truncate ${isUnread ? 'text-white font-black' : 'text-slate-300'}`}>
+                                          {isAdminIdentifier(mail.senderEmail) || isAdminIdentifier(mail.senderName) || mail.senderRole === 'admin' || mail.senderUid === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')}
                                         </span>
+                                      )}
+                                      {isAdmin && mailActiveFolder === 'all_system' && (
+                                        <div className="text-[10px] text-amber-400 font-normal flex items-center gap-1 truncate mt-0.5">
+                                          <span>من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ← إلى:</span>
+                                          <RecipientsDropdown mail={mail} />
+                                        </div>
                                       )}
                                     </div>
                                   </div>

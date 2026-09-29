@@ -3524,12 +3524,12 @@ function InboxContent() {
       {/* منطقة الشات الرئيسية */}
       <div 
         onClick={closeActiveChat}
-        className={`flex-1 flex-col bg-black/40 backdrop-blur-2xl relative z-10 ${!activeChat ? 'hidden md:flex' : 'flex'}`}
+        className={`flex-1 flex-col bg-black/40 backdrop-blur-2xl relative z-10 w-full max-w-full overflow-x-hidden min-w-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}
       >
         {activeChat ? (
           <>
             {/* هيدر الشات */}
-            <div onClick={(e) => e.stopPropagation()} className="bg-black/50 backdrop-blur-md p-2.5 sm:p-4 border-b border-white/10 flex justify-between items-center gap-2 shadow-md">
+            <div onClick={(e) => e.stopPropagation()} className="bg-black/50 backdrop-blur-md p-2.5 sm:p-4 border-b border-white/10 flex justify-between items-center gap-2 shadow-md w-full max-w-full overflow-hidden shrink-0">
               <div className="flex items-center space-x-2 sm:space-x-3 space-x-reverse min-w-0 flex-1">
                 <button 
                   onClick={closeActiveChat} 
@@ -3753,7 +3753,7 @@ function InboxContent() {
                   closeActiveChat();
                 }
               }}
-              className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40 cursor-pointer relative"
+              className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-4 bg-slate-950/40 cursor-pointer relative w-full max-w-full overflow-x-hidden"
               onScroll={handleMessagesScroll}
             >
               {messages.length === 0 ? (
@@ -3828,35 +3828,35 @@ function InboxContent() {
                       className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'} group mb-2 cursor-default transition-all duration-300 rounded-2xl`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                    <div className={`max-w-[75%] sm:max-w-[70%] rounded-2xl p-3 shadow-md relative ${isSentByMe ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
+                    <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 shadow-md relative break-words overflow-hidden min-w-0 ${isSentByMe ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
                       <div className="flex justify-between items-start">
-                        <div className="ml-6 flex-1">
+                        <div className="ml-6 flex-1 min-w-0">
                           {/* Sender Badges */}
                           {isGroupChat ? (
-                            <div className="mb-1.5 flex items-center gap-1.5">
+                            <div className="mb-1.5 flex items-center gap-1.5 flex-wrap max-w-full">
                               {adminEmails.includes(msg.senderEmail?.toLowerCase()) || msg.senderRole === 'admin' ? (
-                                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm border border-yellow-300 flex items-center gap-1">
+                                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm border border-yellow-300 flex items-center gap-1 max-w-full flex-wrap leading-tight">
                                   👑 الإدارة
                                 </span>
                               ) : msg.senderRole === 'coordinator' || msg.senderRole === 'منسق للإدارة' ? (
-                                <span className="bg-cyan-100 text-cyan-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-cyan-300 flex items-center gap-1">
+                                <span className="bg-cyan-100 text-cyan-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-cyan-300 flex items-center gap-1 max-w-full truncate">
                                   📋 {msg.senderName || msg.senderEmail?.split('@')[0]} (منسق)
                                 </span>
                               ) : msg.senderRole === 'leader' || msg.senderRole === 'ليدر' ? (
-                                <span className="bg-purple-100 text-purple-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-purple-300 flex items-center gap-1">
+                                <span className="bg-purple-100 text-purple-900 font-black text-[10px] px-2 py-0.5 rounded-full border border-purple-300 flex items-center gap-1 max-w-full truncate">
                                   👑 {msg.senderName || msg.senderEmail?.split('@')[0]} (Leader)
                                 </span>
                               ) : (
-                                <span className="bg-blue-100 text-blue-900 font-bold text-[10px] px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                <span className="bg-blue-100 text-blue-900 font-bold text-[10px] px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1 max-w-full truncate">
                                   👤 {msg.senderName || getEmployeeDisplayName(msg.senderEmail)}
                                 </span>
                               )}
                             </div>
                           ) : (
                             msg.sender === 'agent' && (
-                              <div className="mb-2 flex items-center gap-1.5">
+                              <div className="mb-2 flex items-center gap-1.5 flex-wrap max-w-full">
                                 {adminEmails.includes(msg.senderEmail?.toLowerCase()) ? (
-                                  <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-yellow-200 flex items-center gap-1">
+                                  <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-yellow-200 flex items-center gap-1 max-w-full flex-wrap leading-tight">
                                     👑 أدمن منصة اتجاه التحليل الذكي
                                   </span>
                                 ) : (
