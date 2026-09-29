@@ -1513,6 +1513,11 @@ const Dashboard = () => {
   // Logout handler
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('isEmpLoggedIn');
+      localStorage.removeItem('empEmail');
+      localStorage.removeItem('empUid');
+      localStorage.removeItem('impersonatedEmp');
+      sessionStorage.removeItem('impersonatedEmp');
       await auth.signOut();
       navigate('/login');
     } catch (err) {
@@ -1520,7 +1525,7 @@ const Dashboard = () => {
     }
   };
 
-  const realCurrentUser = auth.currentUser;
+  const realCurrentUser = auth.currentUser || (localStorage.getItem('isEmpLoggedIn') === 'true' && localStorage.getItem('empEmail') ? { email: localStorage.getItem('empEmail'), uid: localStorage.getItem('empUid') || '' } : null);
   const realIsAdmin = realCurrentUser && adminEmails.includes(realCurrentUser.email?.toLowerCase());
 
   // Impersonation: When Admin enters an employee account, UI behaves 100% as that employee

@@ -104,7 +104,7 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-100">جاري التحميل...</div>;
   }
 
-  const isAdmin = Boolean(user?.email && ['etegahanalysis@gmail.com', 'mohamed.gamal.work0@gmail.com', 'admin@etegah.com'].includes(user.email.toLowerCase()));
+  const isEmployee = Boolean(user) || localStorage.getItem('isEmpLoggedIn') === 'true';
 
   return (
     <>
@@ -113,19 +113,19 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
           />
           <Route 
             path="/inbox" 
-            element={user ? <Inbox /> : <Navigate to="/login" replace />} 
+            element={isEmployee ? <Inbox /> : <Navigate to="/login" replace />} 
           />
           <Route 
             path="/dashboard" 
-            element={user ? <Dashboard /> : <Navigate to="/login" replace />} 
+            element={isEmployee ? <Dashboard /> : <Navigate to="/login" replace />} 
           />
           <Route 
             path="/" 
-            element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
           />
           <Route 
             path="*" 
