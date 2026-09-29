@@ -115,7 +115,7 @@ const RecipientsDropdown = ({ mail }) => {
   }
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <div className={`relative inline-block ${isOpen ? 'z-[100]' : 'z-10'}`} ref={dropdownRef}>
       <button
         type="button"
         onClick={(e) => {
@@ -133,7 +133,7 @@ const RecipientsDropdown = ({ mail }) => {
       {isOpen && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-2 w-64 max-h-60 overflow-y-auto bg-slate-900 border border-purple-500/50 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-50 text-right space-y-1.5 text-xs animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 top-full mt-1.5 w-64 max-h-60 overflow-y-auto bg-slate-900 border border-purple-500/50 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.9)] z-[100] text-right space-y-1.5 text-xs animate-in fade-in zoom-in-95 duration-150"
         >
           <div className="flex items-center justify-between pb-2 border-b border-purple-500/30 text-purple-300 font-black text-[11px]">
             <span className="flex items-center gap-1">
@@ -17806,9 +17806,9 @@ const handleExportBuffetToExcel = () => {
                         <select
                           value={subscribedEmpFilter}
                           onChange={(e) => setSubscribedEmpFilter(e.target.value)}
-                          className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full py-2 px-4 pl-8 text-xs font-black focus:outline-none shadow-md border border-emerald-400/40 cursor-pointer appearance-none"
+                          className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-full py-1.5 px-3 pl-7 text-[11px] font-bold focus:outline-none shadow-md border border-emerald-400/40 cursor-pointer appearance-none max-w-[210px] sm:max-w-[250px] truncate"
                         >
-                          <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({scopeSubscribed.length})</option>
+                          <option value="all" className="bg-slate-900 text-white">👥 جميع الموظفين ({scopeSubscribed.length} Paid Clients)</option>
                           {(isAdmin || isCoordinator || isCustomerService) && (
                             <option value="admin" className="bg-slate-900 text-white">
                               👑 Admin ({allSubscribedClients.filter(c => isLeadWithAdmin(c)).length} Paid)
@@ -26099,7 +26099,7 @@ const handleExportBuffetToExcel = () => {
                                         </span>
                                       )}
                                       {isAdmin && mailActiveFolder === 'all_system' && (
-                                        <div className="text-[10px] text-amber-400 font-normal flex items-center gap-1 truncate mt-0.5">
+                                        <div className="text-[10px] text-amber-400 font-normal flex items-center gap-1 mt-0.5 relative z-20">
                                           <span>من: {isAdminIdentifier(mail.senderEmail) || mail.senderRole === 'admin' ? '👑 الإدارة' : (mail.senderName || 'موظف')} ← إلى:</span>
                                           <RecipientsDropdown mail={mail} />
                                         </div>

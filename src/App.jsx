@@ -125,6 +125,10 @@ function App() {
           />
           <Route 
             path="/" 
+            element={isEmployee ? <Navigate to="/dashboard" replace /> : <Login />} 
+          />
+          <Route 
+            path="/home" 
             element={isEmployee ? <Navigate to="/dashboard" replace /> : <PublicLayout><Home /></PublicLayout>} 
           />
           <Route 
