@@ -11881,7 +11881,7 @@ const handleModalPasteBuffetItem = (e) => {
       const newQty = parseFloat(buffetItemTotalQty || buffetItemRemainingQty || '0') || 0;
       if (newQty > oldQty) {
         if (!buffetItemCost.trim() || !buffetItemNotes.trim()) {
-          toast.error('⚠️ عند تزويد عدد الصنف، يُشترط كتابة السعر والملحوظة لحفظ عملية الشراء والتكلفة للشهر الحالي.', { duration: 6000 });
+          toast.error('⚠️ عند تزويد عدد الصنف، يُشترط كتابة إجمالي سعر فاتورة الصنف والملحوظة لحفظ عملية الشراء والتكلفة للشهر الحالي.', { duration: 6000 });
           setBuffetSaving(false);
           return;
         }
@@ -20185,7 +20185,7 @@ const handleExportBuffetToExcel = () => {
                           <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                           <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد الحالي</th>
-                          <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">السعر (ج.م)</th>
+                          <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">إجمالي سعر فاتورة الصنف (ج.م)</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
                           <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-extrabold bg-indigo-950/60">التاريخ والوقت والموظف 🕒</th>
@@ -27147,7 +27147,7 @@ const handleExportBuffetToExcel = () => {
                     {editingBuffetItem ? 'تعديل صنف بمخزون البوفيه ✏️' : 'إضافة صنف جديد للبوفيه ☕'}
                   </h3>
                   <p className="text-xs text-emerald-200/70">
-                    أدخل اسم الصنف والكمية والسعر، أو ارفع صورة/نص الفاتورة واضغط حفظ مباشرة
+                    أدخل اسم الصنف والكمية وإجمالي سعر فاتورة الصنف، أو ارفع صورة/نص الفاتورة واضغط حفظ مباشرة
                   </p>
                 </div>
               </div>
@@ -27228,9 +27228,9 @@ const handleExportBuffetToExcel = () => {
                     </div>
                   </div>
 
-                  {/* السعر ج.م */}
+                  {/* إجمالي سعر فاتورة الصنف (ج.م) */}
                   <div>
-                    <label className="block text-[11px] font-extrabold text-emerald-300 mb-1 text-center">السعر (ج.م)</label>
+                    <label className="block text-[11px] font-extrabold text-emerald-300 mb-1 text-center">إجمالي سعر فاتورة الصنف (ج.م)</label>
                     <input
                       type="text"
                       placeholder="0"
