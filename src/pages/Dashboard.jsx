@@ -9886,6 +9886,10 @@ const handleModalPasteBuffetItem = (e) => {
   // --- BUFFET INVENTORY & EXPENSES HANDLERS (v2.24) ---
   // --- PAYROLL & ATTENDANCE HANDLERS (v2.25) ---
   const handleOpenEditPayroll = (emp) => {
+    if (!isAdmin && selectedPayrollCycle < getPayrollCycleKey()) {
+      toast.error('🔒 عذراً، يُمنع تعديل بيانات الرواتب والبصمة للشهور ودورات الرواتب السابقة إلا بحساب الأدمن فقط.', { duration: 6000 });
+      return;
+    }
     if (!isAdmin && !hasPermission(currentEmpUser, 'canEditAttendancePayroll')) {
       toast.error('غير مصرح لك بتعديل بيانات ورواتب الموظفين 🔒');
       return;
@@ -9906,6 +9910,12 @@ const handleModalPasteBuffetItem = (e) => {
   const handleSavePayroll = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingPayrollEmp) return;
+
+    if (!isAdmin && selectedPayrollCycle < getPayrollCycleKey()) {
+      toast.error('🔒 عذراً، يُمنع تعديل بيانات الرواتب والبصمة للشهور ودورات الرواتب السابقة إلا بحساب الأدمن فقط.', { duration: 6000 });
+      setIsEditPayrollModalOpen(false);
+      return;
+    }
 
     const empDocId = editingPayrollEmp.id;
     const empUid = editingPayrollEmp.uid;
@@ -20482,6 +20492,8 @@ const handleExportBuffetToExcel = () => {
           });
 
           const activeEmpsCount = targetEmployees.length - pausedEmpsCount;
+          const isPastPayrollCycle = selectedPayrollCycle < getPayrollCycleKey();
+          const canUserEditPayrollInCycle = isAdmin || !isPastPayrollCycle;
 
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
@@ -20503,7 +20515,7 @@ const handleExportBuffetToExcel = () => {
 
                 {/* Header Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics') || hasPermission(currentEmpUser, 'canAddEmployee')) && (
+                  {canUserEditPayrollInCycle && (isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics') || hasPermission(currentEmpUser, 'canAddEmployee')) && (
                     <button 
                       onClick={() => {
                         setExternalEmpName('');
@@ -20519,7 +20531,7 @@ const handleExportBuffetToExcel = () => {
                     </button>
                   )}
 
-                  {(isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics')) && (
+                  {canUserEditPayrollInCycle && (isAdmin || hasPermission(currentEmpUser, 'canUploadBiometrics')) && (
                     <button 
                       onClick={() => setIsFingerprintUploadModalOpen(true)}
                       className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
@@ -20754,15 +20766,22 @@ const handleExportBuffetToExcel = () => {
                             </td>
                             <td className="py-2.5 px-3 text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                <button
-                                  onClick={() => handleOpenEditPayroll(emp)}
-                                  className="bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
-                                  title="تعديل الراتب، السلف، البصمة، والخصومات"
-                                >
-                                  <Edit size={12} />
-                                  <span>تعديل</span>
-                                </button>
-                                {emp.isExternal && (isAdmin || isCoordinator || hasPermission(currentEmpUser, 'canDeleteEmployee')) && (
+                                {canUserEditPayrollInCycle ? (
+                                  <button
+                                    onClick={() => handleOpenEditPayroll(emp)}
+                                    className="bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                    title="تعديل الراتب، السلف، البصمة، والخصومات"
+                                  >
+                                    <Edit size={12} />
+                                    <span>تعديل</span>
+                                  </button>
+                                ) : (
+                                  <span className="bg-slate-100 text-slate-500 border border-slate-300 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 opacity-75 cursor-not-allowed" title="🔒 تعديل بيانات الرواتب والبصمة للشهور السابقة مقتصر على الأدمن فقط">
+                                    <Lock size={12} />
+                                    <span>مقفل 🔒</span>
+                                  </span>
+                                )}
+                                {emp.isExternal && canUserEditPayrollInCycle && (isAdmin || isCoordinator || hasPermission(currentEmpUser, 'canDeleteEmployee')) && (
                                   <button
                                     onClick={() => handleDeleteExternalPayrollEmp(emp)}
                                     className="bg-rose-100 text-rose-900 hover:bg-rose-200 border border-rose-300 px-2 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
