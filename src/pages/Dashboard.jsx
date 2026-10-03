@@ -11456,7 +11456,33 @@ const handleModalPasteBuffetItem = (e) => {
       });
     }
 
-    const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
+    let targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
+    if (!isCurrentCycle) {
+      targetEmployees = targetEmployees.filter(emp => {
+        const empKey = emp.uid || emp.id;
+        const hasPastRecord = Boolean(
+          employeePayrollData[`${empKey}_${selectedPayrollCycle}`] ||
+          (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle)
+        );
+        if (hasPastRecord) return true;
+
+        if (emp.isExternal && emp.cycle && emp.cycle > selectedPayrollCycle) {
+          return false;
+        }
+
+        if (emp.createdAt) {
+          const createdDate = new Date(emp.createdAt);
+          if (!isNaN(createdDate.getTime())) {
+            const empCreatedCycleKey = getPayrollCycleKey(createdDate);
+            if (empCreatedCycleKey > selectedPayrollCycle) {
+              return false;
+            }
+          }
+        }
+
+        return true;
+      });
+    }
     const logoUrl = window.location.origin + '/logo.jpg';
     const now = new Date();
     const dateFormatted = now.toLocaleDateString('ar-EG');
@@ -20120,7 +20146,33 @@ const handleExportBuffetToExcel = () => {
             });
           }
 
-          const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
+          let targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
+          if (!isCurrentCycle) {
+            targetEmployees = targetEmployees.filter(emp => {
+              const empKey = emp.uid || emp.id;
+              const hasPastRecord = Boolean(
+                employeePayrollData[`${empKey}_${selectedPayrollCycle}`] ||
+                (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle)
+              );
+              if (hasPastRecord) return true;
+
+              if (emp.isExternal && emp.cycle && emp.cycle > selectedPayrollCycle) {
+                return false;
+              }
+
+              if (emp.createdAt) {
+                const createdDate = new Date(emp.createdAt);
+                if (!isNaN(createdDate.getTime())) {
+                  const empCreatedCycleKey = getPayrollCycleKey(createdDate);
+                  if (empCreatedCycleKey > selectedPayrollCycle) {
+                    return false;
+                  }
+                }
+              }
+
+              return true;
+            });
+          }
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
             if (!q) return true;
