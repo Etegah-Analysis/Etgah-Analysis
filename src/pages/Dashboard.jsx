@@ -11866,6 +11866,17 @@ const handleModalPasteBuffetItem = (e) => {
       }
     }
 
+    // Duplicate Check: Prevent adding an item if its name is already registered in the sheet
+    if (!editingBuffetItem) {
+      const normalizedNewName = finalName.trim().toLowerCase();
+      const existingItem = buffetInventory.find(i => (i.itemName || '').trim().toLowerCase() === normalizedNewName);
+      if (existingItem) {
+        toast.error(`⚠️ الصنف ("${existingItem.itemName}") موجود ومسجل بالفعل في الشيت! يمكنك تعديل بياناته من جدول الأصناف بدلاً من إضافته مجدداً.`, { duration: 6000 });
+        setBuffetSaving(false);
+        return;
+      }
+    }
+
     setBuffetSaving(true);
     try {
       const now = new Date();
@@ -11889,16 +11900,32 @@ const handleModalPasteBuffetItem = (e) => {
       const timeStrForSave = nowForSave.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
       const currentFinancialMonthStr = `${monthsArForSave[nowForSave.getMonth()]} ${nowForSave.getFullYear()}`;
 
-      let finalNotes = buffetItemNotes.trim();
-      
-      // Auto-stamp new un-dated notes with current date & time timestamp if not already dated
-      if (finalNotes && !finalNotes.includes('بتاريخ') && !finalNotes.match(/202[0-9]/)) {
-        const dateStampStr = `(بتاريخ ${nowForSave.getDate()}-${monthsArForSave[nowForSave.getMonth()]}-${nowForSave.getFullYear()} • ${timeStrForSave})`;
-        finalNotes = `${finalNotes} ${dateStampStr}`;
+      let newNoteEntry = buffetItemNotes.trim();
+      let combinedNotes = '';
+
+      if (editingBuffetItem) {
+        const oldNotes = editingBuffetItem.notes ? editingBuffetItem.notes.trim() : '';
+        if (newNoteEntry) {
+          if (!newNoteEntry.includes('بتاريخ') && !newNoteEntry.match(/202[0-9]/)) {
+            const dateStampStr = `(بتاريخ ${nowForSave.getDate()}-${monthsArForSave[nowForSave.getMonth()]}-${nowForSave.getFullYear()} • ${timeStrForSave})`;
+            newNoteEntry = `${newNoteEntry} ${dateStampStr}`;
+          }
+          combinedNotes = oldNotes ? `${oldNotes}\n${newNoteEntry}` : newNoteEntry;
+        } else {
+          combinedNotes = oldNotes;
+        }
+      } else {
+        if (newNoteEntry) {
+          if (!newNoteEntry.includes('بتاريخ') && !newNoteEntry.match(/202[0-9]/)) {
+            const dateStampStr = `(بتاريخ ${nowForSave.getDate()}-${monthsArForSave[nowForSave.getMonth()]}-${nowForSave.getFullYear()} • ${timeStrForSave})`;
+            newNoteEntry = `${newNoteEntry} ${dateStampStr}`;
+          }
+          combinedNotes = newNoteEntry;
+        }
       }
 
       // Link financialMonth directly to the timestamp/date extracted from the notes or current date
-      const detectedFinancialMonth = normalizeFinancialMonth(finalNotes) || currentFinancialMonthStr;
+      const detectedFinancialMonth = normalizeFinancialMonth(combinedNotes) || currentFinancialMonthStr;
 
       const itemData = {
         itemName: finalName,
@@ -11906,7 +11933,7 @@ const handleModalPasteBuffetItem = (e) => {
         cost: buffetItemCost.trim() || '',
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
-        notes: finalNotes,
+        notes: combinedNotes,
         imageUrl: compressedImage || '',
         financialMonth: detectedFinancialMonth,
         updatedAt: serverTimestamp(),
@@ -27216,26 +27243,25 @@ const handleExportBuffetToExcel = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-gray-300">ملحوظات (مرتبطة بالتاريخ والوقت تلقائياً 🕒)</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-                        const now = new Date();
-                        const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-                        const dateStamp = `\n(بتاريخ ${now.getDate()}-${monthsAr[now.getMonth()]}-${now.getFullYear()} • ${timeStr})`;
-                        setBuffetItemNotes(prev => prev ? `${prev} ${dateStamp}` : dateStamp.trim());
-                      }}
-                      className="text-[10px] font-bold text-amber-300 hover:text-amber-200 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer"
-                      title="إضافة ختم التاريخ والوقت الحالي للملحوظة"
-                    >
-                      <span>🕒 + إدراج التاريخ والوقت الحالي</span>
-                    </button>
-                  </div>
+                  {/* Historical Saved Notes Log Display when editing */}
+                  {editingBuffetItem?.notes && (
+                    <div className="mb-2.5 p-2.5 bg-slate-950/80 border border-amber-500/30 rounded-xl shadow-inner">
+                      <div className="text-[11px] font-bold text-amber-300 mb-1 flex items-center justify-between">
+                        <span>📜 سجل الملحوظات المحفوظة مسبقاً:</span>
+                        <span className="text-[9.5px] text-gray-400 font-normal">محفوظة بتواريخها تلقائياً</span>
+                      </div>
+                      <div className="text-xs text-emerald-200 font-medium whitespace-pre-wrap max-h-24 overflow-y-auto leading-relaxed bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+                        {editingBuffetItem.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    {editingBuffetItem ? 'إضافة ملحوظة جديدة (ستحفظ بختم التاريخ والوقت تلقائياً):' : 'ملحوظات (اختياري):'}
+                  </label>
                   <textarea
-                    rows="3"
-                    placeholder="اكتب الملحوظة هنا، وسيتم إرفاق التاريخ والوقت وربطها بالشهر المالي تلقائياً عند الحفظ..."
+                    rows="2"
+                    placeholder={editingBuffetItem ? "اكتب الملحوظة الجديدة هنا، وستضاف للسجل المحفوظ بتاريخ ووقت الحفظ..." : "مثال: الكرتونة 22 عامود، باكيت 24 كيس..."}
                     value={buffetItemNotes}
                     onChange={(e) => setBuffetItemNotes(e.target.value)}
                     className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none font-medium leading-relaxed"
