@@ -19805,21 +19805,9 @@ const handleExportBuffetToExcel = () => {
 
           const getItemFinancialMonth = (item) => {
             if (!item) return activeCurrentMonthStr;
-            const notes = String(item.notes || '');
 
-            // 1. Check explicit month mention in notes (e.g. "27-سبتمبر-2026", "25-اغسطس")
-            if (notes.includes('يناير')) return 'يناير 2026';
-            if (notes.includes('فبراير')) return 'فبراير 2026';
-            if (notes.includes('مارس')) return 'مارس 2026';
-            if (notes.includes('أبريل') || notes.includes('ابريل')) return 'أبريل 2026';
-            if (notes.includes('مايو')) return 'مايو 2026';
-            if (notes.includes('يونيو')) return 'يونيو 2026';
-            if (notes.includes('يوليو')) return 'يوليو 2026';
-            if (notes.includes('أغسطس') || notes.includes('اغسطس')) return 'أغسطس 2026';
-            if (notes.includes('سبتمبر')) return 'سبتمبر 2026';
-            if (notes.includes('أكتوبر') || notes.includes('اكتوبر')) return 'أكتوبر 2026';
-            if (notes.includes('نوفمبر')) return 'نوفمبر 2026';
-            if (notes.includes('ديسمبر')) return 'ديسمبر 2026';
+            // 1. Explicit financialMonth property (Primary authority)
+            if (item.financialMonth) return item.financialMonth;
 
             // 2. Check updatedDateTime / formattedNow (e.g. "2026/6/20 10:13 ص", "2026/09/27")
             const dateStr = String(item.updatedDateTime || item.formattedNow || '');
@@ -19832,10 +19820,7 @@ const handleExportBuffetToExcel = () => {
               }
             }
 
-            // 3. Explicit financialMonth property
-            if (item.financialMonth) return item.financialMonth;
-
-            // 4. Firestore createdAt timestamp
+            // 3. Firestore createdAt timestamp
             if (item.createdAt) {
               let d = null;
               if (typeof item.createdAt?.toDate === 'function') {
@@ -19849,6 +19834,21 @@ const handleExportBuffetToExcel = () => {
                 return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
               }
             }
+
+            // 4. Fallback check for explicit month names inside notes ONLY if no date fields exist
+            const notes = String(item.notes || '');
+            if (notes.includes('يناير')) return 'يناير 2026';
+            if (notes.includes('فبراير')) return 'فبراير 2026';
+            if (notes.includes('مارس')) return 'مارس 2026';
+            if (notes.includes('أبريل') || notes.includes('ابريل')) return 'أبريل 2026';
+            if (notes.includes('مايو')) return 'مايو 2026';
+            if (notes.includes('يونيو')) return 'يونيو 2026';
+            if (notes.includes('يوليو')) return 'يوليو 2026';
+            if (notes.includes('أغسطس') || notes.includes('اغسطس')) return 'أغسطس 2026';
+            if (notes.includes('سبتمبر')) return 'سبتمبر 2026';
+            if (notes.includes('أكتوبر') || notes.includes('اكتوبر')) return 'أكتوبر 2026';
+            if (notes.includes('نوفمبر')) return 'نوفمبر 2026';
+            if (notes.includes('ديسمبر')) return 'ديسمبر 2026';
 
             return activeCurrentMonthStr;
           };
