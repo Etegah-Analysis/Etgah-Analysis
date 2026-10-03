@@ -20096,6 +20096,43 @@ const handleExportBuffetToExcel = () => {
             }
           };
 
+          // Extract Month-Specific Notes for Selected Financial Month Filter
+          const getItemNotesForMonth = (item, targetMonthFilter) => {
+            if (!item) return '';
+            const rawNotes = String(item.notes || '').trim();
+            if (!rawNotes) return '';
+            if (targetMonthFilter === 'all') return rawNotes;
+
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+            const lines = rawNotes.split('\n');
+            const matchingLines = [];
+
+            lines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) return;
+
+              const lineMonth = normalizeFinancialMonth(trimmedLine);
+              const hasDateStamp = trimmedLine.includes('بتاريخ') || !!trimmedLine.match(/202[0-9]/);
+
+              if (hasDateStamp || lineMonth) {
+                // Line has an explicit date stamp or month name
+                if (targetMonthName && (trimmedLine.includes(targetMonthName) || lineMonth === normTarget)) {
+                  matchingLines.push(trimmedLine);
+                }
+              } else {
+                // Untagged initial note -> belongs to item creation month
+                if (itemPrimaryMonth === normTarget) {
+                  matchingLines.push(trimmedLine);
+                }
+              }
+            });
+
+            return matchingLines.join('\n');
+          };
+
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = filteredInventory.length;
           filteredInventory.forEach(item => {
@@ -20279,8 +20316,8 @@ const handleExportBuffetToExcel = () => {
                                     {itemQtys.remainingQty || '-'}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[200px] max-w-[350px]" title={item.notes}>
-                                  {item.notes || <span className="text-gray-300">—</span>}
+                                <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[200px] max-w-[350px]" title={getItemNotesForMonth(item, buffetFinancialMonthFilter)}>
+                                  {getItemNotesForMonth(item, buffetFinancialMonthFilter) || <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
                                   <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
@@ -27347,11 +27384,11 @@ const handleExportBuffetToExcel = () => {
                   {editingBuffetItem?.notes && (
                     <div className="mb-2.5 p-2.5 bg-slate-950/80 border border-amber-500/30 rounded-xl shadow-inner">
                       <div className="text-[11px] font-bold text-amber-300 mb-1 flex items-center justify-between">
-                        <span>📜 سجل الملحوظات المحفوظة مسبقاً:</span>
+                        <span>📜 سجل الملحوظات المحفوظة لهذا الشهر:</span>
                         <span className="text-[9.5px] text-gray-400 font-normal">محفوظة بتواريخها تلقائياً</span>
                       </div>
                       <div className="text-xs text-emerald-200 font-medium whitespace-pre-wrap max-h-24 overflow-y-auto leading-relaxed bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                        {editingBuffetItem.notes}
+                        {getItemNotesForMonth(editingBuffetItem, buffetFinancialMonthFilter) || <span className="text-gray-400 text-[11px]">لا توجد ملحوظات سابقة مسجلة لهذا الشهر المالي</span>}
                       </div>
                     </div>
                   )}
