@@ -19805,7 +19805,37 @@ const handleExportBuffetToExcel = () => {
 
           const getItemFinancialMonth = (item) => {
             if (!item) return activeCurrentMonthStr;
+            const notes = String(item.notes || '');
+
+            // 1. Check explicit month mention in notes (e.g. "27-سبتمبر-2026", "25-اغسطس")
+            if (notes.includes('يناير')) return 'يناير 2026';
+            if (notes.includes('فبراير')) return 'فبراير 2026';
+            if (notes.includes('مارس')) return 'مارس 2026';
+            if (notes.includes('أبريل') || notes.includes('ابريل')) return 'أبريل 2026';
+            if (notes.includes('مايو')) return 'مايو 2026';
+            if (notes.includes('يونيو')) return 'يونيو 2026';
+            if (notes.includes('يوليو')) return 'يوليو 2026';
+            if (notes.includes('أغسطس') || notes.includes('اغسطس')) return 'أغسطس 2026';
+            if (notes.includes('سبتمبر')) return 'سبتمبر 2026';
+            if (notes.includes('أكتوبر') || notes.includes('اكتوبر')) return 'أكتوبر 2026';
+            if (notes.includes('نوفمبر')) return 'نوفمبر 2026';
+            if (notes.includes('ديسمبر')) return 'ديسمبر 2026';
+
+            // 2. Check updatedDateTime / formattedNow (e.g. "2026/6/20 10:13 ص", "2026/09/27")
+            const dateStr = String(item.updatedDateTime || item.formattedNow || '');
+            const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
+            if (matchYMD) {
+              const yr = matchYMD[1];
+              const moIdx = parseInt(matchYMD[2], 10) - 1;
+              if (moIdx >= 0 && moIdx < 12) {
+                return `${monthsArBuffet[moIdx]} ${yr}`;
+              }
+            }
+
+            // 3. Explicit financialMonth property
             if (item.financialMonth) return item.financialMonth;
+
+            // 4. Firestore createdAt timestamp
             if (item.createdAt) {
               let d = null;
               if (typeof item.createdAt?.toDate === 'function') {
@@ -19819,12 +19849,19 @@ const handleExportBuffetToExcel = () => {
                 return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
               }
             }
-            return 'سبتمبر 2026';
+
+            return activeCurrentMonthStr;
           };
 
           // Financial Months List
           const itemMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
-          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...itemMonths]));
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...itemMonths]))
+            .sort((a, b) => {
+              const [m1, y1] = a.split(' ');
+              const [m2, y2] = b.split(' ');
+              if (y1 !== y2) return (parseInt(y2, 10) || 0) - (parseInt(y1, 10) || 0);
+              return monthsArBuffet.indexOf(m2) - monthsArBuffet.indexOf(m1);
+            });
           
           let filteredInventory = buffetInventory.filter(item => {
             const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
@@ -20036,7 +20073,7 @@ const handleExportBuffetToExcel = () => {
                                   {item.remainingQty || '-'}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-xs text-gray-600 max-w-[180px] truncate" title={item.notes}>
+                              <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[200px] max-w-[350px]" title={item.notes}>
                                 {item.notes || <span className="text-gray-300">—</span>}
                               </td>
                               <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
