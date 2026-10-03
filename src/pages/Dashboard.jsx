@@ -27016,13 +27016,17 @@ const handleExportBuffetToExcel = () => {
 
               <form onSubmit={handleSaveBuffetItem} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف (اختر من القائمة أو اكتب اسم صنف جديد)</label>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">
+                    {editingBuffetItem ? 'اسم الصنف (ثابت لا يتغير 🔒)' : 'اسم الصنف (اختر من القائمة أو اكتب اسم صنف جديد)'}
+                  </label>
                   <input
                     type="text"
-                    list="buffet-item-names-list"
+                    list={!editingBuffetItem ? "buffet-item-names-list" : undefined}
+                    readOnly={!!editingBuffetItem}
                     placeholder="اختر صنفاً من القائمة أو اكتب اسم صنف جديد (مثل: بن، شاي، سكر)..."
                     value={buffetItemName}
                     onChange={(e) => {
+                      if (editingBuffetItem) return;
                       const val = e.target.value;
                       setBuffetItemName(val);
                       const existing = buffetInventory.find(i => (i.itemName || '').trim() === val.trim());
@@ -27034,13 +27038,19 @@ const handleExportBuffetToExcel = () => {
                         if (existing.notes) setBuffetItemNotes(existing.notes);
                       }
                     }}
-                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs font-bold transition ${
+                      editingBuffetItem 
+                        ? 'bg-slate-900/90 border-slate-700 text-amber-300 cursor-not-allowed opacity-90 font-black' 
+                        : 'bg-slate-800 border-emerald-500/30 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500'
+                    }`}
                   />
-                  <datalist id="buffet-item-names-list">
-                    {Array.from(new Set(buffetInventory.map(i => i.itemName).filter(Boolean))).map(name => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
+                  {!editingBuffetItem && (
+                    <datalist id="buffet-item-names-list">
+                      {Array.from(new Set(buffetInventory.map(i => i.itemName).filter(Boolean))).map(name => (
+                        <option key={name} value={name} />
+                      ))}
+                    </datalist>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
