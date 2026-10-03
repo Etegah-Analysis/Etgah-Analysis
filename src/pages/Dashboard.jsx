@@ -19806,16 +19806,16 @@ const handleExportBuffetToExcel = () => {
           const normalizeFinancialMonth = (rawStr) => {
             if (!rawStr) return null;
             const str = String(rawStr).trim();
-            if (str.includes('يناير')) return 'يناير 2026';
-            if (str.includes('فبراير')) return 'فبراير 2026';
-            if (str.includes('مارس')) return 'مارس 2026';
-            if (str.includes('أبريل') || str.includes('ابريل')) return 'أبريل 2026';
-            if (str.includes('مايو')) return 'مايو 2026';
-            if (str.includes('يونيو')) return 'يونيو 2026';
-            if (str.includes('يوليو')) return 'يوليو 2026';
-            if (str.includes('أغسطس') || str.includes('اغسطس')) return 'أغسطس 2026';
-            if (str.includes('سبتمبر')) return 'سبتمبر 2026';
             if (str.includes('أكتوبر') || str.includes('اكتوبر')) return 'أكتوبر 2026';
+            if (str.includes('سبتمبر')) return 'سبتمبر 2026';
+            if (str.includes('أغسطس') || str.includes('اغسطس')) return 'أغسطس 2026';
+            if (str.includes('يوليو')) return 'يوليو 2026';
+            if (str.includes('يونيو')) return 'يونيو 2026';
+            if (str.includes('مايو')) return 'مايو 2026';
+            if (str.includes('أبريل') || str.includes('ابريل')) return 'أبريل 2026';
+            if (str.includes('مارس')) return 'مارس 2026';
+            if (str.includes('فبراير')) return 'فبراير 2026';
+            if (str.includes('يناير')) return 'يناير 2026';
             if (str.includes('نوفمبر')) return 'نوفمبر 2026';
             if (str.includes('ديسمبر')) return 'ديسمبر 2026';
             return str;
@@ -27016,72 +27016,204 @@ const handleExportBuffetToExcel = () => {
 
               <form onSubmit={handleSaveBuffetItem} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف (اختياري عند رفع صورة فاتورة)</label>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1">اسم الصنف (اختر من القائمة أو اكتب اسم صنف جديد)</label>
                   <input
                     type="text"
-                    placeholder="مثال: بن، شاي، سكر أو اتركه فارغاً عند رفع صورة فاتورة..."
+                    list="buffet-item-names-list"
+                    placeholder="اختر صنفاً من القائمة أو اكتب اسم صنف جديد (مثل: بن، شاي، سكر)..."
                     value={buffetItemName}
-                    onChange={(e) => setBuffetItemName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBuffetItemName(val);
+                      const existing = buffetInventory.find(i => (i.itemName || '').trim() === val.trim());
+                      if (existing && !editingBuffetItem) {
+                        if (existing.totalQty && existing.totalQty !== '-') setBuffetItemTotalQty(String(existing.totalQty));
+                        if (existing.cost || existing.itemPrice) setBuffetItemCost(String(existing.cost || existing.itemPrice));
+                        if (existing.usedQty && existing.usedQty !== '-') setBuffetItemUsedQty(String(existing.usedQty));
+                        if (existing.remainingQty && existing.remainingQty !== '-') setBuffetItemRemainingQty(String(existing.remainingQty));
+                        if (existing.notes) setBuffetItemNotes(existing.notes);
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
+                  <datalist id="buffet-item-names-list">
+                    {Array.from(new Set(buffetInventory.map(i => i.itemName).filter(Boolean))).map(name => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* العدد الإجمالي */}
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-300 mb-1">العدد (الإجمالي)</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 10..."
-                      value={buffetItemTotalQty}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setBuffetItemTotalQty(val);
-                        const t = parseFloat(val);
-                        const u = parseFloat(buffetItemUsedQty);
-                        if (!isNaN(t) && !isNaN(u)) {
-                          setBuffetItemRemainingQty(String(Math.max(0, t - u)));
-                        }
-                      }}
-                      className="w-full bg-slate-800 border border-gray-700 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
-                    />
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1 text-center">العدد (الإجمالي)</label>
+                    <div className="flex items-center gap-1 bg-slate-800 border border-gray-700 rounded-xl p-1 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemTotalQty) || 0;
+                          const next = current + 1;
+                          setBuffetItemTotalQty(String(next));
+                          const u = parseFloat(buffetItemUsedQty) || 0;
+                          setBuffetItemRemainingQty(String(Math.max(0, next - u)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="زيادة العدد (+1)"
+                      >
+                        +
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="10"
+                        value={buffetItemTotalQty}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBuffetItemTotalQty(val);
+                          const t = parseFloat(val);
+                          const u = parseFloat(buffetItemUsedQty);
+                          if (!isNaN(t) && !isNaN(u)) {
+                            setBuffetItemRemainingQty(String(Math.max(0, t - u)));
+                          }
+                        }}
+                        className="w-full bg-transparent text-xs text-white text-center font-bold outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemTotalQty) || 0;
+                          const next = Math.max(0, current - 1);
+                          setBuffetItemTotalQty(String(next));
+                          const u = parseFloat(buffetItemUsedQty) || 0;
+                          setBuffetItemRemainingQty(String(Math.max(0, next - u)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="إنقاص العدد (-1)"
+                      >
+                        -
+                      </button>
+                    </div>
                   </div>
+
+                  {/* السعر ج.م */}
                   <div>
-                    <label className="block text-[11px] font-extrabold text-emerald-300 mb-1">السعر (ج.م)</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 570"
-                      value={buffetItemCost}
-                      onChange={(e) => setBuffetItemCost(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold font-mono text-emerald-300"
-                    />
+                    <label className="block text-[11px] font-extrabold text-emerald-300 mb-1 text-center">السعر (ج.م)</label>
+                    <div className="flex items-center gap-1 bg-slate-800 border border-emerald-500/40 rounded-xl p-1 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemCost) || 0;
+                          setBuffetItemCost(String(current + 10));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="زيادة السعر (+10)"
+                      >
+                        +
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="570"
+                        value={buffetItemCost}
+                        onChange={(e) => setBuffetItemCost(e.target.value)}
+                        className="w-full bg-transparent text-xs text-emerald-300 text-center font-bold font-mono outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemCost) || 0;
+                          setBuffetItemCost(String(Math.max(0, current - 10)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="إنقاص السعر (-10)"
+                      >
+                        -
+                      </button>
+                    </div>
                   </div>
+
+                  {/* المستخدم */}
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-300 mb-1">المستخدم</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 2..."
-                      value={buffetItemUsedQty}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setBuffetItemUsedQty(val);
-                        const t = parseFloat(buffetItemTotalQty);
-                        const u = parseFloat(val);
-                        if (!isNaN(t) && !isNaN(u)) {
-                          setBuffetItemRemainingQty(String(Math.max(0, t - u)));
-                        }
-                      }}
-                      className="w-full bg-slate-800 border border-rose-500/30 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
-                    />
+                    <label className="block text-[11px] font-bold text-rose-300 mb-1 text-center">المستخدم</label>
+                    <div className="flex items-center gap-1 bg-slate-800 border border-rose-500/30 rounded-xl p-1 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemUsedQty) || 0;
+                          const next = current + 1;
+                          setBuffetItemUsedQty(String(next));
+                          const t = parseFloat(buffetItemTotalQty) || 0;
+                          setBuffetItemRemainingQty(String(Math.max(0, t - next)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="زيادة المستخدم (+1)"
+                      >
+                        +
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="2"
+                        value={buffetItemUsedQty}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBuffetItemUsedQty(val);
+                          const t = parseFloat(buffetItemTotalQty);
+                          const u = parseFloat(val);
+                          if (!isNaN(t) && !isNaN(u)) {
+                            setBuffetItemRemainingQty(String(Math.max(0, t - u)));
+                          }
+                        }}
+                        className="w-full bg-transparent text-xs text-white text-center font-bold outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemUsedQty) || 0;
+                          const next = Math.max(0, current - 1);
+                          setBuffetItemUsedQty(String(next));
+                          const t = parseFloat(buffetItemTotalQty) || 0;
+                          setBuffetItemRemainingQty(String(Math.max(0, t - next)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="إنقاص المستخدم (-1)"
+                      >
+                        -
+                      </button>
+                    </div>
                   </div>
+
+                  {/* المتبقي */}
                   <div>
-                    <label className="block text-[11px] font-bold text-emerald-300 mb-1">المتبقي</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: 8..."
-                      value={buffetItemRemainingQty}
-                      onChange={(e) => setBuffetItemRemainingQty(e.target.value)}
-                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold"
-                    />
+                    <label className="block text-[11px] font-bold text-emerald-300 mb-1 text-center">المتبقي</label>
+                    <div className="flex items-center gap-1 bg-slate-800 border border-emerald-500/40 rounded-xl p-1 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemRemainingQty) || 0;
+                          setBuffetItemRemainingQty(String(current + 1));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="زيادة المتبقي (+1)"
+                      >
+                        +
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="8"
+                        value={buffetItemRemainingQty}
+                        onChange={(e) => setBuffetItemRemainingQty(e.target.value)}
+                        className="w-full bg-transparent text-xs text-white text-center font-bold outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseFloat(buffetItemRemainingQty) || 0;
+                          setBuffetItemRemainingQty(String(Math.max(0, current - 1)));
+                        }}
+                        className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
+                        title="إنقاص المتبقي (-1)"
+                      >
+                        -
+                      </button>
+                    </div>
                   </div>
                 </div>
 
