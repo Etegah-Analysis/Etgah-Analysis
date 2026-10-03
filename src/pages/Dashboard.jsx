@@ -20135,6 +20135,9 @@ const handleExportBuffetToExcel = () => {
 
           // Calculate totals for selected cycle (excluding paused employees in current cycle)
           let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
+          let pausedEmpsCount = 0;
+          let pausedBaseSalaryTotal = 0;
+
           targetEmployees.forEach(emp => {
             const isPaused = isCurrentCycle && emp.isActive === false;
             const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
@@ -20142,7 +20145,11 @@ const handleExportBuffetToExcel = () => {
             const a = parseFloat(p.advances) || 0;
             const k = parseFloat(p.kpiDeduction) || 0;
             const l = parseFloat(p.lateDeduction) || 0;
-            if (!isPaused) {
+
+            if (isPaused) {
+              pausedEmpsCount++;
+              pausedBaseSalaryTotal += b;
+            } else {
               totalBase += b;
               totalAdv += a;
               totalKpi += k;
@@ -20150,6 +20157,8 @@ const handleExportBuffetToExcel = () => {
               totalNet += Math.max(0, b - a - k - l);
             }
           });
+
+          const activeEmpsCount = targetEmployees.length - pausedEmpsCount;
 
           return (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-amber-500/30 overflow-hidden mb-8" onClick={(e) => e.stopPropagation()}>
@@ -20219,8 +20228,15 @@ const handleExportBuffetToExcel = () => {
                     <Users size={20} />
                   </div>
                   <div>
-                    <span className="text-[11px] text-gray-500 font-bold block">إجمالي الموظفين</span>
-                    <span className="text-base font-black text-indigo-700">{targetEmployees.length} موظف</span>
+                    <span className="text-[11px] text-gray-500 font-bold block">إجمالي الموظفين النشطين</span>
+                    <span className="text-base font-black text-indigo-700">{activeEmpsCount} موظف</span>
+                    {pausedEmpsCount > 0 ? (
+                      <span className="text-[10px] text-rose-600 font-bold block mt-0.5" title="تم خصم الموظفين الموقوفين عن العمل من الإجمالي المعروض">
+                        ({pausedEmpsCount} موقوف ⏸️ - من إجمالي {targetEmployees.length})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-500 font-medium block mt-0.5">من إجمالي {targetEmployees.length} موظف بالنظام</span>
+                    )}
                   </div>
                 </div>
 
@@ -20231,6 +20247,13 @@ const handleExportBuffetToExcel = () => {
                   <div>
                     <span className="text-[11px] text-gray-500 font-bold block">إجمالي الرواتب الأساسية</span>
                     <span className="text-base font-black text-amber-700">{totalBase.toLocaleString()} ج.م</span>
+                    {pausedBaseSalaryTotal > 0 ? (
+                      <span className="text-[10px] text-rose-600 font-bold block mt-0.5" title="الرواتب الأساسية الموقوفة والمستبعدة من الإجمالي الصافي">
+                        (مستبعد {pausedBaseSalaryTotal.toLocaleString()} ج.م للموقوفين ⏸️)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-500 font-medium block mt-0.5">المستحقة للصرف الفعلي</span>
+                    )}
                   </div>
                 </div>
 
@@ -20241,6 +20264,7 @@ const handleExportBuffetToExcel = () => {
                   <div>
                     <span className="text-[11px] text-gray-500 font-bold block">إجمالي الخصومات والسلف</span>
                     <span className="text-base font-black text-rose-700">{(totalAdv + totalKpi + totalLate).toLocaleString()} ج.م</span>
+                    <span className="text-[10px] text-gray-500 font-medium block mt-0.5">خصومات البصمة والـ KPI والسلف</span>
                   </div>
                 </div>
 
@@ -20251,6 +20275,7 @@ const handleExportBuffetToExcel = () => {
                   <div>
                     <span className="text-[11px] text-gray-500 font-bold block">صافي القبض المستحق للصرف</span>
                     <span className="text-base font-black text-emerald-700">{totalNet.toLocaleString()} ج.م</span>
+                    <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">إجمالي الصافي للموظفين النشطين</span>
                   </div>
                 </div>
               </div>
