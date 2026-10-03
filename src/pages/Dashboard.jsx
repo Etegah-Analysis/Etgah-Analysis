@@ -996,7 +996,11 @@ const Dashboard = () => {
   const [isAddBuffetItemModalOpen, setIsAddBuffetItemModalOpen] = useState(false);
   const [buffetCurrentPage, setBuffetCurrentPage] = useState(1);
   const [buffetItemsPerPage, setBuffetItemsPerPage] = useState(10);
-  const [buffetFinancialMonthFilter, setBuffetFinancialMonthFilter] = useState('all');
+  const [buffetFinancialMonthFilter, setBuffetFinancialMonthFilter] = useState(() => {
+    const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const now = new Date();
+    return `${monthsAr[now.getMonth()]} ${now.getFullYear()}`;
+  });
   const [externalPayrollEmployees, setExternalPayrollEmployees] = useState([]);
   const [isAddExternalPayrollEmpModalOpen, setIsAddExternalPayrollEmpModalOpen] = useState(false);
   const [externalEmpName, setExternalEmpName] = useState('');
@@ -11880,6 +11884,10 @@ const handleModalPasteBuffetItem = (e) => {
       // Fast Image Compression (5MB -> ~50KB)
       const compressedImage = await compressImageDataUrl(buffetItemImage, 900, 900, 0.65);
 
+      const monthsArForSave = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const nowForSave = new Date();
+      const currentFinancialMonthStr = `${monthsArForSave[nowForSave.getMonth()]} ${nowForSave.getFullYear()}`;
+
       const itemData = {
         itemName: finalName,
         totalQty: buffetItemTotalQty.trim() || '-',
@@ -11888,6 +11896,7 @@ const handleModalPasteBuffetItem = (e) => {
         remainingQty: remaining || '-',
         notes: buffetItemNotes.trim(),
         imageUrl: compressedImage || '',
+        financialMonth: editingBuffetItem?.financialMonth || currentFinancialMonthStr,
         updatedAt: serverTimestamp(),
         updatedBy: userRole,
         updatedDateTime: formattedNow
@@ -19790,12 +19799,37 @@ const handleExportBuffetToExcel = () => {
         {activeTab === 'buffet_inventory' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_buffet') && hasPermission(currentEmpUser, 'canViewBuffet'))) && (() => {
           const q = buffetSearch.trim().toLowerCase();
 
+          const monthsArBuffet = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+          const nowBuffet = new Date();
+          const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
+
+          const getItemFinancialMonth = (item) => {
+            if (!item) return activeCurrentMonthStr;
+            if (item.financialMonth) return item.financialMonth;
+            if (item.createdAt) {
+              let d = null;
+              if (typeof item.createdAt?.toDate === 'function') {
+                d = item.createdAt.toDate();
+              } else if (item.createdAt.seconds) {
+                d = new Date(item.createdAt.seconds * 1000);
+              } else {
+                d = new Date(item.createdAt);
+              }
+              if (d && !isNaN(d.getTime())) {
+                return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
+              }
+            }
+            return 'سبتمبر 2026';
+          };
+
           // Financial Months List
-          const availableFinancialMonths = Array.from(new Set(buffetInventory.map(item => item.financialMonth).filter(Boolean)));
+          const itemMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...itemMonths]));
           
           let filteredInventory = buffetInventory.filter(item => {
             const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
-            const matchesMonth = buffetFinancialMonthFilter === 'all' || item.financialMonth === buffetFinancialMonthFilter;
+            const itemMonth = getItemFinancialMonth(item);
+            const matchesMonth = buffetFinancialMonthFilter === 'all' || itemMonth === buffetFinancialMonthFilter;
             return matchesSearch && matchesMonth;
           });
 
