@@ -20047,15 +20047,7 @@ const handleExportBuffetToExcel = () => {
                     </button>
                   )}
 
-                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                    <button 
-                      onClick={() => handleOpenAddBuffetItem()}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/30 cursor-pointer"
-                    >
-                      <Plus size={15} />
-                      <span>+ إضافة صنف للبوفيه 📦</span>
-                    </button>
-                  )}
+
 
                   {(isAdmin || hasPermission(currentEmpUser, 'canExportBuffet')) && (
                     <button 
