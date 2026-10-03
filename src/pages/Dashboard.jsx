@@ -11434,7 +11434,29 @@ const handleModalPasteBuffetItem = (e) => {
       return;
     }
 
-    const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees];
+    const currentCycleKey = getPayrollCycleKey();
+    const isCurrentCycle = selectedPayrollCycle === currentCycleKey;
+
+    let historicalEmployees = [];
+    if (!isCurrentCycle) {
+      const deletedEmpsInPastCycle = (recycleBin || []).filter(item => {
+        if (item.type !== 'employee' && item.originalCollection !== 'users') return false;
+        const empKey = item.uid || item.id;
+        return Boolean(employeePayrollData[`${empKey}_${selectedPayrollCycle}`] || (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle));
+      });
+
+      deletedEmpsInPastCycle.forEach(dEmp => {
+        const dKey = dEmp.uid || dEmp.id;
+        if (!sortedEmployeesForTable.some(e => (e.uid || e.id) === dKey) && !externalPayrollEmployees.some(e => (e.uid || e.id) === dKey)) {
+          historicalEmployees.push({
+            ...dEmp,
+            isDeletedHistorical: true
+          });
+        }
+      });
+    }
+
+    const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
     const logoUrl = window.location.origin + '/logo.jpg';
     const now = new Date();
     const dateFormatted = now.toLocaleDateString('ar-EG');
@@ -11442,31 +11464,35 @@ const handleModalPasteBuffetItem = (e) => {
 
     let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
     const rowsHtml = targetEmployees.map((emp, index) => {
+      const isPaused = isCurrentCycle && emp.isActive === false;
       const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
       const b = parseFloat(p.baseSalary) || 0;
       const a = parseFloat(p.advances) || 0;
       const k = parseFloat(p.kpiDeduction) || 0;
       const l = parseFloat(p.lateDeduction) || 0;
-      const net = Math.max(0, b - a - k - l);
+      const net = isPaused ? 0 : Math.max(0, b - a - k - l);
 
-      totalBase += b;
-      totalAdv += a;
-      totalKpi += k;
-      totalLate += l;
-      totalNet += net;
+      if (!isPaused) {
+        totalBase += b;
+        totalAdv += a;
+        totalKpi += k;
+        totalLate += l;
+        totalNet += net;
+      }
 
       const hireDate = emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('ar-EG') : (emp.hireDate || 'غير محدد');
+      const statusBadge = isPaused ? ' (موقوف ⏸️)' : (emp.isDeletedHistorical ? ' (أرشيف محذوف 📜)' : '');
 
       return `
-        <tr>
+        <tr style="${isPaused ? 'background-color: #fef2f2;' : ''}">
           <td>${index + 1}</td>
-          <td style="font-weight: bold;">${emp.username || emp.name}</td>
+          <td style="font-weight: bold;">${emp.username || emp.name}${statusBadge}</td>
           <td>${emp.jobTitle || 'موظف'}</td>
           <td style="font-weight: bold; color: #1e293b;">${b > 0 ? b.toLocaleString() + ' ج.م' : '-'}</td>
           <td>${p.lateDays || '0'} يوم (${l > 0 ? l.toLocaleString() + ' ج.م' : '0'})</td>
           <td>${a > 0 ? a.toLocaleString() + ' ج.م' : '0'}</td>
           <td>${k > 0 ? k.toLocaleString() + ' ج.م' : '0'}</td>
-          <td style="font-weight: 900; color: #047857; background: #ecfdf5;">${net > 0 ? net.toLocaleString() + ' ج.م' : '0'}</td>
+          <td style="font-weight: 900; color: ${isPaused ? '#991b1b' : '#047857'}; background: ${isPaused ? '#fee2e2' : '#ecfdf5'};">${isPaused ? 'موقوف (0 ج.م)' : (net > 0 ? net.toLocaleString() + ' ج.م' : '0')}</td>
           <td>${p.checkIn || '09:00 AM'} - ${p.checkOut || '05:00 PM'}</td>
           <td style="font-size: 9px; color: #64748b;">${p.notes || '-'}</td>
         </tr>
@@ -20072,7 +20098,29 @@ const handleExportBuffetToExcel = () => {
         {/* Visible ONLY to Admin and Coordinator                                     */}
         {/* ========================================================================= */}
         {activeTab === 'payroll_attendance' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_attendance_payroll') && hasPermission(currentEmpUser, 'canViewAttendancePayroll'))) && (() => {
-          const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees];
+          const currentCycleKey = getPayrollCycleKey();
+          const isCurrentCycle = selectedPayrollCycle === currentCycleKey;
+
+          let historicalEmployees = [];
+          if (!isCurrentCycle) {
+            const deletedEmpsInPastCycle = (recycleBin || []).filter(item => {
+              if (item.type !== 'employee' && item.originalCollection !== 'users') return false;
+              const empKey = item.uid || item.id;
+              return Boolean(employeePayrollData[`${empKey}_${selectedPayrollCycle}`] || (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle));
+            });
+
+            deletedEmpsInPastCycle.forEach(dEmp => {
+              const dKey = dEmp.uid || dEmp.id;
+              if (!sortedEmployeesForTable.some(e => (e.uid || e.id) === dKey) && !externalPayrollEmployees.some(e => (e.uid || e.id) === dKey)) {
+                historicalEmployees.push({
+                  ...dEmp,
+                  isDeletedHistorical: true
+                });
+              }
+            });
+          }
+
+          const targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
           const q = payrollSearch.trim().toLowerCase();
           const filteredEmps = targetEmployees.filter(emp => {
             if (!q) return true;
@@ -20085,19 +20133,22 @@ const handleExportBuffetToExcel = () => {
           const startIndexPayroll = (safePayrollPage - 1) * payrollItemsPerPage;
           const paginatedEmps = filteredEmps.slice(startIndexPayroll, startIndexPayroll + payrollItemsPerPage);
 
-          // Calculate totals for selected cycle
+          // Calculate totals for selected cycle (excluding paused employees in current cycle)
           let totalBase = 0, totalAdv = 0, totalKpi = 0, totalLate = 0, totalNet = 0;
           targetEmployees.forEach(emp => {
+            const isPaused = isCurrentCycle && emp.isActive === false;
             const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
             const b = parseFloat(p.baseSalary) || 0;
             const a = parseFloat(p.advances) || 0;
             const k = parseFloat(p.kpiDeduction) || 0;
             const l = parseFloat(p.lateDeduction) || 0;
-            totalBase += b;
-            totalAdv += a;
-            totalKpi += k;
-            totalLate += l;
-            totalNet += Math.max(0, b - a - k - l);
+            if (!isPaused) {
+              totalBase += b;
+              totalAdv += a;
+              totalKpi += k;
+              totalLate += l;
+              totalNet += Math.max(0, b - a - k - l);
+            }
           });
 
           return (
@@ -20273,18 +20324,19 @@ const handleExportBuffetToExcel = () => {
                       </tr>
                     ) : (
                       paginatedEmps.map((emp, idx) => {
+                        const isPaused = isCurrentCycle && emp.isActive === false;
                         const p = getEmployeePayrollForCycle(emp, selectedPayrollCycle);
                         const base = parseFloat(p.baseSalary) || 0;
                         const adv = parseFloat(p.advances) || 0;
                         const kpi = parseFloat(p.kpiDeduction) || 0;
                         const lateD = parseFloat(p.lateDeduction) || 0;
-                        const net = Math.max(0, base - adv - kpi - lateD);
+                        const net = isPaused ? 0 : Math.max(0, base - adv - kpi - lateD);
                         const empKey = emp.uid || emp.id;
 
                         const roleTitle = emp.jobTitle || (emp.role === 'coordinator' ? 'منسق إدارة' : emp.role === 'leader' ? 'ليدر' : emp.role === 'customer_service' ? 'خدمة عملاء' : 'موظف');
 
                         return (
-                          <tr key={empKey || idx} className="hover:bg-amber-50/40 transition">
+                          <tr key={empKey || idx} className={`transition ${isPaused ? 'bg-rose-50/50 hover:bg-rose-100/50' : (emp.isDeletedHistorical ? 'bg-amber-50/40 hover:bg-amber-100/40' : 'hover:bg-amber-50/40')}`}>
 
                             <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
                               {startIndexPayroll + idx + 1}
@@ -20295,6 +20347,16 @@ const handleExportBuffetToExcel = () => {
                                   {(emp.username || emp.name || 'M')[0].toUpperCase()}
                                 </div>
                                 <span className="truncate max-w-[140px]">{emp.username || emp.name}</span>
+                                {isPaused && (
+                                  <span className="text-[10px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded-full font-black shrink-0 flex items-center gap-0.5" title="الموظف موقوف عن العمل حالياً ولم يُحسب راتبه في الإجمالي">
+                                    ⏸️ موقوف
+                                  </span>
+                                )}
+                                {emp.isDeletedHistorical && (
+                                  <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-black shrink-0">
+                                    📜 أرشيف محذوف
+                                  </span>
+                                )}
                                 {emp.isExternal && (
                                   <span className="text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded font-black shrink-0">
                                     خارج CRM
@@ -20329,9 +20391,15 @@ const handleExportBuffetToExcel = () => {
                               {p.kpiDeduction ? `-${Number(p.kpiDeduction).toLocaleString()} ج.م` : <span className="text-gray-400">—</span>}
                             </td>
                             <td className="py-2.5 px-3 text-center bg-emerald-50/50">
-                              <span className="inline-block px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs font-mono shadow-xs">
-                                {net.toLocaleString()} ج.م
-                              </span>
+                              {isPaused ? (
+                                <span className="inline-block px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 font-bold text-xs shadow-xs" title="الموظف موقوف ولن يُحسب راتبه في إجمالي الشهر الجاري لحين إلغاء الإيقاف">
+                                  موقوف ⏸️ (0 ج.م)
+                                </span>
+                              ) : (
+                                <span className="inline-block px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs font-mono shadow-xs">
+                                  {net.toLocaleString()} ج.م
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 text-xs text-gray-500 max-w-[130px] truncate" title={p.notes}>
                               {p.notes || <span className="text-gray-300">—</span>}
