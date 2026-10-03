@@ -11886,7 +11886,19 @@ const handleModalPasteBuffetItem = (e) => {
 
       const monthsArForSave = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
       const nowForSave = new Date();
+      const timeStrForSave = nowForSave.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
       const currentFinancialMonthStr = `${monthsArForSave[nowForSave.getMonth()]} ${nowForSave.getFullYear()}`;
+
+      let finalNotes = buffetItemNotes.trim();
+      
+      // Auto-stamp new un-dated notes with current date & time timestamp if not already dated
+      if (finalNotes && !finalNotes.includes('بتاريخ') && !finalNotes.match(/202[0-9]/)) {
+        const dateStampStr = `(بتاريخ ${nowForSave.getDate()}-${monthsArForSave[nowForSave.getMonth()]}-${nowForSave.getFullYear()} • ${timeStrForSave})`;
+        finalNotes = `${finalNotes} ${dateStampStr}`;
+      }
+
+      // Link financialMonth directly to the timestamp/date extracted from the notes or current date
+      const detectedFinancialMonth = normalizeFinancialMonth(finalNotes) || currentFinancialMonthStr;
 
       const itemData = {
         itemName: finalName,
@@ -11894,9 +11906,9 @@ const handleModalPasteBuffetItem = (e) => {
         cost: buffetItemCost.trim() || '',
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
-        notes: buffetItemNotes.trim(),
+        notes: finalNotes,
         imageUrl: compressedImage || '',
-        financialMonth: editingBuffetItem?.financialMonth || currentFinancialMonthStr,
+        financialMonth: detectedFinancialMonth,
         updatedAt: serverTimestamp(),
         updatedBy: userRole,
         updatedDateTime: formattedNow
@@ -27204,13 +27216,29 @@ const handleExportBuffetToExcel = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">ملحوظات (اختياري)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-gray-300">ملحوظات (مرتبطة بالتاريخ والوقت تلقائياً 🕒)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+                        const now = new Date();
+                        const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                        const dateStamp = `\n(بتاريخ ${now.getDate()}-${monthsAr[now.getMonth()]}-${now.getFullYear()} • ${timeStr})`;
+                        setBuffetItemNotes(prev => prev ? `${prev} ${dateStamp}` : dateStamp.trim());
+                      }}
+                      className="text-[10px] font-bold text-amber-300 hover:text-amber-200 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer"
+                      title="إضافة ختم التاريخ والوقت الحالي للملحوظة"
+                    >
+                      <span>🕒 + إدراج التاريخ والوقت الحالي</span>
+                    </button>
+                  </div>
                   <textarea
-                    rows="2"
-                    placeholder="مثال: الكرتونة 22 عامود، باكيت 24 كيس..."
+                    rows="3"
+                    placeholder="اكتب الملحوظة هنا، وسيتم إرفاق التاريخ والوقت وربطها بالشهر المالي تلقائياً عند الحفظ..."
                     value={buffetItemNotes}
                     onChange={(e) => setBuffetItemNotes(e.target.value)}
-                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                    className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none font-medium leading-relaxed"
                   />
                 </div>
 
