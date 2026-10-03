@@ -969,10 +969,6 @@ const Dashboard = () => {
     const d = new Date();
     let y = d.getFullYear();
     let m = d.getMonth() + 1;
-    if (d.getDate() < 20) {
-      m -= 1;
-      if (m === 0) { m = 12; y -= 1; }
-    }
     const calculatedKey = `${y}-${m < 10 ? '0' + m : m}`;
     return calculatedKey < '2026-09' ? '2026-09' : calculatedKey;
   });
@@ -10060,10 +10056,6 @@ const handleModalPasteBuffetItem = (e) => {
     const date = new Date(d);
     let y = date.getFullYear();
     let m = date.getMonth() + 1;
-    if (date.getDate() < 20) {
-      m -= 1;
-      if (m === 0) { m = 12; y -= 1; }
-    }
     const key = `${y}-${m < 10 ? '0' + m : m}`;
     return key < '2026-09' ? '2026-09' : key;
   };
@@ -10083,17 +10075,22 @@ const handleModalPasteBuffetItem = (e) => {
     const currentKey = getPayrollCycleKey();
     const minCycle = '2026-09';
     
-    // Build list of valid cycles starting from 2026-09
-    const monthsAr = ['سبتمبر 2026', 'أكتوبر 2026', 'نوفمبر 2026', 'ديسمبر 2026'];
-    const cycleKeys = ['2026-09', '2026-10', '2026-11', '2026-12'];
+    let [curY, curM] = currentKey.split('-').map(Number);
+    let startY = 2026, startM = 9;
 
-    cycleKeys.forEach((key, idx) => {
-      if (key >= minCycle && key !== currentKey && !list.some(item => item.key === key)) {
+    while (startY < curY || (startY === curY && startM < curM)) {
+      const key = `${startY}-${startM < 10 ? '0' + startM : startM}`;
+      if (key >= minCycle) {
         list.push({ key, label: getPayrollCycleLabel(key) });
       }
-    });
+      startM++;
+      if (startM > 12) {
+        startM = 1;
+        startY++;
+      }
+    }
 
-    return list;
+    return list.reverse();
   };
 
   const getEmployeePayrollForCycle = (emp, cycleKey) => {
