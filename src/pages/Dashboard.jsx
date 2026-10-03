@@ -27097,37 +27097,13 @@ const handleExportBuffetToExcel = () => {
                   {/* السعر ج.م */}
                   <div>
                     <label className="block text-[11px] font-extrabold text-emerald-300 mb-1 text-center">السعر (ج.م)</label>
-                    <div className="flex items-center gap-1 bg-slate-800 border border-emerald-500/40 rounded-xl p-1 shadow-inner">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = parseFloat(buffetItemCost) || 0;
-                          setBuffetItemCost(String(current + 10));
-                        }}
-                        className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
-                        title="زيادة السعر (+10)"
-                      >
-                        +
-                      </button>
-                      <input
-                        type="text"
-                        placeholder="570"
-                        value={buffetItemCost}
-                        onChange={(e) => setBuffetItemCost(e.target.value)}
-                        className="w-full bg-transparent text-xs text-emerald-300 text-center font-bold font-mono outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = parseFloat(buffetItemCost) || 0;
-                          setBuffetItemCost(String(Math.max(0, current - 10)));
-                        }}
-                        className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center justify-center transition active:scale-95 cursor-pointer shadow select-none"
-                        title="إنقاص السعر (-10)"
-                      >
-                        -
-                      </button>
-                    </div>
+                    <input
+                      type="text"
+                      placeholder="مثال: 2200"
+                      value={buffetItemCost}
+                      onChange={(e) => setBuffetItemCost(e.target.value)}
+                      className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold font-mono text-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-inner"
+                    />
                   </div>
 
                   {/* المستخدم */}
