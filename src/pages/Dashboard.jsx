@@ -27128,7 +27128,7 @@ const handleExportBuffetToExcel = () => {
                     type="text"
                     list={!editingBuffetItem ? "buffet-item-names-list" : undefined}
                     readOnly={!!editingBuffetItem}
-                    placeholder="اختر صنفاً من القائمة أو اكتب اسم صنف جديد (مثل: بن، شاي، سكر)..."
+                    placeholder="اختر صنفاً من القائمة أو اكتب اسم صنف جديد..."
                     value={buffetItemName}
                     onChange={(e) => {
                       if (editingBuffetItem) return;
@@ -27179,7 +27179,7 @@ const handleExportBuffetToExcel = () => {
                       </button>
                       <input
                         type="text"
-                        placeholder="10"
+                        placeholder="0"
                         value={buffetItemTotalQty}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -27214,7 +27214,7 @@ const handleExportBuffetToExcel = () => {
                     <label className="block text-[11px] font-extrabold text-emerald-300 mb-1 text-center">السعر (ج.م)</label>
                     <input
                       type="text"
-                      placeholder="مثال: 2200"
+                      placeholder="0"
                       value={buffetItemCost}
                       onChange={(e) => setBuffetItemCost(e.target.value)}
                       className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-2 py-1.5 text-xs text-white text-center font-bold font-mono text-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-inner"
@@ -27241,7 +27241,7 @@ const handleExportBuffetToExcel = () => {
                       </button>
                       <input
                         type="text"
-                        placeholder="2"
+                        placeholder="0"
                         value={buffetItemUsedQty}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -27288,7 +27288,7 @@ const handleExportBuffetToExcel = () => {
                       </button>
                       <input
                         type="text"
-                        placeholder="8"
+                        placeholder="0"
                         value={buffetItemRemainingQty}
                         onChange={(e) => setBuffetItemRemainingQty(e.target.value)}
                         className="w-full bg-transparent text-xs text-white text-center font-bold outline-none"
@@ -27327,7 +27327,7 @@ const handleExportBuffetToExcel = () => {
                   </label>
                   <textarea
                     rows="2"
-                    placeholder={editingBuffetItem ? "اكتب الملحوظة الجديدة هنا، وستضاف للسجل المحفوظ بتاريخ ووقت الحفظ..." : "مثال: الكرتونة 22 عامود، باكيت 24 كيس..."}
+                    placeholder={editingBuffetItem ? "اكتب الملحوظة الجديدة هنا..." : "اكتب الملحوظة هنا (اختياري)..."}
                     value={buffetItemNotes}
                     onChange={(e) => setBuffetItemNotes(e.target.value)}
                     className="w-full bg-slate-800 border border-gray-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none font-medium leading-relaxed"
@@ -27383,7 +27383,7 @@ const handleExportBuffetToExcel = () => {
 
                     <input
                       type="text"
-                      placeholder="إضغط هنا للصق النص أو الصورة الفاتورة مباشرة (Ctrl + V)..."
+                      placeholder="إضغط هنا للصق النص أو الصورة مباشرة (Ctrl + V)..."
                       onPaste={(e) => { if (e && e.stopPropagation) e.stopPropagation();
                         const items = e.clipboardData?.items;
                         if (items) {
