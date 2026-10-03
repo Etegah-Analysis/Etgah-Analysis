@@ -20015,6 +20015,39 @@ const handleExportBuffetToExcel = () => {
             return 0;
           };
 
+          // Carry over previous month remainingQty into next month "العدد الحالي"
+          const getItemMonthQuantities = (item, targetMonthFilter) => {
+            const defaultTotal = item.totalQty || '-';
+            const defaultRemaining = item.remainingQty || item.totalQty || '-';
+
+            if (targetMonthFilter === 'all') {
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            }
+
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+            // If the item was created in targetMonth, display its own totalQty & remainingQty
+            if (itemPrimaryMonth === normTarget) {
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            }
+
+            // If item was created in a month BEFORE targetMonth:
+            const notes = String(item.notes || '');
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const hasActivityInTargetMonth = targetMonthName && notes.includes(targetMonthName);
+
+            if (hasActivityInTargetMonth) {
+              // Item has been edited in targetMonth, show updated values
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            } else {
+              // Item is carried over into targetMonth:
+              // "العدد الحالي" in targetMonth reads the "المتبقي" value from previous month!
+              const carriedOverQty = item.remainingQty && item.remainingQty !== '-' ? item.remainingQty : defaultTotal;
+              return { totalQty: carriedOverQty, remainingQty: carriedOverQty };
+            }
+          };
+
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = filteredInventory.length;
           filteredInventory.forEach(item => {
@@ -20167,57 +20200,60 @@ const handleExportBuffetToExcel = () => {
                             </td>
                           </tr>
                         ) : (
-                          paginatedInventory.map((item, idx) => (
-                            <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
-                              <td className="py-2.5 px-2 text-center">
-                                <input type="checkbox" className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer" checked={selectedInventoryIds.includes(item.id)} onChange={() => setSelectedInventoryIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])} />
-                              </td>
-                              <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
-                                {(safeBuffetPage - 1) * buffetItemsPerPage + idx + 1}
-                              </td>
-                              <td className="py-2.5 px-3 font-extrabold text-gray-900">
-                                {item.itemName}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-bold text-indigo-700">
-                                <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
-                                  {item.totalQty || '-'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
-                                {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
-                                <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
-                                  {item.remainingQty || '-'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[200px] max-w-[350px]" title={item.notes}>
-                                {item.notes || <span className="text-gray-300">—</span>}
-                              </td>
-                              <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
-                                <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
-                                  {item.updatedDateTime || item.formattedNow || '—'}
-                                </div>
-                                <div className="text-[9.5px] text-amber-900 font-black mt-0.5">
-                                  👤 {item.updatedBy || '👑 الإدارة'}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
-                                    <button
-                                      onClick={() => handleOpenAddBuffetItem(item)}
-                                      className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                                      title="تعديل بيانات الصنف"
-                                    >
-                                      <Edit size={13} />
-                                    </button>
-                                  )}
+                          paginatedInventory.map((item, idx) => {
+                            const itemQtys = getItemMonthQuantities(item, buffetFinancialMonthFilter);
+                            return (
+                              <tr key={item.id || idx} className="hover:bg-emerald-50/50 transition">
+                                <td className="py-2.5 px-2 text-center">
+                                  <input type="checkbox" className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer" checked={selectedInventoryIds.includes(item.id)} onChange={() => setSelectedInventoryIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])} />
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-[10.5px] font-bold text-gray-400">
+                                  {(safeBuffetPage - 1) * buffetItemsPerPage + idx + 1}
+                                </td>
+                                <td className="py-2.5 px-3 font-extrabold text-gray-900">
+                                  {item.itemName}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-bold text-indigo-700">
+                                  <span className="inline-block px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono">
+                                    {itemQtys.totalQty || '-'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
+                                  {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
+                                  <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
+                                    {itemQtys.remainingQty || '-'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[200px] max-w-[350px]" title={item.notes}>
+                                  {item.notes || <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
+                                  <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
+                                    {item.updatedDateTime || item.formattedNow || '—'}
+                                  </div>
+                                  <div className="text-[9.5px] text-amber-900 font-black mt-0.5">
+                                    👤 {item.updatedBy || '👑 الإدارة'}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                                      <button
+                                        onClick={() => handleOpenAddBuffetItem({ ...item, totalQty: itemQtys.totalQty, remainingQty: itemQtys.remainingQty })}
+                                        className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                        title="تعديل بيانات الصنف"
+                                      >
+                                        <Edit size={13} />
+                                      </button>
+                                    )}
 
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
