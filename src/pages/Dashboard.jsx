@@ -11811,7 +11811,7 @@ const handleModalPasteBuffetItem = (e) => {
       setBuffetItemTotalQty(item.totalQty || '');
       setBuffetItemUsedQty(item.usedQty || '');
       setBuffetItemRemainingQty(item.remainingQty || '');
-      setBuffetItemNotes(item.notes || '');
+      setBuffetItemNotes('');
       setBuffetItemCost(item.cost || item.itemPrice || '');
       setBuffetItemImage(item.imageUrl || null);
     } else {
@@ -11926,6 +11926,9 @@ const handleModalPasteBuffetItem = (e) => {
 
       // Link financialMonth directly to the timestamp/date extracted from the notes or current date
       const detectedFinancialMonth = normalizeFinancialMonth(combinedNotes) || currentFinancialMonthStr;
+      const creationFinancialMonth = editingBuffetItem 
+        ? (editingBuffetItem.financialMonth || editingBuffetItem.creationMonth || normalizeFinancialMonth(editingBuffetItem.notes) || currentFinancialMonthStr)
+        : (detectedFinancialMonth || currentFinancialMonthStr);
 
       const itemData = {
         itemName: finalName,
@@ -11935,7 +11938,8 @@ const handleModalPasteBuffetItem = (e) => {
         remainingQty: remaining || '-',
         notes: combinedNotes,
         imageUrl: compressedImage || '',
-        financialMonth: detectedFinancialMonth,
+        financialMonth: creationFinancialMonth,
+        creationMonth: creationFinancialMonth,
         updatedAt: serverTimestamp(),
         updatedBy: userRole,
         updatedDateTime: formattedNow
@@ -19917,31 +19921,93 @@ const handleExportBuffetToExcel = () => {
               return monthsArBuffet.indexOf(m2) - monthsArBuffet.indexOf(m1);
             });
           
+          const parseMonthStr = (monthStr) => {
+            if (!monthStr) return { year: 2026, monthIdx: 9 };
+            const norm = normalizeFinancialMonth(monthStr) || monthStr;
+            const parts = norm.split(' ');
+            const mName = parts[0] || '';
+            const yr = parseInt(parts[1], 10) || 2026;
+            let mIdx = monthsArBuffet.findIndex(m => mName.includes(m));
+            if (mIdx === -1) {
+              if (mName.includes('ابريل')) mIdx = 3;
+              else if (mName.includes('اغسطس')) mIdx = 7;
+              else mIdx = 9;
+            }
+            return { year: yr, monthIdx: mIdx };
+          };
+
+          const isMonthBeforeOrEqual = (itemMonthStr, targetMonthStr) => {
+            const itemM = parseMonthStr(itemMonthStr);
+            const targetM = parseMonthStr(targetMonthStr);
+            if (itemM.year < targetM.year) return true;
+            if (itemM.year > targetM.year) return false;
+            return itemM.monthIdx <= targetM.monthIdx;
+          };
+
+          // Filter inventory: Show items created in target month OR earlier months (carrying over inventory content to active month)
           let filteredInventory = buffetInventory.filter(item => {
             const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+            if (buffetFinancialMonthFilter === 'all') {
+              return matchesSearch;
+            }
             const itemMonth = getItemFinancialMonth(item);
-            const matchesMonth = buffetFinancialMonthFilter === 'all' || 
-              normalizeFinancialMonth(itemMonth) === normalizeFinancialMonth(buffetFinancialMonthFilter);
+            const matchesMonth = isMonthBeforeOrEqual(itemMonth, buffetFinancialMonthFilter);
             return matchesSearch && matchesMonth;
           });
 
-          // Calculate Total Cost & Items for Selected Financial Month
-          let financialMonthTotalCost = 0;
-          let financialMonthTotalItems = 0;
-          filteredInventory.forEach(item => {
-            let itemCost = 0;
-            const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
-            const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
-            const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
-
-            if (!isNaN(costVal) && costVal > 0) {
-              itemCost = costVal;
-            } else if (!isNaN(unitPriceVal) && unitPriceVal > 0) {
-              itemCost = unitPriceVal * qtyVal;
+          // Calculate Monthly Cost for Selected Financial Month based on notes dates and creation month
+          const getItemCostForMonth = (item, targetMonthFilter) => {
+            if (targetMonthFilter === 'all') {
+              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+              if (!isNaN(costVal) && costVal > 0) return costVal;
+              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+              return 0;
             }
 
-            financialMonthTotalCost += itemCost;
-            financialMonthTotalItems += 1;
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+            const notes = String(item.notes || '');
+
+            if (notes) {
+              const lines = notes.split('\n');
+              let monthPurchasesCost = 0;
+              let foundMonthPurchaseLine = false;
+
+              lines.forEach(line => {
+                if (targetMonthName && (line.includes(targetMonthName) || (line.includes('بتاريخ') && normalizeFinancialMonth(line) === normTarget))) {
+                  foundMonthPurchaseLine = true;
+                  const matchPrice = line.match(/(?:بـ|بمبلغ|سعر|تكلفة|\$|ج\.م|جنيه)\s*([0-9]+(?:\.[0-9]+)?)/) || line.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:ج\.م|جنيه)/);
+                  if (matchPrice && matchPrice[1]) {
+                    monthPurchasesCost += parseFloat(matchPrice[1]);
+                  }
+                }
+              });
+
+              if (foundMonthPurchaseLine) {
+                if (monthPurchasesCost > 0) return monthPurchasesCost;
+                const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+                if (!isNaN(costVal) && costVal > 0) return costVal;
+              }
+            }
+
+            if (itemPrimaryMonth === normTarget) {
+              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+              if (!isNaN(costVal) && costVal > 0) return costVal;
+              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+            }
+
+            return 0;
+          };
+
+          let financialMonthTotalCost = 0;
+          let financialMonthTotalItems = filteredInventory.length;
+          filteredInventory.forEach(item => {
+            financialMonthTotalCost += getItemCostForMonth(item, buffetFinancialMonthFilter);
           });
           // Pagination calculation
           const totalPagesBuffet = Math.max(1, Math.ceil(filteredInventory.length / buffetItemsPerPage));
