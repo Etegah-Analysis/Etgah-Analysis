@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video, Printer, Menu } from 'lucide-react';
+import { Plus, Settings, Monitor, Users, UserCheck, Clock, ArrowRight, UserPlus, X, Trash2, Edit, Edit3, Shield, Play, Pause, BarChart3, Globe, MessageSquare, Search, FileSpreadsheet, Download, Upload, Share2, FileText, CheckCircle, CheckSquare, Calendar, MessageCircle, FilePlus, Tag, Filter, UserCheck2, MessageSquarePlus, LogOut, ArrowDownLeft, UserMinus, RefreshCw, ArrowUpDown, Award, CreditCard, Save, Copy, Mail, Paperclip, Send, Inbox, Star, Reply, Eye, Sparkles, PhoneCall, Phone, Bell, ChevronRight, ChevronLeft, User, CheckCircle2, CheckCheck, Coffee, ShoppingCart, ExternalLink, ImageIcon, Video, Printer, Menu, Lock } from 'lucide-react';
 import { auth, db, collection, onSnapshot, setDoc, doc, secondaryAuth, createUserWithEmailAndPassword, deleteDoc, updateDoc, serverTimestamp, arrayUnion, getDoc, writeBatch, query, orderBy, addDoc, where, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
@@ -11866,6 +11866,32 @@ const handleModalPasteBuffetItem = (e) => {
       }
     }
 
+    // Lock check: Prevent non-admin editing when viewing a past financial month
+    if (!isAdmin && buffetFinancialMonthFilter && buffetFinancialMonthFilter !== 'all') {
+      const monthsArBuffetCheck = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const nowCheck = new Date();
+      const activeCurrentMonthStrCheck = `${monthsArBuffetCheck[nowCheck.getMonth()]} ${nowCheck.getFullYear()}`;
+      
+      const parseMonthStrCheck = (monthStr) => {
+        if (!monthStr) return { year: 2026, monthIdx: 9 };
+        const parts = monthStr.split(' ');
+        const mName = parts[0] || '';
+        const yr = parseInt(parts[1], 10) || 2026;
+        let mIdx = monthsArBuffetCheck.findIndex(m => mName.includes(m));
+        if (mIdx === -1) mIdx = 9;
+        return { year: yr, monthIdx: mIdx };
+      };
+      
+      const targetM = parseMonthStrCheck(buffetFinancialMonthFilter);
+      const currentM = parseMonthStrCheck(activeCurrentMonthStrCheck);
+      const isPastMonth = targetM.year < currentM.year || (targetM.year === currentM.year && targetM.monthIdx < currentM.monthIdx);
+      if (isPastMonth) {
+        toast.error('🔒 عذراً، يُمنع تعديل أو إضافة الأصناف في الشهور السابقة إلا بحساب الأدمن فقط.', { duration: 6000 });
+        setBuffetSaving(false);
+        return;
+      }
+    }
+
     // Duplicate Check: Prevent adding an item if its name is already registered in the sheet
     if (!editingBuffetItem) {
       const normalizedNewName = finalName.trim().toLowerCase();
@@ -19955,6 +19981,18 @@ const handleExportBuffetToExcel = () => {
             return itemM.monthIdx <= targetM.monthIdx;
           };
 
+          const isMonthStrictlyBefore = (targetMonthStr, currentMonthStr) => {
+            if (!targetMonthStr || targetMonthStr === 'all') return false;
+            const targetM = parseMonthStr(targetMonthStr);
+            const currentM = parseMonthStr(currentMonthStr);
+            if (targetM.year < currentM.year) return true;
+            if (targetM.year > currentM.year) return false;
+            return targetM.monthIdx < currentM.monthIdx;
+          };
+
+          const isViewingPreviousFinancialMonth = isMonthStrictlyBefore(buffetFinancialMonthFilter, activeCurrentMonthStr);
+          const canUserEditBuffetInSelectedMonth = isAdmin || (!isViewingPreviousFinancialMonth && hasPermission(currentEmpUser, 'canAddBuffet'));
+
           // Filter inventory: Show items created in target month OR earlier months (carrying over inventory content to active month)
           let filteredInventory = buffetInventory.filter(item => {
             const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
@@ -20165,13 +20203,15 @@ const handleExportBuffetToExcel = () => {
                           <span>مسح المحدد ({selectedInventoryIds.length})</span>
                         </button>
                       )}
-                      <button 
-                        onClick={() => handleOpenAddBuffetItem()}
-                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
-                      >
-                        <Plus size={13} />
-                        <span>إضافة صنف</span>
-                      </button>
+                      {canUserEditBuffetInSelectedMonth && (
+                        <button 
+                          onClick={() => handleOpenAddBuffetItem()}
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm"
+                        >
+                          <Plus size={13} />
+                          <span>إضافة صنف</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -20219,7 +20259,10 @@ const handleExportBuffetToExcel = () => {
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
-                                  {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
+                                  {(() => {
+                                    const monthCost = getItemCostForMonth(item, buffetFinancialMonthFilter);
+                                    return monthCost > 0 ? `${Number(monthCost).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>;
+                                  })()}
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
                                   <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
@@ -20239,16 +20282,19 @@ const handleExportBuffetToExcel = () => {
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                    {(isAdmin || hasPermission(currentEmpUser, 'canAddBuffet')) && (
+                                    {canUserEditBuffetInSelectedMonth ? (
                                       <button
                                         onClick={() => handleOpenAddBuffetItem({ ...item, totalQty: itemQtys.totalQty, remainingQty: itemQtys.remainingQty })}
-                                        className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                                        className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition cursor-pointer"
                                         title="تعديل بيانات الصنف"
                                       >
                                         <Edit size={13} />
                                       </button>
+                                    ) : (
+                                      <span className="p-1 text-slate-400 opacity-60 cursor-not-allowed" title="🔒 تعديل بيانات الشهور السابقة مقتصر على الأدمن فقط">
+                                        <Lock size={13} />
+                                      </span>
                                     )}
-
                                   </div>
                                 </td>
                               </tr>
