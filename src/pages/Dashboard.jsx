@@ -11875,6 +11875,17 @@ const handleModalPasteBuffetItem = (e) => {
         setBuffetSaving(false);
         return;
       }
+    } else {
+      // Mandatory Price & Note Check when INCREASING quantity
+      const oldQty = parseFloat(editingBuffetItem.totalQty || editingBuffetItem.remainingQty || '0') || 0;
+      const newQty = parseFloat(buffetItemTotalQty || buffetItemRemainingQty || '0') || 0;
+      if (newQty > oldQty) {
+        if (!buffetItemCost.trim() || !buffetItemNotes.trim()) {
+          toast.error('⚠️ عند تزويد عدد الصنف، يُشترط كتابة السعر والملحوظة لحفظ عملية الشراء والتكلفة للشهر الحالي.', { duration: 6000 });
+          setBuffetSaving(false);
+          return;
+        }
+      }
     }
 
     setBuffetSaving(true);
@@ -20109,7 +20120,7 @@ const handleExportBuffetToExcel = () => {
                   <div className="px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex justify-between items-center border-b border-emerald-600/40">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">📦</span>
-                      <span className="font-black text-xs sm:text-sm text-emerald-100">محتويات ومخزون البوفيه (المستهلك والرصيد)</span>
+                      <span className="font-black text-xs sm:text-sm text-emerald-100">محتويات ومخزون البوفيه</span>
                       <span className="bg-emerald-950/60 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
                         {filteredInventory.length} صنف
                       </span>
@@ -20140,9 +20151,8 @@ const handleExportBuffetToExcel = () => {
                           </th>
                           <th className="py-2.5 px-3 text-center w-10 text-amber-300">#</th>
                           <th className="py-2.5 px-3 text-amber-300 font-extrabold">الصنف</th>
-                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد</th>
+                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold">العدد الحالي</th>
                           <th className="py-2.5 px-3 text-center text-emerald-300 font-extrabold bg-emerald-950/50 border-x border-emerald-500/30">السعر (ج.م)</th>
-                          <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-amber-950/30">المستخدم</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-bold bg-emerald-950/40">المتبقي</th>
                           <th className="py-2.5 px-3 text-amber-300">ملحوظات</th>
                           <th className="py-2.5 px-3 text-center text-amber-300 font-extrabold bg-indigo-950/60">التاريخ والوقت والموظف 🕒</th>
@@ -20152,7 +20162,7 @@ const handleExportBuffetToExcel = () => {
                       <tbody className="divide-y divide-gray-200 text-gray-800 font-medium">
                         {paginatedInventory.length === 0 ? (
                           <tr>
-                            <td colSpan="10" className="text-center py-8 text-gray-500 font-bold">
+                            <td colSpan="9" className="text-center py-8 text-gray-500 font-bold">
                               لا توجد أصناف مطابقة للبحث والشهر المالي المختار
                             </td>
                           </tr>
@@ -20175,11 +20185,6 @@ const handleExportBuffetToExcel = () => {
                               </td>
                               <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/70 border-x border-emerald-200 font-mono">
                                 {item.cost || item.itemPrice ? `${Number(item.cost || item.itemPrice).toLocaleString()} ج.م` : <span className="text-gray-300">—</span>}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-bold text-rose-700 bg-rose-50/40">
-                                <span className="inline-block px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 font-mono">
-                                  {item.usedQty || '-'}
-                                </span>
                               </td>
                               <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/40">
                                 <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
