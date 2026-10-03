@@ -20761,7 +20761,7 @@ const handleExportBuffetToExcel = () => {
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-xs text-gray-500 max-w-[130px] truncate" title={p.notes}>
+                            <td className="py-2.5 px-3 text-xs text-gray-700 font-medium whitespace-pre-wrap break-words min-w-[160px] max-w-[300px]" title={p.notes}>
                               {p.notes || <span className="text-gray-300">—</span>}
                             </td>
                             <td className="py-2.5 px-3 text-center">
