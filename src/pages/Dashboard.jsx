@@ -27114,13 +27114,12 @@ const handleExportBuffetToExcel = () => {
               <form onSubmit={handleSaveBuffetItem} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-bold text-emerald-300 mb-1">
-                    {editingBuffetItem ? 'اسم الصنف (ثابت لا يتغير 🔒)' : 'اسم الصنف (اختر من القائمة أو اكتب اسم صنف جديد)'}
+                    {editingBuffetItem ? 'اسم الصنف (ثابت لا يتغير 🔒)' : 'اسم الصنف الجديد'}
                   </label>
                   <input
                     type="text"
-                    list={!editingBuffetItem ? "buffet-item-names-list" : undefined}
                     readOnly={!!editingBuffetItem}
-                    placeholder="اختر صنفاً من القائمة أو اكتب اسم صنف جديد..."
+                    placeholder="اكتب اسم الصنف الجديد هنا..."
                     value={buffetItemName}
                     onChange={(e) => {
                       if (editingBuffetItem) return;
@@ -27141,13 +27140,6 @@ const handleExportBuffetToExcel = () => {
                         : 'bg-slate-800 border-emerald-500/30 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500'
                     }`}
                   />
-                  {!editingBuffetItem && (
-                    <datalist id="buffet-item-names-list">
-                      {Array.from(new Set(buffetInventory.map(i => i.itemName).filter(Boolean))).map(name => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
