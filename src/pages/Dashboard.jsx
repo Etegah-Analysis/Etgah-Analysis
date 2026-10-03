@@ -19803,13 +19803,41 @@ const handleExportBuffetToExcel = () => {
           const nowBuffet = new Date();
           const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
 
+          const normalizeFinancialMonth = (rawStr) => {
+            if (!rawStr) return null;
+            const str = String(rawStr).trim();
+            if (str.includes('يناير')) return 'يناير 2026';
+            if (str.includes('فبراير')) return 'فبراير 2026';
+            if (str.includes('مارس')) return 'مارس 2026';
+            if (str.includes('أبريل') || str.includes('ابريل')) return 'أبريل 2026';
+            if (str.includes('مايو')) return 'مايو 2026';
+            if (str.includes('يونيو')) return 'يونيو 2026';
+            if (str.includes('يوليو')) return 'يوليو 2026';
+            if (str.includes('أغسطس') || str.includes('اغسطس')) return 'أغسطس 2026';
+            if (str.includes('سبتمبر')) return 'سبتمبر 2026';
+            if (str.includes('أكتوبر') || str.includes('اكتوبر')) return 'أكتوبر 2026';
+            if (str.includes('نوفمبر')) return 'نوفمبر 2026';
+            if (str.includes('ديسمبر')) return 'ديسمبر 2026';
+            return str;
+          };
+
           const getItemFinancialMonth = (item) => {
             if (!item) return activeCurrentMonthStr;
 
-            // 1. Explicit financialMonth property (Primary authority)
-            if (item.financialMonth) return item.financialMonth;
+            // 1. Check notes text for month mention FIRST so all September entries merge into 1 option
+            const notes = String(item.notes || '');
+            const notesNorm = normalizeFinancialMonth(notes);
+            if (notesNorm && notesNorm !== notes) {
+              return notesNorm;
+            }
 
-            // 2. Check updatedDateTime / formattedNow (e.g. "2026/6/20 10:13 ص", "2026/09/27")
+            // 2. Explicit financialMonth property normalized
+            if (item.financialMonth) {
+              const norm = normalizeFinancialMonth(item.financialMonth);
+              if (norm) return norm;
+            }
+
+            // 3. Check updatedDateTime / formattedNow (e.g. "2026/6/20 10:13 ص", "2026/09/27")
             const dateStr = String(item.updatedDateTime || item.formattedNow || '');
             const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
             if (matchYMD) {
@@ -19820,7 +19848,7 @@ const handleExportBuffetToExcel = () => {
               }
             }
 
-            // 3. Firestore createdAt timestamp
+            // 4. Firestore createdAt timestamp
             if (item.createdAt) {
               let d = null;
               if (typeof item.createdAt?.toDate === 'function') {
@@ -19835,27 +19863,14 @@ const handleExportBuffetToExcel = () => {
               }
             }
 
-            // 4. Fallback check for explicit month names inside notes ONLY if no date fields exist
-            const notes = String(item.notes || '');
-            if (notes.includes('يناير')) return 'يناير 2026';
-            if (notes.includes('فبراير')) return 'فبراير 2026';
-            if (notes.includes('مارس')) return 'مارس 2026';
-            if (notes.includes('أبريل') || notes.includes('ابريل')) return 'أبريل 2026';
-            if (notes.includes('مايو')) return 'مايو 2026';
-            if (notes.includes('يونيو')) return 'يونيو 2026';
-            if (notes.includes('يوليو')) return 'يوليو 2026';
-            if (notes.includes('أغسطس') || notes.includes('اغسطس')) return 'أغسطس 2026';
-            if (notes.includes('سبتمبر')) return 'سبتمبر 2026';
-            if (notes.includes('أكتوبر') || notes.includes('اكتوبر')) return 'أكتوبر 2026';
-            if (notes.includes('نوفمبر')) return 'نوفمبر 2026';
-            if (notes.includes('ديسمبر')) return 'ديسمبر 2026';
-
             return activeCurrentMonthStr;
           };
 
-          // Financial Months List
-          const itemMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
-          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...itemMonths]))
+          // Financial Months List - Strictly Deduplicated and Normalized
+          const rawMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...rawMonths]))
+            .map(m => normalizeFinancialMonth(m))
+            .filter((val, idx, self) => val && self.indexOf(val) === idx)
             .sort((a, b) => {
               const [m1, y1] = a.split(' ');
               const [m2, y2] = b.split(' ');
@@ -19866,7 +19881,8 @@ const handleExportBuffetToExcel = () => {
           let filteredInventory = buffetInventory.filter(item => {
             const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
             const itemMonth = getItemFinancialMonth(item);
-            const matchesMonth = buffetFinancialMonthFilter === 'all' || itemMonth === buffetFinancialMonthFilter;
+            const matchesMonth = buffetFinancialMonthFilter === 'all' || 
+              normalizeFinancialMonth(itemMonth) === normalizeFinancialMonth(buffetFinancialMonthFilter);
             return matchesSearch && matchesMonth;
           });
 
