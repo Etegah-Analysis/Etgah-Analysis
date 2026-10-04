@@ -20502,6 +20502,48 @@ const handleExportBuffetToExcel = () => {
           const currentCycleKey = getPayrollCycleKey();
           const isCurrentCycle = selectedPayrollCycle === currentCycleKey;
 
+          const parseEmployeeCreationDate = (emp) => {
+            if (!emp) return null;
+            const rawDate = emp.createdAt || emp.createdDate || emp.joinedDate || emp.registrationDate || emp.timestamp || emp.date;
+            if (!rawDate) return null;
+
+            if (typeof rawDate?.toDate === 'function') {
+              const d = rawDate.toDate();
+              if (d && !isNaN(d.getTime())) return d;
+            }
+            if (typeof rawDate === 'object' && rawDate.seconds) {
+              const d = new Date(rawDate.seconds * 1000);
+              if (d && !isNaN(d.getTime())) return d;
+            }
+            if (typeof rawDate === 'number') {
+              const d = new Date(rawDate);
+              if (d && !isNaN(d.getTime())) return d;
+            }
+            if (typeof rawDate === 'string') {
+              let d = new Date(rawDate);
+              if (d && !isNaN(d.getTime())) return d;
+
+              const matchYMD = rawDate.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
+              if (matchYMD) {
+                const yr = parseInt(matchYMD[1], 10);
+                const mo = parseInt(matchYMD[2], 10) - 1;
+                const dy = parseInt(matchYMD[3], 10);
+                d = new Date(yr, mo, dy);
+                if (d && !isNaN(d.getTime())) return d;
+              }
+
+              const matchDMY = rawDate.match(/(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[0-2])[\/\-](202[0-9])/);
+              if (matchDMY) {
+                const dy = parseInt(matchDMY[1], 10);
+                const mo = parseInt(matchDMY[2], 10) - 1;
+                const yr = parseInt(matchDMY[3], 10);
+                d = new Date(yr, mo, dy);
+                if (d && !isNaN(d.getTime())) return d;
+              }
+            }
+            return null;
+          };
+
           let historicalEmployees = [];
           if (!isCurrentCycle) {
             const deletedEmpsInPastCycle = (recycleBin || []).filter(item => {
@@ -20535,13 +20577,11 @@ const handleExportBuffetToExcel = () => {
                 return false;
               }
 
-              if (emp.createdAt) {
-                const createdDate = new Date(emp.createdAt);
-                if (!isNaN(createdDate.getTime())) {
-                  const empCreatedCycleKey = getPayrollCycleKey(createdDate);
-                  if (empCreatedCycleKey > selectedPayrollCycle) {
-                    return false;
-                  }
+              const empCreatedDate = parseEmployeeCreationDate(emp);
+              if (empCreatedDate) {
+                const empCreatedCycleKey = getPayrollCycleKey(empCreatedDate);
+                if (empCreatedCycleKey > selectedPayrollCycle) {
+                  return false;
                 }
               }
 
