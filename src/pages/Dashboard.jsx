@@ -20133,6 +20133,51 @@ const handleExportBuffetToExcel = () => {
             return matchingLines.join('\n');
           };
 
+          // Extract Month-Specific Timestamp and Employee Info for Selected Financial Month Filter
+          const getItemMonthTimestampAndUser = (item, targetMonthFilter) => {
+            if (!item) return { dateTime: '—', user: '' };
+
+            const defaultDateTime = item.updatedDateTime || item.formattedNow || '—';
+            const defaultUser = item.updatedBy || '👑 الإدارة';
+
+            if (targetMonthFilter === 'all') {
+              return { dateTime: defaultDateTime, user: defaultUser };
+            }
+
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+            // Extract date from item.updatedDateTime or item.formattedNow
+            const dateStr = String(item.updatedDateTime || item.formattedNow || '');
+            let dateMonthNorm = null;
+            const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
+            if (matchYMD) {
+              const yr = matchYMD[1];
+              const moIdx = parseInt(matchYMD[2], 10) - 1;
+              if (moIdx >= 0 && moIdx < 12) {
+                dateMonthNorm = `${monthsArBuffet[moIdx]} ${yr}`;
+              }
+            }
+
+            // Check notes for target month mentions/activity
+            const rawNotes = String(item.notes || '');
+            const hasNotesInTargetMonth = targetMonthName && rawNotes.includes(targetMonthName);
+
+            // Determine if item was created/updated in targetMonth
+            const isUpdatedInTargetMonth = 
+              (dateMonthNorm && normalizeFinancialMonth(dateMonthNorm) === normTarget) ||
+              (itemPrimaryMonth === normTarget && !dateMonthNorm) ||
+              hasNotesInTargetMonth;
+
+            if (isUpdatedInTargetMonth) {
+              return { dateTime: defaultDateTime, user: defaultUser };
+            }
+
+            // If item is carried over from a previous month without new activity in targetMonth, show empty
+            return { dateTime: '—', user: '' };
+          };
+
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = filteredInventory.length;
           filteredInventory.forEach(item => {
@@ -20320,12 +20365,24 @@ const handleExportBuffetToExcel = () => {
                                   {getItemNotesForMonth(item, buffetFinancialMonthFilter) || <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="py-2 px-3 text-center text-[10.5px] font-bold bg-indigo-50/30 border-x border-indigo-100">
-                                  <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
-                                    {item.updatedDateTime || item.formattedNow || '—'}
-                                  </div>
-                                  <div className="text-[9.5px] text-amber-900 font-black mt-0.5">
-                                    👤 {item.updatedBy || '👑 الإدارة'}
-                                  </div>
+                                  {(() => {
+                                    const { dateTime, user } = getItemMonthTimestampAndUser(item, buffetFinancialMonthFilter);
+                                    if (dateTime === '—' && !user) {
+                                      return <span className="text-gray-300 font-bold">—</span>;
+                                    }
+                                    return (
+                                      <>
+                                        <div className="font-mono text-[10px] text-purple-950 font-bold" dir="ltr">
+                                          {dateTime}
+                                        </div>
+                                        {user && (
+                                          <div className="text-[9.5px] text-amber-900 font-black mt-0.5">
+                                            👤 {user}
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <div className="flex items-center justify-center gap-1">
