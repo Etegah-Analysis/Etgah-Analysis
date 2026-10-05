@@ -1110,8 +1110,18 @@ const Dashboard = () => {
     const calculatedKey = `${y}-${m < 10 ? '0' + m : m}`;
     return calculatedKey < '2026-09' ? '2026-09' : calculatedKey;
   });
-  const [selectedSaudiMonth, setSelectedSaudiMonth] = useState('all');
-  const [selectedUsMonth, setSelectedUsMonth] = useState('all');
+  const [selectedSaudiMonth, setSelectedSaudiMonth] = useState(() => {
+    const d = new Date();
+    let y = d.getFullYear();
+    let m = d.getMonth() + 1;
+    return `${y}-${m < 10 ? '0' + m : m}`;
+  });
+  const [selectedUsMonth, setSelectedUsMonth] = useState(() => {
+    const d = new Date();
+    let y = d.getFullYear();
+    let m = d.getMonth() + 1;
+    return `${y}-${m < 10 ? '0' + m : m}`;
+  });
 
   // --- RECOMMENDATIONS DATE FILTER & ANALYTICS STATE (v2.25) ---
   const [saudiDateFrom, setSaudiDateFrom] = useState('');
@@ -18759,37 +18769,33 @@ const handleExportBuffetToExcel = () => {
                       <div style={{ width: `${totalS > 0 ? (slS / totalS) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`وقف: ${slS}`}></div>
                     </div>
 
-                    {/* Per-Month Percentage Breakdown Bar */}
+                    {/* Per-Month Percentage Breakdown Select Dropdown */}
                     {monthlyStatsS.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-purple-500/20">
-                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex flex-wrap items-center justify-between gap-2 w-full">
-                          <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+                          <span className="text-[11px] font-black text-amber-300 shrink-0">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <select
+                            value={selectedSaudiMonth}
+                            onChange={(e) => setSelectedSaudiMonth(e.target.value)}
+                            className="bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer max-w-full shadow-inner"
+                          >
+                            <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
+                            {monthlyStatsS.map(m => (
+                              <option key={m.key} value={m.key}>
+                                🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                          {monthlyStatsS.map(m => (
-                            <button
-                              key={m.key}
-                              type="button"
-                              onClick={() => setSelectedSaudiMonth(selectedSaudiMonth === m.key ? 'all' : m.key)}
-                              className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer ${selectedSaudiMonth === m.key ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-300 shadow-md font-black ring-2 ring-amber-400/50' : 'bg-slate-900/90 text-amber-200 border-amber-500/30 hover:bg-slate-800'}`}
-                            >
-                              <span>🗓️ {m.label}</span>
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
-                                {m.rate}% ({m.achieved}/{m.total}) | {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}% 📈
-                              </span>
-                            </button>
-                          ))}
-                          {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                            <button 
-                              onClick={() => handleOpenAddSaudiSignalModal()}
-                              className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                            >
-                              <Plus size={14} />
-                              <span>+ إضافة توصية سعودية جديدة</span>
-                            </button>
-                          )}
-                        </div>
+                        {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                          <button 
+                            onClick={() => handleOpenAddSaudiSignalModal()}
+                            className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                          >
+                            <Plus size={14} />
+                            <span>+ إضافة توصية سعودية جديدة</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -19398,27 +19404,23 @@ const handleExportBuffetToExcel = () => {
                       <div style={{ width: `${totalU > 0 ? (slU / totalU) * 100 : 0}%` }} className="bg-rose-500 h-full" title={`وقف: ${slU}`}></div>
                     </div>
 
-                    {/* Per-Month Percentage Breakdown Bar */}
+                    {/* Per-Month Percentage Breakdown Select Dropdown */}
                     {monthlyStatsU.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-purple-500/20">
-                        <div className="text-[11px] font-black text-amber-300 mb-1.5 flex items-center justify-between">
-                          <span>📅 سجل معدل النجاح المئوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <span className="text-[10px] text-amber-200/70 font-normal">انقر على أي شهر لتصفية الكارت به 🖱️</span>
-                        </div>
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                          {monthlyStatsU.map(m => (
-                            <button
-                              key={m.key}
-                              type="button"
-                              onClick={() => setSelectedUsMonth(selectedUsMonth === m.key ? 'all' : m.key)}
-                              className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer ${selectedUsMonth === m.key ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-300 shadow-md font-black ring-2 ring-amber-400/50' : 'bg-slate-900/90 text-amber-200 border-amber-500/30 hover:bg-slate-800'}`}
-                            >
-                              <span>🗓️ {m.label}</span>
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${m.rate >= 70 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : (m.rate >= 50 ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40')}`}>
-                                {m.rate}% ({m.achieved}/{m.total}) | {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}% 📈
-                              </span>
-                            </button>
-                          ))}
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+                          <span className="text-[11px] font-black text-amber-300 shrink-0">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          <select
+                            value={selectedUsMonth}
+                            onChange={(e) => setSelectedUsMonth(e.target.value)}
+                            className="bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer max-w-full shadow-inner"
+                          >
+                            <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
+                            {monthlyStatsU.map(m => (
+                              <option key={m.key} value={m.key}>
+                                🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     )}
