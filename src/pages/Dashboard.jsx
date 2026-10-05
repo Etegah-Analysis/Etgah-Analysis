@@ -19410,22 +19410,20 @@ const handleExportBuffetToExcel = () => {
 
                     {/* Per-Month Percentage Breakdown Select Dropdown */}
                     {monthlyStatsU.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
-                          <span className="text-[11px] font-black text-amber-300 shrink-0">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <select
-                            value={selectedUsMonth}
-                            onChange={(e) => setSelectedUsMonth(e.target.value)}
-                            className="bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer max-w-full shadow-inner"
-                          >
-                            <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
-                            {monthlyStatsU.map(m => (
-                              <option key={m.key} value={m.key}>
-                                🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-col gap-2">
+                        <span className="text-[11px] font-black text-amber-300">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
+                        <select
+                          value={selectedUsMonth}
+                          onChange={(e) => setSelectedUsMonth(e.target.value)}
+                          className="w-full bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer shadow-inner"
+                        >
+                          <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
+                          {monthlyStatsU.map(m => (
+                            <option key={m.key} value={m.key}>
+                              🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
