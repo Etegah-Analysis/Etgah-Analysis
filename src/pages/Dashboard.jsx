@@ -20030,6 +20030,141 @@ const handleExportBuffetToExcel = () => {
           const nowBuffet = new Date();
           const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
 
+          // Financial Months List - Strictly Deduplicated and Normalized
+          const rawMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...rawMonths]))
+            .map(m => normalizeFinancialMonth(m))
+            .filter((val, idx, self) => val && self.indexOf(val) === idx)
+            .sort((a, b) => {
+              const [m1, y1] = a.split(' ');
+              const [m2, y2] = b.split(' ');
+              if (y1 !== y2) return (parseInt(y2, 10) || 0) - (parseInt(y1, 10) || 0);
+              return monthsArBuffet.indexOf(m2) - monthsArBuffet.indexOf(m1);
+            });
+          
+          const parseMonthStr = (monthStr) => {
+            if (!monthStr) return { year: 2026, monthIdx: 9 };
+            const norm = normalizeFinancialMonth(monthStr) || monthStr;
+            const parts = norm.split(' ');
+            const mName = parts[0] || '';
+            const yr = parseInt(parts[1], 10) || 2026;
+            let mIdx = monthsArBuffet.findIndex(m => mName.includes(m));
+            if (mIdx === -1) {
+              if (mName.includes('ابريل')) mIdx = 3;
+              else if (mName.includes('اغسطس')) mIdx = 7;
+              else mIdx = 9;
+            }
+            return { year: yr, monthIdx: mIdx };
+          };
+
+          const isMonthBeforeOrEqual = (itemMonthStr, targetMonthStr) => {
+            const itemM = parseMonthStr(itemMonthStr);
+            const targetM = parseMonthStr(targetMonthStr);
+            if (itemM.year < targetM.year) return true;
+            if (itemM.year > targetM.year) return false;
+            return itemM.monthIdx <= targetM.monthIdx;
+          };
+
+          const isMonthStrictlyBefore = (targetMonthStr, currentMonthStr) => {
+            if (!targetMonthStr || targetMonthStr === 'all') return false;
+            const targetM = parseMonthStr(targetMonthStr);
+            const currentM = parseMonthStr(currentMonthStr);
+            if (targetM.year < currentM.year) return true;
+            if (targetM.year > currentM.year) return false;
+            return targetM.monthIdx < currentM.monthIdx;
+          };
+
+          const isViewingPreviousFinancialMonth = isMonthStrictlyBefore(buffetFinancialMonthFilter, activeCurrentMonthStr);
+          const canUserEditBuffetInSelectedMonth = isAdmin || (!isViewingPreviousFinancialMonth && hasPermission(currentEmpUser, 'canAddBuffet'));
+
+          // Filter inventory: Show items created in target month OR earlier months (carrying over inventory content to active month)
+          let filteredInventory = buffetInventory.filter(item => {
+            const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+            if (buffetFinancialMonthFilter === 'all') {
+              return matchesSearch;
+            }
+            const itemMonth = getItemFinancialMonth(item);
+            const matchesMonth = isMonthBeforeOrEqual(itemMonth, buffetFinancialMonthFilter);
+            return matchesSearch && matchesMonth;
+          });
+
+          // Calculate Monthly Cost for Selected Financial Month based on notes dates and creation month
+          const getItemCostForMonth = (item, targetMonthFilter) => {
+            if (targetMonthFilter === 'all') {
+              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+              if (!isNaN(costVal) && costVal > 0) return costVal;
+              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+              return 0;
+            }
+
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+            const notes = String(item.notes || '');
+
+            if (notes) {
+              const lines = notes.split('\n');
+              let monthPurchasesCost = 0;
+              let foundMonthPurchaseLine = false;
+
+              lines.forEach(line => {
+                if (targetMonthName && (line.includes(targetMonthName) || (line.includes('بتاريخ') && normalizeFinancialMonth(line) === normTarget))) {
+                  foundMonthPurchaseLine = true;
+                  const matchPrice = line.match(/(?:بـ|بمبلغ|سعر|تكلفة|\$|ج\.م|جنيه)\s*([0-9]+(?:\.[0-9]+)?)/) || line.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:ج\.م|جنيه)/);
+                  if (matchPrice && matchPrice[1]) {
+                    monthPurchasesCost += parseFloat(matchPrice[1]);
+                  }
+                }
+              });
+
+              if (foundMonthPurchaseLine) {
+                if (monthPurchasesCost > 0) return monthPurchasesCost;
+                const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+                if (!isNaN(costVal) && costVal > 0) return costVal;
+              }
+            }
+
+            if (itemPrimaryMonth === normTarget) {
+              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+              if (!isNaN(costVal) && costVal > 0) return costVal;
+              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+            }
+
+            return 0;
+          };
+
+          // Carry over previous month remainingQty into next month "العدد الحالي"
+          const getItemMonthQuantities = (item, targetMonthFilter) => {
+            const defaultTotal = item.totalQty || '-';
+            const defaultRemaining = item.remainingQty || item.totalQty || '-';
+
+            if (targetMonthFilter === 'all') {
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            }
+
+            const normTarget = normalizeFinancialMonth(targetMonthFilter);
+            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+            if (itemPrimaryMonth === normTarget) {
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            }
+
+            const notes = String(item.notes || '');
+            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+            const hasActivityInTargetMonth = targetMonthName && notes.includes(targetMonthName);
+
+            if (hasActivityInTargetMonth) {
+              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+            } else {
+              const carriedOverQty = item.remainingQty && item.remainingQty !== '-' ? item.remainingQty : defaultTotal;
+              return { totalQty: carriedOverQty, remainingQty: carriedOverQty };
+            }
+          };
+
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = filteredInventory.length;
           filteredInventory.forEach(item => {
