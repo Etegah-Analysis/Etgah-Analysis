@@ -18771,31 +18771,31 @@ const handleExportBuffetToExcel = () => {
 
                     {/* Per-Month Percentage Breakdown Select Dropdown */}
                     {monthlyStatsS.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
-                          <span className="text-[11px] font-black text-amber-300 shrink-0">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
-                          <select
-                            value={selectedSaudiMonth}
-                            onChange={(e) => setSelectedSaudiMonth(e.target.value)}
-                            className="bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer max-w-full shadow-inner"
-                          >
-                            <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
-                            {monthlyStatsS.map(m => (
-                              <option key={m.key} value={m.key}>
-                                🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
-                              </option>
-                            ))}
-                          </select>
+                      <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                          <span className="text-[11px] font-black text-amber-300">📅 سجل معدل النجاح السنوي وأرباح التوصيات المحققة حسب كل شهر في الشيت:</span>
+                          {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
+                            <button 
+                              onClick={() => handleOpenAddSaudiSignalModal()}
+                              className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
+                            >
+                              <Plus size={14} />
+                              <span>+ إضافة توصية سعودية جديدة</span>
+                            </button>
+                          )}
                         </div>
-                        {(isAdmin || hasPermission(currentEmpUser, 'canAddSaudiStocks')) && (
-                          <button 
-                            onClick={() => handleOpenAddSaudiSignalModal()}
-                            className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:shadow-amber-500/30 cursor-pointer"
-                          >
-                            <Plus size={14} />
-                            <span>+ إضافة توصية سعودية جديدة</span>
-                          </button>
-                        )}
+                        <select
+                          value={selectedSaudiMonth}
+                          onChange={(e) => setSelectedSaudiMonth(e.target.value)}
+                          className="w-full bg-slate-900 text-amber-200 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/50 cursor-pointer shadow-inner"
+                        >
+                          <option value="all">📅 جميع الأشهر (إجمالي التراكمي)</option>
+                          {monthlyStatsS.map(m => (
+                            <option key={m.key} value={m.key}>
+                              🗓️ {m.label} — نسبة النجاح: {m.rate}% ({m.achieved}/{m.total}) | الأرباح: {m.profitPct >= 0 ? '+' : ''}{m.profitPct.toFixed(2)}%
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
@@ -19206,7 +19206,7 @@ const handleExportBuffetToExcel = () => {
         {/* Internal category split: Stocks (أسهم) vs Options (عقود)                 */}
         {/* ========================================================================= */}
         {activeTab === 'us_signals' && (isAdmin || hasPermission(currentEmpUser, 'show_card_us_stocks') || hasPermission(currentEmpUser, 'canViewUsStocks')) && (() => {
-          const filteredSignals = usRecommendations.filter(sig => {
+          const monthFilteredUsSignals = usRecommendations.filter(sig => {
             if (selectedUsMonth !== 'all') {
               const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
               if (dVal && !isNaN(dVal.getTime())) {
@@ -19224,6 +19224,10 @@ const handleExportBuffetToExcel = () => {
               const dVal = sig.createdAtMillis ? new Date(sig.createdAtMillis) : (sig.createdAt?.seconds ? new Date(sig.createdAt.seconds * 1000) : null);
               if (dVal && dVal > new Date(usDateTo + 'T23:59:59')) return false;
             }
+            return true;
+          });
+
+          const filteredSignals = monthFilteredUsSignals.filter(sig => {
             if (usSignalsMarketFilter !== 'all' && sig.marketType !== usSignalsMarketFilter) return false;
             if (usSignalsStatusFilter !== 'all' && sig.status !== usSignalsStatusFilter) return false;
             if (usSignalsSearch.trim()) {
@@ -19253,8 +19257,8 @@ const handleExportBuffetToExcel = () => {
                       <UsFlagIcon className="w-6 h-6" />
                       <span>توصيات السوق الأمريكي</span>
                       <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full border border-amber-500/90 bg-amber-950/80 text-amber-300 font-black text-xs shadow-sm" dir="ltr">
-                        <span>{usRecommendations.length.toLocaleString()} توصية</span>
-                        <span className="text-[11px] text-amber-400 font-bold">({usRecommendations.filter(s => s.status === 'active').length} سارية ⏳)</span>
+                        <span>{monthFilteredUsSignals.length.toLocaleString()} توصية</span>
+                        <span className="text-[11px] text-amber-400 font-bold">({monthFilteredUsSignals.filter(s => s.status === 'active').length} سارية ⏳)</span>
                       </span>
                     </h2>
                     <p className="text-xs text-amber-200/80 mt-0.5">
@@ -19437,21 +19441,21 @@ const handleExportBuffetToExcel = () => {
                       onClick={() => setUsSignalsMarketFilter('all')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${usSignalsMarketFilter === 'all' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                     >
-                      🌐 الكل ({usRecommendations.length})
+                      🌐 الكل ({monthFilteredUsSignals.length})
                     </button>
                     <button
                       onClick={() => setUsSignalsMarketFilter('stocks')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'stocks' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                     >
                       <span>📈 شركات وأسهم (Stocks)</span>
-                      <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'stocks').length})</span>
+                      <span className="text-[10px] opacity-80">({monthFilteredUsSignals.filter(s => s.marketType === 'stocks').length})</span>
                     </button>
                     <button
                       onClick={() => setUsSignalsMarketFilter('options')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1 ${usSignalsMarketFilter === 'options' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-amber-100'}`}
                     >
                       <span>⚡ عقود شركات (Options)</span>
-                      <span className="text-[10px] opacity-80">({usRecommendations.filter(s => s.marketType === 'options').length})</span>
+                      <span className="text-[10px] opacity-80">({monthFilteredUsSignals.filter(s => s.marketType === 'options').length})</span>
                     </button>
                   </div>
 
