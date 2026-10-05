@@ -16612,63 +16612,6 @@ const handleExportBuffetToExcel = () => {
 
               return (
                 <>
-                  {/* Multi-Page Selection Banner (Shared for Leader, Admin, Coordinator) */}
-                  {selectedLeadsCrm.length > 0 && (
-                    <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border border-purple-500/40 rounded-xl mx-4 my-3 p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-purple-200 shadow-md">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-black">
-                          ✓
-                        </div>
-                        <span className="font-bold text-white">
-                          تم تحديد <strong className="text-cyan-300 font-mono text-sm px-1.5 py-0.5 bg-cyan-950/60 rounded-md border border-cyan-400/30">{selectedLeadsCrm.length}</strong> عميل
-                          {filtered.length > 0 && <span className="text-purple-300 mr-1">(من إجمالي {filtered.length.toLocaleString()} عميل)</span>}
-                        </span>
-                        {isPageSelected && filtered.length > paginatedLeads.length && selectedLeadsCrm.length < filtered.length && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedLeadsCrm([...new Set([...selectedLeadsCrm, ...filtered.map(c => c.id)])])}
-                            className="text-cyan-300 underline font-black hover:text-cyan-200 cursor-pointer transition flex items-center gap-1"
-                          >
-                            <span>🌐 هل تريد تحديد جميع الـ ({filtered.length.toLocaleString()}) عميل في كافة الصفحات؟</span>
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => toggleAllLeadsCrm(paginatedLeads)}
-                          className="bg-purple-800/80 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border border-purple-400/30"
-                        >
-                          {isPageSelected ? 'إلغاء تحديد الصفحة الحالية' : `☑️ تحديد الصفحة الحالية (${paginatedLeads.length})`}
-                        </button>
-                        {filtered.length > paginatedLeads.length && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const allFilteredIds = filtered.map(c => c.id);
-                              const isAllFilteredSelected = allFilteredIds.every(id => selectedLeadsCrm.includes(id));
-                              if (isAllFilteredSelected) {
-                                setSelectedLeadsCrm(selectedLeadsCrm.filter(id => !allFilteredIds.includes(id)));
-                              } else {
-                                setSelectedLeadsCrm([...new Set([...selectedLeadsCrm, ...allFilteredIds])]);
-                              }
-                            }}
-                            className="bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border border-indigo-400/30"
-                          >
-                            {filtered.map(c => c.id).every(id => selectedLeadsCrm.includes(id)) ? 'إلغاء تحديد كافة الصفحات' : `🌐 تحديد كافة الصفحات (${filtered.length.toLocaleString()})`}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLeadsCrm([])}
-                          className="bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer"
-                        >
-                          ✕ إلغاء التحديد بالكامل
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="overflow-x-auto">
                     <table className="w-full text-right border-collapse">
                       <thead className="bg-slate-900 text-amber-300 border-b border-purple-500/30">
