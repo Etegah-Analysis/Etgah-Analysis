@@ -14,7 +14,7 @@ export const translations = {
     totalCustomersCard: 'إجمالي العملاء',
     waitingCustomersCard: 'عملاء في الانتظار',
     manualCustomersCard: 'تسجيل يدوي',
-    totalEmployeesCard: 'إجمالي الموظفين',
+    totalEmployeesCard: 'قائمة الموظفين وإدارة الصلاحيات',
     visitorsCard: 'عملاء الزوار',
 
     // Tabs
