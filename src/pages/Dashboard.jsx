@@ -17140,14 +17140,6 @@ const handleExportBuffetToExcel = () => {
                     <UserCheck2 size={14} /> ⚖️ توزيع العملاء المحددين {selectedEmployeeLeads.length > 0 ? `(${selectedEmployeeLeads.length})` : ''}
                   </button>
                 )}
-                {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
-                  <button 
-                    onClick={handleDeleteSelectedEmpLeads}
-                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                  >
-                    <Trash2 size={14} /> مسح المحدد ({selectedEmployeeLeads.length})
-                  </button>
-                )}
               </div>
             </div>
 
@@ -17315,7 +17307,14 @@ const handleExportBuffetToExcel = () => {
 
                   {/* Search, Date & Sort Controls */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    
+                    {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
+                      <button 
+                        onClick={handleDeleteSelectedEmpLeads}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md transform md:hover:scale-105 active:scale-95 cursor-pointer"
+                      >
+                        <Trash2 size={14} /> مسح المحدد ({selectedEmployeeLeads.length})
+                      </button>
+                    )}
 
                     <button
                       onClick={() => setEmpLeadsSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
