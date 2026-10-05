@@ -5569,9 +5569,14 @@ const Dashboard = () => {
   };
 
   
-  // --- LEAD DISTRIBUTION & ASSIGNMENT HANDLERS (Leads CRM) ---
+  // --- LEAD DISTRIBUTION & ASSIGNMENT HANDLERS (Leads CRM & Employee Leads) ---
   const handleExecuteAssignment = async () => {
-    if (selectedLeadsCrm.length === 0) {
+    const isEmpLeadsTab = activeTab === 'employee_leads';
+    const selectedIds = isEmpLeadsTab ? selectedEmployeeLeads : selectedLeadsCrm;
+    const sourcePool = isEmpLeadsTab ? employeeLeads : leadsCrm;
+    const targetColl = isEmpLeadsTab ? 'employee_leads' : 'leads_crm';
+
+    if (selectedIds.length === 0) {
       toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
       return;
     }
@@ -5591,7 +5596,7 @@ const Dashboard = () => {
       }
     }
 
-    const targetLeads = leadsCrm.filter(c => selectedLeadsCrm.includes(c.id));
+    const targetLeads = sourcePool.filter(c => selectedIds.includes(c.id));
     if (targetLeads.length === 0) {
       toast.error('لم يتم العثور على بيانات العملاء المحددين للتوزيع');
       return;
@@ -5607,11 +5612,11 @@ const Dashboard = () => {
     const assignerDisplay = getAssignerDisplay();
     const assignerRole = getAssignerRole();
     const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
-    const targetIds = new Set(selectedLeadsCrm);
+    const targetIds = new Set(selectedIds);
     const assignedCount = targetLeads.length;
 
     // 1. Instant Optimistic React Update (0ms / في نفس اللحظة فورا)
-    setLeadsCrm(prev => prev.map(lead => {
+    const updateLeadObj = (lead) => {
       if (!targetIds.has(lead.id)) return lead;
       if (isTargetAdmin) {
         return {
@@ -5638,11 +5643,18 @@ const Dashboard = () => {
           updatedAt: new Date().toISOString()
         };
       }
-    }));
+    };
+
+    if (isEmpLeadsTab) {
+      setEmployeeLeads(prev => prev.map(updateLeadObj));
+      setSelectedEmployeeLeads([]);
+    } else {
+      setLeadsCrm(prev => prev.map(updateLeadObj));
+      setSelectedLeadsCrm([]);
+    }
 
     // 2. Instant UI close & selection clear & toast in 0ms!
     setIsAssignModalOpen(false);
-    setSelectedLeadsCrm([]);
     setSelectedTeamTrackingLeads([]);
     setAssignLoading(false);
     toast.success(isTargetAdmin ? `تم إرجاع ${assignedCount} عميل محدد إلى الإدارة بنجاح 👑` : `تم تعيين وتوزيع ${assignedCount} عميل محدد دفعة واحدة إلى الموظف ${emp.username || emp.name} بنجاح 🚀`);
@@ -5656,7 +5668,7 @@ const Dashboard = () => {
 
         for (const lead of batchChunk) {
           const prevEmpName = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.username || employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo)?.name || (lead.assignedTo === 'admin' || lead.assignedTo === 'الإدارة' ? '👑 الإدارة' : '👑 الإدارة');
-          const leadRef = doc(db, 'leads_crm', lead.id);
+          const leadRef = doc(db, targetColl, lead.id);
 
           if (isTargetAdmin) {
             const logObj = createAssignmentLog(prevEmpName, '👑 الإدارة', assignerDisplay);
@@ -17167,6 +17179,20 @@ const handleExportBuffetToExcel = () => {
                     <Download size={14} /> 📊 تحميل إكسيل
                   </button>
                 )}
+                {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canBulkAssignLeads')) && (
+                  <button 
+                    onClick={() => {
+                      if (selectedEmployeeLeads.length === 0) {
+                        toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
+                        return;
+                      }
+                      setIsAssignModalOpen(true);
+                    }}
+                    className={`${selectedEmployeeLeads.length > 0 ? 'bg-amber-600 hover:bg-amber-700 shadow-md animate-pulse ring-2 ring-amber-300' : 'bg-amber-900/70 hover:bg-amber-800 text-amber-200'} text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer`}
+                  >
+                    <UserCheck2 size={14} /> ⚖️ توزيع العملاء المحددين {selectedEmployeeLeads.length > 0 ? `(${selectedEmployeeLeads.length})` : ''}
+                  </button>
+                )}
                 {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
                   <button 
                     onClick={handleDeleteSelectedEmpLeads}
@@ -17473,32 +17499,12 @@ const handleExportBuffetToExcel = () => {
                         </th>
                           <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs min-w-[230px] text-center">الموظف المسؤول</th>
                           {!isCoordinator && <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center">WhatsApp</th>}
-                          {(isAdmin || isLeader) && (
-                            <th className="px-3 py-2.5 font-extrabold text-amber-300 text-xs text-center min-w-[150px]">
-                              {selectedEmployeeLeads.length > 0 ? (
-                                <button 
-                                  onClick={handleBulkPullEmployeeLeads}
-                                  className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 mx-auto shadow-md active:scale-95 cursor-pointer border border-amber-300/40 animate-pulse whitespace-nowrap"
-                                  title={isLeader ? "سحب جميع العملاء المحددين وإعادتهم إلى داتا الليدر الخاصة بك" : "سحب جميع العملاء المحددين إلى الإدارة"}
-                                >
-                                  <ArrowDownLeft size={14} />
-                                  <span>
-                                    {isPageSelected 
-                                      ? `سحب عملاء الصفحة (${selectedEmployeeLeads.length})` 
-                                      : `سحب المحددين (${selectedEmployeeLeads.length})`}
-                                  </span>
-                                </button>
-                              ) : (
-                                <span className="text-purple-300 font-bold whitespace-nowrap">سحب العميل</span>
-                              )}
-                            </th>
-                          )}
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedEmpLeads.length === 0 ? (
                           <tr>
-                            <td colSpan={isCoordinator ? 7 : (isAdmin ? 8 : 7)} className="p-10 text-center text-gray-500 font-bold">
+                            <td colSpan={isCoordinator ? 6 : (isAdmin || isLeader ? 8 : 7)} className="p-10 text-center text-gray-500 font-bold">
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload size={36} className="text-gray-300" />
                                 <p>لا توجد بيانات مطابقة في قسم (داتا مضافة بواسطة الموظف).</p>
@@ -17759,19 +17765,7 @@ const handleExportBuffetToExcel = () => {
                                           <Trash2 size={15} />
                                         </button>
                                       )}
-                                    </div>
-                                  </td>
-                                )}
-                                {(isAdmin || isLeader) && (
-                                  <td className="p-3.5 text-center">
-                                    <button 
-                                      onClick={() => handlePullEmployeeLead(customer)}
-                                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 mx-auto shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
-                                      title={isLeader ? "سحب هذا العميل وتعيينه فوراً لنفسك كـ Leader" : "سحب هذا العميل وإعادته للإدارة"}
-                                    >
-                                      <ArrowDownLeft size={14} />
-                                      <span>سحب العميل 📥</span>
-                                    </button>
+                                     </div>
                                   </td>
                                 )}
                               </tr>
@@ -23405,7 +23399,7 @@ const handleExportBuffetToExcel = () => {
                   </div>
                   <div>
                     <span className="text-xs text-purple-200 block font-bold">عدد العملاء المحددين للتوزيع:</span>
-                    <span className="text-lg font-black text-cyan-300">{selectedLeadsCrm.length} عميل محدد</span>
+                    <span className="text-lg font-black text-cyan-300">{(activeTab === 'employee_leads' ? selectedEmployeeLeads.length : selectedLeadsCrm.length)} عميل محدد</span>
                   </div>
                 </div>
                 <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-1 rounded-full font-bold">
@@ -23451,10 +23445,10 @@ const handleExportBuffetToExcel = () => {
 
               <button 
                 onClick={handleExecuteAssignment}
-                disabled={assignLoading || selectedLeadsCrm.length === 0 || !singleAssignEmpUid}
+                disabled={assignLoading || (activeTab === 'employee_leads' ? selectedEmployeeLeads.length === 0 : selectedLeadsCrm.length === 0) || !singleAssignEmpUid}
                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black py-3 px-4 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${selectedLeadsCrm.length} عميل)`}
+                {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${(activeTab === 'employee_leads' ? selectedEmployeeLeads.length : selectedLeadsCrm.length)} عميل)`}
               </button>
             </div>
           </div>, document.body
