@@ -750,6 +750,144 @@ const Dashboard = () => {
 
 
   const [subPaymentType, setSubPaymentType] = useState(''); // 'full', 'percentage', 'partial'
+
+  // Top-level Buffet Helpers accessible by Tab and Edit Modals
+  const monthsArBuffet = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+  const normalizeFinancialMonth = (rawStr) => {
+    if (!rawStr) return null;
+    const str = String(rawStr).trim();
+    if (str.includes('أكتوبر') || str.includes('اكتوبر')) return 'أكتوبر 2026';
+    if (str.includes('سبتمبر')) return 'سبتمبر 2026';
+    if (str.includes('أغسطس') || str.includes('اغسطس')) return 'أغسطس 2026';
+    if (str.includes('يوليو')) return 'يوليو 2026';
+    if (str.includes('يونيو')) return 'يونيو 2026';
+    if (str.includes('مايو')) return 'مايو 2026';
+    if (str.includes('أبريل') || str.includes('ابريل')) return 'أبريل 2026';
+    if (str.includes('مارس')) return 'مارس 2026';
+    if (str.includes('فبراير')) return 'فبراير 2026';
+    if (str.includes('يناير')) return 'يناير 2026';
+    if (str.includes('نوفمبر')) return 'نوفمبر 2026';
+    if (str.includes('ديسمبر')) return 'ديسمبر 2026';
+    return str;
+  };
+
+  const getItemFinancialMonth = (item) => {
+    const nowBuffet = new Date();
+    const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
+    if (!item) return activeCurrentMonthStr;
+
+    const notes = String(item.notes || '');
+    const notesNorm = normalizeFinancialMonth(notes);
+    if (notesNorm && notesNorm !== notes) {
+      return notesNorm;
+    }
+
+    if (item.financialMonth) {
+      const norm = normalizeFinancialMonth(item.financialMonth);
+      if (norm) return norm;
+    }
+
+    const dateStr = String(item.updatedDateTime || item.formattedNow || '');
+    const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
+    if (matchYMD) {
+      const yr = matchYMD[1];
+      const moIdx = parseInt(matchYMD[2], 10) - 1;
+      if (moIdx >= 0 && moIdx < 12) {
+        return `${monthsArBuffet[moIdx]} ${yr}`;
+      }
+    }
+
+    if (item.createdAt) {
+      let d = null;
+      if (typeof item.createdAt?.toDate === 'function') {
+        d = item.createdAt.toDate();
+      } else if (item.createdAt.seconds) {
+        d = new Date(item.createdAt.seconds * 1000);
+      } else {
+        d = new Date(item.createdAt);
+      }
+      if (d && !isNaN(d.getTime())) {
+        return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
+      }
+    }
+
+    return activeCurrentMonthStr;
+  };
+
+  const getItemNotesForMonth = (item, targetMonthFilter) => {
+    if (!item) return '';
+    const rawNotes = String(item.notes || '').trim();
+    if (!rawNotes) return '';
+    if (targetMonthFilter === 'all') return rawNotes;
+
+    const normTarget = normalizeFinancialMonth(targetMonthFilter);
+    const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+    const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+    const lines = rawNotes.split('\n');
+    const matchingLines = [];
+
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+
+      const lineMonth = normalizeFinancialMonth(trimmedLine);
+      const hasDateStamp = trimmedLine.includes('بتاريخ') || !!trimmedLine.match(/202[0-9]/);
+
+      if (hasDateStamp || lineMonth) {
+        if (targetMonthName && (trimmedLine.includes(targetMonthName) || lineMonth === normTarget)) {
+          matchingLines.push(trimmedLine);
+        }
+      } else {
+        if (itemPrimaryMonth === normTarget) {
+          matchingLines.push(trimmedLine);
+        }
+      }
+    });
+
+    return matchingLines.join('\n');
+  };
+
+  const getItemMonthTimestampAndUser = (item, targetMonthFilter) => {
+    if (!item) return { dateTime: '—', user: '' };
+
+    const defaultDateTime = item.updatedDateTime || item.formattedNow || '—';
+    const defaultUser = item.updatedBy || '👑 الإدارة';
+
+    if (targetMonthFilter === 'all') {
+      return { dateTime: defaultDateTime, user: defaultUser };
+    }
+
+    const normTarget = normalizeFinancialMonth(targetMonthFilter);
+    const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+    const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+    const dateStr = String(item.updatedDateTime || item.formattedNow || '');
+    let dateMonthNorm = null;
+    const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
+    if (matchYMD) {
+      const yr = matchYMD[1];
+      const moIdx = parseInt(matchYMD[2], 10) - 1;
+      if (moIdx >= 0 && moIdx < 12) {
+        dateMonthNorm = `${monthsArBuffet[moIdx]} ${yr}`;
+      }
+    }
+
+    const rawNotes = String(item.notes || '');
+    const hasNotesInTargetMonth = targetMonthName && rawNotes.includes(targetMonthName);
+
+    const isUpdatedInTargetMonth = 
+      (dateMonthNorm && normalizeFinancialMonth(dateMonthNorm) === normTarget) ||
+      (itemPrimaryMonth === normTarget && !dateMonthNorm) ||
+      hasNotesInTargetMonth;
+
+    if (isUpdatedInTargetMonth) {
+      return { dateTime: defaultDateTime, user: defaultUser };
+    }
+
+    return { dateTime: '—', user: '' };
+  };
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
   const [subReceiptProof, setSubReceiptProof] = useState('');
@@ -19889,294 +20027,8 @@ const handleExportBuffetToExcel = () => {
         {activeTab === 'buffet_inventory' && (isAdmin || (hasPermission(currentEmpUser, 'show_card_buffet') && hasPermission(currentEmpUser, 'canViewBuffet'))) && (() => {
           const q = buffetSearch.trim().toLowerCase();
 
-          const monthsArBuffet = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
           const nowBuffet = new Date();
           const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
-
-          const normalizeFinancialMonth = (rawStr) => {
-            if (!rawStr) return null;
-            const str = String(rawStr).trim();
-            if (str.includes('أكتوبر') || str.includes('اكتوبر')) return 'أكتوبر 2026';
-            if (str.includes('سبتمبر')) return 'سبتمبر 2026';
-            if (str.includes('أغسطس') || str.includes('اغسطس')) return 'أغسطس 2026';
-            if (str.includes('يوليو')) return 'يوليو 2026';
-            if (str.includes('يونيو')) return 'يونيو 2026';
-            if (str.includes('مايو')) return 'مايو 2026';
-            if (str.includes('أبريل') || str.includes('ابريل')) return 'أبريل 2026';
-            if (str.includes('مارس')) return 'مارس 2026';
-            if (str.includes('فبراير')) return 'فبراير 2026';
-            if (str.includes('يناير')) return 'يناير 2026';
-            if (str.includes('نوفمبر')) return 'نوفمبر 2026';
-            if (str.includes('ديسمبر')) return 'ديسمبر 2026';
-            return str;
-          };
-
-          const getItemFinancialMonth = (item) => {
-            if (!item) return activeCurrentMonthStr;
-
-            // 1. Check notes text for month mention FIRST so all September entries merge into 1 option
-            const notes = String(item.notes || '');
-            const notesNorm = normalizeFinancialMonth(notes);
-            if (notesNorm && notesNorm !== notes) {
-              return notesNorm;
-            }
-
-            // 2. Explicit financialMonth property normalized
-            if (item.financialMonth) {
-              const norm = normalizeFinancialMonth(item.financialMonth);
-              if (norm) return norm;
-            }
-
-            // 3. Check updatedDateTime / formattedNow (e.g. "2026/6/20 10:13 ص", "2026/09/27")
-            const dateStr = String(item.updatedDateTime || item.formattedNow || '');
-            const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
-            if (matchYMD) {
-              const yr = matchYMD[1];
-              const moIdx = parseInt(matchYMD[2], 10) - 1;
-              if (moIdx >= 0 && moIdx < 12) {
-                return `${monthsArBuffet[moIdx]} ${yr}`;
-              }
-            }
-
-            // 4. Firestore createdAt timestamp
-            if (item.createdAt) {
-              let d = null;
-              if (typeof item.createdAt?.toDate === 'function') {
-                d = item.createdAt.toDate();
-              } else if (item.createdAt.seconds) {
-                d = new Date(item.createdAt.seconds * 1000);
-              } else {
-                d = new Date(item.createdAt);
-              }
-              if (d && !isNaN(d.getTime())) {
-                return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
-              }
-            }
-
-            return activeCurrentMonthStr;
-          };
-
-          // Financial Months List - Strictly Deduplicated and Normalized
-          const rawMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
-          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...rawMonths]))
-            .map(m => normalizeFinancialMonth(m))
-            .filter((val, idx, self) => val && self.indexOf(val) === idx)
-            .sort((a, b) => {
-              const [m1, y1] = a.split(' ');
-              const [m2, y2] = b.split(' ');
-              if (y1 !== y2) return (parseInt(y2, 10) || 0) - (parseInt(y1, 10) || 0);
-              return monthsArBuffet.indexOf(m2) - monthsArBuffet.indexOf(m1);
-            });
-          
-          const parseMonthStr = (monthStr) => {
-            if (!monthStr) return { year: 2026, monthIdx: 9 };
-            const norm = normalizeFinancialMonth(monthStr) || monthStr;
-            const parts = norm.split(' ');
-            const mName = parts[0] || '';
-            const yr = parseInt(parts[1], 10) || 2026;
-            let mIdx = monthsArBuffet.findIndex(m => mName.includes(m));
-            if (mIdx === -1) {
-              if (mName.includes('ابريل')) mIdx = 3;
-              else if (mName.includes('اغسطس')) mIdx = 7;
-              else mIdx = 9;
-            }
-            return { year: yr, monthIdx: mIdx };
-          };
-
-          const isMonthBeforeOrEqual = (itemMonthStr, targetMonthStr) => {
-            const itemM = parseMonthStr(itemMonthStr);
-            const targetM = parseMonthStr(targetMonthStr);
-            if (itemM.year < targetM.year) return true;
-            if (itemM.year > targetM.year) return false;
-            return itemM.monthIdx <= targetM.monthIdx;
-          };
-
-          const isMonthStrictlyBefore = (targetMonthStr, currentMonthStr) => {
-            if (!targetMonthStr || targetMonthStr === 'all') return false;
-            const targetM = parseMonthStr(targetMonthStr);
-            const currentM = parseMonthStr(currentMonthStr);
-            if (targetM.year < currentM.year) return true;
-            if (targetM.year > currentM.year) return false;
-            return targetM.monthIdx < currentM.monthIdx;
-          };
-
-          const isViewingPreviousFinancialMonth = isMonthStrictlyBefore(buffetFinancialMonthFilter, activeCurrentMonthStr);
-          const canUserEditBuffetInSelectedMonth = isAdmin || (!isViewingPreviousFinancialMonth && hasPermission(currentEmpUser, 'canAddBuffet'));
-
-          // Filter inventory: Show items created in target month OR earlier months (carrying over inventory content to active month)
-          let filteredInventory = buffetInventory.filter(item => {
-            const matchesSearch = !q || (item.itemName || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
-            if (buffetFinancialMonthFilter === 'all') {
-              return matchesSearch;
-            }
-            const itemMonth = getItemFinancialMonth(item);
-            const matchesMonth = isMonthBeforeOrEqual(itemMonth, buffetFinancialMonthFilter);
-            return matchesSearch && matchesMonth;
-          });
-
-          // Calculate Monthly Cost for Selected Financial Month based on notes dates and creation month
-          const getItemCostForMonth = (item, targetMonthFilter) => {
-            if (targetMonthFilter === 'all') {
-              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
-              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
-              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
-              if (!isNaN(costVal) && costVal > 0) return costVal;
-              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
-              return 0;
-            }
-
-            const normTarget = normalizeFinancialMonth(targetMonthFilter);
-            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
-            const notes = String(item.notes || '');
-
-            if (notes) {
-              const lines = notes.split('\n');
-              let monthPurchasesCost = 0;
-              let foundMonthPurchaseLine = false;
-
-              lines.forEach(line => {
-                if (targetMonthName && (line.includes(targetMonthName) || (line.includes('بتاريخ') && normalizeFinancialMonth(line) === normTarget))) {
-                  foundMonthPurchaseLine = true;
-                  const matchPrice = line.match(/(?:بـ|بمبلغ|سعر|تكلفة|\$|ج\.م|جنيه)\s*([0-9]+(?:\.[0-9]+)?)/) || line.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:ج\.م|جنيه)/);
-                  if (matchPrice && matchPrice[1]) {
-                    monthPurchasesCost += parseFloat(matchPrice[1]);
-                  }
-                }
-              });
-
-              if (foundMonthPurchaseLine) {
-                if (monthPurchasesCost > 0) return monthPurchasesCost;
-                const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
-                if (!isNaN(costVal) && costVal > 0) return costVal;
-              }
-            }
-
-            if (itemPrimaryMonth === normTarget) {
-              const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
-              const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
-              const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
-              if (!isNaN(costVal) && costVal > 0) return costVal;
-              if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
-            }
-
-            return 0;
-          };
-
-          // Carry over previous month remainingQty into next month "العدد الحالي"
-          const getItemMonthQuantities = (item, targetMonthFilter) => {
-            const defaultTotal = item.totalQty || '-';
-            const defaultRemaining = item.remainingQty || item.totalQty || '-';
-
-            if (targetMonthFilter === 'all') {
-              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
-            }
-
-            const normTarget = normalizeFinancialMonth(targetMonthFilter);
-            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
-
-            // If the item was created in targetMonth, display its own totalQty & remainingQty
-            if (itemPrimaryMonth === normTarget) {
-              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
-            }
-
-            // If item was created in a month BEFORE targetMonth:
-            const notes = String(item.notes || '');
-            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-            const hasActivityInTargetMonth = targetMonthName && notes.includes(targetMonthName);
-
-            if (hasActivityInTargetMonth) {
-              // Item has been edited in targetMonth, show updated values
-              return { totalQty: defaultTotal, remainingQty: defaultRemaining };
-            } else {
-              // Item is carried over into targetMonth:
-              // "العدد الحالي" in targetMonth reads the "المتبقي" value from previous month!
-              const carriedOverQty = item.remainingQty && item.remainingQty !== '-' ? item.remainingQty : defaultTotal;
-              return { totalQty: carriedOverQty, remainingQty: carriedOverQty };
-            }
-          };
-
-          // Extract Month-Specific Notes for Selected Financial Month Filter
-          const getItemNotesForMonth = (item, targetMonthFilter) => {
-            if (!item) return '';
-            const rawNotes = String(item.notes || '').trim();
-            if (!rawNotes) return '';
-            if (targetMonthFilter === 'all') return rawNotes;
-
-            const normTarget = normalizeFinancialMonth(targetMonthFilter);
-            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
-
-            const lines = rawNotes.split('\n');
-            const matchingLines = [];
-
-            lines.forEach(line => {
-              const trimmedLine = line.trim();
-              if (!trimmedLine) return;
-
-              const lineMonth = normalizeFinancialMonth(trimmedLine);
-              const hasDateStamp = trimmedLine.includes('بتاريخ') || !!trimmedLine.match(/202[0-9]/);
-
-              if (hasDateStamp || lineMonth) {
-                // Line has an explicit date stamp or month name
-                if (targetMonthName && (trimmedLine.includes(targetMonthName) || lineMonth === normTarget)) {
-                  matchingLines.push(trimmedLine);
-                }
-              } else {
-                // Untagged initial note -> belongs to item creation month
-                if (itemPrimaryMonth === normTarget) {
-                  matchingLines.push(trimmedLine);
-                }
-              }
-            });
-
-            return matchingLines.join('\n');
-          };
-
-          // Extract Month-Specific Timestamp and Employee Info for Selected Financial Month Filter
-          const getItemMonthTimestampAndUser = (item, targetMonthFilter) => {
-            if (!item) return { dateTime: '—', user: '' };
-
-            const defaultDateTime = item.updatedDateTime || item.formattedNow || '—';
-            const defaultUser = item.updatedBy || '👑 الإدارة';
-
-            if (targetMonthFilter === 'all') {
-              return { dateTime: defaultDateTime, user: defaultUser };
-            }
-
-            const normTarget = normalizeFinancialMonth(targetMonthFilter);
-            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
-
-            // Extract date from item.updatedDateTime or item.formattedNow
-            const dateStr = String(item.updatedDateTime || item.formattedNow || '');
-            let dateMonthNorm = null;
-            const matchYMD = dateStr.match(/(202[0-9])[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12][0-9]|3[01])/);
-            if (matchYMD) {
-              const yr = matchYMD[1];
-              const moIdx = parseInt(matchYMD[2], 10) - 1;
-              if (moIdx >= 0 && moIdx < 12) {
-                dateMonthNorm = `${monthsArBuffet[moIdx]} ${yr}`;
-              }
-            }
-
-            // Check notes for target month mentions/activity
-            const rawNotes = String(item.notes || '');
-            const hasNotesInTargetMonth = targetMonthName && rawNotes.includes(targetMonthName);
-
-            // Determine if item was created/updated in targetMonth
-            const isUpdatedInTargetMonth = 
-              (dateMonthNorm && normalizeFinancialMonth(dateMonthNorm) === normTarget) ||
-              (itemPrimaryMonth === normTarget && !dateMonthNorm) ||
-              hasNotesInTargetMonth;
-
-            if (isUpdatedInTargetMonth) {
-              return { dateTime: defaultDateTime, user: defaultUser };
-            }
-
-            // If item is carried over from a previous month without new activity in targetMonth, show empty
-            return { dateTime: '—', user: '' };
-          };
 
           let financialMonthTotalCost = 0;
           let financialMonthTotalItems = filteredInventory.length;
