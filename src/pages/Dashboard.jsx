@@ -12084,8 +12084,19 @@ const handleModalPasteBuffetItem = (e) => {
       setBuffetItemUsedQty(item.usedQty || '');
       setBuffetItemRemainingQty(item.remainingQty || '');
       setBuffetItemNotes('');
-      setBuffetItemCost(item.cost || item.itemPrice || '');
       setBuffetItemImage(item.imageUrl || null);
+
+      const monthsArForOpen = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const nowForOpen = new Date();
+      const activeCurrentMonthStrOpen = `${monthsArForOpen[nowForOpen.getMonth()]} ${nowForOpen.getFullYear()}`;
+      const activeMonthStr = normalizeFinancialMonth(buffetFinancialMonthFilter) || activeCurrentMonthStrOpen;
+      const earliestMonth = getItemEarliestFinancialMonth(item);
+
+      if (activeMonthStr === earliestMonth) {
+        setBuffetItemCost((item.monthCosts && item.monthCosts[activeMonthStr]) || item.cost || item.itemPrice || '');
+      } else {
+        setBuffetItemCost((item.monthCosts && item.monthCosts[activeMonthStr]) || '');
+      }
     } else {
       setEditingBuffetItem(null);
       setBuffetItemName('');
@@ -12233,16 +12244,43 @@ const handleModalPasteBuffetItem = (e) => {
         }
       }
 
-      // Link financialMonth directly to the timestamp/date extracted from the notes or current date
-      const detectedFinancialMonth = normalizeFinancialMonth(combinedNotes) || currentFinancialMonthStr;
+      const activeMonthStr = normalizeFinancialMonth(buffetFinancialMonthFilter) || currentFinancialMonthStr;
+
+      // Preserve historical monthCosts map
+      const existingMonthCosts = editingBuffetItem?.monthCosts || {};
+      const updatedMonthCosts = { ...existingMonthCosts };
+
       const creationFinancialMonth = editingBuffetItem 
-        ? (editingBuffetItem.financialMonth || editingBuffetItem.creationMonth || normalizeFinancialMonth(editingBuffetItem.notes) || currentFinancialMonthStr)
-        : (detectedFinancialMonth || currentFinancialMonthStr);
+        ? (editingBuffetItem.financialMonth || editingBuffetItem.creationMonth || getItemEarliestFinancialMonth(editingBuffetItem))
+        : (normalizeFinancialMonth(combinedNotes) || currentFinancialMonthStr);
+
+      if (!editingBuffetItem) {
+        if (buffetItemCost.trim()) {
+          updatedMonthCosts[creationFinancialMonth] = buffetItemCost.trim();
+        }
+      } else {
+        const earliestM = getItemEarliestFinancialMonth(editingBuffetItem);
+        if (earliestM && !updatedMonthCosts[earliestM] && editingBuffetItem.cost) {
+          updatedMonthCosts[earliestM] = editingBuffetItem.cost;
+        }
+
+        if (buffetItemCost.trim()) {
+          updatedMonthCosts[activeMonthStr] = buffetItemCost.trim();
+        } else {
+          delete updatedMonthCosts[activeMonthStr];
+        }
+      }
+
+      // Preserved primary cost field: keep original creation cost intact!
+      const preservedPrimaryCost = editingBuffetItem
+        ? (editingBuffetItem.cost || (updatedMonthCosts[getItemEarliestFinancialMonth(editingBuffetItem)] || ''))
+        : buffetItemCost.trim();
 
       const itemData = {
         itemName: finalName,
         totalQty: buffetItemTotalQty.trim() || '-',
-        cost: buffetItemCost.trim() || '',
+        cost: preservedPrimaryCost,
+        monthCosts: updatedMonthCosts,
         usedQty: buffetItemUsedQty.trim() || '-',
         remainingQty: remaining || '-',
         notes: combinedNotes,
@@ -20030,9 +20068,19 @@ const handleExportBuffetToExcel = () => {
             return matchesSearch && matchesMonth;
           });
 
-          // Calculate Monthly Cost for Selected Financial Month based on notes dates and creation month
+          // Calculate Monthly Cost for Selected Financial Month based on monthCosts map, notes dates, and creation month
           const getItemCostForMonth = (item, targetMonthFilter) => {
+            if (!item) return 0;
+
             if (targetMonthFilter === 'all') {
+              let totalAll = 0;
+              if (item.monthCosts && Object.keys(item.monthCosts).length > 0) {
+                Object.values(item.monthCosts).forEach(v => {
+                  const val = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+                  if (!isNaN(val) && val > 0) totalAll += val;
+                });
+                if (totalAll > 0) return totalAll;
+              }
               const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
               const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
               const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
@@ -20042,10 +20090,18 @@ const handleExportBuffetToExcel = () => {
             }
 
             const normTarget = normalizeFinancialMonth(targetMonthFilter);
-            const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-            const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
-            const notes = String(item.notes || '');
+            if (!normTarget) return 0;
+            const targetMonthName = normTarget.split(' ')[0];
+            const itemEarliestMonth = getItemEarliestFinancialMonth(item);
 
+            // 1. Explicit monthCosts map check
+            if (item.monthCosts && item.monthCosts[normTarget] !== undefined) {
+              const val = parseFloat(String(item.monthCosts[normTarget]).replace(/[^0-9.]/g, ''));
+              if (!isNaN(val) && val > 0) return val;
+            }
+
+            // 2. Purchase lines in notes check
+            const notes = String(item.notes || '');
             if (notes) {
               const lines = notes.split('\n');
               let monthPurchasesCost = 0;
@@ -20053,22 +20109,21 @@ const handleExportBuffetToExcel = () => {
 
               lines.forEach(line => {
                 if (targetMonthName && (line.includes(targetMonthName) || (line.includes('بتاريخ') && normalizeFinancialMonth(line) === normTarget))) {
-                  foundMonthPurchaseLine = true;
                   const matchPrice = line.match(/(?:بـ|بمبلغ|سعر|تكلفة|\$|ج\.م|جنيه)\s*([0-9]+(?:\.[0-9]+)?)/) || line.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:ج\.م|جنيه)/);
                   if (matchPrice && matchPrice[1]) {
+                    foundMonthPurchaseLine = true;
                     monthPurchasesCost += parseFloat(matchPrice[1]);
                   }
                 }
               });
 
-              if (foundMonthPurchaseLine) {
-                if (monthPurchasesCost > 0) return monthPurchasesCost;
-                const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
-                if (!isNaN(costVal) && costVal > 0) return costVal;
+              if (foundMonthPurchaseLine && monthPurchasesCost > 0) {
+                return monthPurchasesCost;
               }
             }
 
-            if (itemPrimaryMonth === normTarget) {
+            // 3. Fallback to primary cost ONLY if target month is item's earliest month
+            if (itemEarliestMonth === normTarget) {
               const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
               const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
               const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
