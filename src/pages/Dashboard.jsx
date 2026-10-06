@@ -769,7 +769,7 @@ const Dashboard = () => {
     if (str.includes('يناير')) return 'يناير 2026';
     if (str.includes('نوفمبر')) return 'نوفمبر 2026';
     if (str.includes('ديسمبر')) return 'ديسمبر 2026';
-    return str;
+    return null;
   };
 
   const getItemAllMonths = (item) => {
@@ -779,7 +779,8 @@ const Dashboard = () => {
 
     monthsArBuffet.forEach(mName => {
       if (notes.includes(mName)) {
-        set.add(normalizeFinancialMonth(mName) || `${mName} 2026`);
+        const norm = normalizeFinancialMonth(mName);
+        if (norm) set.add(norm);
       }
     });
 
@@ -812,14 +813,18 @@ const Dashboard = () => {
       }
     }
 
+    // Default pre-existing/unspecified items to September 2026
+    if (set.size === 0) {
+      set.add('سبتمبر 2026');
+    }
+
     return Array.from(set);
   };
 
   const getItemEarliestFinancialMonth = (item) => {
     const all = getItemAllMonths(item);
     if (all.length === 0) {
-      const nowBuffet = new Date();
-      return `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
+      return 'سبتمبر 2026';
     }
     all.sort((a, b) => {
       const [m1, y1] = a.split(' ');
@@ -842,7 +847,7 @@ const Dashboard = () => {
 
     const normTarget = normalizeFinancialMonth(targetMonthFilter);
     const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
-    const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+    const itemEarliestMonth = getItemEarliestFinancialMonth(item);
 
     const lines = rawNotes.split('\n');
     const matchingLines = [];
@@ -859,13 +864,41 @@ const Dashboard = () => {
           matchingLines.push(trimmedLine);
         }
       } else {
-        if (itemPrimaryMonth === normTarget) {
+        if (itemEarliestMonth === normTarget) {
           matchingLines.push(trimmedLine);
         }
       }
     });
 
     return matchingLines.join('\n');
+  };
+
+  const handleDeleteBuffetNoteLine = async (item, lineToDelete) => {
+    if (!item || !lineToDelete) return;
+    if (!isAdmin) {
+      toast.error('⚠️ عذراً، مسح الملحوظات مقتصر على حساب الأدمن فقط.');
+      return;
+    }
+
+    try {
+      const currentNotes = String(item.notes || '').split('\n');
+      const updatedNotesArray = currentNotes.filter(l => l.trim() !== lineToDelete.trim());
+      const newNotesStr = updatedNotesArray.join('\n').trim();
+
+      await updateDoc(doc(db, 'buffet_inventory', item.id), {
+        notes: newNotesStr,
+        updatedAt: serverTimestamp()
+      });
+
+      setBuffetInventory(prev => prev.map(i => i.id === item.id ? { ...i, notes: newNotesStr } : i));
+      if (editingBuffetItem && editingBuffetItem.id === item.id) {
+        setEditingBuffetItem(prev => ({ ...prev, notes: newNotesStr }));
+      }
+      toast.success('تم مسح الملحوظة بنجاح 🗑️');
+    } catch (err) {
+      console.error('Error deleting buffet note line:', err);
+      toast.error('حدث خطأ أثناء مسح الملحوظة');
+    }
   };
 
   const getItemMonthTimestampAndUser = (item, targetMonthFilter) => {
@@ -12105,8 +12138,8 @@ const handleModalPasteBuffetItem = (e) => {
       }
     }
 
-    // Lock check: Prevent non-admin editing when viewing a past financial month
-    if (!isAdmin && buffetFinancialMonthFilter && buffetFinancialMonthFilter !== 'all') {
+    // Lock check: Prevent editing when viewing a past financial month
+    if (buffetFinancialMonthFilter && buffetFinancialMonthFilter !== 'all') {
       const monthsArBuffetCheck = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
       const nowCheck = new Date();
       const activeCurrentMonthStrCheck = `${monthsArBuffetCheck[nowCheck.getMonth()]} ${nowCheck.getFullYear()}`;
@@ -12125,7 +12158,7 @@ const handleModalPasteBuffetItem = (e) => {
       const currentM = parseMonthStrCheck(activeCurrentMonthStrCheck);
       const isPastMonth = targetM.year < currentM.year || (targetM.year === currentM.year && targetM.monthIdx < currentM.monthIdx);
       if (isPastMonth) {
-        toast.error('🔒 عذراً، يُمنع تعديل أو إضافة الأصناف في الشهور السابقة إلا بحساب الأدمن فقط.', { duration: 6000 });
+        toast.error('🔒 عذراً، تم إغلاق وتجميد التعديل والإضافة في الشهور السابقة كلياً بمجرد بدء الشهر الحالي.', { duration: 6000 });
         setBuffetSaving(false);
         return;
       }
@@ -19982,7 +20015,7 @@ const handleExportBuffetToExcel = () => {
           };
 
           const isViewingPreviousFinancialMonth = isMonthStrictlyBefore(buffetFinancialMonthFilter, activeCurrentMonthStr);
-          const canUserEditBuffetInSelectedMonth = isAdmin || (!isViewingPreviousFinancialMonth && hasPermission(currentEmpUser, 'canAddBuffet'));
+          const canUserEditBuffetInSelectedMonth = !isViewingPreviousFinancialMonth && (isAdmin || hasPermission(currentEmpUser, 'canAddBuffet'));
 
           // Filter inventory: Show items created in target month OR earlier months (carrying over inventory content to active month)
           let filteredInventory = buffetInventory.filter(item => {
@@ -27380,8 +27413,27 @@ const handleExportBuffetToExcel = () => {
                         <span>📜 سجل الملحوظات المحفوظة لهذا الشهر:</span>
                         <span className="text-[9.5px] text-gray-400 font-normal">محفوظة بتواريخها تلقائياً</span>
                       </div>
-                      <div className="text-xs text-emerald-200 font-medium whitespace-pre-wrap max-h-24 overflow-y-auto leading-relaxed bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                        {getItemNotesForMonth(editingBuffetItem, buffetFinancialMonthFilter) || <span className="text-gray-400 text-[11px]">لا توجد ملحوظات سابقة مسجلة لهذا الشهر المالي</span>}
+                      <div className="text-xs text-emerald-200 font-medium max-h-32 overflow-y-auto leading-relaxed bg-slate-900/90 p-2 rounded-lg border border-slate-800 space-y-1">
+                        {(() => {
+                          const monthNotes = getItemNotesForMonth(editingBuffetItem, buffetFinancialMonthFilter);
+                          if (!monthNotes) return <span className="text-gray-400 text-[11px]">لا توجد ملحوظات سابقة مسجلة لهذا الشهر المالي</span>;
+                          const lines = monthNotes.split('\n').filter(Boolean);
+                          return lines.map((noteLine, nIdx) => (
+                            <div key={nIdx} className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/80 border-b border-slate-800/50 last:border-0">
+                              <span className="text-xs text-emerald-200 font-medium break-words flex-1">{noteLine}</span>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBuffetNoteLine(editingBuffetItem, noteLine)}
+                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/50 p-1 rounded-md transition cursor-pointer flex-shrink-0"
+                                  title="مسح هذه الملحوظة (للأدمن فقط)"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </div>
                   )}
