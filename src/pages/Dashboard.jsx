@@ -772,20 +772,34 @@ const Dashboard = () => {
     return str;
   };
 
-  const getItemFinancialMonth = (item) => {
-    const nowBuffet = new Date();
-    const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
-    if (!item) return activeCurrentMonthStr;
-
+  const getItemAllMonths = (item) => {
+    if (!item) return [];
+    const set = new Set();
     const notes = String(item.notes || '');
-    const notesNorm = normalizeFinancialMonth(notes);
-    if (notesNorm && notesNorm !== notes) {
-      return notesNorm;
-    }
+
+    monthsArBuffet.forEach(mName => {
+      if (notes.includes(mName)) {
+        set.add(normalizeFinancialMonth(mName) || `${mName} 2026`);
+      }
+    });
 
     if (item.financialMonth) {
       const norm = normalizeFinancialMonth(item.financialMonth);
-      if (norm) return norm;
+      if (norm) set.add(norm);
+    }
+    if (item.creationMonth) {
+      const norm = normalizeFinancialMonth(item.creationMonth);
+      if (norm) set.add(norm);
+    }
+
+    if (item.createdAt) {
+      let d = null;
+      if (typeof item.createdAt?.toDate === 'function') d = item.createdAt.toDate();
+      else if (item.createdAt.seconds) d = new Date(item.createdAt.seconds * 1000);
+      else d = new Date(item.createdAt);
+      if (d && !isNaN(d.getTime())) {
+        set.add(`${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`);
+      }
     }
 
     const dateStr = String(item.updatedDateTime || item.formattedNow || '');
@@ -794,25 +808,30 @@ const Dashboard = () => {
       const yr = matchYMD[1];
       const moIdx = parseInt(matchYMD[2], 10) - 1;
       if (moIdx >= 0 && moIdx < 12) {
-        return `${monthsArBuffet[moIdx]} ${yr}`;
+        set.add(`${monthsArBuffet[moIdx]} ${yr}`);
       }
     }
 
-    if (item.createdAt) {
-      let d = null;
-      if (typeof item.createdAt?.toDate === 'function') {
-        d = item.createdAt.toDate();
-      } else if (item.createdAt.seconds) {
-        d = new Date(item.createdAt.seconds * 1000);
-      } else {
-        d = new Date(item.createdAt);
-      }
-      if (d && !isNaN(d.getTime())) {
-        return `${monthsArBuffet[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    }
+    return Array.from(set);
+  };
 
-    return activeCurrentMonthStr;
+  const getItemEarliestFinancialMonth = (item) => {
+    const all = getItemAllMonths(item);
+    if (all.length === 0) {
+      const nowBuffet = new Date();
+      return `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
+    }
+    all.sort((a, b) => {
+      const [m1, y1] = a.split(' ');
+      const [m2, y2] = b.split(' ');
+      if (y1 !== y2) return (parseInt(y1, 10) || 0) - (parseInt(y2, 10) || 0);
+      return monthsArBuffet.indexOf(m1) - monthsArBuffet.indexOf(m2);
+    });
+    return all[0];
+  };
+
+  const getItemFinancialMonth = (item) => {
+    return getItemEarliestFinancialMonth(item);
   };
 
   const getItemNotesForMonth = (item, targetMonthFilter) => {
@@ -4451,7 +4470,7 @@ const Dashboard = () => {
     let count = 0;
     for (let i = 0; i < employeeLeads.length; i++) {
       const c = employeeLeads[i];
-      if (c.assignedToUid === myUid || c.addedByUid === myUid || (myEmail && c.assignedTo?.toLowerCase() === myEmail)) count++;
+      if (c.assignedToUid === myUid || (myEmail && c.assignedTo?.toLowerCase() === myEmail)) count++;
     }
     return count;
   }, [employeeLeads, currentUser]);
@@ -19918,10 +19937,9 @@ const handleExportBuffetToExcel = () => {
           const nowBuffet = new Date();
           const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
 
-          // Financial Months List - Includes all months of current year plus raw months from inventory
-          const allMonthsOfYear = monthsArBuffet.map(m => `${m} ${nowBuffet.getFullYear()}`);
-          const rawMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
-          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...allMonthsOfYear, ...rawMonths]))
+          // Financial Months List - Strictly actual recorded/active months + current month
+          const rawMonths = buffetInventory.flatMap(item => getItemAllMonths(item)).filter(Boolean);
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...rawMonths]))
             .map(m => normalizeFinancialMonth(m))
             .filter((val, idx, self) => val && self.indexOf(val) === idx)
             .sort((a, b) => {
@@ -19972,8 +19990,10 @@ const handleExportBuffetToExcel = () => {
             if (buffetFinancialMonthFilter === 'all') {
               return matchesSearch;
             }
-            const itemMonth = getItemFinancialMonth(item);
-            const matchesMonth = isMonthBeforeOrEqual(itemMonth, buffetFinancialMonthFilter);
+            const itemEarliestMonth = getItemEarliestFinancialMonth(item);
+            const itemMonths = getItemAllMonths(item);
+            const normTarget = normalizeFinancialMonth(buffetFinancialMonthFilter) || buffetFinancialMonthFilter;
+            const matchesMonth = itemMonths.includes(normTarget) || isMonthBeforeOrEqual(itemEarliestMonth, buffetFinancialMonthFilter);
             return matchesSearch && matchesMonth;
           });
 
