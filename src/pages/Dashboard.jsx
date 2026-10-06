@@ -4320,26 +4320,30 @@ const Dashboard = () => {
     return Array.from(monthSet).filter(Boolean).sort().reverse();
   }, [allSubscribedClients]);
 
-  // High-performance single-pass employee lead counts for Leads CRM Filter Bar (O(N+M), ~1ms)
+  // High-performance single-pass employee lead counts for Leads CRM Filter Bar (O(N+M), ~1ms) - Assigned Only
   const employeeLeadCounts = useMemo(() => {
     const map = {};
     if (!leadsCrm || !employees) return map;
     const empByUid = new Map();
     const empByMail = new Map();
     const empByName = new Map();
+    const empByUsername = new Map();
     for (let j = 0; j < employees.length; j++) {
       const emp = employees[j];
       map[emp.uid] = 0;
       empByUid.set(emp.uid, emp.uid);
       if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
-      if (emp.name) empByName.set(emp.name, emp.uid);
+      if (emp.name) empByName.set(emp.name.toLowerCase(), emp.uid);
+      if (emp.username) empByUsername.set(emp.username.toLowerCase(), emp.uid);
     }
     for (let i = 0; i < leadsCrm.length; i++) {
       const c = leadsCrm[i];
-      const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
-                         (c.addedByUid && empByUid.get(c.addedByUid)) ||
-                         (c.assignedTo && empByMail.get(c.assignedTo.toLowerCase())) ||
-                         (c.addedBy && empByName.get(c.addedBy));
+      const assignedUid = c.assignedToUid || c.userId || c.userUid || c.empUid;
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : null;
+      const matchedUid = (assignedUid && empByUid.get(assignedUid)) ||
+                         (assignedTo && empByMail.get(assignedTo)) ||
+                         (assignedTo && empByName.get(assignedTo)) ||
+                         (assignedTo && empByUsername.get(assignedTo));
       if (matchedUid && map[matchedUid] !== undefined) {
         map[matchedUid]++;
       }
@@ -4347,26 +4351,30 @@ const Dashboard = () => {
     return map;
   }, [leadsCrm, employees]);
 
-  // High-performance single-pass employee lead counts for Employee Leads Tab (O(N+M), ~1ms)
+  // High-performance single-pass employee lead counts for Employee Leads Tab (O(N+M), ~1ms) - Assigned Only
   const empLeadsCountsByEmp = useMemo(() => {
     const map = {};
     if (!employeeLeads || !employees) return map;
     const empByUid = new Map();
     const empByMail = new Map();
     const empByName = new Map();
+    const empByUsername = new Map();
     for (let j = 0; j < employees.length; j++) {
       const emp = employees[j];
       map[emp.uid] = 0;
       empByUid.set(emp.uid, emp.uid);
       if (emp.email) empByMail.set(emp.email.toLowerCase(), emp.uid);
-      if (emp.name) empByName.set(emp.name, emp.uid);
+      if (emp.name) empByName.set(emp.name.toLowerCase(), emp.uid);
+      if (emp.username) empByUsername.set(emp.username.toLowerCase(), emp.uid);
     }
     for (let i = 0; i < employeeLeads.length; i++) {
       const c = employeeLeads[i];
-      const matchedUid = (c.assignedToUid && empByUid.get(c.assignedToUid)) ||
-                         (c.addedByUid && empByUid.get(c.addedByUid)) ||
-                         (c.assignedTo && empByMail.get(c.assignedTo.toLowerCase())) ||
-                         (c.addedBy && empByName.get(c.addedBy));
+      const assignedUid = c.assignedToUid || c.userId || c.userUid || c.empUid;
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : null;
+      const matchedUid = (assignedUid && empByUid.get(assignedUid)) ||
+                         (assignedTo && empByMail.get(assignedTo)) ||
+                         (assignedTo && empByName.get(assignedTo)) ||
+                         (assignedTo && empByUsername.get(assignedTo));
       if (matchedUid && map[matchedUid] !== undefined) {
         map[matchedUid]++;
       }
@@ -16536,7 +16544,7 @@ const handleExportBuffetToExcel = () => {
                                 return (
                                   <>
                                     <option value="all" className="bg-purple-950 text-white font-bold">
-                                      👥 All Team Data / داتا الفريق بالكامل ({teamTotalCount.toLocaleString()} Leads)
+                                      👥 All Team Data ({teamTotalCount.toLocaleString()} Leads)
                                     </option>
                                     <option value={currentUser?.uid} className="bg-purple-950 text-white font-bold">
                                       👑 Leader Personal: {leaderDisplayName} ({leaderOwnCount.toLocaleString()} Leads)
