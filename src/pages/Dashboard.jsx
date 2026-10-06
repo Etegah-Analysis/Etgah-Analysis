@@ -4496,7 +4496,28 @@ const Dashboard = () => {
       };
     }
 
-    // Helper: Thorough matching of a lead against an employee object
+    // Helper: Match lead strictly assigned to an employee (excludes leads only added by employee if assigned to someone else)
+    const isLeadMatchEmpAssignedOnly = (c, empObj) => {
+      if (!c || !empObj) return false;
+      const uid = empObj.uid;
+      const email = empObj.email ? empObj.email.toLowerCase() : null;
+      const name = empObj.name ? empObj.name.toLowerCase() : null;
+      const username = empObj.username ? empObj.username.toLowerCase() : null;
+
+      if (uid && (c.assignedToUid === uid || c.userId === uid || c.userUid === uid || c.empUid === uid)) {
+        return true;
+      }
+
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : '';
+
+      if (email && assignedTo === email) return true;
+      if (name && assignedTo === name) return true;
+      if (username && assignedTo === username) return true;
+
+      return false;
+    };
+
+    // Helper: Broad matching of a lead against an employee object (assigned OR added by)
     const isLeadMatchEmp = (c, empObj) => {
       if (!c || !empObj) return false;
       const uid = empObj.uid;
@@ -4547,13 +4568,13 @@ const Dashboard = () => {
         } else {
           const targetEmp = employees.find(e => e.uid === selectedEmpFilter) || (selectedEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
           if (targetEmp) {
-            matchesScope = isLeadMatchEmp(c, targetEmp);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp);
           } else {
-            matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
           }
         }
       } else if (!isAdmin && !isCoordinator) {
-        matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
       } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (selectedEmpFilter === 'website_visitors' || selectedEmpFilter === 'website_otp') {
@@ -4568,7 +4589,7 @@ const Dashboard = () => {
         matchesScope = isLeadAssignedToEmployee(c);
       } else if (selectedEmpFilter) {
         const targetEmp = employees.find(e => e.uid === selectedEmpFilter);
-        matchesScope = targetEmp ? isLeadMatchEmp(c, targetEmp) : true;
+        matchesScope = targetEmp ? isLeadMatchEmpAssignedOnly(c, targetEmp) : true;
       } else {
         matchesScope = true;
       }
@@ -4630,6 +4651,27 @@ const Dashboard = () => {
       };
     }
 
+    // Helper: Strict assigned-only matching of a lead against an employee object
+    const isLeadMatchEmpAssignedOnly = (c, empObj) => {
+      if (!c || !empObj) return false;
+      const uid = empObj.uid;
+      const email = empObj.email ? empObj.email.toLowerCase() : null;
+      const name = empObj.name ? empObj.name.toLowerCase() : null;
+      const username = empObj.username ? empObj.username.toLowerCase() : null;
+
+      if (uid && (c.assignedToUid === uid || c.userId === uid || c.userUid === uid || c.empUid === uid)) {
+        return true;
+      }
+
+      const assignedTo = c.assignedTo ? String(c.assignedTo).toLowerCase().trim() : '';
+
+      if (email && assignedTo === email) return true;
+      if (name && assignedTo === name) return true;
+      if (username && assignedTo === username) return true;
+
+      return false;
+    };
+
     // Helper: Thorough matching of a lead against an employee object
     const isLeadMatchEmp = (c, empObj) => {
       if (!c || !empObj) return false;
@@ -4681,20 +4723,20 @@ const Dashboard = () => {
         } else {
           const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter) || (empLeadsEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
           if (targetEmp) {
-            matchesScope = isLeadMatchEmp(c, targetEmp);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp);
           } else {
-            matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
           }
         }
       } else if (!isAdmin && !isCoordinator) {
-        matchesScope = isLeadMatchEmp(c, currentEmpUser || currentUser);
+        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
       } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (empLeadsEmpFilter === 'all') {
         matchesScope = isLeadAssignedToEmployee(c);
       } else if (empLeadsEmpFilter) {
         const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter);
-        matchesScope = targetEmp ? isLeadMatchEmp(c, targetEmp) : true;
+        matchesScope = targetEmp ? isLeadMatchEmpAssignedOnly(c, targetEmp) : true;
       } else {
         matchesScope = true;
       }
