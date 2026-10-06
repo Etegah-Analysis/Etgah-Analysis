@@ -19910,9 +19910,10 @@ const handleExportBuffetToExcel = () => {
           const nowBuffet = new Date();
           const activeCurrentMonthStr = `${monthsArBuffet[nowBuffet.getMonth()]} ${nowBuffet.getFullYear()}`;
 
-          // Financial Months List - Strictly Deduplicated and Normalized
+          // Financial Months List - Includes all months of current year plus raw months from inventory
+          const allMonthsOfYear = monthsArBuffet.map(m => `${m} ${nowBuffet.getFullYear()}`);
           const rawMonths = buffetInventory.map(item => getItemFinancialMonth(item)).filter(Boolean);
-          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...rawMonths]))
+          const availableFinancialMonths = Array.from(new Set([activeCurrentMonthStr, ...allMonthsOfYear, ...rawMonths]))
             .map(m => normalizeFinancialMonth(m))
             .filter((val, idx, self) => val && self.indexOf(val) === idx)
             .sort((a, b) => {
