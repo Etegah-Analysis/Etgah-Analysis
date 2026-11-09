@@ -10196,7 +10196,10 @@ const handleModalPasteBuffetItem = (e) => {
     const docData = {
       empId: empDocId || empUid,
       empUid: empUid || empDocId,
-      empName: editingPayrollEmp.username || editingPayrollEmp.name,
+      employeeId: empDocId || empUid,
+      employeeUid: empUid || empDocId,
+      empName: editingPayrollEmp.username || editingPayrollEmp.name || editingPayrollEmp.employeeName || 'موظف سابق',
+      employeeName: editingPayrollEmp.username || editingPayrollEmp.name || editingPayrollEmp.employeeName || 'موظف سابق',
       jobTitle: editingPayrollEmp.jobTitle || editingPayrollEmp.role || 'موظف',
       baseSalary: payrollBaseSalary,
       advances: payrollAdvances,
@@ -10228,8 +10231,8 @@ const handleModalPasteBuffetItem = (e) => {
         savePromises.push(setDoc(doc(db, 'employee_payroll', `${k}_${selectedPayrollCycle}`), docData, { merge: true }));
       });
 
-      // Update permanent baseSalary and shift times on employee document in 'users' collection
-      if (empDocId) {
+      // Update permanent baseSalary and shift times on employee document in 'users' collection (only if active)
+      if (empDocId && !editingPayrollEmp.isDeletedHistorical && !editingPayrollEmp.isPermanentlyDeleted) {
         savePromises.push(
           updateDoc(doc(db, 'users', empDocId), {
             baseSalary: payrollBaseSalary,
@@ -10373,6 +10376,7 @@ const handleModalPasteBuffetItem = (e) => {
     if (!emp) return {};
     const empId = emp.id || emp.uid;
     const empUid = emp.uid || emp.id;
+    const rawKey = emp.rawPayrollKey;
 
     // 1. Strict check for exact cycle-specific document
     if (cycleKey && employeePayrollData[`${empId}_${cycleKey}`]) {
@@ -10381,9 +10385,12 @@ const handleModalPasteBuffetItem = (e) => {
     if (cycleKey && empUid && employeePayrollData[`${empUid}_${cycleKey}`]) {
       return employeePayrollData[`${empUid}_${cycleKey}`];
     }
+    if (cycleKey && rawKey && employeePayrollData[`${rawKey}_${cycleKey}`]) {
+      return employeePayrollData[`${rawKey}_${cycleKey}`];
+    }
 
     // 2. Legacy check: only if the legacy doc matches the requested cycle
-    const legacy = (empId && employeePayrollData[empId]) || (empUid && employeePayrollData[empUid]);
+    const legacy = (empId && employeePayrollData[empId]) || (empUid && employeePayrollData[empUid]) || (rawKey && employeePayrollData[rawKey]);
     if (legacy && legacy.cycle === cycleKey) {
       return legacy;
     }
@@ -11715,6 +11722,17 @@ const handleModalPasteBuffetItem = (e) => {
 
     let historicalEmployees = [];
     if (!isCurrentCycle) {
+      const seenEmpKeys = new Set();
+      sortedEmployeesForTable.forEach(e => {
+        if (e.uid) seenEmpKeys.add(String(e.uid));
+        if (e.id) seenEmpKeys.add(String(e.id));
+      });
+      externalPayrollEmployees.forEach(e => {
+        if (e.uid) seenEmpKeys.add(String(e.uid));
+        if (e.id) seenEmpKeys.add(String(e.id));
+      });
+
+      // 1. Recover from Recycle Bin
       const deletedEmpsInPastCycle = (recycleBin || []).filter(item => {
         if (item.type !== 'employee' && item.originalCollection !== 'users') return false;
         const empKey = item.uid || item.id;
@@ -11722,11 +11740,43 @@ const handleModalPasteBuffetItem = (e) => {
       });
 
       deletedEmpsInPastCycle.forEach(dEmp => {
-        const dKey = dEmp.uid || dEmp.id;
-        if (!sortedEmployeesForTable.some(e => (e.uid || e.id) === dKey) && !externalPayrollEmployees.some(e => (e.uid || e.id) === dKey)) {
+        const dKey = String(dEmp.uid || dEmp.id);
+        if (!seenEmpKeys.has(dKey)) {
+          if (dEmp.uid) seenEmpKeys.add(String(dEmp.uid));
+          if (dEmp.id) seenEmpKeys.add(String(dEmp.id));
           historicalEmployees.push({
             ...dEmp,
             isDeletedHistorical: true
+          });
+        }
+      });
+
+      // 2. Recover from employeePayrollData even if permanently deleted from Recycle Bin & system
+      Object.entries(employeePayrollData || {}).forEach(([pKey, pVal]) => {
+        if (!pVal) return;
+        const isMatchCycle = pKey.endsWith(`_${selectedPayrollCycle}`) || pVal.cycle === selectedPayrollCycle;
+        if (!isMatchCycle) return;
+
+        const empIdFromKey = pKey.endsWith(`_${selectedPayrollCycle}`)
+          ? pKey.slice(0, -(selectedPayrollCycle.length + 1))
+          : pKey;
+        const resolvedEmpId = String(pVal.employeeUid || pVal.empUid || pVal.employeeId || pVal.empId || empIdFromKey || '');
+
+        if (resolvedEmpId && !seenEmpKeys.has(resolvedEmpId) && !seenEmpKeys.has(String(empIdFromKey))) {
+          seenEmpKeys.add(resolvedEmpId);
+          if (empIdFromKey) seenEmpKeys.add(String(empIdFromKey));
+          historicalEmployees.push({
+            id: resolvedEmpId,
+            uid: resolvedEmpId,
+            rawPayrollKey: empIdFromKey,
+            name: pVal.employeeName || pVal.empName || pVal.name || pVal.username || 'موظف سابق',
+            username: pVal.employeeName || pVal.empName || pVal.name || pVal.username || 'موظف سابق',
+            jobTitle: pVal.jobTitle || pVal.role || 'موظف',
+            baseSalary: pVal.baseSalary || '',
+            checkIn: pVal.checkIn || '09:00 AM',
+            checkOut: pVal.checkOut || '05:00 PM',
+            isDeletedHistorical: true,
+            isPermanentlyDeleted: true
           });
         }
       });
@@ -11735,10 +11785,12 @@ const handleModalPasteBuffetItem = (e) => {
     let targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
     if (!isCurrentCycle) {
       targetEmployees = targetEmployees.filter(emp => {
+        if (emp.isDeletedHistorical) return true;
         const empKey = emp.uid || emp.id;
         const hasPastRecord = Boolean(
           employeePayrollData[`${empKey}_${selectedPayrollCycle}`] ||
-          (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle)
+          (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle) ||
+          (emp.rawPayrollKey && employeePayrollData[`${emp.rawPayrollKey}_${selectedPayrollCycle}`])
         );
         if (hasPastRecord) return true;
 
@@ -20530,6 +20582,17 @@ const handleExportBuffetToExcel = () => {
 
           let historicalEmployees = [];
           if (!isCurrentCycle) {
+            const seenEmpKeys = new Set();
+            sortedEmployeesForTable.forEach(e => {
+              if (e.uid) seenEmpKeys.add(String(e.uid));
+              if (e.id) seenEmpKeys.add(String(e.id));
+            });
+            externalPayrollEmployees.forEach(e => {
+              if (e.uid) seenEmpKeys.add(String(e.uid));
+              if (e.id) seenEmpKeys.add(String(e.id));
+            });
+
+            // 1. Recover from Recycle Bin
             const deletedEmpsInPastCycle = (recycleBin || []).filter(item => {
               if (item.type !== 'employee' && item.originalCollection !== 'users') return false;
               const empKey = item.uid || item.id;
@@ -20537,11 +20600,43 @@ const handleExportBuffetToExcel = () => {
             });
 
             deletedEmpsInPastCycle.forEach(dEmp => {
-              const dKey = dEmp.uid || dEmp.id;
-              if (!sortedEmployeesForTable.some(e => (e.uid || e.id) === dKey) && !externalPayrollEmployees.some(e => (e.uid || e.id) === dKey)) {
+              const dKey = String(dEmp.uid || dEmp.id);
+              if (!seenEmpKeys.has(dKey)) {
+                if (dEmp.uid) seenEmpKeys.add(String(dEmp.uid));
+                if (dEmp.id) seenEmpKeys.add(String(dEmp.id));
                 historicalEmployees.push({
                   ...dEmp,
                   isDeletedHistorical: true
+                });
+              }
+            });
+
+            // 2. Recover from employeePayrollData even if permanently deleted from Recycle Bin & system
+            Object.entries(employeePayrollData || {}).forEach(([pKey, pVal]) => {
+              if (!pVal) return;
+              const isMatchCycle = pKey.endsWith(`_${selectedPayrollCycle}`) || pVal.cycle === selectedPayrollCycle;
+              if (!isMatchCycle) return;
+
+              const empIdFromKey = pKey.endsWith(`_${selectedPayrollCycle}`)
+                ? pKey.slice(0, -(selectedPayrollCycle.length + 1))
+                : pKey;
+              const resolvedEmpId = String(pVal.employeeUid || pVal.empUid || pVal.employeeId || pVal.empId || empIdFromKey || '');
+
+              if (resolvedEmpId && !seenEmpKeys.has(resolvedEmpId) && !seenEmpKeys.has(String(empIdFromKey))) {
+                seenEmpKeys.add(resolvedEmpId);
+                if (empIdFromKey) seenEmpKeys.add(String(empIdFromKey));
+                historicalEmployees.push({
+                  id: resolvedEmpId,
+                  uid: resolvedEmpId,
+                  rawPayrollKey: empIdFromKey,
+                  name: pVal.employeeName || pVal.empName || pVal.name || pVal.username || 'موظف سابق',
+                  username: pVal.employeeName || pVal.empName || pVal.name || pVal.username || 'موظف سابق',
+                  jobTitle: pVal.jobTitle || pVal.role || 'موظف',
+                  baseSalary: pVal.baseSalary || '',
+                  checkIn: pVal.checkIn || '09:00 AM',
+                  checkOut: pVal.checkOut || '05:00 PM',
+                  isDeletedHistorical: true,
+                  isPermanentlyDeleted: true
                 });
               }
             });
@@ -20550,10 +20645,12 @@ const handleExportBuffetToExcel = () => {
           let targetEmployees = [...sortedEmployeesForTable, ...externalPayrollEmployees, ...historicalEmployees];
           if (!isCurrentCycle) {
             targetEmployees = targetEmployees.filter(emp => {
+              if (emp.isDeletedHistorical) return true;
               const empKey = emp.uid || emp.id;
               const hasPastRecord = Boolean(
                 employeePayrollData[`${empKey}_${selectedPayrollCycle}`] ||
-                (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle)
+                (employeePayrollData[empKey] && employeePayrollData[empKey].cycle === selectedPayrollCycle) ||
+                (emp.rawPayrollKey && employeePayrollData[`${emp.rawPayrollKey}_${selectedPayrollCycle}`])
               );
               if (hasPastRecord) return true;
 
