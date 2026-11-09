@@ -5870,7 +5870,7 @@ const Dashboard = () => {
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
           status: 'unassigned',
-          crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+          crmStatus: 'unassigned',
           updatedAt: new Date().toISOString()
         };
       } else {
@@ -5882,7 +5882,7 @@ const Dashboard = () => {
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
           status: 'assigned',
-          crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+          crmStatus: 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }
@@ -5923,7 +5923,7 @@ const Dashboard = () => {
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
               status: 'unassigned',
-              crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+              crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -5938,7 +5938,7 @@ const Dashboard = () => {
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
               status: 'assigned',
-              crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+              crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -5982,14 +5982,14 @@ const Dashboard = () => {
       const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
 
       // Instant optimistic state update
-      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned', updatedAt: new Date().toISOString() } : l));
+      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', crmStatus: 'unassigned', updatedAt: new Date().toISOString() } : l));
       toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
 
       updateDoc(doc(db, 'leads_crm', lead.id), {
         assignedTo: currentUser.email,
         assignedToUid: currentUser.uid,
         assignedAt: serverTimestamp(),
-        status: 'assigned', crmStatus: (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+        status: 'assigned', crmStatus: 'unassigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -6016,7 +6016,7 @@ const Dashboard = () => {
           ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+          status: 'assigned', crmStatus: 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -6041,7 +6041,7 @@ const Dashboard = () => {
               assignedTo: currentUser.email,
               assignedToUid: currentUser.uid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+              status: 'assigned', crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -6075,7 +6075,7 @@ const Dashboard = () => {
           ...l,
           assignedTo: currentUser.email,
           assignedToUid: currentUser.uid,
-          status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+          status: 'assigned', crmStatus: 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -6099,7 +6099,7 @@ const Dashboard = () => {
               assignedTo: currentUser.email,
               assignedToUid: currentUser.uid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: (l.crmStatus && l.crmStatus !== 'assigned') ? l.crmStatus : (lead.crmStatus && lead.crmStatus !== 'assigned') ? lead.crmStatus : 'unassigned',
+              status: 'assigned', crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -6138,7 +6138,7 @@ const Dashboard = () => {
         assignedBy: assignerDisplay,
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
-        status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
+        status: 'assigned', crmStatus: 'unassigned',
         updatedAt: new Date().toISOString()
       } : l));
       toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
@@ -6150,7 +6150,7 @@ const Dashboard = () => {
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
         assignedAt: serverTimestamp(),
-        status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
+        status: 'assigned', crmStatus: 'unassigned',
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -6184,7 +6184,7 @@ const Dashboard = () => {
           assignedBy: assignerDisplay,
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
-          status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
+          status: 'assigned', crmStatus: 'unassigned',
           updatedAt: new Date().toISOString()
         };
       }));
@@ -6212,7 +6212,7 @@ const Dashboard = () => {
               assignedByRole: assignerRole,
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
+              status: 'assigned', crmStatus: 'unassigned',
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -17178,10 +17178,11 @@ const handleExportBuffetToExcel = () => {
                                           assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'unassigned',
-                                          crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned',
+                                          crmStatus: 'unassigned',
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
+                                        setLeadsCrm(prev => prev.map(l => l.id === customer.id ? { ...l, assignedToUid: 'admin', assignedTo: 'الإدارة', status: 'unassigned', crmStatus: 'unassigned' } : l));
                                         toast.success('تم إرجاع العميل إلى الإدارة 👑');
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     } else {
@@ -17196,10 +17197,11 @@ const handleExportBuffetToExcel = () => {
                                           assignedByUid: assignerUid,
                                           assignedAt: serverTimestamp(),
                                           status: 'assigned',
-                                          crmStatus: (customer.crmStatus && customer.crmStatus !== 'assigned') ? customer.crmStatus : 'unassigned', // Ensure pending state for employee
+                                          crmStatus: 'unassigned', // Ensure pending state for employee
                                           updatedAt: serverTimestamp(),
                                           assignmentHistory: arrayUnion(logObj)
                                         });
+                                         setLeadsCrm(prev => prev.map(l => l.id === customer.id ? { ...l, assignedToUid: uid, assignedTo: emp?.email || '', status: 'assigned', crmStatus: 'unassigned' } : l));
                                         toast.success(`تم تعيين العميل إلى ${emp?.name}`);
                                       } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                     }
@@ -17877,9 +17879,11 @@ const handleExportBuffetToExcel = () => {
                                               assignedByUid: assignerUid,
                                               assignedAt: serverTimestamp(),
                                               status: 'unassigned',
+                                              crmStatus: 'unassigned',
                                               updatedAt: serverTimestamp(),
                                               assignmentHistory: arrayUnion(logObj)
                                             });
+                                            setEmployeeLeads(prev => prev.map(l => l.id === customer.id ? { ...l, assignedToUid: 'admin', assignedTo: 'الإدارة', status: 'unassigned', crmStatus: 'unassigned' } : l));
                                             toast.success('تم إرجاع العميل إلى الإدارة 👑');
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         } else {
@@ -17894,9 +17898,11 @@ const handleExportBuffetToExcel = () => {
                                               assignedByUid: assignerUid,
                                               assignedAt: serverTimestamp(),
                                               status: 'assigned',
+                                              crmStatus: 'unassigned',
                                               updatedAt: serverTimestamp(),
                                               assignmentHistory: arrayUnion(logObj)
                                             });
+                                            setEmployeeLeads(prev => prev.map(l => l.id === customer.id ? { ...l, assignedToUid: uid, assignedTo: emp?.email || '', status: 'assigned', crmStatus: 'unassigned' } : l));
                                             toast.success(`تم تعيين العميل إلى ${emp?.name}`);
                                           } catch (err) { toast.error('حدث خطأ أثناء التعيين'); }
                                         }
