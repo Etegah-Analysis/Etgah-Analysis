@@ -177,6 +177,7 @@ const CRM_STATUS_MAP = {
   no_answer: { label: '📵 No Answer', arLabel: 'No Answer', fullLabel: '📵 No Answer', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
   started_trial: { label: '🚀 Demo', arLabel: 'Demo', fullLabel: '🚀 Demo', bg: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
   subscribed: { label: '🎉 Paid', arLabel: 'Paid', fullLabel: '🎉 Paid', bg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  whatsapp: { label: '💬 WhatsApp', arLabel: 'WhatsApp', fullLabel: '💬 WhatsApp', bg: 'bg-emerald-100 text-emerald-800 border-emerald-400' },
   junk_lead: { label: '🗑️ Junk Lead', arLabel: 'Junk Lead', fullLabel: '🗑️ Junk Lead', bg: 'bg-stone-200 text-stone-800 border-stone-400' },
   assigned: { label: '📋 Assigned', arLabel: 'Assigned', fullLabel: '📋 Assigned', bg: 'bg-blue-100 text-blue-700 border-blue-300' },
   lost: { label: '🥀 Lost', arLabel: 'Lost', fullLabel: '🥀 Lost', bg: 'bg-red-100 text-red-800 border-red-300' },
@@ -4676,7 +4677,7 @@ const Dashboard = () => {
     if (activeTab !== 'leads_crm' || !leadsCrm) {
       return {
         filtered: [],
-        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 }
+        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 }
       };
     }
 
@@ -4739,7 +4740,7 @@ const Dashboard = () => {
     const commToTime = crmCommentDateTo ? new Date(crmCommentDateTo).setHours(23, 59, 59, 999) : null;
     const search = tableSearch.trim().toLowerCase();
 
-    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
     const scoped = [];
 
     for (let i = 0; i < leadsCrm.length; i++) {
@@ -4783,6 +4784,7 @@ const Dashboard = () => {
         counts.all++;
         const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
         if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
+        else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') counts.whatsapp++;
         else if (counts[st] !== undefined) counts[st]++;
         else counts.unassigned++;
       }
@@ -4793,6 +4795,8 @@ const Dashboard = () => {
         const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
         if (crmStatusFilter === 'junk_lead') {
           if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        } else if (crmStatusFilter === 'whatsapp') {
+          if (currentStatus !== 'whatsapp' && currentStatus !== 'whats_app' && currentStatus !== 'whats app') return false;
         } else if (currentStatus !== crmStatusFilter) {
           return false;
         }
@@ -4831,7 +4835,7 @@ const Dashboard = () => {
     if (activeTab !== 'employee_leads' || !employeeLeads) {
       return {
         filtered: [],
-        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 }
+        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 }
       };
     }
 
@@ -4894,7 +4898,7 @@ const Dashboard = () => {
     const commToTime = empCommentDateTo ? new Date(empCommentDateTo).setHours(23, 59, 59, 999) : null;
     const search = tableSearch.trim().toLowerCase();
 
-    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, junk_lead: 0 };
+    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
     const scoped = [];
 
     for (let i = 0; i < employeeLeads.length; i++) {
@@ -4930,6 +4934,7 @@ const Dashboard = () => {
         counts.all++;
         const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
         if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
+        else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') counts.whatsapp++;
         else if (counts[st] !== undefined) counts[st]++;
         else counts.unassigned++;
       }
@@ -4940,6 +4945,8 @@ const Dashboard = () => {
         const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
         if (empLeadsStatusFilter === 'junk_lead') {
           if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        } else if (empLeadsStatusFilter === 'whatsapp') {
+          if (currentStatus !== 'whatsapp' && currentStatus !== 'whats_app' && currentStatus !== 'whats app') return false;
         } else if (currentStatus !== empLeadsStatusFilter) {
           return false;
         }
@@ -16364,6 +16371,8 @@ const handleExportBuffetToExcel = () => {
               const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
               if (crmStatusFilter === 'junk_lead') {
                 if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+              } else if (crmStatusFilter === 'whatsapp') {
+                if (currentStatus !== 'whatsapp' && currentStatus !== 'whats_app' && currentStatus !== 'whats app') return false;
               } else if (currentStatus !== crmStatusFilter) {
                 return false;
               }
@@ -16484,12 +16493,14 @@ const handleExportBuffetToExcel = () => {
                       interested: 0,
                       no_answer: 0,
                       not_interested: 0,
+                      whatsapp: 0,
                       junk_lead: 0
                     };
                     for (let i = 0; i < pool.length; i++) {
                       const c = pool[i];
                       const st = (!c.crmStatus || c.crmStatus === 'assigned' || c.crmStatus === 'pending') ? 'unassigned' : c.crmStatus;
                       if (st === 'junk_lead' || st === 'junk') statusCounts.junk_lead++;
+                      else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') statusCounts.whatsapp++;
                       else if (statusCounts[st] !== undefined) statusCounts[st]++;
                       else statusCounts.unassigned++;
                     }
@@ -16507,6 +16518,7 @@ const handleExportBuffetToExcel = () => {
                         <option value="no_answer">📵 No Answer ({statusCounts.no_answer})</option>
                         <option value="started_trial">🚀 Demo ({statusCounts.started_trial})</option>
                         <option value="subscribed">🎉 Paid ({statusCounts.subscribed})</option>
+                        <option value="whatsapp">💬 WhatsApp ({statusCounts.whatsapp})</option>
                         <option value="junk_lead">🗑️ Junk Lead ({statusCounts.junk_lead})</option>
                       </select>
                     );
@@ -16915,6 +16927,7 @@ const handleExportBuffetToExcel = () => {
                         <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getCrmStatusCount('no_answer')})</option>
                         <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getCrmStatusCount('started_trial')})</option>
                         <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getCrmStatusCount('subscribed')})</option>
+                        <option value="whatsapp" className="bg-purple-950 text-white">💬 WhatsApp ({getCrmStatusCount('whatsapp')})</option>
                         <option value="junk_lead" className="bg-purple-950 text-white">🗑️ Junk Lead ({getCrmStatusCount('junk_lead')})</option>
                       </select>
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
@@ -17122,6 +17135,7 @@ const handleExportBuffetToExcel = () => {
                                   <option value="no_answer">📵 No Answer</option>
                                   <option value="started_trial">🚀 Demo</option>
                                   <option value="subscribed">🎉 Paid</option>
+                                  <option value="whatsapp">💬 WhatsApp</option>
                                   <option value="junk_lead">🗑️ Junk Lead</option>
                                 </select>
                                 {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
@@ -17595,6 +17609,7 @@ const handleExportBuffetToExcel = () => {
                         <option value="no_answer" className="bg-purple-950 text-white">📵 No Answer ({getEmpLeadStatusCount('no_answer')})</option>
                         <option value="started_trial" className="bg-purple-950 text-white">🚀 Demo ({getEmpLeadStatusCount('started_trial')})</option>
                         <option value="subscribed" className="bg-purple-950 text-white">🎉 Paid ({getEmpLeadStatusCount('subscribed')})</option>
+                        <option value="whatsapp" className="bg-purple-950 text-white">💬 WhatsApp ({getEmpLeadStatusCount('whatsapp')})</option>
                         <option value="junk_lead" className="bg-purple-950 text-white">🗑️ Junk Lead ({getEmpLeadStatusCount('junk_lead')})</option>
                       </select>
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-300 text-[10px] font-bold">
@@ -17819,6 +17834,7 @@ const handleExportBuffetToExcel = () => {
                                       <option value="no_answer">📵 No Answer</option>
                                       <option value="started_trial">🚀 Demo</option>
                                       <option value="subscribed">🎉 Paid</option>
+                                      <option value="whatsapp">💬 WhatsApp</option>
                                       <option value="junk_lead">🗑️ Junk Lead</option>
                                     </select>
                                     {customer.crmStatus === 'started_trial' && customer.trialStartDate && (
