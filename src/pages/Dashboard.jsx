@@ -16798,10 +16798,6 @@ const handleExportBuffetToExcel = () => {
                 {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canBulkAssignLeads')) && (
                   <button 
                     onClick={() => {
-                      if (selectedLeadsCrm.length === 0) {
-                        toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
-                        return;
-                      }
                       setIsAssignModalOpen(true);
                     }}
                     className={`${selectedLeadsCrm.length > 0 ? 'bg-purple-600 hover:bg-purple-700 shadow-md animate-pulse ring-2 ring-purple-300' : 'bg-purple-900/70 hover:bg-purple-800 text-purple-200'} text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer`}
@@ -17435,10 +17431,6 @@ const handleExportBuffetToExcel = () => {
                 {(isAdmin || isCoordinator || isLeader || hasPermission(currentEmpUser, 'canBulkAssignLeads')) && (
                   <button 
                     onClick={() => {
-                      if (selectedEmployeeLeads.length === 0) {
-                        toast.error('يرجى تحديد العملاء المراد توزيعهم بوضع علامة (✓) أولاً');
-                        return;
-                      }
                       setIsAssignModalOpen(true);
                     }}
                     className={`${selectedEmployeeLeads.length > 0 ? 'bg-amber-600 hover:bg-amber-700 shadow-md animate-pulse ring-2 ring-amber-300' : 'bg-amber-900/70 hover:bg-amber-800 text-amber-200'} text-white px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer`}
@@ -23625,90 +23617,220 @@ const handleExportBuffetToExcel = () => {
 
         {/* Modal 2: Auto & Manual Lead Distribution */}
         {isAssignModalOpen && typeof document !== 'undefined' && document.body && createPortal(
-          <div 
-            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
-            onClick={() => setIsAssignModalOpen(false)}
-          >
-            <div 
-              className="fixed inset-0 bg-black/85 cursor-pointer" 
-              onClick={() => setIsAssignModalOpen(false)} 
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
-            />
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
-              <button 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
-                style={{ touchAction: 'manipulation' }} 
-                className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg transition z-50 cursor-pointer"
+          (() => {
+            const isEmpTab = activeTab === 'employee_leads';
+            const currentFilteredList = isEmpTab
+              ? (memoizedEmpLeadsData?.filtered || [])
+              : (memoizedLeadsCrmData?.filtered || []);
+            const totalPagesModal = Math.max(1, Math.ceil(currentFilteredList.length / ITEMS_PER_PAGE));
+            const currentPageModal = isEmpTab ? currentPageEmpLeads : currentPageLeads;
+            const setCurrentPageModal = isEmpTab ? setCurrentPageEmpLeads : setCurrentPageLeads;
+
+            const validCurrentPage = Math.min(Math.max(1, currentPageModal), totalPagesModal);
+            const startIdxModal = (validCurrentPage - 1) * ITEMS_PER_PAGE;
+            const currentPageItems = currentFilteredList.slice(startIdxModal, startIdxModal + ITEMS_PER_PAGE);
+
+            const selectedList = isEmpTab ? selectedEmployeeLeads : selectedLeadsCrm;
+            const isCurrentPageAllSelected = currentPageItems.length > 0 && currentPageItems.every(item => selectedList.includes(item.id));
+            const isAllFilteredSelected = currentFilteredList.length > 0 && currentFilteredList.every(item => selectedList.includes(item.id));
+
+            const handleToggleCurrentPageInModal = () => {
+              const pageIds = currentPageItems.map(i => i.id);
+              if (isEmpTab) {
+                if (isCurrentPageAllSelected) {
+                  setSelectedEmployeeLeads(prev => prev.filter(id => !pageIds.includes(id)));
+                } else {
+                  setSelectedEmployeeLeads(prev => [...new Set([...prev, ...pageIds])]);
+                }
+              } else {
+                if (isCurrentPageAllSelected) {
+                  setSelectedLeadsCrm(prev => prev.filter(id => !pageIds.includes(id)));
+                } else {
+                  setSelectedLeadsCrm(prev => [...new Set([...prev, ...pageIds])]);
+                }
+              }
+            };
+
+            const handleSelectAllInModal = () => {
+              const allIds = currentFilteredList.map(i => i.id);
+              if (isEmpTab) {
+                if (isAllFilteredSelected) {
+                  setSelectedEmployeeLeads([]);
+                } else {
+                  setSelectedEmployeeLeads(allIds);
+                }
+              } else {
+                if (isAllFilteredSelected) {
+                  setSelectedLeadsCrm([]);
+                } else {
+                  setSelectedLeadsCrm(allIds);
+                }
+              }
+            };
+
+            return (
+              <div 
+                className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 pb-8 overflow-y-auto" 
+                onClick={() => setIsAssignModalOpen(false)}
               >
-                <X size={24} />
-              </button>
+                <div 
+                  className="fixed inset-0 bg-black/85 cursor-pointer" 
+                  onClick={() => setIsAssignModalOpen(false)} 
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} 
+                />
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsAssignModalOpen(false); }} 
+                    style={{ touchAction: 'manipulation' }} 
+                    className="absolute top-4 left-4 text-gray-400 hover:text-red-500 min-w-[44px] min-h-[44px] p-2 flex items-center justify-center rounded-lg transition z-50 cursor-pointer"
+                  >
+                    <X size={24} />
+                  </button>
 
-              <h2 className="text-lg font-black text-gray-800 mb-3 flex items-center gap-2 border-b pb-3">
-                <UserCheck2 className="text-purple-600" size={24} />
-                <span>⚖️ توزيع العملاء المحددين</span>
-              </h2>
+                  <h2 className="text-lg font-black text-gray-800 mb-3 flex items-center gap-2 border-b pb-3">
+                    <UserCheck2 className="text-purple-600" size={24} />
+                    <span>⚖️ توزيع العملاء المحددين</span>
+                  </h2>
 
-              {/* Selected Count Banner */}
-              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white p-4 rounded-xl mb-4 shadow-md flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-white/10 rounded-lg">
-                    <CheckSquare size={20} className="text-emerald-400" />
+                  {/* Selected Count Banner */}
+                  <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white p-3.5 rounded-xl mb-3 shadow-md flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-white/10 rounded-lg">
+                        <CheckSquare size={20} className="text-emerald-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-purple-200 block font-bold">عدد العملاء المحددين للتوزيع:</span>
+                        <span className="text-lg font-black text-cyan-300">{selectedList.length} عميل محدد</span>
+                      </div>
+                    </div>
+                    <span className={`text-[11px] px-2.5 py-1 rounded-full font-bold border ${selectedList.length > 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' : 'bg-amber-500/20 text-amber-300 border-amber-400/30'}`}>
+                      {selectedList.length > 0 ? 'جاهز للتوزيع ✓' : 'لم يتم تحديد عملاء'}
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-xs text-purple-200 block font-bold">عدد العملاء المحددين للتوزيع:</span>
-                    <span className="text-lg font-black text-cyan-300">{(activeTab === 'employee_leads' ? selectedEmployeeLeads.length : selectedLeadsCrm.length)} عميل محدد</span>
+
+                  {/* Pagination & Fast Page Select Box */}
+                  <div className="bg-gradient-to-br from-purple-50 via-indigo-50/40 to-slate-50 border border-purple-200/80 rounded-xl p-3 mb-4 shadow-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                        <ArrowUpDown size={13} className="text-purple-600" />
+                        <span>صفحات الكارت ({totalPagesModal} صفحة • {currentFilteredList.length} عميل):</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSelectAllInModal}
+                        className="text-[10.5px] font-bold text-purple-700 hover:text-purple-900 underline cursor-pointer"
+                      >
+                        {isAllFilteredSelected ? 'إلغاء تحديد الكل' : `تحديد الكل (${currentFilteredList.length})`}
+                      </button>
+                    </div>
+
+                    {/* Stepper & Dropdown */}
+                    <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-purple-200 shadow-xs mb-2">
+                      <button
+                        type="button"
+                        disabled={validCurrentPage <= 1}
+                        onClick={() => setCurrentPageModal(prev => Math.max(1, prev - 1))}
+                        className="px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-900 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                        title="الصفحة السابقة"
+                      >
+                        <ChevronRight size={14} />
+                        <span>السابقة</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                        <span>صفحة</span>
+                        <select
+                          value={validCurrentPage}
+                          onChange={(e) => setCurrentPageModal(Number(e.target.value))}
+                          className="bg-purple-100 border border-purple-300 rounded-lg px-2 py-1 text-xs font-black text-purple-950 focus:outline-none cursor-pointer shadow-xs"
+                        >
+                          {Array.from({ length: totalPagesModal }, (_, i) => i + 1).map(pageNum => (
+                            <option key={pageNum} value={pageNum}>
+                              {pageNum}
+                            </option>
+                          ))}
+                        </select>
+                        <span>من {totalPagesModal}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={validCurrentPage >= totalPagesModal}
+                        onClick={() => setCurrentPageModal(prev => Math.min(totalPagesModal, prev + 1))}
+                        className="px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-900 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                        title="الصفحة التالية"
+                      >
+                        <span>التالية</span>
+                        <ChevronLeft size={14} />
+                      </button>
+                    </div>
+
+                    {/* Quick Select Current Page Button */}
+                    <button
+                      type="button"
+                      onClick={handleToggleCurrentPageInModal}
+                      className={`w-full py-1.5 px-3 rounded-lg text-xs font-bold transition border flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
+                        isCurrentPageAllSelected
+                          ? 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300'
+                          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300'
+                      }`}
+                    >
+                      <CheckSquare size={13} />
+                      <span>
+                        {isCurrentPageAllSelected
+                          ? `إلغاء تحديد صفحة ${validCurrentPage} (${currentPageItems.length} عميل)`
+                          : `تحديد جميع عملاء صفحة ${validCurrentPage} (${currentPageItems.length} عميل)`}
+                      </span>
+                    </button>
                   </div>
+
+                  {/* Target Employee Selection */}
+                  <div className="space-y-2 mb-5">
+                    <label className="block text-xs font-bold text-gray-700">
+                      {isLeader ? 'اختر الموظف المستلم من فريقك:' : 'اختر الموظف المسؤول المستلم:'}
+                    </label>
+                    <select 
+                      value={singleAssignEmpUid}
+                      onChange={(e) => setSingleAssignEmpUid(e.target.value)}
+                      className="w-full p-3 border border-purple-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-purple-500 bg-purple-50/40 cursor-pointer shadow-inner"
+                    >
+                      <option value="">-- اختر الموظف المستلم --</option>
+                      {isLeader ? (
+                        <>
+                          <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
+                          {myTeamMembers.map(emp => (
+                            <option key={emp.uid} value={emp.uid}>
+                              👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
+                            </option>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <option value="admin">👑 الإدارة (Admin 👑)</option>
+                          {assignableEmployees.map(emp => (
+                            <option key={emp.uid} value={emp.uid}>
+                              👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      💡 سيتم تحويل العملاء المحددين إلى الموظف المختار وتحديث حالتهم لتبدأ المتابعة في قائمة الانتظار.
+                    </p>
+                  </div>
+
+                  <button 
+                    onClick={handleExecuteAssignment}
+                    disabled={assignLoading || selectedList.length === 0 || !singleAssignEmpUid}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black py-3 px-4 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${selectedList.length} عميل)`}
+                  </button>
                 </div>
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-1 rounded-full font-bold">
-                  جاهز للتوزيع
-                </span>
               </div>
-
-              {/* Target Employee Selection */}
-              <div className="space-y-2 mb-5">
-                <label className="block text-xs font-bold text-gray-700">
-                  {isLeader ? 'اختر الموظف المستلم من فريقك:' : 'اختر الموظف المسؤول المستلم:'}
-                </label>
-                <select 
-                  value={singleAssignEmpUid}
-                  onChange={(e) => setSingleAssignEmpUid(e.target.value)}
-                  className="w-full p-3 border border-purple-300 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-purple-500 bg-purple-50/40 cursor-pointer shadow-inner"
-                >
-                  <option value="">-- اختر الموظف المستلم --</option>
-                  {isLeader ? (
-                    <>
-                      <option value={currentUser?.uid}>👤 نفسي ({currentEmpUser?.name || 'أنا'} - Leader 👑)</option>
-                      {myTeamMembers.map(emp => (
-                        <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)})
-                        </option>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <option value="admin">👑 الإدارة (Admin 👑)</option>
-                      {assignableEmployees.map(emp => (
-                        <option key={emp.uid} value={emp.uid}>
-                          👤 {emp.username || emp.name} ({getJobTitleEnglish(emp.jobTitle)}{emp.leaderName ? ` - Team ${emp.leaderName}` : ''})
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  💡 سيتم تحويل العملاء المحددين إلى الموظف المختار وتحديث حالتهم لتبدأ المتابعة في قائمة الانتظار.
-                </p>
-              </div>
-
-              <button 
-                onClick={handleExecuteAssignment}
-                disabled={assignLoading || (activeTab === 'employee_leads' ? selectedEmployeeLeads.length === 0 : selectedLeadsCrm.length === 0) || !singleAssignEmpUid}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black py-3 px-4 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {assignLoading ? 'جاري التحويل والتحديث...' : `🚀 تنفيذ وتحديث التوزيع الآن (${(activeTab === 'employee_leads' ? selectedEmployeeLeads.length : selectedLeadsCrm.length)} عميل)`}
-              </button>
-            </div>
-          </div>, document.body
+            );
+          })(), document.body
         )}
 
         {/* Modal 3: Customer Report, Timeline Notes & Unlimited Comments */}
