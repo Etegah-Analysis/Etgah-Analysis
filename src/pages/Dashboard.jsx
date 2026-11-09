@@ -11849,11 +11849,13 @@ const handleModalPasteBuffetItem = (e) => {
           <td style="font-weight: 900; color: ${isPaused ? '#991b1b' : '#047857'}; background: ${isPaused ? '#fee2e2' : '#ecfdf5'};">${isPaused ? 'موقوف (0 ج.م)' : (net > 0 ? net.toLocaleString() + ' ج.م' : '0')}</td>
           <td>${p.checkIn || '09:00 AM'} - ${p.checkOut || '05:00 PM'}</td>
           <td style="font-size: 9px; color: #64748b;">${p.notes || '-'}</td>
+          <td style="min-width: 95px; height: 28px; text-align: center; vertical-align: middle;">
+            <div style="border-bottom: 1px dotted #94a3b8; width: 85%; margin: 0 auto; height: 18px;"></div>
+          </td>
         </tr>
       `;
     }).join('');
 
-    toast.success('📄 فتح تقرير الـ PDF بنجاح! لحفظ الملف على جهازك، اختر (حفظ بتنسيق PDF / Save as PDF) من نافذة الطباعة 💾', { duration: 6000 });
     toast.success('📄 فتح تقرير الـ PDF بنجاح! لحفظ الملف على جهازك، اختر (حفظ بتنسيق PDF / Save as PDF) من نافذة الطباعة 💾', { duration: 6000 });
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -11955,6 +11957,7 @@ const handleModalPasteBuffetItem = (e) => {
                 <th>صافي الراتب</th>
                 <th>مواعيد البصمة</th>
                 <th>ملاحظات</th>
+                <th style="min-width: 95px;">إمضاء الموظف</th>
               </tr>
             </thead>
             <tbody>
@@ -11968,7 +11971,7 @@ const handleModalPasteBuffetItem = (e) => {
                 <td>${totalAdv.toLocaleString()} ج.م</td>
                 <td>${totalKpi.toLocaleString()} ج.م</td>
                 <td style="color: #047857; background: #d1fae5;">${totalNet.toLocaleString()} ج.م</td>
-                <td colspan="2">-</td>
+                <td colspan="3">-</td>
               </tr>
             </tfoot>
           </table>
