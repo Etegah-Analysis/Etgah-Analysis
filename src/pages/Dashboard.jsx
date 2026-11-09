@@ -23632,7 +23632,6 @@ const handleExportBuffetToExcel = () => {
 
             const selectedList = isEmpTab ? selectedEmployeeLeads : selectedLeadsCrm;
             const isCurrentPageAllSelected = currentPageItems.length > 0 && currentPageItems.every(item => selectedList.includes(item.id));
-            const isAllFilteredSelected = currentFilteredList.length > 0 && currentFilteredList.every(item => selectedList.includes(item.id));
 
             const handleToggleCurrentPageInModal = () => {
               const pageIds = currentPageItems.map(i => i.id);
@@ -23647,23 +23646,6 @@ const handleExportBuffetToExcel = () => {
                   setSelectedLeadsCrm(prev => prev.filter(id => !pageIds.includes(id)));
                 } else {
                   setSelectedLeadsCrm(prev => [...new Set([...prev, ...pageIds])]);
-                }
-              }
-            };
-
-            const handleSelectAllInModal = () => {
-              const allIds = currentFilteredList.map(i => i.id);
-              if (isEmpTab) {
-                if (isAllFilteredSelected) {
-                  setSelectedEmployeeLeads([]);
-                } else {
-                  setSelectedEmployeeLeads(allIds);
-                }
-              } else {
-                if (isAllFilteredSelected) {
-                  setSelectedLeadsCrm([]);
-                } else {
-                  setSelectedLeadsCrm(allIds);
                 }
               }
             };
@@ -23715,13 +23697,6 @@ const handleExportBuffetToExcel = () => {
                         <ArrowUpDown size={13} className="text-purple-600" />
                         <span>صفحات الكارت ({totalPagesModal} صفحة • {currentFilteredList.length} عميل):</span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleSelectAllInModal}
-                        className="text-[10.5px] font-bold text-purple-700 hover:text-purple-900 underline cursor-pointer"
-                      >
-                        {isAllFilteredSelected ? 'إلغاء تحديد الكل' : `تحديد الكل (${currentFilteredList.length})`}
-                      </button>
                     </div>
 
                     {/* Stepper & Dropdown */}
