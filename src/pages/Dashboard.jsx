@@ -940,6 +940,130 @@ const Dashboard = () => {
 
     return { dateTime: '—', user: '' };
   };
+
+  const parseMonthStr = (monthStr) => {
+    if (!monthStr || monthStr === 'all') return { year: 2099, monthIdx: 11 };
+    const norm = normalizeFinancialMonth(monthStr) || monthStr;
+    const parts = norm.split(' ');
+    const mName = parts[0] || '';
+    const yr = parseInt(parts[1], 10) || 2026;
+    let mIdx = monthsArBuffet.findIndex(m => mName.includes(m));
+    if (mIdx === -1) {
+      if (mName.includes('ابريل')) mIdx = 3;
+      else if (mName.includes('اغسطس')) mIdx = 7;
+      else mIdx = 9;
+    }
+    return { year: yr, monthIdx: mIdx };
+  };
+
+  const isMonthBeforeOrEqual = (itemMonthStr, targetMonthStr) => {
+    const itemM = parseMonthStr(itemMonthStr);
+    const targetM = parseMonthStr(targetMonthStr);
+    if (itemM.year < targetM.year) return true;
+    if (itemM.year > targetM.year) return false;
+    return itemM.monthIdx <= targetM.monthIdx;
+  };
+
+  const isMonthStrictlyBefore = (targetMonthStr, currentMonthStr) => {
+    if (!targetMonthStr || targetMonthStr === 'all') return false;
+    const targetM = parseMonthStr(targetMonthStr);
+    const currentM = parseMonthStr(currentMonthStr);
+    if (targetM.year < currentM.year) return true;
+    if (targetM.year > currentM.year) return false;
+    return targetM.monthIdx < currentM.monthIdx;
+  };
+
+  const getItemCostForMonth = (item, targetMonthFilter) => {
+    if (!item) return 0;
+
+    if (targetMonthFilter === 'all') {
+      let totalAll = 0;
+      if (item.monthCosts && Object.keys(item.monthCosts).length > 0) {
+        Object.values(item.monthCosts).forEach(v => {
+          const val = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+          if (!isNaN(val) && val > 0) totalAll += val;
+        });
+        if (totalAll > 0) return totalAll;
+      }
+      const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+      const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+      const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+      if (!isNaN(costVal) && costVal > 0) return costVal;
+      if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+      return 0;
+    }
+
+    const normTarget = normalizeFinancialMonth(targetMonthFilter);
+    if (!normTarget) return 0;
+    const targetMonthName = normTarget.split(' ')[0];
+    const itemEarliestMonth = getItemEarliestFinancialMonth(item);
+
+    // 1. Explicit monthCosts map check
+    if (item.monthCosts && item.monthCosts[normTarget] !== undefined) {
+      const val = parseFloat(String(item.monthCosts[normTarget]).replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) return val;
+    }
+
+    // 2. Purchase lines in notes check
+    const notes = String(item.notes || '');
+    if (notes) {
+      const lines = notes.split('\n');
+      let monthPurchasesCost = 0;
+      let foundMonthPurchaseLine = false;
+
+      lines.forEach(line => {
+        if (targetMonthName && (line.includes(targetMonthName) || (line.includes('بتاريخ') && normalizeFinancialMonth(line) === normTarget))) {
+          const matchPrice = line.match(/(?:بـ|بمبلغ|سعر|تكلفة|\$|ج\.م|جنيه)\s*([0-9]+(?:\.[0-9]+)?)/) || line.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:ج\.م|جنيه)/);
+          if (matchPrice && matchPrice[1]) {
+            foundMonthPurchaseLine = true;
+            monthPurchasesCost += parseFloat(matchPrice[1]);
+          }
+        }
+      });
+
+      if (foundMonthPurchaseLine && monthPurchasesCost > 0) {
+        return monthPurchasesCost;
+      }
+    }
+
+    // 3. Fallback to primary cost ONLY if target month is item's earliest month
+    if (itemEarliestMonth === normTarget) {
+      const costVal = parseFloat(String(item.cost || '').replace(/[^0-9.]/g, ''));
+      const unitPriceVal = parseFloat(String(item.itemPrice || item.unitPrice || '').replace(/[^0-9.]/g, ''));
+      const qtyVal = parseFloat(String(item.totalQty || '').replace(/[^0-9.]/g, '')) || 1;
+      if (!isNaN(costVal) && costVal > 0) return costVal;
+      if (!isNaN(unitPriceVal) && unitPriceVal > 0) return unitPriceVal * qtyVal;
+    }
+
+    return 0;
+  };
+
+  const getItemMonthQuantities = (item, targetMonthFilter) => {
+    const defaultTotal = item.totalQty || '-';
+    const defaultRemaining = item.remainingQty || item.totalQty || '-';
+
+    if (targetMonthFilter === 'all') {
+      return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+    }
+
+    const normTarget = normalizeFinancialMonth(targetMonthFilter);
+    const itemPrimaryMonth = normalizeFinancialMonth(getItemFinancialMonth(item));
+
+    if (itemPrimaryMonth === normTarget) {
+      return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+    }
+
+    const notes = String(item.notes || '');
+    const targetMonthName = normTarget ? normTarget.split(' ')[0] : '';
+    const hasActivityInTargetMonth = targetMonthName && notes.includes(targetMonthName);
+
+    if (hasActivityInTargetMonth) {
+      return { totalQty: defaultTotal, remainingQty: defaultRemaining };
+    } else {
+      const carriedOverQty = item.remainingQty && item.remainingQty !== '-' ? item.remainingQty : defaultTotal;
+      return { totalQty: carriedOverQty, remainingQty: carriedOverQty };
+    }
+  };
   const [subPaidAmount, setSubPaidAmount] = useState('');
   const [subRemainingAmount, setSubRemainingAmount] = useState('');
   const [subReceiptProof, setSubReceiptProof] = useState('');
@@ -12776,23 +12900,44 @@ const handleModalPasteBuffetItem = (e) => {
       return;
     }
     const logoUrl = window.location.origin + '/logo.jpg';
-    const totalItems = buffetInventory.length;
-    const totalPurchases = buffetPurchases.length;
-    const totalCost = buffetPurchases.reduce((acc, p) => acc + (parseFloat(p.cost) || 0), 0);
 
-    const invRowsHtml = buffetInventory.map((item, idx) => `
-      <tr>
-        <td style="text-align:center;">${idx + 1}</td>
-        <td>${item.itemName || '-'}</td>
-        <td style="text-align:center;">${item.totalQty || '-'}</td>
-        <td style="text-align:center;">${item.usedQty || '-'}</td>
-        <td style="text-align:center; font-weight:bold; color:#059669;">${item.remainingQty || '-'}</td>
-        <td>${item.notes || '-'}</td>
-        <td style="font-size:10px; color:#64748b;">${item.updatedDateTime || '-'}</td>
-      </tr>
-    `).join('');
+    const activeMonthLabel = buffetFinancialMonthFilter === 'all' 
+      ? 'كافة الشهور المالية' 
+      : buffetFinancialMonthFilter;
 
-    const purchRowsHtml = buffetPurchases.map((p, idx) => `
+    const filteredInventory = buffetInventory.filter(item => {
+      if (buffetFinancialMonthFilter === 'all') return true;
+      const itemEarliestMonth = getItemEarliestFinancialMonth(item);
+      const itemMonths = getItemAllMonths(item);
+      const normTarget = normalizeFinancialMonth(buffetFinancialMonthFilter) || buffetFinancialMonthFilter;
+      return itemMonths.includes(normTarget) || isMonthBeforeOrEqual(itemEarliestMonth, buffetFinancialMonthFilter);
+    });
+
+    let totalCost = 0;
+    filteredInventory.forEach(item => {
+      totalCost += getItemCostForMonth(item, buffetFinancialMonthFilter);
+    });
+
+    const invRowsHtml = filteredInventory.map((item, idx) => {
+      const itemQtys = getItemMonthQuantities(item, buffetFinancialMonthFilter);
+      const itemCost = getItemCostForMonth(item, buffetFinancialMonthFilter);
+      const itemNotes = getItemNotesForMonth(item, buffetFinancialMonthFilter);
+      const { dateTime, user } = getItemMonthTimestampAndUser(item, buffetFinancialMonthFilter);
+
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td style="font-weight:bold; color:#1e1b4b;">${item.itemName || '-'}</td>
+          <td style="text-align:center; font-weight:bold;">${itemQtys.totalQty || '-'}</td>
+          <td style="text-align:center; font-weight:bold; color:#b45309; background-color:#fffbeb;">${itemCost > 0 ? itemCost.toLocaleString() + ' ج.م' : '—'}</td>
+          <td style="text-align:center; font-weight:bold; color:#059669; background-color:#f0fdf4;">${itemQtys.remainingQty || '-'}</td>
+          <td style="font-size:10px; color:#334155; white-space:pre-wrap; text-align:right;">${itemNotes || '—'}</td>
+          <td style="font-size:10px; color:#64748b; text-align:center;">${dateTime || item.updatedDateTime || '—'}${user ? '<br><span style="font-size:9px; color:#94a3b8;">' + user + '</span>' : ''}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const purchRowsHtml = (buffetPurchases || []).map((p, idx) => `
       <tr>
         <td style="text-align:center;">${idx + 1}</td>
         <td>${p.itemName || '-'}</td>
@@ -12808,19 +12953,19 @@ const handleModalPasteBuffetItem = (e) => {
       <html dir="rtl" lang="ar">
       <head>
         <meta charset="utf-8" />
-        <title>تقرير مصروفات ومحتويات البوفيه - منصة اتجاه</title>
+        <title>تقرير مصروفات ومحتويات البوفيه (${activeMonthLabel}) - منصة اتجاه</title>
         <style>
-          @page { size: A4 portrait; margin: 12mm; }
+          @page { size: A4 landscape; margin: 10mm; }
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; color: #0f172a; background: #fff; direction: rtl; }
           .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 15px; }
           .logo-box { display: flex; align-items: center; gap: 12px; }
           .logo-box img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #8b5cf6; }
-          .title-box h1 { margin: 0; font-size: 18px; color: #1e1b4b; }
-          .title-box p { margin: 3px 0 0; font-size: 11px; color: #64748b; }
-          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+          .title-box h1 { margin: 0; font-size: 18px; color: #1e1b4b; font-weight: 900; }
+          .title-box p { margin: 3px 0 0; font-size: 11px; color: #64748b; font-weight: bold; }
+          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
           .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; text-align: center; }
-          .stat-card .val { font-size: 18px; font-weight: bold; color: #4c1d95; }
-          .stat-card .lbl { font-size: 11px; color: #64748b; }
+          .stat-card .val { font-size: 18px; font-weight: 900; color: #4c1d95; }
+          .stat-card .lbl { font-size: 11px; color: #64748b; font-weight: bold; margin-top: 3px; }
           .section-title { font-size: 14px; font-weight: bold; color: #312e81; margin: 15px 0 8px 0; border-right: 4px solid #8b5cf6; padding-right: 8px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
           th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; }
@@ -12834,63 +12979,72 @@ const handleModalPasteBuffetItem = (e) => {
           <div class="logo-box">
             <img src="${logoUrl}" onError="this.style.display='none'" />
             <div class="title-box">
-              <h1>☕ تقرير مصروفات ومحتويات البوفيه</h1>
-              <p>منصة اتجاه التحليل الذكي للتداول - تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
+              <h1>☕ تقرير مصروفات ومحتويات البوفيه (${activeMonthLabel})</h1>
+              <p>منصة اتجاه التحليل الذكي للتداول • الشهر المالي المعتمد: ${activeMonthLabel} • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}</p>
             </div>
           </div>
         </div>
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="val">${totalItems}</div>
-            <div class="lbl">أصناف البوفيه المسجلة</div>
+            <div class="val">${filteredInventory.length} صنف</div>
+            <div class="lbl">أصناف البوفيه المدرجة</div>
           </div>
           <div class="stat-card">
-            <div class="val">${totalPurchases}</div>
-            <div class="lbl">إجمالي عمليات الشراء</div>
+            <div class="val" style="color:#4338ca; font-size:16px;">${activeMonthLabel}</div>
+            <div class="lbl">الشهر المالي المعتمد</div>
           </div>
-          <div class="stat-card">
-            <div class="val" style="color:#d97706;">${totalCost.toLocaleString()} ج.م</div>
-            <div class="lbl">إجمالي التكلفة والمصروفات</div>
+          <div class="stat-card" style="background:#fffbeb; border-color:#fcd34d;">
+            <div class="val" style="color:#b45309; font-size:20px; font-weight:900;">${totalCost.toLocaleString()} ج.م</div>
+            <div class="lbl" style="color:#92400e;">إجمالي تكلفة المشتريات والمصروفات</div>
           </div>
         </div>
 
-        <div class="section-title">📦 مخزون ومحتويات البوفيه</div>
+        <div class="section-title">📦 مخزون ومحتويات ومشتريات البوفيه (${activeMonthLabel})</div>
         <table>
           <thead>
             <tr>
               <th style="width:30px; text-align:center;">#</th>
               <th>الصنف</th>
-              <th style="text-align:center;">العدد الإجمالي</th>
-              <th style="text-align:center;">المستخدم</th>
-              <th style="text-align:center;">المتبقي</th>
+              <th style="text-align:center;">العدد الحالي / السابق</th>
+              <th style="text-align:center; background:#fef3c7; color:#92400e;">إجمالي سعر الفاتورة</th>
+              <th style="text-align:center; background:#dcfce7; color:#166534;">المتبقي</th>
               <th>ملحوظات</th>
-              <th>آخر تحديث</th>
+              <th style="text-align:center;">التاريخ والموظف</th>
             </tr>
           </thead>
           <tbody>
-            ${invRowsHtml || '<tr><td colspan="7" style="text-align:center;">لا توجد أصناف مسجلة</td></tr>'}
+            ${invRowsHtml || '<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">لا توجد أصناف مسجلة</td></tr>'}
           </tbody>
+          <tfoot>
+            <tr style="background:#f1f5f9; font-weight:900;">
+              <td colspan="3" style="text-align:right; padding-right:12px; font-size:12px;">إجمالي تكلفة مشتريات (${activeMonthLabel})</td>
+              <td style="text-align:center; font-size:13px; color:#b45309; background:#fef3c7;">${totalCost.toLocaleString()} ج.م</td>
+              <td colspan="3" style="text-align:center; color:#64748b; font-size:10px;">عدد الأصناف: ${filteredInventory.length} صنف</td>
+            </tr>
+          </tfoot>
         </table>
 
-        <div class="section-title">🛒 سجل المشتريات والمصروفات الجديد</div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:30px; text-align:center;">#</th>
-              <th>الصنف / البيان</th>
-              <th style="text-align:center;">العدد</th>
-              <th style="text-align:center;">التكلفة</th>
-              <th style="text-align:center;">تاريخ الشراء</th>
-              <th>ملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${purchRowsHtml || '<tr><td colspan="6" style="text-align:center;">لا توجد مشتريات مسجلة</td></tr>'}
-          </tbody>
-        </table>
+        ${(buffetPurchases && buffetPurchases.length > 0) ? `
+          <div class="section-title">🛒 سجل المشتريات والمصروفات الإضافية</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px; text-align:center;">#</th>
+                <th>الصنف / البيان</th>
+                <th style="text-align:center;">العدد</th>
+                <th style="text-align:center;">التكلفة</th>
+                <th style="text-align:center;">تاريخ الشراء</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${purchRowsHtml}
+            </tbody>
+          </table>
+        ` : ''}
 
         <div class="footer">
-          تم استخراج هذا التقرير آلياً من منصة اتجاه - ${new Date().toLocaleString('ar-EG')}
+          تم استخراج هذا التقرير آلياً عبر منظومة منصة اتجاه • تاريخ الطباعة: ${new Date().toLocaleString('ar-EG')}
         </div>
         <script>
           window.onload = function() {
