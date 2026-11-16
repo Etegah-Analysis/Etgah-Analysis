@@ -18096,7 +18096,7 @@ const handleExportBuffetToExcel = () => {
         )}
 
         {/* Dedicated Subscribed Clients Tab (العملاء المشتركين) */}
-        {activeTab === 'subscribed_clients' && !isCoordinator && (
+        {activeTab === 'subscribed_clients' && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-emerald-500/30 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-purple-500/20 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
               <div className="flex items-center gap-3 flex-wrap">
@@ -18135,9 +18135,9 @@ const handleExportBuffetToExcel = () => {
               </div>
             </div>
 
-            {/* Financial Sales Summary Banner (For Admin, Leader, and Customer Service inside Subscribed Clients) */}
-            {(isAdmin || isLeader || isCustomerService) && (() => {
-              const basePool = (isAdmin || isCustomerService) ? allSubscribedClients : leaderSubscribedClients;
+            {/* Financial Sales Summary Banner (For Admin, Coordinator, Leader, and Customer Service inside Subscribed Clients) */}
+            {(isAdmin || isCoordinator || isLeader || isCustomerService) && (() => {
+              const basePool = (isAdmin || isCoordinator || isCustomerService) ? allSubscribedClients : leaderSubscribedClients;
               let pool = basePool;
               if (subscribedEmpFilter !== 'all') {
                 if (subscribedEmpFilter === 'admin') {
