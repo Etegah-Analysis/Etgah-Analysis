@@ -171,6 +171,7 @@ const RecipientsDropdown = ({ mail, activeOpenId, onToggle }) => {
 
 const CRM_STATUS_MAP = {
   unassigned: { label: '⏳ Waiting', arLabel: 'Waiting', fullLabel: '⏳ Waiting', bg: 'bg-gray-100 text-gray-700 border-gray-300' },
+  waiting_pull: { label: '📥 Pulled Leads', arLabel: 'Pulled Leads', fullLabel: '📥 Pulled Leads', bg: 'bg-indigo-100 text-indigo-900 border-indigo-400' },
   call_back: { label: '📞 Call Back', arLabel: 'Call Back', fullLabel: '📞 Call Back', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
   interested: { label: '🌟 Interested', arLabel: 'Interested', fullLabel: '🌟 Interested', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
   not_interested: { label: '❌ Not Interested', arLabel: 'Not Interested', fullLabel: '❌ Not Interested', bg: 'bg-rose-100 text-rose-800 border-rose-300' },
@@ -4677,7 +4678,7 @@ const Dashboard = () => {
     if (activeTab !== 'leads_crm' || !leadsCrm) {
       return {
         filtered: [],
-        counts: { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 }
+        counts: { all: 0, unassigned: 0, waiting_pull: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 }
       };
     }
 
@@ -4740,7 +4741,7 @@ const Dashboard = () => {
     const commToTime = crmCommentDateTo ? new Date(crmCommentDateTo).setHours(23, 59, 59, 999) : null;
     const search = tableSearch.trim().toLowerCase();
 
-    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
+    const counts = { all: 0, unassigned: 0, waiting_pull: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
     const scoped = [];
 
     for (let i = 0; i < leadsCrm.length; i++) {
@@ -4749,17 +4750,17 @@ const Dashboard = () => {
 
       if (isLeader && !isAdmin && !isCoordinator) {
         if (selectedEmpFilter === 'all') {
-          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers);
+          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers) || (c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
         } else {
           const targetEmp = employees.find(e => e.uid === selectedEmpFilter) || (selectedEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
           if (targetEmp) {
-            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp) || (c.pulledFromUid === targetEmp.uid && c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
           } else {
-            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser) || (c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
           }
         }
       } else if (!isAdmin && !isCoordinator) {
-        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
+        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser) && c.crmStatus !== 'waiting_pull' && c.crmStatus !== 'waiting pull' && c.crmStatus !== 'pulled';
       } else if (selectedEmpFilter === 'admin' || selectedEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (selectedEmpFilter === 'website_visitors' || selectedEmpFilter === 'website_otp') {
@@ -4771,10 +4772,10 @@ const Dashboard = () => {
             (c.status || '').toLowerCase().includes(w)
           );
       } else if (selectedEmpFilter === 'all') {
-        matchesScope = isLeadAssignedToEmployee(c);
+        matchesScope = isLeadAssignedToEmployee(c) || c.crmStatus === 'waiting_pull' || c.crmStatus === 'waiting pull' || c.crmStatus === 'pulled' || Boolean(c.isPulled);
       } else if (selectedEmpFilter) {
         const targetEmp = employees.find(e => e.uid === selectedEmpFilter);
-        matchesScope = targetEmp ? isLeadMatchEmpAssignedOnly(c, targetEmp) : true;
+        matchesScope = targetEmp ? (isLeadMatchEmpAssignedOnly(c, targetEmp) || c.pulledFromUid === targetEmp.uid || c.pulledByUid === targetEmp.uid) : true;
       } else {
         matchesScope = true;
       }
@@ -4782,21 +4783,39 @@ const Dashboard = () => {
       if (matchesScope) {
         scoped.push(c);
         counts.all++;
-        const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-        if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
-        else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') counts.whatsapp++;
-        else if (counts[st] !== undefined) counts[st]++;
-        else counts.unassigned++;
+        const rawSt = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        let st = rawSt;
+        if (rawSt === 'junk_lead' || rawSt === 'junk') st = 'junk_lead';
+        else if (rawSt === 'whatsapp' || rawSt === 'whats_app' || rawSt === 'whats app') st = 'whatsapp';
+        else if (rawSt === 'waiting_pull' || rawSt === 'waiting pull' || rawSt === 'pulled' || rawSt === 'pulled_leads') st = 'waiting_pull';
+
+        if (st === 'waiting_pull') {
+          if (isAdmin || isCoordinator || isLeader) {
+            counts.waiting_pull++;
+          }
+        } else if (counts[st] !== undefined) {
+          counts[st]++;
+        } else {
+          counts.unassigned++;
+        }
       }
     }
 
     let filtered = scoped.filter(c => {
       if (crmStatusFilter && crmStatusFilter !== 'all') {
-        const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-        if (crmStatusFilter === 'junk_lead') {
-          if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        const rawStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        let currentStatus = rawStatus;
+        if (rawStatus === 'junk_lead' || rawStatus === 'junk') currentStatus = 'junk_lead';
+        else if (rawStatus === 'whatsapp' || rawStatus === 'whats_app' || rawStatus === 'whats app') currentStatus = 'whatsapp';
+        else if (rawStatus === 'waiting_pull' || rawStatus === 'waiting pull' || rawStatus === 'pulled' || rawStatus === 'pulled_leads') currentStatus = 'waiting_pull';
+
+        if (crmStatusFilter === 'waiting_pull') {
+          if (!isAdmin && !isCoordinator && !isLeader) return false;
+          if (currentStatus !== 'waiting_pull') return false;
+        } else if (crmStatusFilter === 'junk_lead') {
+          if (currentStatus !== 'junk_lead') return false;
         } else if (crmStatusFilter === 'whatsapp') {
-          if (currentStatus !== 'whatsapp' && currentStatus !== 'whats_app' && currentStatus !== 'whats app') return false;
+          if (currentStatus !== 'whatsapp') return false;
         } else if (currentStatus !== crmStatusFilter) {
           return false;
         }
@@ -4898,7 +4917,7 @@ const Dashboard = () => {
     const commToTime = empCommentDateTo ? new Date(empCommentDateTo).setHours(23, 59, 59, 999) : null;
     const search = tableSearch.trim().toLowerCase();
 
-    const counts = { all: 0, unassigned: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
+    const counts = { all: 0, unassigned: 0, waiting_pull: 0, call_back: 0, interested: 0, not_interested: 0, no_answer: 0, started_trial: 0, subscribed: 0, whatsapp: 0, junk_lead: 0 };
     const scoped = [];
 
     for (let i = 0; i < employeeLeads.length; i++) {
@@ -4907,24 +4926,24 @@ const Dashboard = () => {
 
       if (isLeader && !isAdmin && !isCoordinator) {
         if (empLeadsEmpFilter === 'all') {
-          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers);
+          matchesScope = isLeadMatchLeaderTeam(c, currentEmpUser || currentUser, myTeamMembers) || (c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
         } else {
           const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter) || (empLeadsEmpFilter === currentUser?.uid ? (currentEmpUser || currentUser) : null);
           if (targetEmp) {
-            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, targetEmp) || (c.pulledFromUid === targetEmp.uid && c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
           } else {
-            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
+            matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser) || (c.pulledByUid === (currentUser?.uid || currentEmpUser?.uid));
           }
         }
       } else if (!isAdmin && !isCoordinator) {
-        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser);
+        matchesScope = isLeadMatchEmpAssignedOnly(c, currentEmpUser || currentUser) && c.crmStatus !== 'waiting_pull' && c.crmStatus !== 'waiting pull' && c.crmStatus !== 'pulled';
       } else if (empLeadsEmpFilter === 'admin' || empLeadsEmpFilter === 'unassigned') {
         matchesScope = isLeadWithAdmin(c);
       } else if (empLeadsEmpFilter === 'all') {
-        matchesScope = isLeadAssignedToEmployee(c);
+        matchesScope = isLeadAssignedToEmployee(c) || c.crmStatus === 'waiting_pull' || c.crmStatus === 'waiting pull' || c.crmStatus === 'pulled' || Boolean(c.isPulled);
       } else if (empLeadsEmpFilter) {
         const targetEmp = employees.find(e => e.uid === empLeadsEmpFilter);
-        matchesScope = targetEmp ? isLeadMatchEmpAssignedOnly(c, targetEmp) : true;
+        matchesScope = targetEmp ? (isLeadMatchEmpAssignedOnly(c, targetEmp) || c.pulledFromUid === targetEmp.uid || c.pulledByUid === targetEmp.uid) : true;
       } else {
         matchesScope = true;
       }
@@ -4932,21 +4951,39 @@ const Dashboard = () => {
       if (matchesScope) {
         scoped.push(c);
         counts.all++;
-        const st = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-        if (st === 'junk_lead' || st === 'junk') counts.junk_lead++;
-        else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') counts.whatsapp++;
-        else if (counts[st] !== undefined) counts[st]++;
-        else counts.unassigned++;
+        const rawSt = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        let st = rawSt;
+        if (rawSt === 'junk_lead' || rawSt === 'junk') st = 'junk_lead';
+        else if (rawSt === 'whatsapp' || rawSt === 'whats_app' || rawSt === 'whats app') st = 'whatsapp';
+        else if (rawSt === 'waiting_pull' || rawSt === 'waiting pull' || rawSt === 'pulled' || rawSt === 'pulled_leads') st = 'waiting_pull';
+
+        if (st === 'waiting_pull') {
+          if (isAdmin || isCoordinator || isLeader) {
+            counts.waiting_pull++;
+          }
+        } else if (counts[st] !== undefined) {
+          counts[st]++;
+        } else {
+          counts.unassigned++;
+        }
       }
     }
 
     let filtered = scoped.filter(c => {
       if (empLeadsStatusFilter && empLeadsStatusFilter !== 'all') {
-        const currentStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
-        if (empLeadsStatusFilter === 'junk_lead') {
-          if (currentStatus !== 'junk_lead' && currentStatus !== 'junk') return false;
+        const rawStatus = (c.crmStatus && c.crmStatus !== 'assigned') ? c.crmStatus : 'unassigned';
+        let currentStatus = rawStatus;
+        if (rawStatus === 'junk_lead' || rawStatus === 'junk') currentStatus = 'junk_lead';
+        else if (rawStatus === 'whatsapp' || rawStatus === 'whats_app' || rawStatus === 'whats app') currentStatus = 'whatsapp';
+        else if (rawStatus === 'waiting_pull' || rawStatus === 'waiting pull' || rawStatus === 'pulled' || rawStatus === 'pulled_leads') currentStatus = 'waiting_pull';
+
+        if (empLeadsStatusFilter === 'waiting_pull') {
+          if (!isAdmin && !isCoordinator && !isLeader) return false;
+          if (currentStatus !== 'waiting_pull') return false;
+        } else if (empLeadsStatusFilter === 'junk_lead') {
+          if (currentStatus !== 'junk_lead') return false;
         } else if (empLeadsStatusFilter === 'whatsapp') {
-          if (currentStatus !== 'whatsapp' && currentStatus !== 'whats_app' && currentStatus !== 'whats app') return false;
+          if (currentStatus !== 'whatsapp') return false;
         } else if (currentStatus !== empLeadsStatusFilter) {
           return false;
         }
@@ -5972,24 +6009,56 @@ const Dashboard = () => {
     }
   };
 
-  // Pull Single Lead from Team Member to Leader's CRM
+  // Pull Single Lead from Team Member to Leader's / Coordinator's / Admin's CRM
   const handlePullLead = async (lead) => {
     if (!lead) return;
     try {
       const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
       const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead.assignedTo || 'الموظف');
-      const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-      const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : (isCoordinator ? `👑 منسق الفريق (${currentEmpUser?.name || 'منسق'})` : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerRole = isAdmin ? 'admin' : (isCoordinator ? 'coordinator' : (isLeader ? 'leader' : 'employee'));
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetEmail = isAdmin ? '' : (currentUser?.email || '');
+      const logObj = createAssignmentLog(empName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
 
       // Instant optimistic state update
-      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? { ...l, assignedTo: currentUser.email, assignedToUid: currentUser.uid, status: 'assigned', crmStatus: 'unassigned', updatedAt: new Date().toISOString() } : l));
-      toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى Leads CRM الخاص بك 📥`);
+      setLeadsCrm(prev => prev.map(l => l.id === lead.id ? {
+        ...l,
+        assignedTo: targetEmail,
+        assignedToUid: targetUid,
+        assignedBy: assignerDisplay,
+        assignedByRole: assignerRole,
+        assignedByUid: assignerUid,
+        status: 'assigned',
+        crmStatus: 'waiting_pull',
+        isPulled: true,
+        pulledByUid: assignerUid,
+        pulledByRole: assignerRole,
+        pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+        pulledFromUid: lead.assignedToUid || '',
+        pulledFromName: empName,
+        pulledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } : l));
+      toast.success(`تم سحب العميل (${lead.name || lead.phoneNumber}) بنجاح إلى فلتر Pulled Leads 📥`);
 
       updateDoc(doc(db, 'leads_crm', lead.id), {
-        assignedTo: currentUser.email,
-        assignedToUid: currentUser.uid,
+        assignedTo: targetEmail,
+        assignedToUid: targetUid,
+        assignedBy: assignerDisplay,
+        assignedByRole: assignerRole,
+        assignedByUid: assignerUid,
         assignedAt: serverTimestamp(),
-        status: 'assigned', crmStatus: 'unassigned',
+        status: 'assigned',
+        crmStatus: 'waiting_pull',
+        isPulled: true,
+        pulledByUid: assignerUid,
+        pulledByRole: assignerRole,
+        pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+        pulledFromUid: lead.assignedToUid || '',
+        pulledFromName: empName,
+        pulledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -6001,29 +6070,46 @@ const Dashboard = () => {
     }
   };
 
-  // Bulk Pull Leads from Team Members to Leader's CRM
+  // Bulk Pull Leads from Team Members to Leader's / Coordinator's / Admin's CRM
   const handleBulkPullLeads = async () => {
     if (selectedTeamTrackingLeads.length === 0) return;
     try {
-      const assignerDisplay = `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : (isCoordinator ? `👑 منسق الفريق (${currentEmpUser?.name || 'منسق'})` : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerRole = isAdmin ? 'admin' : (isCoordinator ? 'coordinator' : (isLeader ? 'leader' : 'employee'));
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetEmail = isAdmin ? '' : (currentUser?.email || '');
       const pulledIds = [...selectedTeamTrackingLeads];
       const pulledSet = new Set(pulledIds);
 
       // 1. Instant Optimistic React Update (0ms)
       setLeadsCrm(prev => prev.map(l => {
         if (!pulledSet.has(l.id)) return l;
+        const currentEmp = employees.find(e => e.uid === l.assignedToUid || e.email === l.assignedTo);
+        const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (l.assignedTo || 'الموظف');
         return {
           ...l,
-          assignedTo: currentUser.email,
-          assignedToUid: currentUser.uid,
-          status: 'assigned', crmStatus: 'unassigned',
+          assignedTo: targetEmail,
+          assignedToUid: targetUid,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
+          status: 'assigned',
+          crmStatus: 'waiting_pull',
+          isPulled: true,
+          pulledByUid: assignerUid,
+          pulledByRole: assignerRole,
+          pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+          pulledFromUid: l.assignedToUid || '',
+          pulledFromName: empName,
+          pulledAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
       }));
 
       // 2. Instant UI cleanup & Toast
       setSelectedTeamTrackingLeads([]);
-      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح إلى Leads CRM الخاص بك 📥`);
+      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح إلى فلتر Pulled Leads 📥`);
 
       // 3. Fast writeBatch in background
       (async () => {
@@ -6035,13 +6121,24 @@ const Dashboard = () => {
             const lead = leadsCrm.find(l => l.id === leadId);
             const currentEmp = employees.find(e => e.uid === lead?.assignedToUid || e.email === lead?.assignedTo);
             const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead?.assignedTo || 'الموظف');
-            const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+            const logObj = createAssignmentLog(empName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
 
             batch.update(doc(db, 'leads_crm', leadId), {
-              assignedTo: currentUser.email,
-              assignedToUid: currentUser.uid,
+              assignedTo: targetEmail,
+              assignedToUid: targetUid,
+              assignedBy: assignerDisplay,
+              assignedByRole: assignerRole,
+              assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: 'unassigned',
+              status: 'assigned',
+              crmStatus: 'waiting_pull',
+              isPulled: true,
+              pulledByUid: assignerUid,
+              pulledByRole: assignerRole,
+              pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+              pulledFromUid: lead?.assignedToUid || '',
+              pulledFromName: empName,
+              pulledAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -6058,31 +6155,49 @@ const Dashboard = () => {
     }
   };
 
-  // Bulk Pull Current Page Leads from Team Members to Leader's CRM
+  // Bulk Pull Current Page Leads from Team Members to Leader's / Coordinator's / Admin's CRM
   const handlePullCurrentPage = async (pageLeads) => {
     if (!pageLeads || pageLeads.length === 0) {
       toast.error('لا يوجد عملاء في هذه الصفحة لسحبهم');
       return;
     }
     try {
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : (isCoordinator ? `👑 منسق الفريق (${currentEmpUser?.name || 'منسق'})` : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerRole = isAdmin ? 'admin' : (isCoordinator ? 'coordinator' : (isLeader ? 'leader' : 'employee'));
+      const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
+      const targetEmail = isAdmin ? '' : (currentUser?.email || '');
       const pageIds = pageLeads.map(l => l.id);
       const pageSet = new Set(pageIds);
 
       // 1. Instant Optimistic React Update (0ms)
       setLeadsCrm(prev => prev.map(l => {
         if (!pageSet.has(l.id)) return l;
+        const currentEmp = employees.find(e => e.uid === l.assignedToUid || e.email === l.assignedTo);
+        const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (l.assignedTo || 'الموظف');
         return {
           ...l,
-          assignedTo: currentUser.email,
-          assignedToUid: currentUser.uid,
-          status: 'assigned', crmStatus: 'unassigned',
+          assignedTo: targetEmail,
+          assignedToUid: targetUid,
+          assignedBy: assignerDisplay,
+          assignedByRole: assignerRole,
+          assignedByUid: assignerUid,
+          status: 'assigned',
+          crmStatus: 'waiting_pull',
+          isPulled: true,
+          pulledByUid: assignerUid,
+          pulledByRole: assignerRole,
+          pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+          pulledFromUid: l.assignedToUid || '',
+          pulledFromName: empName,
+          pulledAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
       }));
 
       // 2. Instant UI cleanup & Toast
       setSelectedTeamTrackingLeads(prev => prev.filter(id => !pageSet.has(id)));
-      toast.success(`تم سحب جميع عملاء الصفحة (${pageLeads.length} عميل) بنجاح إلى Leads CRM الخاص بك 📥`);
+      toast.success(`تم سحب جميع عملاء الصفحة (${pageLeads.length} عميل) بنجاح إلى فلتر Pulled Leads 📥`);
 
       // 3. Fast writeBatch in background
       (async () => {
@@ -6093,13 +6208,24 @@ const Dashboard = () => {
           for (const lead of chunk) {
             const currentEmp = employees.find(e => e.uid === lead.assignedToUid || e.email === lead.assignedTo);
             const empName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (lead.assignedTo || 'الموظف');
-            const logObj = createAssignmentLog(empName, `👑 ${currentEmpUser?.name || 'الليدر'}`, `سحب الداتا بواسطة الليدر (${currentEmpUser?.name || 'ليدر'})`);
+            const logObj = createAssignmentLog(empName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
 
             batch.update(doc(db, 'leads_crm', lead.id), {
-              assignedTo: currentUser.email,
-              assignedToUid: currentUser.uid,
+              assignedTo: targetEmail,
+              assignedToUid: targetUid,
+              assignedBy: assignerDisplay,
+              assignedByRole: assignerRole,
+              assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: 'unassigned',
+              status: 'assigned',
+              crmStatus: 'waiting_pull',
+              isPulled: true,
+              pulledByUid: assignerUid,
+              pulledByRole: assignerRole,
+              pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+              pulledFromUid: lead.assignedToUid || '',
+              pulledFromName: empName,
+              pulledAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -6116,19 +6242,18 @@ const Dashboard = () => {
     }
   };
 
-  // Pull Single Employee Lead to Leader or Admin
+  // Pull Single Employee Lead to Leader or Coordinator or Admin
   const handlePullEmployeeLead = async (customer) => {
     if (!customer) return;
     try {
       const currentEmp = employees.find(e => e.uid === customer.assignedToUid || e.email === customer.assignedTo);
       const prevEmpName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (customer.assignedTo || 'الموظف');
-      const assignerDisplay = isAdmin ? '👑 الإدارة' : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-      const assignerRole = isAdmin ? 'admin' : 'leader';
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : (isCoordinator ? `👑 منسق الفريق (${currentEmpUser?.name || 'منسق'})` : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerRole = isAdmin ? 'admin' : (isCoordinator ? 'coordinator' : (isLeader ? 'leader' : 'employee'));
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
-      const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
-
       const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetEmail = isAdmin ? '' : (currentUser?.email || '');
+      const logObj = createAssignmentLog(prevEmpName, assignerDisplay, `سحب الداتا بواسطة ${assignerDisplay}`);
 
       // Instant Optimistic React Update
       setEmployeeLeads(prev => prev.map(l => l.id === customer.id ? {
@@ -6138,10 +6263,18 @@ const Dashboard = () => {
         assignedBy: assignerDisplay,
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
-        status: 'assigned', crmStatus: 'unassigned',
+        status: 'assigned',
+        crmStatus: 'waiting_pull',
+        isPulled: true,
+        pulledByUid: assignerUid,
+        pulledByRole: assignerRole,
+        pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+        pulledFromUid: customer.assignedToUid || '',
+        pulledFromName: prevEmpName,
+        pulledAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       } : l));
-      toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح 📥`);
+      toast.success(`تم سحب العميل (${customer.name || customer.phoneNumber}) بنجاح إلى فلتر Pulled Leads 📥`);
 
       updateDoc(doc(db, 'employee_leads', customer.id), {
         assignedToUid: targetUid,
@@ -6150,7 +6283,15 @@ const Dashboard = () => {
         assignedByRole: assignerRole,
         assignedByUid: assignerUid,
         assignedAt: serverTimestamp(),
-        status: 'assigned', crmStatus: 'unassigned',
+        status: 'assigned',
+        crmStatus: 'waiting_pull',
+        isPulled: true,
+        pulledByUid: assignerUid,
+        pulledByRole: assignerRole,
+        pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+        pulledFromUid: customer.assignedToUid || '',
+        pulledFromName: prevEmpName,
+        pulledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         assignmentHistory: arrayUnion(logObj)
       }).catch(err => {
@@ -6162,12 +6303,12 @@ const Dashboard = () => {
     }
   };
 
-  // Bulk Pull Employee Leads to Leader or Admin
+  // Bulk Pull Employee Leads to Leader or Coordinator or Admin
   const handleBulkPullEmployeeLeads = async () => {
     if (selectedEmployeeLeads.length === 0) return;
     try {
-      const assignerDisplay = isAdmin ? '👑 الإدارة' : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`;
-      const assignerRole = isAdmin ? 'admin' : 'leader';
+      const assignerDisplay = isAdmin ? '👑 الإدارة' : (isCoordinator ? `👑 منسق الفريق (${currentEmpUser?.name || 'منسق'})` : `👑 ليدر الفريق (${currentEmpUser?.name || 'ليدر'})`);
+      const assignerRole = isAdmin ? 'admin' : (isCoordinator ? 'coordinator' : (isLeader ? 'leader' : 'employee'));
       const assignerUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetUid = isAdmin ? 'admin' : (currentUser?.uid || '');
       const targetEmail = isAdmin ? '' : (currentUser?.email || '');
@@ -6177,6 +6318,8 @@ const Dashboard = () => {
       // 1. Instant Optimistic React Update (0ms)
       setEmployeeLeads(prev => prev.map(l => {
         if (!pulledSet.has(l.id)) return l;
+        const currentEmp = employees.find(e => e.uid === l.assignedToUid || e.email === l.assignedTo);
+        const prevEmpName = currentEmp ? `👤 ${currentEmp.username || currentEmp.name}` : (l.assignedTo || 'الموظف');
         return {
           ...l,
           assignedToUid: targetUid,
@@ -6184,14 +6327,22 @@ const Dashboard = () => {
           assignedBy: assignerDisplay,
           assignedByRole: assignerRole,
           assignedByUid: assignerUid,
-          status: 'assigned', crmStatus: 'unassigned',
+          status: 'assigned',
+          crmStatus: 'waiting_pull',
+          isPulled: true,
+          pulledByUid: assignerUid,
+          pulledByRole: assignerRole,
+          pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+          pulledFromUid: l.assignedToUid || '',
+          pulledFromName: prevEmpName,
+          pulledAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
       }));
 
       // 2. Instant UI cleanup & Toast
       setSelectedEmployeeLeads([]);
-      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح 📥`);
+      toast.success(`تم سحب ${pulledIds.length} عميل بنجاح إلى فلتر Pulled Leads 📥`);
 
       // 3. Fast writeBatch in background
       (async () => {
@@ -6212,7 +6363,15 @@ const Dashboard = () => {
               assignedByRole: assignerRole,
               assignedByUid: assignerUid,
               assignedAt: serverTimestamp(),
-              status: 'assigned', crmStatus: 'unassigned',
+              status: 'assigned',
+              crmStatus: 'waiting_pull',
+              isPulled: true,
+              pulledByUid: assignerUid,
+              pulledByRole: assignerRole,
+              pulledByName: currentEmpUser?.name || currentUser?.displayName || (isAdmin ? 'الإدارة' : 'المسؤول'),
+              pulledFromUid: customer?.assignedToUid || '',
+              pulledFromName: prevEmpName,
+              pulledAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               assignmentHistory: arrayUnion(logObj)
             });
@@ -16487,6 +16646,7 @@ const handleExportBuffetToExcel = () => {
                     const statusCounts = {
                       all: pool.length,
                       unassigned: 0,
+                      waiting_pull: 0,
                       call_back: 0,
                       started_trial: 0,
                       subscribed: 0,
@@ -16498,11 +16658,19 @@ const handleExportBuffetToExcel = () => {
                     };
                     for (let i = 0; i < pool.length; i++) {
                       const c = pool[i];
-                      const st = (!c.crmStatus || c.crmStatus === 'assigned' || c.crmStatus === 'pending') ? 'unassigned' : c.crmStatus;
-                      if (st === 'junk_lead' || st === 'junk') statusCounts.junk_lead++;
-                      else if (st === 'whatsapp' || st === 'whats_app' || st === 'whats app') statusCounts.whatsapp++;
-                      else if (statusCounts[st] !== undefined) statusCounts[st]++;
-                      else statusCounts.unassigned++;
+                      const rawSt = (!c.crmStatus || c.crmStatus === 'assigned' || c.crmStatus === 'pending') ? 'unassigned' : c.crmStatus;
+                      let st = rawSt;
+                      if (rawSt === 'junk_lead' || rawSt === 'junk') st = 'junk_lead';
+                      else if (rawSt === 'whatsapp' || rawSt === 'whats_app' || rawSt === 'whats app') st = 'whatsapp';
+                      else if (rawSt === 'waiting_pull' || rawSt === 'waiting pull' || rawSt === 'pulled' || rawSt === 'pulled_leads') st = 'waiting_pull';
+
+                      if (st === 'waiting_pull') {
+                        if (isAdmin || isCoordinator || isLeader) statusCounts.waiting_pull++;
+                      } else if (statusCounts[st] !== undefined) {
+                        statusCounts[st]++;
+                      } else {
+                        statusCounts.unassigned++;
+                      }
                     }
                     return (
                       <select 
@@ -16512,6 +16680,9 @@ const handleExportBuffetToExcel = () => {
                       >
                         <option value="all">All Statuses ({statusCounts.all})</option>
                         <option value="unassigned">⏳ Waiting ({statusCounts.unassigned})</option>
+                        {(isAdmin || isCoordinator || isLeader) && (
+                          <option value="waiting_pull">📥 Pulled Leads ({statusCounts.waiting_pull})</option>
+                        )}
                         <option value="call_back">📞 Call Back ({statusCounts.call_back})</option>
                         <option value="interested">🌟 Interested ({statusCounts.interested})</option>
                         <option value="not_interested">❌ Not Interested ({statusCounts.not_interested})</option>
@@ -16921,6 +17092,9 @@ const handleExportBuffetToExcel = () => {
                       >
                         <option value="all" className="bg-purple-950 text-white">All Statuses ({getCrmStatusCount('all')})</option>
                         <option value="unassigned" className="bg-purple-950 text-white">⏳ Waiting ({getCrmStatusCount('unassigned')})</option>
+                        {(isAdmin || isCoordinator || isLeader) && (
+                          <option value="waiting_pull" className="bg-purple-950 text-white">📥 Pulled Leads ({getCrmStatusCount('waiting_pull')})</option>
+                        )}
                         <option value="call_back" className="bg-purple-950 text-white">📞 Call Back ({getCrmStatusCount('call_back')})</option>
                         <option value="interested" className="bg-purple-950 text-white">🌟 Interested ({getCrmStatusCount('interested')})</option>
                         <option value="not_interested" className="bg-purple-950 text-white">❌ Not Interested ({getCrmStatusCount('not_interested')})</option>
@@ -17129,6 +17303,9 @@ const handleExportBuffetToExcel = () => {
                                   className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                 >
                                   <option value="unassigned">⏳ Waiting</option>
+                                  {(isAdmin || isCoordinator || isLeader) && (
+                                    <option value="waiting_pull">📥 Pulled Leads</option>
+                                  )}
                                   <option value="call_back">📞 Call Back</option>
                                   <option value="interested">🌟 Interested</option>
                                   <option value="not_interested">❌ Not Interested</option>
@@ -17605,6 +17782,9 @@ const handleExportBuffetToExcel = () => {
                       >
                         <option value="all" className="bg-purple-950 text-white">All Statuses ({getEmpLeadStatusCount('all')})</option>
                         <option value="unassigned" className="bg-purple-950 text-white">⏳ Waiting ({getEmpLeadStatusCount('unassigned')})</option>
+                        {(isAdmin || isCoordinator || isLeader) && (
+                          <option value="waiting_pull" className="bg-purple-950 text-white">📥 Pulled Leads ({getEmpLeadStatusCount('waiting_pull')})</option>
+                        )}
                         <option value="call_back" className="bg-purple-950 text-white">📞 Call Back ({getEmpLeadStatusCount('call_back')})</option>
                         <option value="interested" className="bg-purple-950 text-white">🌟 Interested ({getEmpLeadStatusCount('interested')})</option>
                         <option value="not_interested" className="bg-purple-950 text-white">❌ Not Interested ({getEmpLeadStatusCount('not_interested')})</option>
@@ -17622,6 +17802,15 @@ const handleExportBuffetToExcel = () => {
 
                   {/* Search, Date & Sort Controls */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {(isAdmin || isCoordinator || isLeader) && selectedEmployeeLeads.length > 0 && (
+                      <button 
+                        onClick={handleBulkPullEmployeeLeads}
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+                        title="سحب العملاء المحددين إلى Pulled Leads"
+                      >
+                        <ArrowDownLeft size={14} /> سحب المحدد ({selectedEmployeeLeads.length}) 📥
+                      </button>
+                    )}
                     {isAdmin && !isLeader && selectedEmployeeLeads.length > 0 && (
                       <button 
                         onClick={handleDeleteSelectedEmpLeads}
@@ -17830,6 +18019,9 @@ const handleExportBuffetToExcel = () => {
                                       className={`w-full min-w-[140px] text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none text-center shadow-xs ${statusInfo.bg}`}
                                     >
                                       <option value="unassigned">⏳ Waiting</option>
+                                      {(isAdmin || isCoordinator || isLeader) && (
+                                        <option value="waiting_pull">📥 Pulled Leads</option>
+                                      )}
                                       <option value="call_back">📞 Call Back</option>
                                       <option value="interested">🌟 Interested</option>
                                       <option value="not_interested">❌ Not Interested</option>
